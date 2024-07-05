@@ -2,8 +2,6 @@
 
 ![workflow](https://github.com/tomsilver/multitask-personalization/actions/workflows/ci.yml/badge.svg)
 
-A basic starter for Python packages with GitHub continuous integration.
-
 ## Requirements
 
 - Python 3.10+
