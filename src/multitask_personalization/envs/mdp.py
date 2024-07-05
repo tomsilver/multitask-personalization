@@ -1,7 +1,7 @@
 """A generic definition of an MDP with discrete states and actions."""
 
 import abc
-from typing import Generic, Set, TypeAlias, TypeVar
+from typing import Generic, TypeAlias, TypeVar
 
 import numpy as np
 
@@ -24,18 +24,22 @@ class MDP(Generic[_S, _A]):
 
     @property
     @abc.abstractmethod
-    def state_space(self) -> Set[_S]:
+    def state_space(self) -> set[_S]:
         """Representation of the MDP state set."""
 
     @property
     @abc.abstractmethod
-    def action_space(self) -> Set[_A]:
+    def action_space(self) -> set[_A]:
         """Representation of the MDP action set."""
 
     @property
     def temporal_discount_factor(self) -> float:
         """Gamma, defaults to 1."""
         return 1.0
+
+    @abc.abstractmethod
+    def state_is_terminal(self, state: _S) -> bool:
+        """Whether the state is terminal."""
 
     @abc.abstractmethod
     def get_reward(self, state: _S, action: _A, next_state: _S) -> float:

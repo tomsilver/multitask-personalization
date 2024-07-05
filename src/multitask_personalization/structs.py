@@ -3,12 +3,10 @@
 from functools import cached_property
 from typing import (
     Any,
-    Dict,
     Generic,
     Hashable,
     Iterator,
     Protocol,
-    Tuple,
     TypeAlias,
     TypeVar,
     runtime_checkable,
@@ -44,7 +42,7 @@ class CategoricalDistribution(Generic[_T]):
     """A categorical distribution."""
 
     def __init__(
-        self, outcome_to_prob: Dict[_T, float], normalize: bool = False
+        self, outcome_to_prob: dict[_T, float], normalize: bool = False
     ) -> None:
         # Prune zero entries and avoid modifying input.
         d = {o: np.log(p) for o, p in outcome_to_prob.items() if p > 0}
@@ -106,7 +104,7 @@ class CategoricalDistribution(Generic[_T]):
         assert isinstance(other, CategoricalDistribution)
         return str(self) < str(other)
 
-    def items(self) -> Iterator[Tuple[_T, float]]:
+    def items(self) -> Iterator[tuple[_T, float]]:
         """Iterate the dictionary."""
         for outcome, log_prob in self._outcome_to_log_prob.items():
             yield (outcome, np.exp(log_prob))
