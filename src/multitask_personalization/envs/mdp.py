@@ -20,7 +20,7 @@ _A = TypeVar("_A", bound=MDPAction)
 
 
 class MDP(Generic[_S, _A]):
-    """An infinite-horizon Markov Decision Process."""
+    """An indefinite-horizon Markov Decision Process."""
 
     @property
     @abc.abstractmethod
