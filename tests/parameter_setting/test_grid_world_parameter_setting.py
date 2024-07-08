@@ -1,4 +1,4 @@
-"""Tests for random_interaction.py."""
+"""Tests for grid_world_parameter_setting.py."""
 
 import numpy as np
 
@@ -10,10 +10,14 @@ from multitask_personalization.envs.grid_world import (
 from multitask_personalization.interaction.random_interaction import (
     RandomInteractionMethod,
 )
+from multitask_personalization.parameter_setting.grid_world_parameter_setting import (
+    GridWorldParameterSettingMethod,
+)
 
 
-def test_random_interaction():
-    """Tests for random_interaction.py."""
+def test_grid_world_parameter_setting():
+    """Tests for grid_world_parameter_setting.py."""
+
     E, O = _EMPTY, _OBSTACLE
     grid = np.array(
         [
@@ -46,8 +50,13 @@ def test_random_interaction():
     )
     ip = task.intake_process
     im = RandomInteractionMethod(ip.action_space, ip.observation_space, seed=123)
-    action = im.get_action()
-    assert action in ip.action_space
+    ps = GridWorldParameterSettingMethod(set(terminal_rewards))
     rng = np.random.default_rng(123)
-    obs = ip.sample_next_observation(action, rng)
-    im.observe(obs)
+    data = []
+    for _ in range(100):
+        action = im.get_action()
+        obs = ip.sample_next_observation(action, rng)
+        im.observe(obs)
+        data.append((action, obs))
+    parameters = ps.get_parameters(task.id, data)
+    assert parameters == (4, 3)  # the more highly rewarding terminal loc
