@@ -130,7 +130,7 @@ def _run_single(
             [E, E, E, E, E, E, Y, E, E, O, E, O, E, E, E, E, E, E, E, E],
             [E, O, E, E, E, E, E, E, E, E, E, O, O, E, Y, E, X, E, E, E],
             [E, O, E, E, O, O, O, E, E, X, O, E, E, E, E, E, E, E, E, X],
-            [E, E, E, X, E, E, Y, E, E, E, E, E, E, E, E, E, Y, E, E, E],
+            [E, E, E, X, E, E, E, E, E, E, E, E, E, E, E, E, Y, E, E, E],
         ]
     )
     agnostic_locs = np.argwhere(grid == X)

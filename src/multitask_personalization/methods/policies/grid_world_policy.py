@@ -96,7 +96,9 @@ class GridWorldParameterizedPolicy(
                 if dist < best_dist:
                     best_dist = dist
                     best_act = act
-                assert best_act is not None
+                # Unreachable location, ignore.
+                if best_act is None:
+                    continue
                 tabular_policy[(r, c)] = best_act
 
         return tabular_policy
