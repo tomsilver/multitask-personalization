@@ -7,14 +7,16 @@ from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
 )
-from multitask_personalization.policies.parameterized_policy import PolicyParameters
+from multitask_personalization.methods.policies.parameterized_policy import (
+    PolicyParameters,
+)
 
 _U = TypeVar("_U", bound=IntakeAction)
 _O = TypeVar("_O", bound=IntakeObservation)
 _P = TypeVar("_P", bound=PolicyParameters)
 
 
-class ParameterSettingMethod(Generic[_U, _O, _P]):
+class Calibrator(Generic[_U, _O, _P]):
     """Base method for policy parameter setting."""
 
     @abc.abstractmethod

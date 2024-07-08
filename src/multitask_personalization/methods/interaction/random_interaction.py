@@ -6,7 +6,9 @@ from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
 )
-from multitask_personalization.interaction.interaction_method import InteractionMethod
+from multitask_personalization.methods.interaction.interaction_method import (
+    InteractionMethod,
+)
 
 
 class RandomInteractionMethod(InteractionMethod):

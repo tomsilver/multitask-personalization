@@ -1,4 +1,4 @@
-"""Tests for grid_world_parameterized_policy.py."""
+"""Tests for grid_world_policy.py."""
 
 import numpy as np
 
@@ -6,13 +6,13 @@ from multitask_personalization.envs.grid_world import (
     _EMPTY,
     _OBSTACLE,
 )
-from multitask_personalization.policies.grid_world_parameterized_policy import (
+from multitask_personalization.methods.policies.grid_world_policy import (
     GridWorldParameterizedPolicy,
 )
 
 
-def test_grid_world_parameterized_policy():
-    """Tests for grid_world_parameterized_policy.py."""
+def test_grid_world_policy():
+    """Tests for grid_world_policy.py."""
     E, O = _EMPTY, _OBSTACLE
     grid = np.array(
         [
