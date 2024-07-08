@@ -5,7 +5,7 @@ import numpy as np
 from multitask_personalization.envs.grid_world import (
     _EMPTY,
     _OBSTACLE,
-    GridEnv,
+    GridTask,
     _CoinFlipQuestion,
     _RewardTypeQuestion,
     _RewardValueQuestion,
@@ -35,8 +35,14 @@ def test_grid_world():
     initial_state = (0, 0)
     coin_weights = [0.5, 1.0, 0.0]
     horizon = 5
-    env = GridEnv(
-        grid, terminal_rewards, initial_state, terminal_types, coin_weights, horizon
+    env = GridTask(
+        "task0",
+        grid,
+        terminal_rewards,
+        initial_state,
+        terminal_types,
+        coin_weights,
+        horizon,
     )
     mdp = env.mdp
     assert not mdp.state_is_terminal(initial_state)

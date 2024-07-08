@@ -5,7 +5,7 @@ import numpy as np
 from multitask_personalization.envs.grid_world import (
     _EMPTY,
     _OBSTACLE,
-    GridEnv,
+    GridTask,
 )
 from multitask_personalization.interaction.random_interaction import (
     RandomInteractionMethod,
@@ -35,8 +35,14 @@ def test_random_interaction():
     initial_state = (0, 0)
     coin_weights = [0.5, 1.0, 0.0]
     horizon = 5
-    env = GridEnv(
-        grid, terminal_rewards, initial_state, terminal_types, coin_weights, horizon
+    env = GridTask(
+        "task0",
+        grid,
+        terminal_rewards,
+        initial_state,
+        terminal_types,
+        coin_weights,
+        horizon,
     )
     ip = env.intake_process
     im = RandomInteractionMethod(ip.action_space, ip.observation_space, seed=123)

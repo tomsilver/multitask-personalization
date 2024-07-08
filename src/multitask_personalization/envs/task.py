@@ -1,4 +1,4 @@
-"""Base environment, including an MDP and an intake process."""
+"""Base task, including an MDP and an intake process."""
 
 import abc
 
@@ -6,8 +6,13 @@ from multitask_personalization.envs.intake_process import IntakeProcess
 from multitask_personalization.envs.mdp import MDP
 
 
-class Env(abc.ABC):
-    """Base environment, including an MDP and an intake process."""
+class Task(abc.ABC):
+    """Base task, including an MDP and an intake process."""
+
+    @property
+    @abc.abstractmethod
+    def id(self) -> str:
+        """The identity of this task."""
 
     @property
     @abc.abstractmethod
