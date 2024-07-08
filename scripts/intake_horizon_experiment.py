@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 
+import imageio.v2 as iio
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -25,6 +26,7 @@ from multitask_personalization.methods.interaction.random_interaction import (
 from multitask_personalization.methods.policies.grid_world_policy import (
     GridWorldParameterizedPolicy,
 )
+from multitask_personalization.structs import Image
 
 
 def _main(
@@ -34,6 +36,7 @@ def _main(
     num_coins: int,
     outdir: Path,
     load: bool,
+    make_videos: bool,
 ) -> None:
     os.makedirs(outdir, exist_ok=True)
     csv_file = outdir / "grid_experiment.csv"
@@ -57,6 +60,8 @@ def _main(
                     num_tasks,
                     num_coins,
                     num_intake_steps,
+                    make_videos,
+                    outdir,
                 )
                 results.append((seed, approach, num_intake_steps, returns))
     df = pd.DataFrame(results, columns=columns)
@@ -117,6 +122,8 @@ def _run_single(
     num_tasks: int,
     num_coins: int,
     num_intake_steps: int,
+    make_videos: bool,
+    outdir: Path,
 ) -> float:
 
     # Create things that are constant in the world.
@@ -173,6 +180,7 @@ def _run_single(
 
     # Go through each task.
     returns = 0.0
+    imgs: list[Image] = []
     for task in tasks:
         # Run the intake process.
         ip = task.intake_process
@@ -188,6 +196,8 @@ def _run_single(
         mdp = task.mdp
         rng = np.random.default_rng(seed)
         state = mdp.sample_initial_state(rng)
+        if make_videos:
+            imgs.append((mdp.render_state(state)))
         for _ in range(10000):  # should be more than enough
             if mdp.state_is_terminal(state):
                 break
@@ -195,6 +205,13 @@ def _run_single(
             next_state = mdp.sample_next_state(state, action, rng)
             returns += mdp.get_reward(state, action, next_state)
             state = next_state
+            if make_videos:
+                imgs.append((mdp.render_state(state)))
+
+    if make_videos:
+        video_file = outdir / f"grid_experiment_{seed}_{approach_name}.gif"
+        iio.mimsave(video_file, imgs)  # type: ignore
+        print(f"Wrote out to {video_file}")
 
     return returns
 
@@ -209,6 +226,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_coins", default=100, type=int)
     parser.add_argument("--outdir", default=Path("results"), type=Path)
     parser.add_argument("--load", action="store_true")
+    parser.add_argument("--make_videos", action="store_true")
     parser_args = parser.parse_args()
     _main(
         parser_args.seed,
@@ -217,4 +235,5 @@ if __name__ == "__main__":
         parser_args.num_coins,
         parser_args.outdir,
         parser_args.load,
+        parser_args.make_videos,
     )
