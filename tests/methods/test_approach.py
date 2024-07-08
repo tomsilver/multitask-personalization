@@ -59,13 +59,13 @@ def test_approach():
 
     # Create the approach.
     calibrator = GridWorldCalibrator(set(terminal_rewards))
-    im = RandomInteractionMethod(ip.action_space, ip.observation_space, seed=seed)
+    im = RandomInteractionMethod(seed)
     policy = GridWorldParameterizedPolicy(grid, set(terminal_rewards))
     approach = Approach(calibrator, im, policy)
 
     # Run the intake process.
     rng = np.random.default_rng(seed)
-    approach.reset(task.id)
+    approach.reset(task.id, ip.action_space, ip.observation_space)
     for _ in range(horizon):
         act = approach.get_intake_action()
         obs = ip.sample_next_observation(act, rng)

@@ -16,7 +16,8 @@ class RandomInteractionMethod(InteractionMethod):
 
     @cached_property
     def _ordered_actions(self) -> list[IntakeAction]:
-        return sorted(self._action_space)
+        assert self._current_action_space is not None
+        return sorted(self._current_action_space)
 
     def get_action(self) -> IntakeAction:
         idx = self._rng.choice(len(self._ordered_actions))

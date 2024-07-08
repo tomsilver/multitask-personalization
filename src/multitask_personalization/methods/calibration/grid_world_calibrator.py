@@ -1,6 +1,12 @@
 """A domain-specific parameter setting method for grid world tasks."""
 
-from multitask_personalization.envs.grid_world import _GridState, _RewardValueQuestion
+from typing import Collection
+
+from multitask_personalization.envs.grid_world import (
+    GridTask,
+    _GridState,
+    _RewardValueQuestion,
+)
 from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
@@ -15,7 +21,7 @@ from multitask_personalization.utils import topological_sort
 class GridWorldCalibrator(Calibrator):
     """A domain-specific parameter setting method for grid world tasks."""
 
-    def __init__(self, terminal_locs: set[tuple[int, int]]) -> None:
+    def __init__(self, terminal_locs: Collection[tuple[int, int]]) -> None:
         self._terminal_locs = terminal_locs
 
     def get_parameters(
@@ -32,3 +38,21 @@ class GridWorldCalibrator(Calibrator):
         terminal_locs = sorted(self._terminal_locs)
         ordered_locs = topological_sort(terminal_locs, pairwise_relations)
         return ordered_locs[-1]
+
+
+class OracleGridWorldCalibrator(Calibrator):
+    """A domain-specific calibrator for grid world that uses oracle info."""
+
+    def __init__(self, tasks: Collection[GridTask]) -> None:
+        self._task_id_to_params: dict[str, tuple[int, int]] = {}
+        for task in tasks:
+            terminal_rewards = (
+                task._terminal_rewards
+            )  # pylint: disable=protected-access
+            _, param = max((r, l) for l, r in terminal_rewards.items())
+            self._task_id_to_params[task.id] = param
+
+    def get_parameters(
+        self, task_id: str, intake_data: list[tuple[IntakeAction, IntakeObservation]]
+    ) -> PolicyParameters:
+        return self._task_id_to_params[task_id]
