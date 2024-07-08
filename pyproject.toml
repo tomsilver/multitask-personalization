@@ -53,7 +53,7 @@ exclude = ["venv/*"]
 [[tool.mypy.overrides]]
 module = [
     "matplotlib.*",
-    "scipy.special.*",
+    "scipy.*",
     "skimage.*",
 ]
 ignore_missing_imports = true

@@ -6,7 +6,10 @@ from multitask_personalization.envs.grid_world import (
     _EMPTY,
     _OBSTACLE,
 )
-from multitask_personalization.policies.grid_world_parameterized_policy import GridWorldParameterizedPolicy
+from multitask_personalization.policies.grid_world_parameterized_policy import (
+    GridWorldParameterizedPolicy,
+)
+
 
 def test_grid_world_parameterized_policy():
     """Tests for grid_world_parameterized_policy.py."""
@@ -25,4 +28,7 @@ def test_grid_world_parameterized_policy():
         (4, 3),
     }
     policy = GridWorldParameterizedPolicy(grid, terminal_locs)
-    import ipdb; ipdb.set_trace()
+    policy.reset("task0", (4, 0))
+    assert policy.step((3, 2)) == "left"
+    policy.reset("task0", (4, 3))
+    assert policy.step((3, 2)) == "right"

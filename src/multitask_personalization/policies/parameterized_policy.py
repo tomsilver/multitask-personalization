@@ -1,8 +1,9 @@
 """Base class for parameterized policies."""
 
 import abc
-from typing import Any, TypeAlias, TypeVar, Generic
-from multitask_personalization.envs.mdp import MDPState, MDPAction
+from typing import Any, Generic, TypeAlias, TypeVar
+
+from multitask_personalization.envs.mdp import MDPAction, MDPState
 
 PolicyParameters: TypeAlias = Any
 
@@ -20,7 +21,7 @@ class ParameterizedPolicy(Generic[_S, _A, _P]):
 
     def reset(self, task_id: str, parameters: _P) -> None:
         """Start a new task."""
-        self._task_id = task_id
+        self._current_task_id = task_id
         self._current_parameters = parameters
 
     @abc.abstractmethod
