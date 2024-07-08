@@ -14,8 +14,10 @@ from multitask_personalization.envs.grid_world import (
     GridTask,
 )
 from multitask_personalization.methods.approach import Approach
+from multitask_personalization.methods.calibration.calibrator import Calibrator
 from multitask_personalization.methods.calibration.grid_world_calibrator import (
     GridWorldCalibrator,
+    OracleGridWorldCalibrator,
 )
 from multitask_personalization.methods.interaction.random_interaction import (
     RandomInteractionMethod,
@@ -40,7 +42,7 @@ def _main(
         df = pd.read_csv(csv_file)
         return _df_to_plot(df, outdir)
     columns = ["Seed", "Approach", "Num Intake Steps", "Returns"]
-    approaches = ["Random"]
+    approaches = ["Oracle", "Random"]
     all_num_intake_steps = [0, 10, 100, 500, 1000]
     results: list[tuple[int, str, int, float]] = []
     for seed in range(start_seed, start_seed + num_seeds):
@@ -155,8 +157,11 @@ def _run_single(
         tasks.append(task)
 
     # Create the approach.
-    calibrator = GridWorldCalibrator(terminal_locs)
     if approach_name == "Random":
+        calibrator: Calibrator = GridWorldCalibrator(terminal_locs)
+        im = RandomInteractionMethod(seed=seed)
+    elif approach_name == "Oracle":
+        calibrator = OracleGridWorldCalibrator(tasks)
         im = RandomInteractionMethod(seed=seed)
     else:
         raise NotImplementedError
