@@ -118,7 +118,6 @@ def _run_single(
     num_coins: int,
     num_intake_steps: int,
 ) -> float:
-    rng = np.random.default_rng(seed)
 
     # Create things that are constant in the world.
     E, O, X, Y = _EMPTY, _OBSTACLE, 2, 3
@@ -136,7 +135,7 @@ def _run_single(
     )
     agnostic_locs = np.argwhere(grid == X)
     specific_locs = np.argwhere(grid == Y)
-    grid[grid == X | grid == Y] = E
+    grid[np.logical_or(grid == X, grid == Y)] = E
     terminal_types = {tuple(l): "agnostic" for l in agnostic_locs}
     terminal_types.update({tuple(l): "specific" for l in specific_locs})
     terminal_locs = sorted(terminal_types)
@@ -144,6 +143,7 @@ def _run_single(
 
     # Create things that are task-specific.
     tasks: list[GridTask] = []
+    rng = np.random.default_rng(seed)
     for i in range(num_tasks):
         task_id = f"task{i}"
         terminal_rewards = _sample_terminal_rewards(terminal_locs, rng)
@@ -172,11 +172,11 @@ def _run_single(
     approach = Approach(calibrator, im, policy)
 
     # Go through each task.
-    rng = np.random.default_rng(seed)
     returns = 0.0
     for task in tasks:
         # Run the intake process.
         ip = task.intake_process
+        rng = np.random.default_rng(seed)
         approach.reset(task.id, ip.action_space, ip.observation_space)
         for _ in range(ip.horizon):
             act = approach.get_intake_action()
@@ -184,7 +184,7 @@ def _run_single(
             approach.record_intake_observation(obs)
         approach.finish_intake()
 
-        # Run the MDP; should get the maximal reward.
+        # Run the MDP.
         mdp = task.mdp
         rng = np.random.default_rng(seed)
         state = mdp.sample_initial_state(rng)
