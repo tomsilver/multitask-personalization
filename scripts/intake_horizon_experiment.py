@@ -121,23 +121,26 @@ def _run_single(
     rng = np.random.default_rng(seed)
 
     # Create things that are constant in the world.
-    E, O = _EMPTY, _OBSTACLE
+    E, O, X, Y = _EMPTY, _OBSTACLE, 2, 3
     grid = np.array(
         [
-            [E, E, E, E, E],
-            [E, O, E, O, E],
-            [O, O, E, E, E],
-            [E, E, E, E, E],
-            [E, E, O, E, E],
+            [E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, X],
+            [E, E, O, O, O, Y, E, E, E, E, E, O, E, E, X, O, O, O, E, E],
+            [X, O, O, E, O, E, E, O, O, O, E, E, E, E, E, O, E, O, E, E],
+            [E, E, E, E, O, O, E, E, E, O, X, O, E, E, O, O, E, E, E, Y],
+            [E, E, E, E, E, E, Y, E, E, O, E, O, E, E, E, E, E, E, E, E],
+            [E, O, E, E, E, E, E, E, E, E, E, O, O, E, Y, E, X, E, E, E],
+            [E, O, E, E, O, O, O, E, E, X, O, E, E, E, E, E, E, E, E, X],
+            [E, E, E, X, E, E, Y, E, E, E, E, E, E, E, E, E, Y, E, E, E],
         ]
     )
-    terminal_types = {
-        (4, 0): "agnostic",
-        (4, 3): "specific",
-    }
+    agnostic_locs = np.argwhere(grid == X)
+    specific_locs = np.argwhere(grid == Y)
+    grid[grid == X | grid == Y] = E
+    terminal_types = {tuple(l): "agnostic" for l in agnostic_locs}
+    terminal_types.update({tuple(l): "specific" for l in specific_locs})
     terminal_locs = sorted(terminal_types)
     initial_state = (0, 0)
-    num_coins = 10
 
     # Create things that are task-specific.
     tasks: list[GridTask] = []
@@ -203,7 +206,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", default=0, type=int)
     parser.add_argument("--num_seeds", default=10, type=int)
     parser.add_argument("--num_tasks", default=10, type=int)
-    parser.add_argument("--num_coins", default=10, type=int)
+    parser.add_argument("--num_coins", default=100, type=int)
     parser.add_argument("--outdir", default=Path("results"), type=Path)
     parser.add_argument("--load", action="store_true")
     parser_args = parser.parse_args()
