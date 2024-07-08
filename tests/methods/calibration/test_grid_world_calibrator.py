@@ -1,4 +1,4 @@
-"""Tests for grid_world_parameter_setting.py."""
+"""Tests for grid_world_calibrator.py."""
 
 import numpy as np
 
@@ -7,16 +7,16 @@ from multitask_personalization.envs.grid_world import (
     _OBSTACLE,
     GridTask,
 )
-from multitask_personalization.interaction.random_interaction import (
+from multitask_personalization.methods.calibration.grid_world_calibrator import (
+    GridWorldCalibrator,
+)
+from multitask_personalization.methods.interaction.random_interaction import (
     RandomInteractionMethod,
 )
-from multitask_personalization.parameter_setting.grid_world_parameter_setting import (
-    GridWorldParameterSettingMethod,
-)
 
 
-def test_grid_world_parameter_setting():
-    """Tests for grid_world_parameter_setting.py."""
+def test_grid_world_calibrator():
+    """Tests for grid_world_calibrator.py."""
 
     E, O = _EMPTY, _OBSTACLE
     grid = np.array(
@@ -50,7 +50,7 @@ def test_grid_world_parameter_setting():
     )
     ip = task.intake_process
     im = RandomInteractionMethod(ip.action_space, ip.observation_space, seed=123)
-    ps = GridWorldParameterSettingMethod(set(terminal_rewards))
+    calibrator = GridWorldCalibrator(set(terminal_rewards))
     rng = np.random.default_rng(123)
     data = []
     for _ in range(100):
@@ -58,5 +58,5 @@ def test_grid_world_parameter_setting():
         obs = ip.sample_next_observation(action, rng)
         im.observe(obs)
         data.append((action, obs))
-    parameters = ps.get_parameters(task.id, data)
+    parameters = calibrator.get_parameters(task.id, data)
     assert parameters == (4, 3)  # the more highly rewarding terminal loc

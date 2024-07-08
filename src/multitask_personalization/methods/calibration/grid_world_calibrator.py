@@ -5,14 +5,14 @@ from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
 )
-from multitask_personalization.parameter_setting.parameter_setting_method import (
-    ParameterSettingMethod,
+from multitask_personalization.methods.calibration.calibrator import Calibrator
+from multitask_personalization.methods.policies.parameterized_policy import (
+    PolicyParameters,
 )
-from multitask_personalization.policies.parameterized_policy import PolicyParameters
 from multitask_personalization.utils import topological_sort
 
 
-class GridWorldParameterSettingMethod(ParameterSettingMethod):
+class GridWorldCalibrator(Calibrator):
     """A domain-specific parameter setting method for grid world tasks."""
 
     def __init__(self, terminal_locs: set[tuple[int, int]]) -> None:

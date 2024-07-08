@@ -7,7 +7,7 @@ from multitask_personalization.envs.grid_world import (
     _OBSTACLE,
     GridTask,
 )
-from multitask_personalization.interaction.random_interaction import (
+from multitask_personalization.methods.interaction.random_interaction import (
     RandomInteractionMethod,
 )
 
