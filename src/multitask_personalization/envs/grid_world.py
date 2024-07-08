@@ -6,9 +6,9 @@ from typing import Any, TypeAlias
 import numpy as np
 from numpy.typing import NDArray
 
-from multitask_personalization.envs.env import Env
 from multitask_personalization.envs.intake_process import IntakeProcess
 from multitask_personalization.envs.mdp import MDP
+from multitask_personalization.envs.task import Task
 from multitask_personalization.structs import (
     CategoricalDistribution,
     Image,
@@ -199,15 +199,20 @@ class GridIntakeProcess(IntakeProcess[_GridIntakeObs, _GridIntakeAction]):
 
 
 @dataclass
-class GridEnv(Env):
+class GridTask(Task):
     """The full grid world."""
 
+    _id: str
     _grid: NDArray[np.uint8]
     _terminal_rewards: dict[tuple[int, int], float]
     _initial_state: tuple[int, int]
     _terminal_types: dict[tuple[int, int], str]
     _coin_weights: list[float]
     _intake_horizon: int
+
+    @property
+    def id(self) -> str:
+        return self._id
 
     @property
     def mdp(self) -> GridMDP:
