@@ -1,6 +1,6 @@
 """A domain-specific parameterized policy for the grid world."""
 
-from typing import Callable
+from typing import Callable, Collection
 
 import numpy as np
 from numpy.typing import NDArray
@@ -18,7 +18,9 @@ class GridWorldParameterizedPolicy(
 ):
     """A domain-specific parameterized policy for the grid world."""
 
-    def __init__(self, grid: NDArray[np.uint8], terminal_locs: set[_GridState]) -> None:
+    def __init__(
+        self, grid: NDArray[np.uint8], terminal_locs: Collection[_GridState]
+    ) -> None:
         super().__init__()
         self._grid = grid
         self._terminal_locs = terminal_locs

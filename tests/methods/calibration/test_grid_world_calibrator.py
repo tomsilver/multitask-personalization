@@ -49,7 +49,8 @@ def test_grid_world_calibrator():
         horizon,
     )
     ip = task.intake_process
-    im = RandomInteractionMethod(ip.action_space, ip.observation_space, seed=123)
+    im = RandomInteractionMethod(seed=123)
+    im.reset(task.id, ip.action_space, ip.observation_space)
     calibrator = GridWorldCalibrator(set(terminal_rewards))
     rng = np.random.default_rng(123)
     data = []

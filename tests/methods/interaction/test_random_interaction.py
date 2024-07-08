@@ -45,7 +45,8 @@ def test_random_interaction():
         horizon,
     )
     ip = task.intake_process
-    im = RandomInteractionMethod(ip.action_space, ip.observation_space, seed=123)
+    im = RandomInteractionMethod(seed=123)
+    im.reset(task.id, ip.action_space, ip.observation_space)
     action = im.get_action()
     assert action in ip.action_space
     rng = np.random.default_rng(123)

@@ -1,5 +1,7 @@
 """A domain-specific parameter setting method for grid world tasks."""
 
+from typing import Collection
+
 from multitask_personalization.envs.grid_world import _GridState, _RewardValueQuestion
 from multitask_personalization.envs.intake_process import (
     IntakeAction,
@@ -15,7 +17,7 @@ from multitask_personalization.utils import topological_sort
 class GridWorldCalibrator(Calibrator):
     """A domain-specific parameter setting method for grid world tasks."""
 
-    def __init__(self, terminal_locs: set[tuple[int, int]]) -> None:
+    def __init__(self, terminal_locs: Collection[tuple[int, int]]) -> None:
         self._terminal_locs = terminal_locs
 
     def get_parameters(
