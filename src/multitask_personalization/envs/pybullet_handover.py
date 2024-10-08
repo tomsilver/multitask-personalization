@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, TypeAlias
 
 import gymnasium as gym
 import numpy as np
+import pybullet as p
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, Pose3D
+from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.joint import JointPositions
+from pybullet_helpers.robots import create_pybullet_robot
+from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
+from pybullet_helpers.utils import create_pybullet_block
 from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.intake_process import IntakeProcess
@@ -73,14 +78,82 @@ class _HandoverState:
 _HandoverAction: TypeAlias = JointPositions | None  # None = ready for handover
 
 
+@dataclass(frozen=True)
+class PyBulletHandoverSceneDescription:
+    """Container for default hyperparameters."""
+
+    robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
+    robot_base_pose: Pose = Pose.identity()
+    initial_joints: JointPositions = field(
+        default_factory=lambda: [
+            -4.3,
+            -1.6,
+            -4.8,
+            -1.8,
+            -1.4,
+            -1.1,
+            1.6,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+        ]
+    )
+    robot_max_joint_delta: float = 0.5
+
+    robot_stand_pose: Pose = Pose((0.0, 0.0, -0.2))
+    robot_stand_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
+    robot_stand_half_extents: tuple[float, float, float] = (0.2, 0.2, 0.225)
+
+
 class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
     """A handover environment implemented in PyBullet."""
 
-    def __init__(self) -> None:
-        # TODO load environment.
-        import ipdb
+    def __init__(
+        self,
+        scene_description: PyBulletHandoverSceneDescription | None = None,
+        use_gui: bool = False,
+    ) -> None:
+        # Finalize the scene description.
+        if scene_description is None:
+            scene_description = PyBulletHandoverSceneDescription()
+        self.scene_description = scene_description
 
-        ipdb.set_trace()
+        # Create the PyBullet client.
+        if use_gui:
+            self.physics_client_id = create_gui_connection(camera_yaw=180)
+        else:
+            self.physics_client_id = p.connect(p.DIRECT)
+
+        # Create robot.
+        robot = create_pybullet_robot(
+            self.scene_description.robot_name,
+            self.physics_client_id,
+            base_pose=self.scene_description.robot_base_pose,
+            control_mode="reset",
+            home_joint_positions=self.scene_description.initial_joints,
+        )
+        assert isinstance(robot, FingeredSingleArmPyBulletRobot)
+        robot.close_fingers()
+        self.robot = robot
+
+        # Create robot stand.
+        self._robot_stand_id = create_pybullet_block(
+            self.scene_description.robot_stand_rgba,
+            half_extents=self.scene_description.robot_stand_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self._robot_stand_id,
+            self.scene_description.robot_stand_pose.position,
+            self.scene_description.robot_stand_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
+        while True:
+            p.stepSimulation(physicsClientId=self.physics_client_id)
 
     @property
     def state_space(self) -> gym.spaces.Box:
@@ -197,6 +270,7 @@ class PyBulletHandoverTask(Task):
 
     _id: str
     _intake_horizon: int
+    _use_gui: bool = False
 
     @property
     def id(self) -> str:
@@ -204,7 +278,7 @@ class PyBulletHandoverTask(Task):
 
     @property
     def mdp(self) -> PyBulletHandoverMDP:
-        return PyBulletHandoverMDP()
+        return PyBulletHandoverMDP(use_gui=self._use_gui)
 
     @property
     def intake_process(self) -> PyBulletHandoverIntakeProcess:
