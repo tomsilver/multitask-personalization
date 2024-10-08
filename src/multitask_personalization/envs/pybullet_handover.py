@@ -123,6 +123,7 @@ class PyBulletHandoverTask(Task):
     """The full handover task."""
 
     _id: str
+    _intake_horizon: int
 
     @property
     def id(self) -> str:
@@ -134,4 +135,4 @@ class PyBulletHandoverTask(Task):
 
     @property
     def intake_process(self) -> PyBulletHandoverIntakeProcess:
-        return PyBulletHandoverIntakeProcess()
+        return PyBulletHandoverIntakeProcess(self._intake_horizon)
