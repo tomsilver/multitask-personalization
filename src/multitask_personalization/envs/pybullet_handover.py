@@ -108,32 +108,28 @@ class PyBulletHandoverSceneDescription:
     robot_stand_half_extents: tuple[float, float, float] = (0.2, 0.2, 0.225)
 
 
-class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
-    """A handover environment implemented in PyBullet."""
+class PyBulletHandoverSimulator:
+    """A shared simulator used for both MDP and intake."""
 
     def __init__(
-        self,
-        scene_description: PyBulletHandoverSceneDescription | None = None,
-        use_gui: bool = False,
+        self, scene_description: PyBulletHandoverSceneDescription, use_gui: bool = False
     ) -> None:
-        # Finalize the scene description.
-        if scene_description is None:
-            scene_description = PyBulletHandoverSceneDescription()
-        self.scene_description = scene_description
+
+        self._scene_description = scene_description
 
         # Create the PyBullet client.
         if use_gui:
-            self.physics_client_id = create_gui_connection(camera_yaw=180)
+            self._physics_client_id = create_gui_connection(camera_yaw=180)
         else:
-            self.physics_client_id = p.connect(p.DIRECT)
+            self._physics_client_id = p.connect(p.DIRECT)
 
         # Create robot.
         robot = create_pybullet_robot(
-            self.scene_description.robot_name,
-            self.physics_client_id,
-            base_pose=self.scene_description.robot_base_pose,
+            self._scene_description.robot_name,
+            self._physics_client_id,
+            base_pose=self._scene_description.robot_base_pose,
             control_mode="reset",
-            home_joint_positions=self.scene_description.initial_joints,
+            home_joint_positions=self._scene_description.initial_joints,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         robot.close_fingers()
@@ -141,19 +137,29 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
 
         # Create robot stand.
         self._robot_stand_id = create_pybullet_block(
-            self.scene_description.robot_stand_rgba,
-            half_extents=self.scene_description.robot_stand_half_extents,
-            physics_client_id=self.physics_client_id,
+            self._scene_description.robot_stand_rgba,
+            half_extents=self._scene_description.robot_stand_half_extents,
+            physics_client_id=self._physics_client_id,
         )
         p.resetBasePositionAndOrientation(
             self._robot_stand_id,
-            self.scene_description.robot_stand_pose.position,
-            self.scene_description.robot_stand_pose.orientation,
-            physicsClientId=self.physics_client_id,
+            self._scene_description.robot_stand_pose.position,
+            self._scene_description.robot_stand_pose.orientation,
+            physicsClientId=self._physics_client_id,
         )
 
         while True:
-            p.stepSimulation(physicsClientId=self.physics_client_id)
+            p.stepSimulation(physicsClientId=self._physics_client_id)
+
+
+class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
+    """A handover environment implemented in PyBullet."""
+
+    def __init__(
+        self,
+        sim: PyBulletHandoverSimulator,
+    ) -> None:
+        self._sim = sim
 
     @property
     def state_space(self) -> gym.spaces.Box:
@@ -234,8 +240,9 @@ class PyBulletHandoverIntakeProcess(
 ):
     """Intake process for the pybullet handover environment."""
 
-    def __init__(self, horizon: int) -> None:
+    def __init__(self, horizon: int, sim: PyBulletHandoverSimulator) -> None:
         self._horizon = horizon
+        self._sim = sim
 
         # TODO load environment.
         import ipdb
@@ -264,22 +271,35 @@ class PyBulletHandoverIntakeProcess(
         ipdb.set_trace()
 
 
-@dataclass
 class PyBulletHandoverTask(Task):
     """The full handover task."""
 
-    _id: str
-    _intake_horizon: int
-    _use_gui: bool = False
+    def __init__(
+        self,
+        intake_horizon: int,
+        scene_description: PyBulletHandoverSceneDescription | None = None,
+        use_gui: bool = False,
+    ) -> None:
+
+        self._intake_horizon = intake_horizon
+        self._use_gui = use_gui
+
+        # Finalize the scene description.
+        if scene_description is None:
+            scene_description = PyBulletHandoverSceneDescription()
+        self._scene_description = scene_description
+
+        # Generate a shared PyBullet simulator.
+        self._sim = PyBulletHandoverSimulator(scene_description, use_gui)
 
     @property
     def id(self) -> str:
-        return self._id
+        return "handover"
 
     @property
     def mdp(self) -> PyBulletHandoverMDP:
-        return PyBulletHandoverMDP(use_gui=self._use_gui)
+        return PyBulletHandoverMDP(self._sim)
 
     @property
     def intake_process(self) -> PyBulletHandoverIntakeProcess:
-        return PyBulletHandoverIntakeProcess(self._intake_horizon)
+        return PyBulletHandoverIntakeProcess(self._intake_horizon, self._sim)
