@@ -4,7 +4,7 @@ import numpy as np
 
 from multitask_personalization.envs.pybullet_handover import (
     PyBulletHandoverTask,
-    _ROMReachableQuestion
+    _ROMReachableQuestion,
 )
 
 
@@ -31,5 +31,6 @@ def test_grid_world():
 
     # Uncomment for visualization.
     import imageio.v2 as iio
+
     imgs = [mdp.render_state(s) for s in states]
     iio.mimsave("pybullet_handover_test.gif", imgs)
