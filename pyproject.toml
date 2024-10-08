@@ -13,9 +13,10 @@ dependencies = [
    "numpy",
    "scipy",
    "scikit-image",
-    "imageio",
+   "imageio",
    "pandas",
    "pandas-stubs",
+   "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
 ]
 
 [project.optional-dependencies]
