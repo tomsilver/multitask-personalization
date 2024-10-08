@@ -3,6 +3,7 @@
 import abc
 from typing import Generic, TypeAlias, TypeVar
 
+import gymnasium as gym
 import numpy as np
 
 from multitask_personalization.structs import (
@@ -23,12 +24,12 @@ class IntakeProcess(Generic[_O, _U]):
 
     @property
     @abc.abstractmethod
-    def observation_space(self) -> set[_O]:
+    def observation_space(self) -> gym.Space:
         """Representation of the observation space."""
 
     @property
     @abc.abstractmethod
-    def action_space(self) -> set[_U]:
+    def action_space(self) -> gym.Space:
         """Representation of the action space."""
 
     @property

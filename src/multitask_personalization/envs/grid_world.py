@@ -5,6 +5,7 @@ from typing import Any, TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
+from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.intake_process import IntakeProcess
 from multitask_personalization.envs.mdp import MDP
@@ -39,16 +40,18 @@ class GridMDP(MDP[_GridState, _GridAction]):
         assert self._grid[self._initial_state] == _EMPTY
 
     @property
-    def state_space(self) -> set[_GridState]:
-        return {
-            (r, c)
-            for r in range(self._grid.shape[0])
-            for c in range(self._grid.shape[1])
-        }
+    def state_space(self) -> EnumSpace[_GridState]:
+        return EnumSpace(
+            [
+                (r, c)
+                for r in range(self._grid.shape[0])
+                for c in range(self._grid.shape[1])
+            ]
+        )
 
     @property
-    def action_space(self) -> set[_GridAction]:
-        return {"up", "down", "left", "right"}
+    def action_space(self) -> EnumSpace[_GridAction]:
+        return EnumSpace(["up", "down", "left", "right"])
 
     def state_is_terminal(self, state: _GridState) -> bool:
         return state in self._terminal_rewards
@@ -148,27 +151,27 @@ class GridIntakeProcess(IntakeProcess[_GridIntakeObs, _GridIntakeAction]):
         assert all(v in ("specific", "agnostic") for v in self._terminal_types.values())
 
     @property
-    def observation_space(self) -> set[_GridIntakeObs]:
-        return {True, False}
+    def observation_space(self) -> EnumSpace[_GridIntakeObs]:
+        return EnumSpace([True, False])
 
     @property
-    def action_space(self) -> set[_GridIntakeAction]:
-        actions: set[_GridIntakeAction] = set()
+    def action_space(self) -> EnumSpace[_GridIntakeAction]:
+        actions: list[_GridIntakeAction] = []
 
         # Add reward type questions.
         for loc in self._terminal_types:
-            actions.add(_RewardTypeQuestion(loc))
+            actions.append(_RewardTypeQuestion(loc))
 
         # Add reward value questions.
         for loc1 in self._terminal_types:
             for loc2 in self._terminal_types:
-                actions.add(_RewardValueQuestion(loc1, loc2))
+                actions.append(_RewardValueQuestion(loc1, loc2))
 
         # Add coin flip questions.
         for coin_id in range(len(self._coin_weights)):
-            actions.add(_CoinFlipQuestion(coin_id))
+            actions.append(_CoinFlipQuestion(coin_id))
 
-        return actions
+        return EnumSpace(actions)
 
     @property
     def horizon(self) -> int:

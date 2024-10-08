@@ -3,6 +3,7 @@
 import abc
 from typing import Generic, TypeVar
 
+import gymnasium as gym
 import numpy as np
 
 from multitask_personalization.envs.intake_process import (
@@ -22,13 +23,16 @@ class InteractionMethod(Generic[_U, _O]):
         seed: int,
     ) -> None:
         self._current_task_id: str | None = None
-        self._current_action_space: set[_U] | None = None
-        self._current_observation_space: set[_O] | None = None
+        self._current_action_space: gym.Space[_U] | None = None
+        self._current_observation_space: gym.Space[_O] | None = None
         self._seed = seed
         self._rng = np.random.default_rng(seed)
 
     def reset(
-        self, task_id: str, action_space: set[_U], observation_space: set[_O]
+        self,
+        task_id: str,
+        action_space: gym.Space[_U],
+        observation_space: gym.Space[_O],
     ) -> None:
         """Called on task reset."""
         self._current_task_id = task_id
