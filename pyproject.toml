@@ -17,6 +17,8 @@ dependencies = [
    "pandas",
    "pandas-stubs",
    "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
+   "gymnasium",
+   "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
 ]
 
 [project.optional-dependencies]

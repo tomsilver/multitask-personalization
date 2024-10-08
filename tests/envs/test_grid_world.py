@@ -50,10 +50,10 @@ def test_grid_world():
 
     rng = np.random.default_rng(123)
     state = mdp.sample_initial_state(rng)
-    ordered_actions = sorted(mdp.action_space)
+    mdp.action_space.seed(123)
     states = [state]
     for _ in range(5):
-        action = rng.choice(ordered_actions)
+        action = mdp.action_space.sample()
         next_state = mdp.sample_next_state(state, action, rng)
         states.append(state)
         rew = mdp.get_reward(state, action, next_state)
@@ -73,8 +73,11 @@ def test_grid_world():
     horizon = 5
     ip = task.intake_process
     assert ip.horizon == horizon
-    assert ip.observation_space == {True, False}
-    assert ip.action_space == {
+    assert set(ip.observation_space._elements) == {  # pylint: disable=protected-access
+        True,
+        False,
+    }
+    assert set(ip.action_space._elements) == {  # pylint: disable=protected-access
         _RewardTypeQuestion((4, 0)),
         _RewardTypeQuestion((4, 3)),
         _RewardValueQuestion((4, 0), (4, 0)),

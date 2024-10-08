@@ -2,6 +2,8 @@
 
 from typing import Generic, TypeVar
 
+import gymnasium as gym
+
 from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
@@ -42,8 +44,8 @@ class Approach(Generic[_U, _O, _P, _S, _A]):
     def reset(
         self,
         task_id: str,
-        action_space: set[_U],
-        observation_space: set[_O],
+        action_space: gym.Space[_U],
+        observation_space: gym.Space[_O],
     ) -> None:
         """Called when a new task begins."""
         self._intake_history.append((task_id, []))
