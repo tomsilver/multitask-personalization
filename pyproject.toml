@@ -16,6 +16,8 @@ dependencies = [
     "imageio",
    "pandas",
    "pandas-stubs",
+   "gymnasium",
+   "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
 ]
 
 [project.optional-dependencies]

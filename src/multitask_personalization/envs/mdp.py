@@ -3,6 +3,7 @@
 import abc
 from typing import Generic, TypeAlias, TypeVar
 
+import gymnasium as gym
 import numpy as np
 
 from multitask_personalization.structs import (
@@ -24,12 +25,12 @@ class MDP(Generic[_S, _A]):
 
     @property
     @abc.abstractmethod
-    def state_space(self) -> set[_S]:
+    def state_space(self) -> gym.Space:
         """Representation of the MDP state set."""
 
     @property
     @abc.abstractmethod
-    def action_space(self) -> set[_A]:
+    def action_space(self) -> gym.Space:
         """Representation of the MDP action set."""
 
     @property

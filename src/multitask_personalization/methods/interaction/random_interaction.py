@@ -1,7 +1,5 @@
 """An interaction method that selects actions uniformly at random."""
 
-from functools import cached_property
-
 from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
@@ -14,14 +12,9 @@ from multitask_personalization.methods.interaction.interaction_method import (
 class RandomInteractionMethod(InteractionMethod):
     """An interaction method that selects actions uniformly at random."""
 
-    @cached_property
-    def _ordered_actions(self) -> list[IntakeAction]:
-        assert self._current_action_space is not None
-        return sorted(self._current_action_space)
-
     def get_action(self) -> IntakeAction:
-        idx = self._rng.choice(len(self._ordered_actions))
-        return self._ordered_actions[idx]
+        assert self._current_action_space is not None
+        return self._current_action_space.sample()
 
     def observe(self, obs: IntakeObservation) -> None:
         pass
