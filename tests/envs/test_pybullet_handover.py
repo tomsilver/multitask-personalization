@@ -12,9 +12,8 @@ def test_pybullet_handover():
     """Tests for pybullet_handover.py."""
     intake_horizon = 5
     task = PyBulletHandoverTask(
-        "task0",
-        intake_horizon,
-        _use_gui=True,
+        intake_horizon=intake_horizon,
+        use_gui=True,
     )
     mdp = task.mdp
     rng = np.random.default_rng(123)
