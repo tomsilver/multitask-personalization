@@ -1,18 +1,17 @@
 """A generic definition of a finite-horizon intake process."""
 
 import abc
-from typing import Generic, TypeAlias, TypeVar
+from typing import Any, Generic, TypeAlias, TypeVar
 
 import gymnasium as gym
 import numpy as np
 
 from multitask_personalization.structs import (
     CategoricalDistribution,
-    HashableComparable,
 )
 
-IntakeObservation: TypeAlias = HashableComparable
-IntakeAction: TypeAlias = HashableComparable
+IntakeObservation: TypeAlias = Any
+IntakeAction: TypeAlias = Any
 
 
 _O = TypeVar("_O", bound=IntakeObservation)

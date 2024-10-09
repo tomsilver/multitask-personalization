@@ -13,11 +13,14 @@ dependencies = [
    "numpy",
    "scipy",
    "scikit-image",
-    "imageio",
+   "imageio",
    "pandas",
    "pandas-stubs",
-   "gymnasium",
+   "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
+   "gymnasium==1.0.0",
    "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
+   "pybullet@git+https://github.com/tomsilver/bullet3.git@link-limit-extension",
+   "assistive_gym@git+https://github.com/tomsilver/assistive-gym.git",
 ]
 
 [project.optional-dependencies]
@@ -59,5 +62,7 @@ module = [
     "matplotlib.*",
     "scipy.*",
     "skimage.*",
+    "assistive_gym.*",
+    "pybullet.*",
 ]
 ignore_missing_imports = true

@@ -1,19 +1,18 @@
 """A generic definition of an MDP with discrete states and actions."""
 
 import abc
-from typing import Generic, TypeAlias, TypeVar
+from typing import Any, Generic, TypeAlias, TypeVar
 
 import gymnasium as gym
 import numpy as np
 
 from multitask_personalization.structs import (
     CategoricalDistribution,
-    HashableComparable,
     Image,
 )
 
-MDPState: TypeAlias = HashableComparable
-MDPAction: TypeAlias = HashableComparable
+MDPState: TypeAlias = Any
+MDPAction: TypeAlias = Any
 
 
 _S = TypeVar("_S", bound=MDPState)
