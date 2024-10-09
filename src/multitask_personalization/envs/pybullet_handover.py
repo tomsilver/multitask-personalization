@@ -14,6 +14,7 @@ from assistive_gym.envs.agents.furniture import Furniture
 from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
 from numpy.typing import NDArray
+from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, Pose3D
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.joint import JointPositions
@@ -62,7 +63,7 @@ class _HandoverState:
     @classmethod
     def from_vec(cls, vec: NDArray[np.float32]) -> _HandoverState:
         """Create a state from a vector."""
-        (
+        (  # pylint: disable=unbalanced-tuple-unpacking
             robot_base_position_vec,
             robot_base_orientation_vec,
             robot_joints_vec,
@@ -81,7 +82,7 @@ class _HandoverState:
         return _HandoverState(robot_base, robot_joints, human_base, human_joints)
 
 
-_HandoverAction: TypeAlias = JointPositions | None  # None = ready for handover
+_HandoverAction: TypeAlias = tuple[int, JointPositions | None]  # see OneOf
 
 
 @dataclass(frozen=True)
@@ -204,8 +205,6 @@ class PyBulletHandoverSimulator:
             (self.human.j_right_knee, 80),
             (self.human.j_left_hip_x, -90),
             (self.human.j_left_knee, 80),
-        ]
-        joints_positions += [
             (self.human.j_head_x, 0.0),
             (self.human.j_head_y, 0.0),
             (self.human.j_head_z, 0.0),
@@ -266,6 +265,48 @@ class PyBulletHandoverSimulator:
         # while True:
         #     p.stepSimulation(self.physics_client_id)
 
+    def get_state(self) -> _HandoverState:
+        """Get the underlying state from the simulator."""
+        robot_base = self.robot.get_base_pose()
+        robot_joints = self.robot.get_joint_positions()
+        human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
+        human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
+        return _HandoverState(robot_base, robot_joints, human_base, human_joints)
+
+    def set_state(self, state: _HandoverState) -> None:
+        """Sync the simulator with the given state."""
+        p.resetBasePositionAndOrientation(
+            self.robot.robot_id,
+            state.robot_base.position,
+            state.robot_base.orientation,
+            self.physics_client_id,
+        )
+        self.robot.set_joints(state.robot_joints)
+        p.resetBasePositionAndOrientation(
+            self.human.body,
+            state.human_base.position,
+            state.human_base.orientation,
+            self.physics_client_id,
+        )
+        self.human.set_joint_angles(
+            self.human.right_arm_joints,
+            state.human_joints,
+        )
+
+    def step(self, action: JointPositions) -> None:
+        """Advance the simulator given an action."""
+        # Update the robot arm angles.
+        current_joints = self.robot.get_joint_positions()
+        # Only update the arm, assuming the first 7 entries are the arm.
+        arm_joints = current_joints[:7]
+        new_arm_joints = np.add(arm_joints, action)
+        new_joints = list(current_joints)
+        new_joints[:7] = new_arm_joints
+        clipped_joints = np.clip(
+            new_joints, self.robot.joint_lower_limits, self.robot.joint_upper_limits
+        )
+        self.robot.set_joints(clipped_joints.tolist())
+
 
 class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
     """A handover environment implemented in PyBullet."""
@@ -284,7 +325,6 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
 
     @property
     def action_space(self) -> gym.spaces.Space:
-        # TODO check whether this is what I want it to be
         return gym.spaces.OneOf(
             (
                 gym.spaces.Box(-np.inf, np.inf, shape=(7,), dtype=np.float32),
@@ -331,16 +371,23 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
     def sample_next_state(
         self, state: _HandoverState, action: _HandoverAction, rng: np.random.Generator
     ) -> _HandoverState:
-        # TODO implement deterministic transition distribution
-        import ipdb
-
-        ipdb.set_trace()
+        if np.isclose(action[0], 1):
+            return state  # will handle none case later
+        joint_angle_delta = action[1]
+        assert joint_angle_delta is not None
+        # At the moment, this is actually deterministic.
+        self._sim.set_state(state)
+        self._sim.step(joint_angle_delta)
+        return self._sim.get_state()
 
     def render_state(self, state: _HandoverState) -> Image:
-        # TODO reset state and take image
-        import ipdb
-
-        ipdb.set_trace()
+        self._sim.set_state(state)
+        target = get_link_pose(
+            self._sim.human.body,
+            self._sim.human.right_wrist,
+            self._sim.physics_client_id,
+        ).position
+        return capture_image(self._sim.physics_client_id, camera_target=target)
 
 
 @dataclass(frozen=True)
@@ -354,7 +401,7 @@ class _ROMReachableQuestion:
 
 
 _HandoverIntakeObs: TypeAlias = bool  # whether or not reaching is successful
-_HandoverIntakeAction: TypeAlias = _ROMReachableQuestion
+_HandoverIntakeAction: TypeAlias = NDArray[np.float32]  # _ROMReachableQuestion
 
 
 class PyBulletHandoverIntakeProcess(
@@ -366,17 +413,12 @@ class PyBulletHandoverIntakeProcess(
         self._horizon = horizon
         self._sim = sim
 
-        # TODO load environment.
-        import ipdb
-
-        ipdb.set_trace()
-
     @property
     def observation_space(self) -> EnumSpace[_HandoverIntakeObs]:
         return EnumSpace([True, False])
 
     @property
-    def action_space(self) -> EnumSpace[_HandoverIntakeAction]:
+    def action_space(self) -> gym.spaces.Box:
         return gym.spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32)
 
     @property
@@ -387,10 +429,8 @@ class PyBulletHandoverIntakeProcess(
         self,
         action: _HandoverIntakeAction,
     ) -> CategoricalDistribution[_HandoverIntakeObs]:
-        # TODO use ground truth ROM model to check
-        import ipdb
-
-        ipdb.set_trace()
+        # Coming in next PR.
+        return CategoricalDistribution({True: 0.5, False: 0.5})
 
 
 class PyBulletHandoverTask(Task):

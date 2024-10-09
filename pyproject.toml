@@ -62,5 +62,7 @@ module = [
     "matplotlib.*",
     "scipy.*",
     "skimage.*",
+    "assistive_gym.*",
+    "pybullet.*",
 ]
 ignore_missing_imports = true
