@@ -449,7 +449,7 @@ class PyBulletHandoverTask(Task):
         # Finalize the scene description.
         if scene_description is None:
             scene_description = PyBulletHandoverSceneDescription()
-        self._scene_description = scene_description
+        self.scene_description = scene_description
 
         # Generate a shared PyBullet simulator.
         self._sim = PyBulletHandoverSimulator(scene_description, use_gui)

@@ -9,6 +9,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from numpy.typing import NDArray
+from pybullet_helpers.geometry import Pose3D
 from skimage.transform import resize  # pylint: disable=no-name-in-module
 
 from multitask_personalization.structs import HashableComparable, Image
@@ -80,3 +81,15 @@ def fig2data(fig: plt.Figure) -> Image:
     fig.canvas.draw()
     assert isinstance(fig.canvas, FigureCanvasAgg)
     return np.array(fig.canvas.renderer.buffer_rgba())
+
+
+def sample_spherical(center: Pose3D, radius: float, rng: np.random.Generator) -> Pose3D:
+    """Based on https://stackoverflow.com/questions/33976911/"""
+    # Sample on the unit sphere.
+    vec = rng.normal(size=(3,))
+    vec /= np.linalg.norm(vec, axis=0)
+    # Scale.
+    vec = radius * vec
+    # Translate.
+    vec = np.add(center, vec)
+    return vec.tolist()
