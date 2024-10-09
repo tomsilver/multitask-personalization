@@ -17,6 +17,7 @@ from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, Pose3D
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.joint import JointPositions
+from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block
@@ -88,7 +89,7 @@ class PyBulletHandoverSceneDescription:
     """Container for default hyperparameters."""
 
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
-    robot_base_pose: Pose = Pose((-1.0, -0.5, 0.5))
+    robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
     initial_joints: JointPositions = field(
         default_factory=lambda: [
             -4.3,
@@ -108,9 +109,27 @@ class PyBulletHandoverSceneDescription:
     )
     robot_max_joint_delta: float = 0.5
 
-    robot_stand_pose: Pose = Pose((-1.0, -0.5, 0.3))
+    robot_stand_pose: Pose = Pose((0.0, 0.0, -0.2))
     robot_stand_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     robot_stand_half_extents: tuple[float, float, float] = (0.2, 0.2, 0.225)
+
+    human_base_pose: Pose = Pose(position=(1.0, 0.53, 0.39))
+    human_joints: JointPositions = field(
+        default_factory=lambda: [
+            0.0,
+            0.0,
+            0.0,
+            0.08726646,
+            0.0,
+            0.0,
+            -1.57079633,
+            0.0,
+            0.0,
+            0.0,
+        ]
+    )
+
+    wheelchair_base_pose: Pose = Pose(position=(1.0, 0.5, -0.46))
 
 
 class PyBulletHandoverSimulator:
@@ -124,21 +143,21 @@ class PyBulletHandoverSimulator:
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
-        self._scene_description = scene_description
+        self.scene_description = scene_description
 
         # Create the PyBullet client.
         if use_gui:
-            self._physics_client_id = create_gui_connection(camera_yaw=180)
+            self.physics_client_id = create_gui_connection(camera_yaw=0)
         else:
-            self._physics_client_id = p.connect(p.DIRECT)
+            self.physics_client_id = p.connect(p.DIRECT)
 
         # Create robot.
         robot = create_pybullet_robot(
-            self._scene_description.robot_name,
-            self._physics_client_id,
-            base_pose=self._scene_description.robot_base_pose,
+            self.scene_description.robot_name,
+            self.physics_client_id,
+            base_pose=self.scene_description.robot_base_pose,
             control_mode="reset",
-            home_joint_positions=self._scene_description.initial_joints,
+            home_joint_positions=self.scene_description.initial_joints,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         robot.close_fingers()
@@ -146,20 +165,20 @@ class PyBulletHandoverSimulator:
 
         # Create robot stand.
         self._robot_stand_id = create_pybullet_block(
-            self._scene_description.robot_stand_rgba,
-            half_extents=self._scene_description.robot_stand_half_extents,
-            physics_client_id=self._physics_client_id,
+            self.scene_description.robot_stand_rgba,
+            half_extents=self.scene_description.robot_stand_half_extents,
+            physics_client_id=self.physics_client_id,
         )
         p.resetBasePositionAndOrientation(
             self._robot_stand_id,
-            self._scene_description.robot_stand_pose.position,
-            self._scene_description.robot_stand_pose.orientation,
-            physicsClientId=self._physics_client_id,
+            self.scene_description.robot_stand_pose.position,
+            self.scene_description.robot_stand_pose.orientation,
+            physicsClientId=self.physics_client_id,
         )
 
         # Create human.
         human_creation = HumanCreation(
-            self._physics_client_id, np_random=self._rng, cloth=False
+            self.physics_client_id, np_random=self._rng, cloth=False
         )
         self.human = Human([], controllable=False)
         self.human.init(
@@ -168,9 +187,16 @@ class PyBulletHandoverSimulator:
             impairment="none",
             gender="male",
             config=None,
-            id=self._physics_client_id,
+            id=self.physics_client_id,
             np_random=self._rng,
         )
+        p.resetBasePositionAndOrientation(
+            self.human.body,
+            self.scene_description.human_base_pose.position,
+            self.scene_description.human_base_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+        # Use some default joint positions from assistive gym first.
         joints_positions = [
             (self.human.j_right_elbow, -90),
             (self.human.j_left_elbow, -90),
@@ -187,6 +213,10 @@ class PyBulletHandoverSimulator:
         self.human.setup_joints(
             joints_positions, use_static_joints=True, reactive_force=None
         )
+        # Now set arm joints using scene description.
+        self.human.set_joint_angles(
+            self.human.right_arm_joints, self.scene_description.human_joints
+        )
 
         # Create wheelchair.
         furniture = Furniture()
@@ -195,13 +225,46 @@ class PyBulletHandoverSimulator:
         furniture.init(
             "wheelchair",
             directory,
-            self._physics_client_id,
+            self.physics_client_id,
             self._rng,
             wheelchair_mounted=False,
         )
+        p.resetBasePositionAndOrientation(
+            furniture.body,
+            self.scene_description.wheelchair_base_pose.position,
+            self.scene_description.wheelchair_base_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
 
-        while True:
-            p.stepSimulation(physicsClientId=self._physics_client_id)
+        # Placeholder for full range of motion model.
+        self.rom_sphere_center = get_link_pose(
+            self.human.body, self.human.right_wrist, self.physics_client_id
+        ).position
+        self.rom_sphere_radius = 0.25
+        # Visualize.
+        shape_id = p.createVisualShape(
+            shapeType=p.GEOM_SPHERE,
+            radius=self.rom_sphere_radius,
+            rgbaColor=(1.0, 0.0, 0.0, 0.5),
+            physicsClientId=self.physics_client_id,
+        )
+        collision_id = p.createCollisionShape(
+            shapeType=p.GEOM_SPHERE,
+            radius=1e-6,
+            physicsClientId=self.physics_client_id,
+        )
+        self._rom_viz_id = p.createMultiBody(
+            baseMass=-1,
+            baseCollisionShapeIndex=collision_id,
+            baseVisualShapeIndex=shape_id,
+            basePosition=self.rom_sphere_center,
+            baseOrientation=[0, 0, 0, 1],
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Uncomment for debug / development.
+        # while True:
+        #     p.stepSimulation(self.physics_client_id)
 
 
 class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
@@ -230,10 +293,15 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         )
 
     def state_is_terminal(self, state: _HandoverState) -> bool:
-        # TODO terminate if human reaches object.
-        import ipdb
-
-        ipdb.set_trace()
+        # Will be replaced by a real ROM check later.
+        end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
+        dist = np.sqrt(
+            np.sum(
+                np.subtract(end_effector_pose.position, self._sim.rom_sphere_center)
+                ** 2
+            )
+        )
+        return dist < self._sim.rom_sphere_radius
 
     def get_reward(
         self, state: _HandoverState, action: _HandoverAction, next_state: _HandoverState
@@ -248,10 +316,12 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         raise NotImplementedError("Initial state distribution too large")
 
     def sample_initial_state(self, rng: np.random.Generator) -> _HandoverState:
-        # TODO randomize robot and human initial positions
-        import ipdb
-
-        ipdb.set_trace()
+        # In the future, will actually randomize this.
+        robot_base = self._sim.scene_description.robot_base_pose
+        robot_joints = self._sim.scene_description.initial_joints
+        human_base = self._sim.scene_description.human_base_pose
+        human_joints = self._sim.scene_description.human_joints
+        return _HandoverState(robot_base, robot_joints, human_base, human_joints)
 
     def get_transition_distribution(
         self, state: _HandoverState, action: _HandoverAction

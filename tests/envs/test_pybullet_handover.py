@@ -19,10 +19,11 @@ def test_pybullet_handover():
     rng = np.random.default_rng(123)
     state = mdp.sample_initial_state(rng)
     assert not mdp.state_is_terminal(state)
+    mdp.action_space.seed(123)
 
     states = [state]
     for _ in range(5):
-        action = mdp.sample_action(rng)
+        action = mdp.action_space.sample()
         next_state = mdp.sample_next_state(state, action, rng)
         states.append(state)
         rew = mdp.get_reward(state, action, next_state)
