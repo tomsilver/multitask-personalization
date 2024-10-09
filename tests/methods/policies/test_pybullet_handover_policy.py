@@ -27,7 +27,7 @@ def test_pybullet_handover_policy():
     policy.reset(task.id, params)
 
     states = [state]
-    for _ in range(100):
+    for _ in range(500):
         action = policy.step(state)
         next_state = mdp.sample_next_state(state, action, rng)
         states.append(state)
@@ -39,4 +39,4 @@ def test_pybullet_handover_policy():
     # Uncomment for visualization.
     # import imageio.v2 as iio
     # imgs = [mdp.render_state(s) for s in states]
-    # iio.mimsave("pybullet_handover_policy_test.gif", imgs)
+    # iio.mimsave("pybullet_handover_policy_test.mp4", imgs)
