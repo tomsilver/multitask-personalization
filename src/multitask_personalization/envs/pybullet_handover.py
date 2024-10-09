@@ -16,7 +16,7 @@ from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
 from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import Pose, Pose3D, get_pose
+from pybullet_helpers.geometry import Pose, Pose3D, get_pose, multiply_poses
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_link_pose
@@ -151,7 +151,7 @@ class PyBulletHandoverSceneDescription:
 
     robot_stand_pose: Pose = Pose((0.0, 0.0, -0.2))
     robot_stand_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
-    robot_stand_half_extents: tuple[float, float, float] = (0.2, 0.2, 0.225)
+    robot_stand_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
 
     human_base_pose: Pose = Pose(position=(1.0, 0.53, 0.39))
     human_joints: JointPositions = field(
@@ -173,12 +173,14 @@ class PyBulletHandoverSceneDescription:
 
     table_pose: Pose = Pose(position=(-0.5, 0.0, -0.2))
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
-    table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.225)
+    table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.2)
 
     object_pose: Pose = Pose(position=(-0.5, 0.0, 0.05))
     object_rgba: tuple[float, float, float, float] = (0.9, 0.6, 0.3, 1.0)
     object_radius: float = 0.025
     object_length: float = 0.1
+
+    camera_distance: float = 2.0
 
 
 class PyBulletHandoverSimulator:
@@ -213,13 +215,13 @@ class PyBulletHandoverSimulator:
         self.robot = robot
 
         # Create robot stand.
-        self._robot_stand_id = create_pybullet_block(
+        self.robot_stand_id = create_pybullet_block(
             self.scene_description.robot_stand_rgba,
             half_extents=self.scene_description.robot_stand_half_extents,
             physics_client_id=self.physics_client_id,
         )
         p.resetBasePositionAndOrientation(
-            self._robot_stand_id,
+            self.robot_stand_id,
             self.scene_description.robot_stand_pose.position,
             self.scene_description.robot_stand_pose.orientation,
             physicsClientId=self.physics_client_id,
@@ -310,13 +312,13 @@ class PyBulletHandoverSimulator:
         )
 
         # Create table.
-        self._table_id = create_pybullet_block(
+        self.table_id = create_pybullet_block(
             self.scene_description.table_rgba,
             half_extents=self.scene_description.table_half_extents,
             physics_client_id=self.physics_client_id,
         )
         p.resetBasePositionAndOrientation(
-            self._table_id,
+            self.table_id,
             self.scene_description.table_pose.position,
             self.scene_description.table_pose.orientation,
             physicsClientId=self.physics_client_id,
@@ -337,7 +339,7 @@ class PyBulletHandoverSimulator:
         )
 
         # Track whether the object is held, and if so, with what grasp.
-        self._current_grasp_transform: Pose | None = None
+        self.current_grasp_transform: Pose | None = None
 
         # Uncomment for debug / development.
         # while True:
@@ -356,7 +358,7 @@ class PyBulletHandoverSimulator:
             human_base,
             human_joints,
             object_pose,
-            self._current_grasp_transform,
+            self.current_grasp_transform,
         )
 
     def set_state(self, state: _HandoverState) -> None:
@@ -365,14 +367,14 @@ class PyBulletHandoverSimulator:
             self.robot.robot_id,
             state.robot_base.position,
             state.robot_base.orientation,
-            self.physics_client_id,
+            physicsClientId=self.physics_client_id,
         )
         self.robot.set_joints(state.robot_joints)
         p.resetBasePositionAndOrientation(
             self.human.body,
             state.human_base.position,
             state.human_base.orientation,
-            self.physics_client_id,
+            physicsClientId=self.physics_client_id,
         )
         self.human.set_joint_angles(
             self.human.right_arm_joints,
@@ -382,23 +384,56 @@ class PyBulletHandoverSimulator:
             self.object_id,
             state.object_pose.position,
             state.object_pose.orientation,
-            self.physics_client_id,
+            physicsClientId=self.physics_client_id,
         )
-        self._current_grasp_transform = state.grasp_transform
+        self.current_grasp_transform = state.grasp_transform
 
-    def step(self, action: JointPositions) -> None:
+    def step(self, action: _HandoverAction) -> None:
         """Advance the simulator given an action."""
+        if np.isclose(action[0], 1):
+            if action[1] == _GripperAction.CLOSE:
+                world_to_robot = self.robot.get_end_effector_pose()
+                end_effector_position = world_to_robot.position
+                world_to_object = get_pose(self.object_id, self.physics_client_id)
+                object_position = world_to_object.position
+                dist = np.sum(
+                    np.square(np.subtract(end_effector_position, object_position))
+                )
+                # Grasp successful.
+                if dist < 1e-6:
+                    self.current_grasp_transform = multiply_poses(
+                        world_to_robot.invert(), world_to_object
+                    )
+            elif action[1] == _GripperAction.OPEN:
+                self.current_grasp_transform = None
+            return
+        if np.isclose(action[0], 2):
+            return  # will handle none case later, when the human moves
+        joint_angle_delta = action[1]
         # Update the robot arm angles.
         current_joints = self.robot.get_joint_positions()
         # Only update the arm, assuming the first 7 entries are the arm.
         arm_joints = current_joints[:7]
-        new_arm_joints = np.add(arm_joints, action)
+        new_arm_joints = np.add(arm_joints, joint_angle_delta)  # type: ignore
         new_joints = list(current_joints)
         new_joints[:7] = new_arm_joints
         clipped_joints = np.clip(
             new_joints, self.robot.joint_lower_limits, self.robot.joint_upper_limits
         )
         self.robot.set_joints(clipped_joints.tolist())
+
+        # Apply the grasp transform if it exists.
+        if self.current_grasp_transform:
+            world_to_robot = self.robot.get_end_effector_pose()
+            world_to_object = multiply_poses(
+                world_to_robot, self.current_grasp_transform
+            )
+            p.resetBasePositionAndOrientation(
+                self.object_id,
+                world_to_object.position,
+                world_to_object.orientation,
+                physicsClientId=self.physics_client_id,
+            )
 
 
 class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
@@ -474,14 +509,8 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
     def sample_next_state(
         self, state: _HandoverState, action: _HandoverAction, rng: np.random.Generator
     ) -> _HandoverState:
-        if np.isclose(action[0], 1):
-            return state  # will handle none case later, when object is grasped
-        if np.isclose(action[0], 2):
-            return state  # will handle none case later, when the human moves
-        joint_angle_delta = action[1]
-        # At the moment, this is actually deterministic.
         self._sim.set_state(state)
-        self._sim.step(joint_angle_delta)  # type: ignore
+        self._sim.step(action)
         return self._sim.get_state()
 
     def render_state(self, state: _HandoverState) -> Image:
@@ -491,7 +520,11 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
             self._sim.human.right_wrist,
             self._sim.physics_client_id,
         ).position
-        return capture_image(self._sim.physics_client_id, camera_target=target)
+        return capture_image(
+            self._sim.physics_client_id,
+            camera_target=target,
+            camera_distance=self._sim.scene_description.camera_distance,
+        )
 
 
 @dataclass(frozen=True)
