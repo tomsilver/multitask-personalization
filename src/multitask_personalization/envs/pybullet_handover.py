@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, TypeAlias
 
+import assistive_gym.envs
 import gymnasium as gym
 import numpy as np
 import pybullet as p
+from assistive_gym.envs.agents.furniture import Furniture
+from assistive_gym.envs.agents.human import Human
+from assistive_gym.envs.human_creation import HumanCreation
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, Pose3D
 from pybullet_helpers.gui import create_gui_connection
@@ -24,10 +29,6 @@ from multitask_personalization.structs import (
     CategoricalDistribution,
     Image,
 )
-
-from assistive_gym.envs.human_creation import HumanCreation
-from assistive_gym.envs.agents.human import Human
-
 
 
 @dataclass(frozen=True)
@@ -116,7 +117,9 @@ class PyBulletHandoverSimulator:
     """A shared simulator used for both MDP and intake."""
 
     def __init__(
-        self, scene_description: PyBulletHandoverSceneDescription, use_gui: bool = False,
+        self,
+        scene_description: PyBulletHandoverSceneDescription,
+        use_gui: bool = False,
         seed: int = 0,
     ) -> None:
 
@@ -142,9 +145,47 @@ class PyBulletHandoverSimulator:
         # self.robot = robot
 
         # Create human.
-        human_creation = HumanCreation(self._physics_client_id, np_random=self._rng, cloth=False)
+        human_creation = HumanCreation(
+            self._physics_client_id, np_random=self._rng, cloth=False
+        )
         self.human = Human([], controllable=False)
-        self.human.init(human_creation, static_human_base=True, impairment='none', gender='male', config=None, id=self._physics_client_id, np_random=self._rng)
+        self.human.init(
+            human_creation,
+            static_human_base=True,
+            impairment="none",
+            gender="male",
+            config=None,
+            id=self._physics_client_id,
+            np_random=self._rng,
+        )
+        joints_positions = [
+            (self.human.j_right_elbow, -90),
+            (self.human.j_left_elbow, -90),
+            (self.human.j_right_hip_x, -90),
+            (self.human.j_right_knee, 80),
+            (self.human.j_left_hip_x, -90),
+            (self.human.j_left_knee, 80),
+        ]
+        joints_positions += [
+            (self.human.j_head_x, 0.0),
+            (self.human.j_head_y, 0.0),
+            (self.human.j_head_z, 0.0),
+        ]
+        self.human.setup_joints(
+            joints_positions, use_static_joints=True, reactive_force=None
+        )
+
+        # Create wheelchair.
+        furniture = Furniture()
+        directory = Path(assistive_gym.envs.__file__).parent / "assets"
+        assert directory.exists()
+        furniture.init(
+            "wheelchair",
+            directory,
+            self._physics_client_id,
+            self._rng,
+            wheelchair_mounted=False,
+        )
 
         # # Create robot stand.
         # self._robot_stand_id = create_pybullet_block(
