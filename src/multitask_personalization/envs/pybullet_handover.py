@@ -25,6 +25,10 @@ from multitask_personalization.structs import (
     Image,
 )
 
+from assistive_gym.envs.human_creation import HumanCreation
+from assistive_gym.envs.agents.human import Human
+
+
 
 @dataclass(frozen=True)
 class _HandoverState:
@@ -112,9 +116,11 @@ class PyBulletHandoverSimulator:
     """A shared simulator used for both MDP and intake."""
 
     def __init__(
-        self, scene_description: PyBulletHandoverSceneDescription, use_gui: bool = False
+        self, scene_description: PyBulletHandoverSceneDescription, use_gui: bool = False,
+        seed: int = 0,
     ) -> None:
 
+        self._rng = np.random.default_rng(seed)
         self._scene_description = scene_description
 
         # Create the PyBullet client.
@@ -123,30 +129,35 @@ class PyBulletHandoverSimulator:
         else:
             self._physics_client_id = p.connect(p.DIRECT)
 
-        # Create robot.
-        robot = create_pybullet_robot(
-            self._scene_description.robot_name,
-            self._physics_client_id,
-            base_pose=self._scene_description.robot_base_pose,
-            control_mode="reset",
-            home_joint_positions=self._scene_description.initial_joints,
-        )
-        assert isinstance(robot, FingeredSingleArmPyBulletRobot)
-        robot.close_fingers()
-        self.robot = robot
+        # # Create robot.
+        # robot = create_pybullet_robot(
+        #     self._scene_description.robot_name,
+        #     self._physics_client_id,
+        #     base_pose=self._scene_description.robot_base_pose,
+        #     control_mode="reset",
+        #     home_joint_positions=self._scene_description.initial_joints,
+        # )
+        # assert isinstance(robot, FingeredSingleArmPyBulletRobot)
+        # robot.close_fingers()
+        # self.robot = robot
 
-        # Create robot stand.
-        self._robot_stand_id = create_pybullet_block(
-            self._scene_description.robot_stand_rgba,
-            half_extents=self._scene_description.robot_stand_half_extents,
-            physics_client_id=self._physics_client_id,
-        )
-        p.resetBasePositionAndOrientation(
-            self._robot_stand_id,
-            self._scene_description.robot_stand_pose.position,
-            self._scene_description.robot_stand_pose.orientation,
-            physicsClientId=self._physics_client_id,
-        )
+        # Create human.
+        human_creation = HumanCreation(self._physics_client_id, np_random=self._rng, cloth=False)
+        self.human = Human([], controllable=False)
+        self.human.init(human_creation, static_human_base=True, impairment='none', gender='male', config=None, id=self._physics_client_id, np_random=self._rng)
+
+        # # Create robot stand.
+        # self._robot_stand_id = create_pybullet_block(
+        #     self._scene_description.robot_stand_rgba,
+        #     half_extents=self._scene_description.robot_stand_half_extents,
+        #     physics_client_id=self._physics_client_id,
+        # )
+        # p.resetBasePositionAndOrientation(
+        #     self._robot_stand_id,
+        #     self._scene_description.robot_stand_pose.position,
+        #     self._scene_description.robot_stand_pose.orientation,
+        #     physicsClientId=self._physics_client_id,
+        # )
 
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)

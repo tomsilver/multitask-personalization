@@ -17,8 +17,6 @@ from multitask_personalization.methods.interaction.random_interaction import (
 from multitask_personalization.methods.policies.grid_world_policy import (
     GridWorldParameterizedPolicy,
 )
-
-
 def test_approach():
     """Tests for approach.py."""
 
