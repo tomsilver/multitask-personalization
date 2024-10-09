@@ -9,8 +9,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from numpy.typing import NDArray
-from skimage.transform import resize  # pylint: disable=no-name-in-module
 from pybullet_helpers.geometry import Pose3D
+from skimage.transform import resize  # pylint: disable=no-name-in-module
 
 from multitask_personalization.structs import HashableComparable, Image
 

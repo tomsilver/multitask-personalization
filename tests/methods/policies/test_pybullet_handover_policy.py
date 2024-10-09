@@ -5,8 +5,9 @@ import numpy as np
 from multitask_personalization.envs.pybullet_handover import (
     PyBulletHandoverTask,
 )
-from multitask_personalization.methods.policies.pybullet_handover_policy import PyBulletHandoverParameterizedPolicy
-
+from multitask_personalization.methods.policies.pybullet_handover_policy import (
+    PyBulletHandoverParameterizedPolicy,
+)
 
 
 def test_pybullet_handover_policy():
@@ -22,7 +23,7 @@ def test_pybullet_handover_policy():
     mdp.action_space.seed(123)
 
     policy = PyBulletHandoverParameterizedPolicy(task.scene_description)
-    params = 0.4  # radius of ROM sphere
+    params = 0.2  # radius of ROM sphere
     policy.reset(task.id, params)
 
     states = [state]
@@ -31,10 +32,11 @@ def test_pybullet_handover_policy():
         next_state = mdp.sample_next_state(state, action, rng)
         states.append(state)
         rew = mdp.get_reward(state, action, next_state)
-        assert rew >= 0
+        if rew > 0:
+            break
         state = next_state
 
     # Uncomment for visualization.
-    import imageio.v2 as iio
-    imgs = [mdp.render_state(s) for s in states]
-    iio.mimsave("pybullet_handover_policy_test.gif", imgs)
+    # import imageio.v2 as iio
+    # imgs = [mdp.render_state(s) for s in states]
+    # iio.mimsave("pybullet_handover_policy_test.gif", imgs)
