@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any, TypeAlias
 
@@ -15,13 +16,13 @@ from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
 from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import Pose, Pose3D
+from pybullet_helpers.geometry import Pose, Pose3D, get_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
-from pybullet_helpers.utils import create_pybullet_block
+from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.intake_process import IntakeProcess
@@ -41,14 +42,22 @@ class _HandoverState:
     robot_joints: JointPositions
     human_base: Pose
     human_joints: JointPositions
+    object_pose: Pose
+    grasp_transform: Pose | None
 
     @classmethod
     def get_dimension(cls) -> int:
         """Get the dimensionality of a handover state."""
-        return 7 + 7 + 7 + 7
+        return 7 + 7 + 7 + 7 + 7 + 8
 
     def to_vec(self) -> NDArray[np.float32]:
         """Convert the state into a vector."""
+        if self.grasp_transform is None:
+            grasp_transform_vec = np.zeros(8, dtype=np.float32)
+        else:
+            grasp_transform_vec = np.hstack(
+                [[1], self.grasp_transform.position, self.grasp_transform.orientation]
+            )
         return np.hstack(
             [
                 self.robot_base.position,
@@ -57,6 +66,9 @@ class _HandoverState:
                 self.human_base.position,
                 self.human_base.orientation,
                 self.human_joints,
+                self.object_pose.position,
+                self.object_pose.orientation,
+                grasp_transform_vec,
             ]
         )
 
@@ -70,7 +82,10 @@ class _HandoverState:
             human_base_position_vec,
             human_base_orientation_vec,
             human_joints_vec,
-        ) = np.split(vec, [3, 7, 14, 17, 21])
+            object_position_vec,
+            object_orientation_vec,
+            grasp_transform_vec,
+        ) = np.split(vec, [3, 7, 14, 17, 21, 25, 28, 32])
         robot_base = Pose(
             tuple(robot_base_position_vec), tuple(robot_base_orientation_vec)
         )
@@ -79,10 +94,34 @@ class _HandoverState:
             tuple(human_base_position_vec), tuple(human_base_orientation_vec)
         )
         human_joints = human_joints_vec.tolist()
-        return _HandoverState(robot_base, robot_joints, human_base, human_joints)
+        object_position = Pose(
+            tuple(object_position_vec), tuple(object_orientation_vec)
+        )
+        if np.isclose(grasp_transform_vec[0], 0.0):
+            grasp_transform: Pose | None = None
+        else:
+            assert np.isclose(grasp_transform_vec[0], 1.0)
+            grasp_transform = Pose(
+                tuple(grasp_transform_vec[1:4]), tuple(grasp_transform_vec[4:])
+            )
+        return _HandoverState(
+            robot_base,
+            robot_joints,
+            human_base,
+            human_joints,
+            object_position,
+            grasp_transform,
+        )
 
 
-_HandoverAction: TypeAlias = tuple[int, JointPositions | None]  # see OneOf
+class _GripperAction(Enum):
+    """Open or close the gripper."""
+
+    OPEN = 1
+    CLOSE = 2
+
+
+_HandoverAction: TypeAlias = tuple[int, JointPositions | _GripperAction | None]  # OneOf
 
 
 @dataclass(frozen=True)
@@ -131,6 +170,15 @@ class PyBulletHandoverSceneDescription:
     )
 
     wheelchair_base_pose: Pose = Pose(position=(1.0, 0.5, -0.46))
+
+    table_pose: Pose = Pose(position=(-0.5, 0.0, -0.2))
+    table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
+    table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.225)
+
+    object_pose: Pose = Pose(position=(-0.5, 0.0, 0.05))
+    object_rgba: tuple[float, float, float, float] = (0.9, 0.6, 0.3, 1.0)
+    object_radius: float = 0.025
+    object_length: float = 0.1
 
 
 class PyBulletHandoverSimulator:
@@ -261,6 +309,36 @@ class PyBulletHandoverSimulator:
             physicsClientId=self.physics_client_id,
         )
 
+        # Create table.
+        self._table_id = create_pybullet_block(
+            self.scene_description.table_rgba,
+            half_extents=self.scene_description.table_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self._table_id,
+            self.scene_description.table_pose.position,
+            self.scene_description.table_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Create object.
+        self.object_id = create_pybullet_cylinder(
+            self.scene_description.object_rgba,
+            self.scene_description.object_radius,
+            self.scene_description.object_length,
+            physics_client_id=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self.object_id,
+            self.scene_description.object_pose.position,
+            self.scene_description.object_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Track whether the object is held, and if so, with what grasp.
+        self._current_grasp_transform: Pose | None = None
+
         # Uncomment for debug / development.
         # while True:
         #     p.stepSimulation(self.physics_client_id)
@@ -271,7 +349,15 @@ class PyBulletHandoverSimulator:
         robot_joints = self.robot.get_joint_positions()
         human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
         human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
-        return _HandoverState(robot_base, robot_joints, human_base, human_joints)
+        object_pose = get_pose(self.object_id, self.physics_client_id)
+        return _HandoverState(
+            robot_base,
+            robot_joints,
+            human_base,
+            human_joints,
+            object_pose,
+            self._current_grasp_transform,
+        )
 
     def set_state(self, state: _HandoverState) -> None:
         """Sync the simulator with the given state."""
@@ -292,6 +378,13 @@ class PyBulletHandoverSimulator:
             self.human.right_arm_joints,
             state.human_joints,
         )
+        p.resetBasePositionAndOrientation(
+            self.object_id,
+            state.object_pose.position,
+            state.object_pose.orientation,
+            self.physics_client_id,
+        )
+        self._current_grasp_transform = state.grasp_transform
 
     def step(self, action: JointPositions) -> None:
         """Advance the simulator given an action."""
@@ -328,6 +421,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         return gym.spaces.OneOf(
             (
                 gym.spaces.Box(-np.inf, np.inf, shape=(7,), dtype=np.float32),
+                EnumSpace([_GripperAction.OPEN, _GripperAction.CLOSE]),
                 EnumSpace([None]),
             )
         )
@@ -361,7 +455,16 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         robot_joints = self._sim.scene_description.initial_joints
         human_base = self._sim.scene_description.human_base_pose
         human_joints = self._sim.scene_description.human_joints
-        return _HandoverState(robot_base, robot_joints, human_base, human_joints)
+        object_pose = self._sim.scene_description.object_pose
+        grasp_transform = None
+        return _HandoverState(
+            robot_base,
+            robot_joints,
+            human_base,
+            human_joints,
+            object_pose,
+            grasp_transform,
+        )
 
     def get_transition_distribution(
         self, state: _HandoverState, action: _HandoverAction
@@ -372,12 +475,13 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         self, state: _HandoverState, action: _HandoverAction, rng: np.random.Generator
     ) -> _HandoverState:
         if np.isclose(action[0], 1):
-            return state  # will handle none case later
+            return state  # will handle none case later, when object is grasped
+        if np.isclose(action[0], 2):
+            return state  # will handle none case later, when the human moves
         joint_angle_delta = action[1]
-        assert joint_angle_delta is not None
         # At the moment, this is actually deterministic.
         self._sim.set_state(state)
-        self._sim.step(joint_angle_delta)
+        self._sim.step(joint_angle_delta)  # type: ignore
         return self._sim.get_state()
 
     def render_state(self, state: _HandoverState) -> Image:
