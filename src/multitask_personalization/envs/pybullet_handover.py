@@ -88,7 +88,7 @@ class PyBulletHandoverSceneDescription:
     """Container for default hyperparameters."""
 
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
-    robot_base_pose: Pose = Pose.identity()
+    robot_base_pose: Pose = Pose((-1.0, -0.5, 0.5))
     initial_joints: JointPositions = field(
         default_factory=lambda: [
             -4.3,
@@ -108,7 +108,7 @@ class PyBulletHandoverSceneDescription:
     )
     robot_max_joint_delta: float = 0.5
 
-    robot_stand_pose: Pose = Pose((0.0, 0.0, -0.2))
+    robot_stand_pose: Pose = Pose((-1.0, -0.5, 0.3))
     robot_stand_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     robot_stand_half_extents: tuple[float, float, float] = (0.2, 0.2, 0.225)
 
@@ -132,17 +132,30 @@ class PyBulletHandoverSimulator:
         else:
             self._physics_client_id = p.connect(p.DIRECT)
 
-        # # Create robot.
-        # robot = create_pybullet_robot(
-        #     self._scene_description.robot_name,
-        #     self._physics_client_id,
-        #     base_pose=self._scene_description.robot_base_pose,
-        #     control_mode="reset",
-        #     home_joint_positions=self._scene_description.initial_joints,
-        # )
-        # assert isinstance(robot, FingeredSingleArmPyBulletRobot)
-        # robot.close_fingers()
-        # self.robot = robot
+        # Create robot.
+        robot = create_pybullet_robot(
+            self._scene_description.robot_name,
+            self._physics_client_id,
+            base_pose=self._scene_description.robot_base_pose,
+            control_mode="reset",
+            home_joint_positions=self._scene_description.initial_joints,
+        )
+        assert isinstance(robot, FingeredSingleArmPyBulletRobot)
+        robot.close_fingers()
+        self.robot = robot
+
+        # Create robot stand.
+        self._robot_stand_id = create_pybullet_block(
+            self._scene_description.robot_stand_rgba,
+            half_extents=self._scene_description.robot_stand_half_extents,
+            physics_client_id=self._physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self._robot_stand_id,
+            self._scene_description.robot_stand_pose.position,
+            self._scene_description.robot_stand_pose.orientation,
+            physicsClientId=self._physics_client_id,
+        )
 
         # Create human.
         human_creation = HumanCreation(
@@ -186,19 +199,6 @@ class PyBulletHandoverSimulator:
             self._rng,
             wheelchair_mounted=False,
         )
-
-        # # Create robot stand.
-        # self._robot_stand_id = create_pybullet_block(
-        #     self._scene_description.robot_stand_rgba,
-        #     half_extents=self._scene_description.robot_stand_half_extents,
-        #     physics_client_id=self._physics_client_id,
-        # )
-        # p.resetBasePositionAndOrientation(
-        #     self._robot_stand_id,
-        #     self._scene_description.robot_stand_pose.position,
-        #     self._scene_description.robot_stand_pose.orientation,
-        #     physicsClientId=self._physics_client_id,
-        # )
 
         while True:
             p.stepSimulation(physicsClientId=self._physics_client_id)
