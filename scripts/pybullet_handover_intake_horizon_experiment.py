@@ -40,10 +40,10 @@ def _main(
         return _df_to_plot(df, outdir)
     columns = ["Seed", "Approach", "Num Intake Steps", "Returns"]
     approaches = [
+        "Random",
         "Oracle",
-        # "Random"
     ]
-    all_num_intake_steps = [0, 10, 100]
+    all_num_intake_steps = [0, 10, 50, 100, 250]
     results: list[tuple[int, str, int, float]] = []
     for seed in range(start_seed, start_seed + num_seeds):
         print(f"Starting {seed=}")
@@ -169,7 +169,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", default=0, type=int)
-    parser.add_argument("--num_seeds", default=3, type=int)
+    parser.add_argument("--num_seeds", default=5, type=int)
     parser.add_argument("--outdir", default=Path("results"), type=Path)
     parser.add_argument("--load", action="store_true")
     parser.add_argument("--make_videos", action="store_true")

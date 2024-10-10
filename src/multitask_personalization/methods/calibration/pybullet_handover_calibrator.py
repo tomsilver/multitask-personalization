@@ -41,7 +41,8 @@ class PyBulletHandoverCalibrator(Calibrator):
                     min_negative = dist
         if max_positive is None or min_negative is None:
             return np.inf
-        return (max_positive + min_negative) / 2
+        params = (max_positive + min_negative) / 2
+        return params
 
 
 class OraclePyBulletHandoverCalibrator(Calibrator):

@@ -211,7 +211,7 @@ class PyBulletHandoverParameterizedPolicy(
                 grasp_to_post_grasp_pybullet_helpers_plan
             )
         )
-        self._sim.step(action)
+        state = self._sim.get_state()
 
         # Motion plan to the handover pose.
         handover_pybullet_helpers_plan = run_smooth_motion_planning_to_pose(
@@ -227,16 +227,5 @@ class PyBulletHandoverParameterizedPolicy(
         assert handover_pybullet_helpers_plan is not None
         self._sim.set_state(state)
         plan.extend(self._rollout_pybullet_helpers_plan(handover_pybullet_helpers_plan))
-        self._sim.step(action)
-
-        # TODO remove
-        end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
-        dist = np.sqrt(
-            np.sum(
-                np.subtract(end_effector_pose.position, self._sim.rom_sphere_center)
-                ** 2
-            )
-        )
-        assert dist < self._sim.rom_sphere_radius + 1e-2
 
         return plan

@@ -549,7 +549,7 @@ class PyBulletHandoverIntakeProcess(
     @cached_property
     def action_space(self) -> gym.spaces.Box:
         x, y, z = self._sim.rom_sphere_center
-        size = 1.0
+        size = 0.5
         return gym.spaces.Box(
             low=np.array([x - size, y - size, z - size], dtype=np.float32),
             high=np.array([x + size, y + size, z + size], dtype=np.float32),
