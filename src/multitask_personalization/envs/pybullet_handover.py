@@ -445,6 +445,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         sim: PyBulletHandoverSimulator,
     ) -> None:
         self._sim = sim
+        self._terminal_state_padding = 1e-2
 
     @cached_property
     def state_space(self) -> gym.spaces.Box:
@@ -471,7 +472,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
                 ** 2
             )
         )
-        return dist < self._sim.rom_sphere_radius
+        return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
 
     def get_reward(
         self, state: _HandoverState, action: _HandoverAction, next_state: _HandoverState
@@ -599,3 +600,6 @@ class PyBulletHandoverTask(Task):
     @property
     def intake_process(self) -> PyBulletHandoverIntakeProcess:
         return PyBulletHandoverIntakeProcess(self._intake_horizon, self._sim)
+
+    def close(self) -> None:
+        p.disconnect(self._sim.physics_client_id)

@@ -23,3 +23,7 @@ class Task(abc.ABC):
     @abc.abstractmethod
     def intake_process(self) -> IntakeProcess:
         """The intake process."""
+
+    @abc.abstractmethod
+    def close(self) -> None:
+        """Run at the end of experiments."""

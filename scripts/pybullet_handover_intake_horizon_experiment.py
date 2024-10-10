@@ -39,8 +39,11 @@ def _main(
         df = pd.read_csv(csv_file)
         return _df_to_plot(df, outdir)
     columns = ["Seed", "Approach", "Num Intake Steps", "Returns"]
-    approaches = ["Oracle", "Random"]
-    all_num_intake_steps = [0, 10, 100, 500, 1000]
+    approaches = [
+        "Oracle",
+        # "Random"
+    ]
+    all_num_intake_steps = [0, 10, 100]
     results: list[tuple[int, str, int, float]] = []
     for seed in range(start_seed, start_seed + num_seeds):
         print(f"Starting {seed=}")
@@ -55,6 +58,7 @@ def _main(
                     make_videos,
                     outdir,
                 )
+                print(f"Returns: {returns}")
                 results.append((seed, approach, num_intake_steps, returns))
     df = pd.DataFrame(results, columns=columns)
     df.to_csv(csv_file)
@@ -105,7 +109,7 @@ def _run_single(
     outdir: Path,
 ) -> float:
 
-    task = PyBulletHandoverTask(intake_horizon=num_intake_steps)
+    task = PyBulletHandoverTask(intake_horizon=num_intake_steps, use_gui=False)
 
     # Create the approach.
     if approach_name == "Random":
@@ -155,6 +159,8 @@ def _run_single(
         iio.mimsave(video_file, imgs)  # type: ignore
         print(f"Wrote out to {video_file}")
 
+    task.close()
+
     return returns
 
 
@@ -163,7 +169,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", default=0, type=int)
-    parser.add_argument("--num_seeds", default=10, type=int)
+    parser.add_argument("--num_seeds", default=3, type=int)
     parser.add_argument("--outdir", default=Path("results"), type=Path)
     parser.add_argument("--load", action="store_true")
     parser.add_argument("--make_videos", action="store_true")

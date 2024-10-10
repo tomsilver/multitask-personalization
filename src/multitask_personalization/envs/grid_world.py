@@ -231,3 +231,6 @@ class GridTask(Task):
             self._coin_weights,
             self._intake_horizon,
         )
+
+    def close(self) -> None:
+        pass
