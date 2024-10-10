@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import cached_property
 from pathlib import Path
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
 import assistive_gym.envs
 import gymnasium as gym
@@ -444,14 +445,15 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         sim: PyBulletHandoverSimulator,
     ) -> None:
         self._sim = sim
+        self._terminal_state_padding = 1e-2
 
-    @property
+    @cached_property
     def state_space(self) -> gym.spaces.Box:
         return gym.spaces.Box(
             -np.inf, np.inf, shape=(_HandoverState.get_dimension(),), dtype=np.float32
         )
 
-    @property
+    @cached_property
     def action_space(self) -> gym.spaces.Space:
         return gym.spaces.OneOf(
             (
@@ -470,7 +472,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
                 ** 2
             )
         )
-        return dist < self._sim.rom_sphere_radius
+        return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
 
     def get_reward(
         self, state: _HandoverState, action: _HandoverAction, next_state: _HandoverState
@@ -527,18 +529,8 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         )
 
 
-@dataclass(frozen=True)
-class _ROMReachableQuestion:
-    """Ask the person to try to reach a certain position."""
-
-    position: Pose3D  # in absolute coordinates
-
-    def __lt__(self, other: Any) -> bool:
-        return str(self) < str(other)
-
-
 _HandoverIntakeObs: TypeAlias = bool  # whether or not reaching is successful
-_HandoverIntakeAction: TypeAlias = NDArray[np.float32]  # _ROMReachableQuestion
+_HandoverIntakeAction: TypeAlias = Pose3D  # test handover position
 
 
 class PyBulletHandoverIntakeProcess(
@@ -550,13 +542,18 @@ class PyBulletHandoverIntakeProcess(
         self._horizon = horizon
         self._sim = sim
 
-    @property
+    @cached_property
     def observation_space(self) -> EnumSpace[_HandoverIntakeObs]:
         return EnumSpace([True, False])
 
-    @property
+    @cached_property
     def action_space(self) -> gym.spaces.Box:
-        return gym.spaces.Box(-np.inf, np.inf, shape=(3,), dtype=np.float32)
+        x, y, z = self._sim.rom_sphere_center
+        size = 0.5
+        return gym.spaces.Box(
+            low=np.array([x - size, y - size, z - size], dtype=np.float32),
+            high=np.array([x + size, y + size, z + size], dtype=np.float32),
+        )
 
     @property
     def horizon(self) -> int:
@@ -566,8 +563,9 @@ class PyBulletHandoverIntakeProcess(
         self,
         action: _HandoverIntakeAction,
     ) -> CategoricalDistribution[_HandoverIntakeObs]:
-        # Coming in next PR.
-        return CategoricalDistribution({True: 0.5, False: 0.5})
+        dist = np.sqrt(np.sum(np.subtract(action, self._sim.rom_sphere_center) ** 2))
+        result = dist < self._sim.rom_sphere_radius
+        return CategoricalDistribution({result: 1.0, not result: 0.0})
 
 
 class PyBulletHandoverTask(Task):
@@ -602,3 +600,6 @@ class PyBulletHandoverTask(Task):
     @property
     def intake_process(self) -> PyBulletHandoverIntakeProcess:
         return PyBulletHandoverIntakeProcess(self._intake_horizon, self._sim)
+
+    def close(self) -> None:
+        p.disconnect(self._sim.physics_client_id)

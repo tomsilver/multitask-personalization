@@ -61,6 +61,8 @@ class PyBulletHandoverParameterizedPolicy(
 
     def step(self, state: _HandoverState) -> _HandoverAction:
         assert self._current_parameters is not None
+        if np.isinf(self._current_parameters):
+            return (2, None)
         if not self._plan:
             # Sample a handover position on the surface of the current
             # estimated sphere. Repeatedly sample until a plan is found.
@@ -108,7 +110,10 @@ class PyBulletHandoverParameterizedPolicy(
     ) -> list[_HandoverAction]:
         plan: list[_HandoverAction] = []
 
-        assert state.grasp_transform is None
+        # This should only happen in the case where the policy fails.
+        if state.grasp_transform is not None:
+            return [(2, None)]
+
         self._sim.set_state(state)
         object_pose = state.object_pose
         collision_ids = {self._sim.table_id, self._sim.human.body}
@@ -206,7 +211,7 @@ class PyBulletHandoverParameterizedPolicy(
                 grasp_to_post_grasp_pybullet_helpers_plan
             )
         )
-        self._sim.step(action)
+        state = self._sim.get_state()
 
         # Motion plan to the handover pose.
         handover_pybullet_helpers_plan = run_smooth_motion_planning_to_pose(
@@ -222,6 +227,5 @@ class PyBulletHandoverParameterizedPolicy(
         assert handover_pybullet_helpers_plan is not None
         self._sim.set_state(state)
         plan.extend(self._rollout_pybullet_helpers_plan(handover_pybullet_helpers_plan))
-        self._sim.step(action)
 
         return plan
