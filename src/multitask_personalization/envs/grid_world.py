@@ -1,6 +1,7 @@
 """A toy deterministic shortest-path MDP and intake process."""
 
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any, TypeAlias
 
 import numpy as np
@@ -39,7 +40,7 @@ class GridMDP(MDP[_GridState, _GridAction]):
         assert all(grid[r, c] == _EMPTY for r, c in self._terminal_rewards)
         assert self._grid[self._initial_state] == _EMPTY
 
-    @property
+    @cached_property
     def state_space(self) -> EnumSpace[_GridState]:
         return EnumSpace(
             [
@@ -49,7 +50,7 @@ class GridMDP(MDP[_GridState, _GridAction]):
             ]
         )
 
-    @property
+    @cached_property
     def action_space(self) -> EnumSpace[_GridAction]:
         return EnumSpace(["up", "down", "left", "right"])
 
