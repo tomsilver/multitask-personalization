@@ -8,11 +8,11 @@ from multitask_personalization.envs.pybullet.pybullet_intake_process import (
     PyBulletIntakeProcess,
 )
 from multitask_personalization.envs.pybullet.pybullet_mdp import PyBulletMDP
-from multitask_personalization.envs.pybullet.pybullet_scene_description import (
-    PyBulletSceneDescription,
-)
 from multitask_personalization.envs.pybullet.pybullet_sim import (
     PyBulletSimulator,
+)
+from multitask_personalization.envs.pybullet.pybullet_task_spec import (
+    PyBulletTaskSpec,
 )
 from multitask_personalization.envs.task import Task
 
@@ -23,7 +23,7 @@ class PyBulletTask(Task):
     def __init__(
         self,
         intake_horizon: int,
-        scene_description: PyBulletSceneDescription | None = None,
+        scene_description: PyBulletTaskSpec | None = None,
         use_gui: bool = False,
     ) -> None:
 
@@ -32,7 +32,7 @@ class PyBulletTask(Task):
 
         # Finalize the scene description.
         if scene_description is None:
-            scene_description = PyBulletSceneDescription()
+            scene_description = PyBulletTaskSpec()
         self.scene_description = scene_description
 
         # Generate a shared PyBullet simulator.

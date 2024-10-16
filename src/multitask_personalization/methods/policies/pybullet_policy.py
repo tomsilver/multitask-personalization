@@ -17,9 +17,6 @@ from pybullet_helpers.motion_planning import (
 )
 from pybullet_helpers.states import KinematicState
 
-from multitask_personalization.envs.pybullet.pybullet_scene_description import (
-    PyBulletSceneDescription,
-)
 from multitask_personalization.envs.pybullet.pybullet_sim import (
     PyBulletSimulator,
 )
@@ -27,6 +24,9 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     _GripperAction,
     _PyBulletAction,
     _PyBulletState,
+)
+from multitask_personalization.envs.pybullet.pybullet_task_spec import (
+    PyBulletTaskSpec,
 )
 from multitask_personalization.methods.policies.parameterized_policy import (
     ParameterizedPolicy,
@@ -46,7 +46,7 @@ class PyBulletParameterizedPolicy(
 
     def __init__(
         self,
-        scene_description: PyBulletSceneDescription,
+        scene_description: PyBulletTaskSpec,
         seed: int = 0,
         max_motion_planning_time: float = 1.0,
     ) -> None:

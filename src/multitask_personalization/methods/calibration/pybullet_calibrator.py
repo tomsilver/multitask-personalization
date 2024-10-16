@@ -6,11 +6,11 @@ from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
 )
-from multitask_personalization.envs.pybullet.pybullet_scene_description import (
-    PyBulletSceneDescription,
-)
 from multitask_personalization.envs.pybullet.pybullet_sim import (
     PyBulletSimulator,
+)
+from multitask_personalization.envs.pybullet.pybullet_task_spec import (
+    PyBulletTaskSpec,
 )
 from multitask_personalization.methods.calibration.calibrator import Calibrator
 from multitask_personalization.methods.policies.parameterized_policy import (
@@ -21,7 +21,7 @@ from multitask_personalization.methods.policies.parameterized_policy import (
 class PyBulletCalibrator(Calibrator):
     """A domain-specific parameter setting method for pybullet tasks."""
 
-    def __init__(self, scene_description: PyBulletSceneDescription) -> None:
+    def __init__(self, scene_description: PyBulletTaskSpec) -> None:
         self._sim = PyBulletSimulator(scene_description)
 
     def get_parameters(
@@ -49,7 +49,7 @@ class PyBulletCalibrator(Calibrator):
 class OraclePyBulletCalibrator(Calibrator):
     """A domain-specific calibrator for pybullet that uses oracle info."""
 
-    def __init__(self, scene_description: PyBulletSceneDescription) -> None:
+    def __init__(self, scene_description: PyBulletTaskSpec) -> None:
         self._sim = PyBulletSimulator(scene_description)
 
     def get_parameters(

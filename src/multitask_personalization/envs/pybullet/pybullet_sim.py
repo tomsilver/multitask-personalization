@@ -17,13 +17,13 @@ from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 
-from multitask_personalization.envs.pybullet.pybullet_scene_description import (
-    PyBulletSceneDescription,
-)
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     _GripperAction,
     _PyBulletAction,
     _PyBulletState,
+)
+from multitask_personalization.envs.pybullet.pybullet_task_spec import (
+    PyBulletTaskSpec,
 )
 
 
@@ -32,7 +32,7 @@ class PyBulletSimulator:
 
     def __init__(
         self,
-        scene_description: PyBulletSceneDescription,
+        scene_description: PyBulletTaskSpec,
         use_gui: bool = False,
         seed: int = 0,
     ) -> None:
