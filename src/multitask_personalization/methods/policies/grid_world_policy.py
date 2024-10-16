@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 from scipy.sparse import coo_matrix
 from scipy.sparse.csgraph import shortest_path
 
-from multitask_personalization.envs.grid_world.grid_world import (
+from multitask_personalization.envs.grid_world.grid_world_mdp import (
     _OBSTACLE,
     _GridAction,
     _GridState,

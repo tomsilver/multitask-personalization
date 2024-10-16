@@ -2,10 +2,7 @@
 
 import numpy as np
 
-from multitask_personalization.envs.grid_world.grid_world import (
-    _EMPTY,
-    _OBSTACLE,
-)
+from multitask_personalization.envs.grid_world.grid_world_mdp import _EMPTY, _OBSTACLE
 from multitask_personalization.methods.policies.grid_world_policy import (
     GridWorldParameterizedPolicy,
 )

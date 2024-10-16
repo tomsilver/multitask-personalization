@@ -2,9 +2,8 @@
 
 import numpy as np
 
-from multitask_personalization.envs.grid_world.grid_world import (
-    _EMPTY,
-    _OBSTACLE,
+from multitask_personalization.envs.grid_world.grid_world_mdp import _EMPTY, _OBSTACLE
+from multitask_personalization.envs.grid_world.grid_world_tasks import (
     GridTask,
 )
 from multitask_personalization.methods.interaction.random_interaction import (
