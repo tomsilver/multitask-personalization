@@ -14,7 +14,7 @@ from multitask_personalization.methods.policies.pybullet_policy import (
 def test_pybullet_policy():
     """Tests for pybullet_policy.py."""
     rng = np.random.default_rng(123)
-    task_spec = PyBulletTaskSpec(task_objective="hand over book")
+    task_spec = PyBulletTaskSpec(task_objective="place book on tray")
     task = PyBulletTask(
         intake_horizon=5,
         task_spec=task_spec,

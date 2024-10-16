@@ -56,7 +56,7 @@ class PyBulletParameterizedPolicy(
         self._rng = np.random.default_rng(seed)
         self._task_spec = task_spec
         # Create a simulator for planning.
-        self._sim = PyBulletSimulator(task_spec, use_gui=False)
+        self._sim = PyBulletSimulator(task_spec, use_gui=True)
         self._joint_distance_fn = create_joint_distance_fn(self._sim.robot)
         # Store an action plan for the robot.
         self._plan: list[_PyBulletAction] = []
@@ -121,6 +121,9 @@ class PyBulletParameterizedPolicy(
         elif self._task_spec.task_objective == "hand over book":
             object_id = self._sim.book_id
             surface_id = self._sim.shelf_id
+        elif self._task_spec.task_objective == "place book on tray":
+            object_id = self._sim.book_id
+            surface_id = self._sim.shelf_id
         else:
             raise NotImplementedError
 
@@ -147,6 +150,11 @@ class PyBulletParameterizedPolicy(
             grasp_generator=_grasp_generator(),
         )
         assert kinematic_plan is not None
+
+        if self._task_spec.task_objective == "place book on tray":
+            # TODO implement motion planning for base
+            # TODO in future PR, convert to planning with skills framework
+            import ipdb; ipdb.set_trace()
 
         # Sample a reachable handover pose.
         handover_pose: Pose | None = None
