@@ -6,7 +6,7 @@ from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
 )
-from multitask_personalization.envs.pybullet_handover import (
+from multitask_personalization.envs.pybullet.pybullet_handover import (
     PyBulletHandoverSceneDescription,
     PyBulletHandoverSimulator,
 )

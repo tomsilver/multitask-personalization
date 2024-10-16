@@ -2,7 +2,7 @@
 
 from typing import Collection
 
-from multitask_personalization.envs.grid_world import (
+from multitask_personalization.envs.grid_world.grid_world import (
     GridTask,
     _GridState,
     _RewardValueQuestion,

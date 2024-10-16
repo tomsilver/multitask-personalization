@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from multitask_personalization.envs.grid_world import (
+from multitask_personalization.envs.grid_world.grid_world import (
     _EMPTY,
     _OBSTACLE,
     GridTask,

@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from multitask_personalization.envs.pybullet_handover import (
+from multitask_personalization.envs.pybullet.pybullet_handover import (
     PyBulletHandoverTask,
 )
 from multitask_personalization.methods.policies.pybullet_handover_policy import (
