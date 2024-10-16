@@ -10,7 +10,7 @@ import pybullet as p
 from assistive_gym.envs.agents.furniture import Furniture
 from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
-from pybullet_helpers.geometry import Pose, get_pose, multiply_poses
+from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
@@ -64,11 +64,8 @@ class PyBulletSimulator:
             half_extents=self.task_spec.robot_stand_half_extents,
             physics_client_id=self.physics_client_id,
         )
-        p.resetBasePositionAndOrientation(
-            self.robot_stand_id,
-            self.task_spec.robot_stand_pose.position,
-            self.task_spec.robot_stand_pose.orientation,
-            physicsClientId=self.physics_client_id,
+        set_pose(
+            self.robot_stand_id, self.task_spec.robot_stand_pose, self.physics_client_id
         )
 
         # Create human.
@@ -85,12 +82,10 @@ class PyBulletSimulator:
             id=self.physics_client_id,
             np_random=self._rng,
         )
-        p.resetBasePositionAndOrientation(
-            self.human.body,
-            self.task_spec.human_base_pose.position,
-            self.task_spec.human_base_pose.orientation,
-            physicsClientId=self.physics_client_id,
+        set_pose(
+            self.human.body, self.task_spec.human_base_pose, self.physics_client_id
         )
+
         # Use some default joint positions from assistive gym first.
         joints_positions = [
             (self.human.j_right_elbow, -90),
@@ -122,11 +117,8 @@ class PyBulletSimulator:
             self._rng,
             wheelchair_mounted=False,
         )
-        p.resetBasePositionAndOrientation(
-            furniture.body,
-            self.task_spec.wheelchair_base_pose.position,
-            self.task_spec.wheelchair_base_pose.orientation,
-            physicsClientId=self.physics_client_id,
+        set_pose(
+            furniture.body, self.task_spec.wheelchair_base_pose, self.physics_client_id
         )
 
         # Placeholder for full range of motion model.
@@ -135,25 +127,25 @@ class PyBulletSimulator:
         ).position
         self.rom_sphere_radius = 0.25
         # Visualize.
-        shape_id = p.createVisualShape(
-            shapeType=p.GEOM_SPHERE,
-            radius=self.rom_sphere_radius,
-            rgbaColor=(1.0, 0.0, 0.0, 0.5),
-            physicsClientId=self.physics_client_id,
-        )
-        collision_id = p.createCollisionShape(
-            shapeType=p.GEOM_SPHERE,
-            radius=1e-6,
-            physicsClientId=self.physics_client_id,
-        )
-        self._rom_viz_id = p.createMultiBody(
-            baseMass=-1,
-            baseCollisionShapeIndex=collision_id,
-            baseVisualShapeIndex=shape_id,
-            basePosition=self.rom_sphere_center,
-            baseOrientation=[0, 0, 0, 1],
-            physicsClientId=self.physics_client_id,
-        )
+        # shape_id = p.createVisualShape(
+        #     shapeType=p.GEOM_SPHERE,
+        #     radius=self.rom_sphere_radius,
+        #     rgbaColor=(1.0, 0.0, 0.0, 0.5),
+        #     physicsClientId=self.physics_client_id,
+        # )
+        # collision_id = p.createCollisionShape(
+        #     shapeType=p.GEOM_SPHERE,
+        #     radius=1e-6,
+        #     physicsClientId=self.physics_client_id,
+        # )
+        # self._rom_viz_id = p.createMultiBody(
+        #     baseMass=-1,
+        #     baseCollisionShapeIndex=collision_id,
+        #     baseVisualShapeIndex=shape_id,
+        #     basePosition=self.rom_sphere_center,
+        #     baseOrientation=[0, 0, 0, 1],
+        #     physicsClientId=self.physics_client_id,
+        # )
 
         # Create table.
         self.table_id = create_pybullet_block(
@@ -161,12 +153,7 @@ class PyBulletSimulator:
             half_extents=self.task_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
         )
-        p.resetBasePositionAndOrientation(
-            self.table_id,
-            self.task_spec.table_pose.position,
-            self.task_spec.table_pose.orientation,
-            physicsClientId=self.physics_client_id,
-        )
+        set_pose(self.table_id, self.task_spec.table_pose, self.physics_client_id)
 
         # Create object.
         self.object_id = create_pybullet_cylinder(
@@ -175,12 +162,20 @@ class PyBulletSimulator:
             self.task_spec.object_length,
             physics_client_id=self.physics_client_id,
         )
-        p.resetBasePositionAndOrientation(
-            self.object_id,
-            self.task_spec.object_pose.position,
-            self.task_spec.object_pose.orientation,
-            physicsClientId=self.physics_client_id,
+        set_pose(self.object_id, self.task_spec.object_pose, self.physics_client_id)
+
+        # Create shelf.
+        self.shelf_id = _create_shelf(
+            self.task_spec.shelf_rgba,
+            shelf_width=self.task_spec.shelf_width,
+            shelf_depth=self.task_spec.shelf_depth,
+            shelf_height=self.task_spec.shelf_height,
+            spacing=self.task_spec.shelf_spacing,
+            support_width=self.task_spec.shelf_support_width,
+            num_layers=self.task_spec.shelf_num_layers,
+            physics_client_id=self.physics_client_id,
         )
+        set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
@@ -278,3 +273,100 @@ class PyBulletSimulator:
                 world_to_object.orientation,
                 physicsClientId=self.physics_client_id,
             )
+
+
+def _create_shelf(
+    color: tuple[float, float, float, float],
+    shelf_width: float,
+    shelf_depth: float,
+    shelf_height: float,
+    spacing: float,
+    support_width: float,
+    num_layers: int,
+    physics_client_id: int,
+) -> int:
+
+    collision_shape_ids = []
+    visual_shape_ids = []
+    base_positions = []
+    base_orientations = []
+    link_masses = []
+    link_parent_indices = []
+    link_joint_types = []
+    link_joint_axes = []
+
+    # Add each shelf layer to the lists.
+    for i in range(num_layers):
+        layer_z = i * (spacing + shelf_height)
+
+        col_shape_id = p.createCollisionShape(
+            p.GEOM_BOX, halfExtents=[shelf_width / 2, shelf_depth / 2, shelf_height / 2]
+        )
+        visual_shape_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=[shelf_width / 2, shelf_depth / 2, shelf_height / 2],
+            rgbaColor=color,
+        )
+
+        collision_shape_ids.append(col_shape_id)
+        visual_shape_ids.append(visual_shape_id)
+        base_positions.append([0, 0, layer_z])
+        base_orientations.append([0, 0, 0, 1])
+        link_masses.append(0)
+        link_parent_indices.append(0)
+        link_joint_types.append(p.JOINT_FIXED)
+        link_joint_axes.append([0, 0, 0])
+
+    # Add vertical side supports to the lists.
+    support_height = (num_layers - 1) * spacing + (num_layers - 1) * shelf_height
+    support_half_height = support_height / 2
+
+    for x_offset in [
+        -shelf_width / 2 + support_width / 2,
+        shelf_width / 2 - support_width / 2,
+    ]:
+        for y_offset in [
+            -shelf_depth / 2 + support_width / 2,
+            shelf_depth / 2 - support_width / 2,
+        ]:
+            support_col_shape_id = p.createCollisionShape(
+                p.GEOM_BOX,
+                halfExtents=[support_width / 2, support_width / 2, support_half_height],
+            )
+            support_visual_shape_id = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=[support_width / 2, support_width / 2, support_half_height],
+                rgbaColor=color,
+            )
+
+            collision_shape_ids.append(support_col_shape_id)
+            visual_shape_ids.append(support_visual_shape_id)
+            base_positions.append([x_offset, y_offset, support_half_height])
+            base_orientations.append([0, 0, 0, 1])
+            link_masses.append(0)
+            link_parent_indices.append(0)
+            link_joint_types.append(p.JOINT_FIXED)
+            link_joint_axes.append([0, 0, 0])
+
+    # Create the multibody with all collision and visual shapes.
+    shelf_id = p.createMultiBody(
+        baseMass=0,
+        baseCollisionShapeIndex=-1,
+        baseVisualShapeIndex=-1,
+        basePosition=(0, 0, 0),  # changed externally
+        linkMasses=link_masses,
+        linkCollisionShapeIndices=collision_shape_ids,
+        linkVisualShapeIndices=visual_shape_ids,
+        linkPositions=base_positions,
+        linkOrientations=base_orientations,
+        linkInertialFramePositions=[[0, 0, 0]] * len(collision_shape_ids),
+        linkInertialFrameOrientations=[[0, 0, 0, 1]] * len(collision_shape_ids),
+        linkParentIndices=link_parent_indices,
+        linkJointTypes=link_joint_types,
+        linkJointAxis=link_joint_axes,
+        linkLowerLimits=[1] * len(collision_shape_ids),
+        linkUpperLimits=[-1] * len(collision_shape_ids),
+        physicsClientId=physics_client_id,
+    )
+
+    return shelf_id

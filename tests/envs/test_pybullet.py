@@ -17,7 +17,7 @@ def test_pybullet():
         task = PyBulletTask(
             intake_horizon=1,
             task_spec=task_spec,
-            use_gui=False,
+            use_gui=True,
         )
         mdp = task.mdp
         state = mdp.sample_initial_state(rng)

@@ -67,3 +67,15 @@ class PyBulletTaskSpec:
     object_length: float = 0.1
 
     camera_distance: float = 2.0
+
+    shelf_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
+    shelf_width: float = 1.0
+    shelf_height: float = 0.1
+    shelf_depth: float = 0.3
+    shelf_spacing: float = 0.4
+    shelf_support_width: float = 0.05
+    shelf_num_layers: int = 4
+    shelf_support_height = (shelf_num_layers - 1) * shelf_spacing + (
+        shelf_num_layers - 1
+    ) * shelf_height
+    shelf_pose: Pose = Pose(position=(0.0, 0.75, -shelf_support_height / 2))
