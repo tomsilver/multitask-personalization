@@ -2,13 +2,14 @@
 
 import numpy as np
 
-from multitask_personalization.envs.grid_world import (
-    _EMPTY,
-    _OBSTACLE,
-    GridTask,
+from multitask_personalization.envs.grid_world.grid_world_intake_process import (
     _CoinFlipQuestion,
     _RewardTypeQuestion,
     _RewardValueQuestion,
+)
+from multitask_personalization.envs.grid_world.grid_world_mdp import _EMPTY, _OBSTACLE
+from multitask_personalization.envs.grid_world.grid_world_tasks import (
+    GridTask,
 )
 
 

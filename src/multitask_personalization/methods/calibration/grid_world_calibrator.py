@@ -2,10 +2,12 @@
 
 from typing import Collection
 
-from multitask_personalization.envs.grid_world import (
-    GridTask,
-    _GridState,
+from multitask_personalization.envs.grid_world.grid_world_intake_process import (
     _RewardValueQuestion,
+)
+from multitask_personalization.envs.grid_world.grid_world_mdp import _GridState
+from multitask_personalization.envs.grid_world.grid_world_tasks import (
+    GridTask,
 )
 from multitask_personalization.envs.intake_process import (
     IntakeAction,

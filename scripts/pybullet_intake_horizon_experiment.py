@@ -9,18 +9,20 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from multitask_personalization.envs.pybullet_handover import PyBulletHandoverTask
+from multitask_personalization.envs.pybullet.pybullet_tasks import (
+    PyBulletTask,
+)
 from multitask_personalization.methods.approach import Approach
 from multitask_personalization.methods.calibration.calibrator import Calibrator
-from multitask_personalization.methods.calibration.pybullet_handover_calibrator import (
-    OraclePyBulletHandoverCalibrator,
-    PyBulletHandoverCalibrator,
+from multitask_personalization.methods.calibration.pybullet_calibrator import (
+    OraclePyBulletCalibrator,
+    PyBulletCalibrator,
 )
 from multitask_personalization.methods.interaction.random_interaction import (
     RandomInteractionMethod,
 )
-from multitask_personalization.methods.policies.pybullet_handover_policy import (
-    PyBulletHandoverParameterizedPolicy,
+from multitask_personalization.methods.policies.pybullet_policy import (
+    PyBulletParameterizedPolicy,
 )
 from multitask_personalization.structs import Image
 
@@ -33,7 +35,7 @@ def _main(
     make_videos: bool,
 ) -> None:
     os.makedirs(outdir, exist_ok=True)
-    csv_file = outdir / "pybullet_handover_experiment.csv"
+    csv_file = outdir / "pybullet_experiment.csv"
     if load:
         assert csv_file.exists()
         df = pd.read_csv(csv_file)
@@ -67,7 +69,7 @@ def _main(
 
 def _df_to_plot(df: pd.DataFrame, outdir: Path) -> None:
     matplotlib.rcParams.update({"font.size": 20})
-    fig_file = outdir / "pybullet_handover_experiment.png"
+    fig_file = outdir / "pybullet_experiment.png"
 
     grouped = df.groupby(["Num Intake Steps", "Approach"]).agg(
         {"Returns": ["mean", "sem"]}
@@ -109,18 +111,18 @@ def _run_single(
     outdir: Path,
 ) -> float:
 
-    task = PyBulletHandoverTask(intake_horizon=num_intake_steps, use_gui=False)
+    task = PyBulletTask(intake_horizon=num_intake_steps, use_gui=False)
 
     # Create the approach.
     if approach_name == "Random":
-        calibrator: Calibrator = PyBulletHandoverCalibrator(task.scene_description)
+        calibrator: Calibrator = PyBulletCalibrator(task.scene_description)
         im = RandomInteractionMethod(seed=seed)
     elif approach_name == "Oracle":
-        calibrator = OraclePyBulletHandoverCalibrator(task.scene_description)
+        calibrator = OraclePyBulletCalibrator(task.scene_description)
         im = RandomInteractionMethod(seed=seed)
     else:
         raise NotImplementedError
-    policy = PyBulletHandoverParameterizedPolicy(task.scene_description, seed=seed)
+    policy = PyBulletParameterizedPolicy(task.scene_description, seed=seed)
     approach = Approach(calibrator, im, policy)
 
     returns = 0.0
@@ -155,7 +157,7 @@ def _run_single(
             imgs.append((mdp.render_state(state)))
 
     if make_videos:
-        video_file = outdir / f"pybullet_handover_experiment_{seed}_{approach_name}.gif"
+        video_file = outdir / f"pybullet_experiment_{seed}_{approach_name}.gif"
         iio.mimsave(video_file, imgs)  # type: ignore
         print(f"Wrote out to {video_file}")
 
