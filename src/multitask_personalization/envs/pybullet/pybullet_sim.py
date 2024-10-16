@@ -209,8 +209,8 @@ class PyBulletSimulator:
         self.current_held_object_id: int | None = None
 
         # Uncomment for debug / development.
-        while True:
-            p.stepSimulation(self.physics_client_id)
+        # while True:
+        #     p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> _PyBulletState:
         """Get the underlying state from the simulator."""
@@ -278,7 +278,10 @@ class PyBulletSimulator:
             return
         if np.isclose(action[0], 2):
             return  # will handle none case later, when the human moves
-        joint_angle_delta = action[1]
+        joint_action = list(action[1])  # type: ignore
+        base_position_delta = joint_action[:3]
+        joint_angle_delta = joint_action[3:]
+        del base_position_delta  # TODO
         # Update the robot arm angles.
         current_joints = self.robot.get_joint_positions()
         # Only update the arm, assuming the first 7 entries are the arm.

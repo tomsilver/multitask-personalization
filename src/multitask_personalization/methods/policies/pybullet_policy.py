@@ -194,7 +194,8 @@ class PyBulletParameterizedPolicy(
     ) -> list[_PyBulletAction]:
         joint_delta = np.subtract(next_state.robot_joints, state.robot_joints)
         delta = joint_delta[:7]
-        actions: list[_PyBulletAction] = [(0, delta.tolist())]
+        act = [0.0, 0.0, 0.0] + delta.tolist()
+        actions: list[_PyBulletAction] = [(0, act)]
         if next_state.attachments and not state.attachments:
             actions.append((1, _GripperAction.CLOSE))
         elif state.attachments and not next_state.attachments:

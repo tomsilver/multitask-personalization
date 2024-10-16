@@ -43,7 +43,7 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
     def action_space(self) -> gym.spaces.Space:
         return gym.spaces.OneOf(
             (
-                gym.spaces.Box(-np.inf, np.inf, shape=(7,), dtype=np.float32),
+                gym.spaces.Box(-np.inf, np.inf, shape=(10,), dtype=np.float32),
                 EnumSpace([_GripperAction.OPEN, _GripperAction.CLOSE]),
                 EnumSpace([None]),
             )
