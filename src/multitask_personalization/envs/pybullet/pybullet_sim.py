@@ -59,9 +59,10 @@ class PyBulletSimulator:
         self.robot = robot
 
         # Create robot stand.
-        self.robot_stand_id = create_pybullet_block(
+        self.robot_stand_id = create_pybullet_cylinder(
             self.task_spec.robot_stand_rgba,
-            half_extents=self.task_spec.robot_stand_half_extents,
+            radius=self.task_spec.robot_stand_radius,
+            length=self.task_spec.robot_stand_length,
             physics_client_id=self.physics_client_id,
         )
         set_pose(

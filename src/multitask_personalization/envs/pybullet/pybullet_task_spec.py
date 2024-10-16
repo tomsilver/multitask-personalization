@@ -38,8 +38,9 @@ class PyBulletTaskSpec:
     robot_max_joint_delta: float = 0.5
 
     robot_stand_pose: Pose = Pose((0.0, 0.0, -0.2))
-    robot_stand_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
-    robot_stand_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
+    robot_stand_rgba: tuple[float, float, float, float] = (0.3, 0.1, 0.1, 1.0)
+    robot_stand_radius: float = 0.1
+    robot_stand_length: float = 0.4
 
     human_base_pose: Pose = Pose(position=(1.0, 0.53, 0.39))
     human_joints: JointPositions = field(
