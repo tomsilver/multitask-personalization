@@ -1,4 +1,4 @@
-"""Defines the initialization of a scene in a pybullet environment."""
+"""Defines the specification of tasks in the pybullet environment."""
 
 from __future__ import annotations
 
@@ -9,8 +9,10 @@ from pybullet_helpers.joint import JointPositions
 
 
 @dataclass(frozen=True)
-class PyBulletSceneDescription:
-    """Container for default hyperparameters."""
+class PyBulletTaskSpec:
+    """Defines the specification of tasks in the pybullet environment."""
+
+    task_name: str = "default"
 
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))

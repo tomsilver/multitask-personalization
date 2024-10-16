@@ -76,11 +76,11 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
 
     def sample_initial_state(self, rng: np.random.Generator) -> _PyBulletState:
         # In the future, will actually randomize this.
-        robot_base = self._sim.scene_description.robot_base_pose
-        robot_joints = self._sim.scene_description.initial_joints
-        human_base = self._sim.scene_description.human_base_pose
-        human_joints = self._sim.scene_description.human_joints
-        object_pose = self._sim.scene_description.object_pose
+        robot_base = self._sim.task_spec.robot_base_pose
+        robot_joints = self._sim.task_spec.initial_joints
+        human_base = self._sim.task_spec.human_base_pose
+        human_joints = self._sim.task_spec.human_joints
+        object_pose = self._sim.task_spec.object_pose
         grasp_transform = None
         return _PyBulletState(
             robot_base,
@@ -113,5 +113,5 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
         return capture_image(
             self._sim.physics_client_id,
             camera_target=target,
-            camera_distance=self._sim.scene_description.camera_distance,
+            camera_distance=self._sim.task_spec.camera_distance,
         )

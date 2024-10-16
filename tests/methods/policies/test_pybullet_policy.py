@@ -22,7 +22,7 @@ def test_pybullet_policy():
     assert not mdp.state_is_terminal(state)
     mdp.action_space.seed(123)
 
-    policy = PyBulletParameterizedPolicy(task.scene_description)
+    policy = PyBulletParameterizedPolicy(task.task_spec)
     params = 0.2  # radius of ROM sphere
     policy.reset(task.id, params)
 

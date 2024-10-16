@@ -24,7 +24,7 @@ def test_grid_world_calibrator():
     im = RandomInteractionMethod(seed=123)
     ip.action_space.seed(123)
     im.reset(task.id, ip.action_space, ip.observation_space)
-    calibrator = PyBulletCalibrator(task.scene_description)
+    calibrator = PyBulletCalibrator(task.task_spec)
     rng = np.random.default_rng(123)
     data = []
     for _ in range(100):
