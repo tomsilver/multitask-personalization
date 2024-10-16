@@ -12,12 +12,12 @@ from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.mdp import MDP
 from multitask_personalization.envs.pybullet.pybullet_sim import (
-    PyBulletHandoverSimulator,
+    PyBulletSimulator,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     _GripperAction,
-    _HandoverAction,
-    _HandoverState,
+    _PyBulletAction,
+    _PyBulletState,
 )
 from multitask_personalization.structs import (
     CategoricalDistribution,
@@ -25,12 +25,12 @@ from multitask_personalization.structs import (
 )
 
 
-class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
-    """A handover environment implemented in PyBullet."""
+class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
+    """An environment implemented in PyBullet."""
 
     def __init__(
         self,
-        sim: PyBulletHandoverSimulator,
+        sim: PyBulletSimulator,
     ) -> None:
         self._sim = sim
         self._terminal_state_padding = 1e-2
@@ -38,7 +38,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
     @cached_property
     def state_space(self) -> gym.spaces.Box:
         return gym.spaces.Box(
-            -np.inf, np.inf, shape=(_HandoverState.get_dimension(),), dtype=np.float32
+            -np.inf, np.inf, shape=(_PyBulletState.get_dimension(),), dtype=np.float32
         )
 
     @cached_property
@@ -51,7 +51,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
             )
         )
 
-    def state_is_terminal(self, state: _HandoverState) -> bool:
+    def state_is_terminal(self, state: _PyBulletState) -> bool:
         # Will be replaced by a real ROM check later.
         end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
         dist = np.sqrt(
@@ -63,7 +63,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
 
     def get_reward(
-        self, state: _HandoverState, action: _HandoverAction, next_state: _HandoverState
+        self, state: _PyBulletState, action: _PyBulletAction, next_state: _PyBulletState
     ) -> float:
         if self.state_is_terminal(next_state):
             return 1.0
@@ -74,7 +74,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
     ) -> CategoricalDistribution:
         raise NotImplementedError("Initial state distribution too large")
 
-    def sample_initial_state(self, rng: np.random.Generator) -> _HandoverState:
+    def sample_initial_state(self, rng: np.random.Generator) -> _PyBulletState:
         # In the future, will actually randomize this.
         robot_base = self._sim.scene_description.robot_base_pose
         robot_joints = self._sim.scene_description.initial_joints
@@ -82,7 +82,7 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         human_joints = self._sim.scene_description.human_joints
         object_pose = self._sim.scene_description.object_pose
         grasp_transform = None
-        return _HandoverState(
+        return _PyBulletState(
             robot_base,
             robot_joints,
             human_base,
@@ -92,18 +92,18 @@ class PyBulletHandoverMDP(MDP[_HandoverState, _HandoverAction]):
         )
 
     def get_transition_distribution(
-        self, state: _HandoverState, action: _HandoverAction
+        self, state: _PyBulletState, action: _PyBulletAction
     ) -> CategoricalDistribution:
         raise NotImplementedError("Sample transitions, don't enumerate them")
 
     def sample_next_state(
-        self, state: _HandoverState, action: _HandoverAction, rng: np.random.Generator
-    ) -> _HandoverState:
+        self, state: _PyBulletState, action: _PyBulletAction, rng: np.random.Generator
+    ) -> _PyBulletState:
         self._sim.set_state(state)
         self._sim.step(action)
         return self._sim.get_state()
 
-    def render_state(self, state: _HandoverState) -> Image:
+    def render_state(self, state: _PyBulletState) -> Image:
         self._sim.set_state(state)
         target = get_link_pose(
             self._sim.human.body,

@@ -10,28 +10,26 @@ from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.intake_process import IntakeProcess
 from multitask_personalization.envs.pybullet.pybullet_sim import (
-    PyBulletHandoverSimulator,
+    PyBulletSimulator,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
-    _HandoverIntakeAction,
-    _HandoverIntakeObs,
+    _PyBulletIntakeAction,
+    _PyBulletIntakeObs,
 )
 from multitask_personalization.structs import (
     CategoricalDistribution,
 )
 
 
-class PyBulletHandoverIntakeProcess(
-    IntakeProcess[_HandoverIntakeObs, _HandoverIntakeAction]
-):
+class PyBulletIntakeProcess(IntakeProcess[_PyBulletIntakeObs, _PyBulletIntakeAction]):
     """Intake process for the pybullet handover environment."""
 
-    def __init__(self, horizon: int, sim: PyBulletHandoverSimulator) -> None:
+    def __init__(self, horizon: int, sim: PyBulletSimulator) -> None:
         self._horizon = horizon
         self._sim = sim
 
     @cached_property
-    def observation_space(self) -> EnumSpace[_HandoverIntakeObs]:
+    def observation_space(self) -> EnumSpace[_PyBulletIntakeObs]:
         return EnumSpace([True, False])
 
     @cached_property
@@ -49,8 +47,8 @@ class PyBulletHandoverIntakeProcess(
 
     def get_observation_distribution(
         self,
-        action: _HandoverIntakeAction,
-    ) -> CategoricalDistribution[_HandoverIntakeObs]:
+        action: _PyBulletIntakeAction,
+    ) -> CategoricalDistribution[_PyBulletIntakeObs]:
         dist = np.sqrt(np.sum(np.subtract(action, self._sim.rom_sphere_center) ** 2))
         result = dist < self._sim.rom_sphere_radius
         return CategoricalDistribution({result: 1.0, not result: 0.0})

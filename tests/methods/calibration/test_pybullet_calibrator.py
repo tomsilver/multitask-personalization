@@ -1,12 +1,12 @@
-"""Tests for pybullet_handover_calibrator.py."""
+"""Tests for pybullet_calibrator.py."""
 
 import numpy as np
 
 from multitask_personalization.envs.pybullet.pybullet_tasks import (
-    PyBulletHandoverTask,
+    PyBulletTask,
 )
-from multitask_personalization.methods.calibration.pybullet_handover_calibrator import (
-    PyBulletHandoverCalibrator,
+from multitask_personalization.methods.calibration.pybullet_calibrator import (
+    PyBulletCalibrator,
 )
 from multitask_personalization.methods.interaction.random_interaction import (
     RandomInteractionMethod,
@@ -16,7 +16,7 @@ from multitask_personalization.methods.interaction.random_interaction import (
 def test_grid_world_calibrator():
     """Tests for grid_world_calibrator.py."""
 
-    task = PyBulletHandoverTask(
+    task = PyBulletTask(
         intake_horizon=100,
         use_gui=False,
     )
@@ -24,7 +24,7 @@ def test_grid_world_calibrator():
     im = RandomInteractionMethod(seed=123)
     ip.action_space.seed(123)
     im.reset(task.id, ip.action_space, ip.observation_space)
-    calibrator = PyBulletHandoverCalibrator(task.scene_description)
+    calibrator = PyBulletCalibrator(task.scene_description)
     rng = np.random.default_rng(123)
     data = []
     for _ in range(100):

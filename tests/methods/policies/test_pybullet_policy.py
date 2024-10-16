@@ -1,18 +1,18 @@
-"""Tests for pybullet_handover_policy.py."""
+"""Tests for pybullet_policy.py."""
 
 import numpy as np
 
 from multitask_personalization.envs.pybullet.pybullet_tasks import (
-    PyBulletHandoverTask,
+    PyBulletTask,
 )
-from multitask_personalization.methods.policies.pybullet_handover_policy import (
-    PyBulletHandoverParameterizedPolicy,
+from multitask_personalization.methods.policies.pybullet_policy import (
+    PyBulletParameterizedPolicy,
 )
 
 
-def test_pybullet_handover_policy():
-    """Tests for pybullet_handover_policy.py."""
-    task = PyBulletHandoverTask(
+def test_pybullet_policy():
+    """Tests for pybullet_policy.py."""
+    task = PyBulletTask(
         intake_horizon=5,
         use_gui=False,
     )
@@ -22,7 +22,7 @@ def test_pybullet_handover_policy():
     assert not mdp.state_is_terminal(state)
     mdp.action_space.seed(123)
 
-    policy = PyBulletHandoverParameterizedPolicy(task.scene_description)
+    policy = PyBulletParameterizedPolicy(task.scene_description)
     params = 0.2  # radius of ROM sphere
     policy.reset(task.id, params)
 
@@ -39,4 +39,4 @@ def test_pybullet_handover_policy():
     # Uncomment for visualization.
     # import imageio.v2 as iio
     # imgs = [mdp.render_state(s) for s in states]
-    # iio.mimsave("pybullet_handover_policy_test.mp4", imgs)
+    # iio.mimsave("pybullet_policy_test.mp4", imgs)

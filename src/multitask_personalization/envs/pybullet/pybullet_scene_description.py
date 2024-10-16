@@ -9,7 +9,7 @@ from pybullet_helpers.joint import JointPositions
 
 
 @dataclass(frozen=True)
-class PyBulletHandoverSceneDescription:
+class PyBulletSceneDescription:
     """Container for default hyperparameters."""
 
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers

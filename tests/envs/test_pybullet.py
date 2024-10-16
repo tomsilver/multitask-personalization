@@ -1,16 +1,16 @@
-"""Tests for pybullet_handover.py."""
+"""Tests for pybullet.py."""
 
 import numpy as np
 
 from multitask_personalization.envs.pybullet.pybullet_tasks import (
-    PyBulletHandoverTask,
+    PyBulletTask,
 )
 
 
-def test_pybullet_handover():
-    """Tests for pybullet_handover.py."""
+def test_pybullet():
+    """Tests for pybullet.py."""
     intake_horizon = 5
-    task = PyBulletHandoverTask(
+    task = PyBulletTask(
         intake_horizon=intake_horizon,
         use_gui=False,
     )
@@ -32,4 +32,4 @@ def test_pybullet_handover():
     # Uncomment for visualization.
     # import imageio.v2 as iio
     # imgs = [mdp.render_state(s) for s in states]
-    # iio.mimsave("pybullet_handover_test.gif", imgs)
+    # iio.mimsave("pybullet_test.gif", imgs)

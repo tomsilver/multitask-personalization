@@ -18,21 +18,21 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 
 from multitask_personalization.envs.pybullet.pybullet_scene_description import (
-    PyBulletHandoverSceneDescription,
+    PyBulletSceneDescription,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     _GripperAction,
-    _HandoverAction,
-    _HandoverState,
+    _PyBulletAction,
+    _PyBulletState,
 )
 
 
-class PyBulletHandoverSimulator:
+class PyBulletSimulator:
     """A shared simulator used for both MDP and intake."""
 
     def __init__(
         self,
-        scene_description: PyBulletHandoverSceneDescription,
+        scene_description: PyBulletSceneDescription,
         use_gui: bool = False,
         seed: int = 0,
     ) -> None:
@@ -189,14 +189,14 @@ class PyBulletHandoverSimulator:
         # while True:
         #     p.stepSimulation(self.physics_client_id)
 
-    def get_state(self) -> _HandoverState:
+    def get_state(self) -> _PyBulletState:
         """Get the underlying state from the simulator."""
         robot_base = self.robot.get_base_pose()
         robot_joints = self.robot.get_joint_positions()
         human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
         human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
         object_pose = get_pose(self.object_id, self.physics_client_id)
-        return _HandoverState(
+        return _PyBulletState(
             robot_base,
             robot_joints,
             human_base,
@@ -205,7 +205,7 @@ class PyBulletHandoverSimulator:
             self.current_grasp_transform,
         )
 
-    def set_state(self, state: _HandoverState) -> None:
+    def set_state(self, state: _PyBulletState) -> None:
         """Sync the simulator with the given state."""
         p.resetBasePositionAndOrientation(
             self.robot.robot_id,
@@ -232,7 +232,7 @@ class PyBulletHandoverSimulator:
         )
         self.current_grasp_transform = state.grasp_transform
 
-    def step(self, action: _HandoverAction) -> None:
+    def step(self, action: _PyBulletAction) -> None:
         """Advance the simulator given an action."""
         if np.isclose(action[0], 1):
             if action[1] == _GripperAction.CLOSE:

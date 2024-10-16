@@ -1,4 +1,4 @@
-"""A domain-specific parameter setting method for pybullet handover tasks."""
+"""A domain-specific parameter setting method for pybullet tasks."""
 
 import numpy as np
 
@@ -7,10 +7,10 @@ from multitask_personalization.envs.intake_process import (
     IntakeObservation,
 )
 from multitask_personalization.envs.pybullet.pybullet_scene_description import (
-    PyBulletHandoverSceneDescription,
+    PyBulletSceneDescription,
 )
 from multitask_personalization.envs.pybullet.pybullet_sim import (
-    PyBulletHandoverSimulator,
+    PyBulletSimulator,
 )
 from multitask_personalization.methods.calibration.calibrator import Calibrator
 from multitask_personalization.methods.policies.parameterized_policy import (
@@ -18,12 +18,11 @@ from multitask_personalization.methods.policies.parameterized_policy import (
 )
 
 
-class PyBulletHandoverCalibrator(Calibrator):
-    """A domain-specific parameter setting method for pybullet handover
-    tasks."""
+class PyBulletCalibrator(Calibrator):
+    """A domain-specific parameter setting method for pybullet tasks."""
 
-    def __init__(self, scene_description: PyBulletHandoverSceneDescription) -> None:
-        self._sim = PyBulletHandoverSimulator(scene_description)
+    def __init__(self, scene_description: PyBulletSceneDescription) -> None:
+        self._sim = PyBulletSimulator(scene_description)
 
     def get_parameters(
         self, task_id: str, intake_data: list[tuple[IntakeAction, IntakeObservation]]
@@ -47,12 +46,11 @@ class PyBulletHandoverCalibrator(Calibrator):
         return params
 
 
-class OraclePyBulletHandoverCalibrator(Calibrator):
-    """A domain-specific calibrator for pybullet handover that uses oracle
-    info."""
+class OraclePyBulletCalibrator(Calibrator):
+    """A domain-specific calibrator for pybullet that uses oracle info."""
 
-    def __init__(self, scene_description: PyBulletHandoverSceneDescription) -> None:
-        self._sim = PyBulletHandoverSimulator(scene_description)
+    def __init__(self, scene_description: PyBulletSceneDescription) -> None:
+        self._sim = PyBulletSimulator(scene_description)
 
     def get_parameters(
         self, task_id: str, intake_data: list[tuple[IntakeAction, IntakeObservation]]

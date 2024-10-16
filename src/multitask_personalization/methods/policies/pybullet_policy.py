@@ -1,4 +1,4 @@
-"""A domain-specific parameterized policy for pybullet handover."""
+"""A domain-specific parameterized policy for pybullet."""
 
 from typing import Iterator
 
@@ -18,15 +18,15 @@ from pybullet_helpers.motion_planning import (
 from pybullet_helpers.states import KinematicState
 
 from multitask_personalization.envs.pybullet.pybullet_scene_description import (
-    PyBulletHandoverSceneDescription,
+    PyBulletSceneDescription,
 )
 from multitask_personalization.envs.pybullet.pybullet_sim import (
-    PyBulletHandoverSimulator,
+    PyBulletSimulator,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     _GripperAction,
-    _HandoverAction,
-    _HandoverState,
+    _PyBulletAction,
+    _PyBulletState,
 )
 from multitask_personalization.methods.policies.parameterized_policy import (
     ParameterizedPolicy,
@@ -34,10 +34,10 @@ from multitask_personalization.methods.policies.parameterized_policy import (
 from multitask_personalization.utils import sample_spherical
 
 
-class PyBulletHandoverParameterizedPolicy(
-    ParameterizedPolicy[_HandoverState, _HandoverAction, float]
+class PyBulletParameterizedPolicy(
+    ParameterizedPolicy[_PyBulletState, _PyBulletAction, float]
 ):
-    """A domain-specific parameterized policy for pybullet handover.
+    """A domain-specific parameterized policy for pybullet.
 
     Parameters define the range of motion model. For now, we have a very simple
     ROM model that only has one parameter: the radius of a sphere around the
@@ -46,7 +46,7 @@ class PyBulletHandoverParameterizedPolicy(
 
     def __init__(
         self,
-        scene_description: PyBulletHandoverSceneDescription,
+        scene_description: PyBulletSceneDescription,
         seed: int = 0,
         max_motion_planning_time: float = 1.0,
     ) -> None:
@@ -55,31 +55,31 @@ class PyBulletHandoverParameterizedPolicy(
         self._max_motion_planning_time = max_motion_planning_time
         self._rng = np.random.default_rng(seed)
         # Create a simulator for planning.
-        self._sim = PyBulletHandoverSimulator(scene_description, use_gui=False)
+        self._sim = PyBulletSimulator(scene_description, use_gui=False)
         self._joint_distance_fn = create_joint_distance_fn(self._sim.robot)
         # Store an action plan for the robot.
-        self._plan: list[_HandoverAction] = []
+        self._plan: list[_PyBulletAction] = []
 
     def reset(self, task_id: str, parameters: float) -> None:
         super().reset(task_id, parameters)
         self._plan = []
 
-    def step(self, state: _HandoverState) -> _HandoverAction:
+    def step(self, state: _PyBulletState) -> _PyBulletAction:
         assert self._current_parameters is not None
         if np.isinf(self._current_parameters):
             return (2, None)
         if not self._plan:
-            kinematic_state = self._handover_state_to_kinematic_state(state)
+            kinematic_state = self._pybullet_state_to_kinematic_state(state)
             # This should only happen in the case where the policy fails.
             if kinematic_state.attachments:
                 return (2, None)
             kinematic_plan = self._get_kinematic_plan(kinematic_state)
-            self._plan = self._kinematic_plan_to_handover_plan(kinematic_plan)
+            self._plan = self._kinematic_plan_to_pybullet_plan(kinematic_plan)
         assert len(self._plan) > 0
         return self._plan.pop(0)
 
-    def _handover_state_to_kinematic_state(
-        self, state: _HandoverState
+    def _pybullet_state_to_kinematic_state(
+        self, state: _PyBulletState
     ) -> KinematicState:
         robot_joints = state.robot_joints
         object_poses = {
@@ -91,7 +91,7 @@ class PyBulletHandoverParameterizedPolicy(
             attachments[self._sim.object_id] = state.grasp_transform
         return KinematicState(robot_joints, object_poses, attachments)
 
-    def _sample_handover_pose(self, radius: float) -> Pose:
+    def _sample_pybullet_pose(self, radius: float) -> Pose:
         # Get the sphere center from the simulator.
         center = get_link_pose(
             self._sim.human.body,
@@ -140,7 +140,7 @@ class PyBulletHandoverParameterizedPolicy(
         handover_pose: Pose | None = None
         while True:
             assert self._current_parameters is not None
-            candidate = self._sample_handover_pose(self._current_parameters)
+            candidate = self._sample_pybullet_pose(self._current_parameters)
             try:
                 inverse_kinematics(self._sim.robot, candidate)
                 handover_pose = candidate
@@ -166,10 +166,10 @@ class PyBulletHandoverParameterizedPolicy(
 
         return kinematic_plan
 
-    def _kinematic_plan_to_handover_plan(
+    def _kinematic_plan_to_pybullet_plan(
         self, kinematic_plan: list[KinematicState]
-    ) -> list[_HandoverAction]:
-        actions: list[_HandoverAction] = []
+    ) -> list[_PyBulletAction]:
+        actions: list[_PyBulletAction] = []
         for s0, s1 in zip(kinematic_plan[:-1], kinematic_plan[1:], strict=True):
             step_actions = self._kinematic_transition_to_actions(s0, s1)
             actions.extend(step_actions)
@@ -177,10 +177,10 @@ class PyBulletHandoverParameterizedPolicy(
 
     def _kinematic_transition_to_actions(
         self, state: KinematicState, next_state: KinematicState
-    ) -> list[_HandoverAction]:
+    ) -> list[_PyBulletAction]:
         joint_delta = np.subtract(next_state.robot_joints, state.robot_joints)
         delta = joint_delta[:7]
-        actions: list[_HandoverAction] = [(0, delta.tolist())]
+        actions: list[_PyBulletAction] = [(0, delta.tolist())]
         if next_state.attachments and not state.attachments:
             actions.append((1, _GripperAction.CLOSE))
         elif state.attachments and not next_state.attachments:

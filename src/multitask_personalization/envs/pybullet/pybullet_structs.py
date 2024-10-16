@@ -13,8 +13,8 @@ from pybullet_helpers.joint import JointPositions
 
 
 @dataclass(frozen=True)
-class _HandoverState:
-    """A state in the handover environment."""
+class _PyBulletState:
+    """A state in the pybullet environment."""
 
     robot_base: Pose
     robot_joints: JointPositions
@@ -25,7 +25,7 @@ class _HandoverState:
 
     @classmethod
     def get_dimension(cls) -> int:
-        """Get the dimensionality of a handover state."""
+        """Get the dimensionality of a pybullet state."""
         return 7 + 7 + 7 + 7 + 7 + 8
 
     def to_vec(self) -> NDArray[np.float32]:
@@ -51,7 +51,7 @@ class _HandoverState:
         )
 
     @classmethod
-    def from_vec(cls, vec: NDArray[np.float32]) -> _HandoverState:
+    def from_vec(cls, vec: NDArray[np.float32]) -> _PyBulletState:
         """Create a state from a vector."""
         (  # pylint: disable=unbalanced-tuple-unpacking
             robot_base_position_vec,
@@ -82,7 +82,7 @@ class _HandoverState:
             grasp_transform = Pose(
                 tuple(grasp_transform_vec[1:4]), tuple(grasp_transform_vec[4:])
             )
-        return _HandoverState(
+        return _PyBulletState(
             robot_base,
             robot_joints,
             human_base,
@@ -99,6 +99,6 @@ class _GripperAction(Enum):
     CLOSE = 2
 
 
-_HandoverAction: TypeAlias = tuple[int, JointPositions | _GripperAction | None]  # OneOf
-_HandoverIntakeObs: TypeAlias = bool  # whether or not reaching is successful
-_HandoverIntakeAction: TypeAlias = Pose3D  # test handover position
+_PyBulletAction: TypeAlias = tuple[int, JointPositions | _GripperAction | None]  # OneOf
+_PyBulletIntakeObs: TypeAlias = bool  # whether or not reaching is successful
+_PyBulletIntakeAction: TypeAlias = Pose3D  # test handover position
