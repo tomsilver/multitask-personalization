@@ -177,6 +177,14 @@ class PyBulletSimulator:
         )
         set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
+        # Create book.
+        self.book_id = create_pybullet_block(
+            self.task_spec.book_rgba,
+            half_extents=self.task_spec.book_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        set_pose(self.book_id, self.task_spec.book_pose, self.physics_client_id)
+
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
 
