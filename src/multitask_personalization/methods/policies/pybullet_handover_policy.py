@@ -17,9 +17,13 @@ from pybullet_helpers.motion_planning import (
 )
 from pybullet_helpers.states import KinematicState
 
-from multitask_personalization.envs.pybullet.pybullet_handover import (
+from multitask_personalization.envs.pybullet.pybullet_scene_description import (
     PyBulletHandoverSceneDescription,
+)
+from multitask_personalization.envs.pybullet.pybullet_sim import (
     PyBulletHandoverSimulator,
+)
+from multitask_personalization.envs.pybullet.pybullet_structs import (
     _GripperAction,
     _HandoverAction,
     _HandoverState,

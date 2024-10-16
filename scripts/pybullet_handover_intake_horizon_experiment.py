@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from multitask_personalization.envs.pybullet.pybullet_handover import (
+from multitask_personalization.envs.pybullet.pybullet_tasks import (
     PyBulletHandoverTask,
 )
 from multitask_personalization.methods.approach import Approach

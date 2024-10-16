@@ -6,8 +6,10 @@ from multitask_personalization.envs.intake_process import (
     IntakeAction,
     IntakeObservation,
 )
-from multitask_personalization.envs.pybullet.pybullet_handover import (
+from multitask_personalization.envs.pybullet.pybullet_scene_description import (
     PyBulletHandoverSceneDescription,
+)
+from multitask_personalization.envs.pybullet.pybullet_sim import (
     PyBulletHandoverSimulator,
 )
 from multitask_personalization.methods.calibration.calibrator import Calibrator
