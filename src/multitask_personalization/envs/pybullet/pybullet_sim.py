@@ -32,13 +32,13 @@ class PyBulletSimulator:
 
     def __init__(
         self,
-        scene_description: PyBulletTaskSpec,
+        task_spec: PyBulletTaskSpec,
         use_gui: bool = False,
         seed: int = 0,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
-        self.scene_description = scene_description
+        self.task_spec = task_spec
 
         # Create the PyBullet client.
         if use_gui:
@@ -48,11 +48,11 @@ class PyBulletSimulator:
 
         # Create robot.
         robot = create_pybullet_robot(
-            self.scene_description.robot_name,
+            self.task_spec.robot_name,
             self.physics_client_id,
-            base_pose=self.scene_description.robot_base_pose,
+            base_pose=self.task_spec.robot_base_pose,
             control_mode="reset",
-            home_joint_positions=self.scene_description.initial_joints,
+            home_joint_positions=self.task_spec.initial_joints,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         robot.close_fingers()
@@ -60,14 +60,14 @@ class PyBulletSimulator:
 
         # Create robot stand.
         self.robot_stand_id = create_pybullet_block(
-            self.scene_description.robot_stand_rgba,
-            half_extents=self.scene_description.robot_stand_half_extents,
+            self.task_spec.robot_stand_rgba,
+            half_extents=self.task_spec.robot_stand_half_extents,
             physics_client_id=self.physics_client_id,
         )
         p.resetBasePositionAndOrientation(
             self.robot_stand_id,
-            self.scene_description.robot_stand_pose.position,
-            self.scene_description.robot_stand_pose.orientation,
+            self.task_spec.robot_stand_pose.position,
+            self.task_spec.robot_stand_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
 
@@ -87,8 +87,8 @@ class PyBulletSimulator:
         )
         p.resetBasePositionAndOrientation(
             self.human.body,
-            self.scene_description.human_base_pose.position,
-            self.scene_description.human_base_pose.orientation,
+            self.task_spec.human_base_pose.position,
+            self.task_spec.human_base_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
         # Use some default joint positions from assistive gym first.
@@ -106,9 +106,9 @@ class PyBulletSimulator:
         self.human.setup_joints(
             joints_positions, use_static_joints=True, reactive_force=None
         )
-        # Now set arm joints using scene description.
+        # Now set arm joints using task spec.
         self.human.set_joint_angles(
-            self.human.right_arm_joints, self.scene_description.human_joints
+            self.human.right_arm_joints, self.task_spec.human_joints
         )
 
         # Create wheelchair.
@@ -124,8 +124,8 @@ class PyBulletSimulator:
         )
         p.resetBasePositionAndOrientation(
             furniture.body,
-            self.scene_description.wheelchair_base_pose.position,
-            self.scene_description.wheelchair_base_pose.orientation,
+            self.task_spec.wheelchair_base_pose.position,
+            self.task_spec.wheelchair_base_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
 
@@ -157,28 +157,28 @@ class PyBulletSimulator:
 
         # Create table.
         self.table_id = create_pybullet_block(
-            self.scene_description.table_rgba,
-            half_extents=self.scene_description.table_half_extents,
+            self.task_spec.table_rgba,
+            half_extents=self.task_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
         )
         p.resetBasePositionAndOrientation(
             self.table_id,
-            self.scene_description.table_pose.position,
-            self.scene_description.table_pose.orientation,
+            self.task_spec.table_pose.position,
+            self.task_spec.table_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
 
         # Create object.
         self.object_id = create_pybullet_cylinder(
-            self.scene_description.object_rgba,
-            self.scene_description.object_radius,
-            self.scene_description.object_length,
+            self.task_spec.object_rgba,
+            self.task_spec.object_radius,
+            self.task_spec.object_length,
             physics_client_id=self.physics_client_id,
         )
         p.resetBasePositionAndOrientation(
             self.object_id,
-            self.scene_description.object_pose.position,
-            self.scene_description.object_pose.orientation,
+            self.task_spec.object_pose.position,
+            self.task_spec.object_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
 

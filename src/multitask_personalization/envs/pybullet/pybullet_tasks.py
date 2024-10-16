@@ -23,7 +23,7 @@ class PyBulletTask(Task):
     def __init__(
         self,
         intake_horizon: int,
-        scene_description: PyBulletTaskSpec | None = None,
+        task_spec: PyBulletTaskSpec | None = None,
         use_gui: bool = False,
     ) -> None:
 
@@ -31,12 +31,12 @@ class PyBulletTask(Task):
         self._use_gui = use_gui
 
         # Finalize the scene description.
-        if scene_description is None:
-            scene_description = PyBulletTaskSpec()
-        self.scene_description = scene_description
+        if task_spec is None:
+            task_spec = PyBulletTaskSpec()
+        self.task_spec = task_spec
 
         # Generate a shared PyBullet simulator.
-        self._sim = PyBulletSimulator(scene_description, use_gui)
+        self._sim = PyBulletSimulator(task_spec, use_gui)
 
     @property
     def id(self) -> str:

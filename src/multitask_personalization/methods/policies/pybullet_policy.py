@@ -46,7 +46,7 @@ class PyBulletParameterizedPolicy(
 
     def __init__(
         self,
-        scene_description: PyBulletTaskSpec,
+        task_spec: PyBulletTaskSpec,
         seed: int = 0,
         max_motion_planning_time: float = 1.0,
     ) -> None:
@@ -55,7 +55,7 @@ class PyBulletParameterizedPolicy(
         self._max_motion_planning_time = max_motion_planning_time
         self._rng = np.random.default_rng(seed)
         # Create a simulator for planning.
-        self._sim = PyBulletSimulator(scene_description, use_gui=False)
+        self._sim = PyBulletSimulator(task_spec, use_gui=False)
         self._joint_distance_fn = create_joint_distance_fn(self._sim.robot)
         # Store an action plan for the robot.
         self._plan: list[_PyBulletAction] = []
@@ -84,7 +84,7 @@ class PyBulletParameterizedPolicy(
         robot_joints = state.robot_joints
         object_poses = {
             self._sim.object_id: state.object_pose,
-            self._sim.table_id: self._sim.scene_description.table_pose,
+            self._sim.table_id: self._sim.task_spec.table_pose,
         }
         attachments: dict[int, Pose] = {}
         if state.grasp_transform:

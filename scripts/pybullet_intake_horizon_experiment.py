@@ -115,14 +115,14 @@ def _run_single(
 
     # Create the approach.
     if approach_name == "Random":
-        calibrator: Calibrator = PyBulletCalibrator(task.scene_description)
+        calibrator: Calibrator = PyBulletCalibrator(task.task_spec)
         im = RandomInteractionMethod(seed=seed)
     elif approach_name == "Oracle":
-        calibrator = OraclePyBulletCalibrator(task.scene_description)
+        calibrator = OraclePyBulletCalibrator(task.task_spec)
         im = RandomInteractionMethod(seed=seed)
     else:
         raise NotImplementedError
-    policy = PyBulletParameterizedPolicy(task.scene_description, seed=seed)
+    policy = PyBulletParameterizedPolicy(task.task_spec, seed=seed)
     approach = Approach(calibrator, im, policy)
 
     returns = 0.0
