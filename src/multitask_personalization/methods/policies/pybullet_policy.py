@@ -54,6 +54,7 @@ class PyBulletParameterizedPolicy(
         self._seed = seed
         self._max_motion_planning_time = max_motion_planning_time
         self._rng = np.random.default_rng(seed)
+        self._task_spec = task_spec
         # Create a simulator for planning.
         self._sim = PyBulletSimulator(task_spec, use_gui=False)
         self._joint_distance_fn = create_joint_distance_fn(self._sim.robot)
@@ -84,7 +85,9 @@ class PyBulletParameterizedPolicy(
         robot_joints = state.robot_joints
         object_poses = {
             self._sim.object_id: state.object_pose,
-            self._sim.table_id: self._sim.task_spec.table_pose,
+            self._sim.book_id: state.book_pose,
+            self._sim.table_id: self._task_spec.table_pose,
+            self._sim.shelf_id: self._task_spec.shelf_pose,
         }
         attachments: dict[int, Pose] = {}
         if state.grasp_transform:
@@ -112,7 +115,16 @@ class PyBulletParameterizedPolicy(
         self, initial_state: KinematicState
     ) -> list[KinematicState]:
 
-        collision_ids = {self._sim.table_id, self._sim.human.body}
+        if self._task_spec.task_objective == "hand over cup":
+            object_id = self._sim.object_id
+            surface_id = self._sim.table_id
+        elif self._task_spec.task_objective == "hand over book":
+            object_id = self._sim.book_id
+            surface_id = self._sim.shelf_id
+        else:
+            raise NotImplementedError
+
+        collision_ids = {self._sim.table_id, self._sim.human.body, self._sim.shelf_id}
 
         def _grasp_generator() -> Iterator[Pose]:
             while True:
@@ -129,8 +141,8 @@ class PyBulletParameterizedPolicy(
         kinematic_plan = get_kinematic_plan_to_pick_object(
             initial_state,
             self._sim.robot,
-            self._sim.object_id,
-            self._sim.table_id,
+            object_id,
+            surface_id,
             collision_ids,
             grasp_generator=_grasp_generator(),
         )
@@ -159,6 +171,8 @@ class PyBulletParameterizedPolicy(
             end_effector_frame_to_plan_frame=Pose.identity(),
             seed=self._seed,
             max_time=self._max_motion_planning_time,
+            held_object=object_id,
+            base_link_to_held_obj=state.attachments[object_id],
         )
         assert robot_joint_plan is not None
         for robot_joints in robot_joint_plan:

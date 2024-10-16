@@ -14,6 +14,8 @@ class PyBulletTaskSpec:
 
     task_name: str = "default"
 
+    task_objective: str = "hand over cup"
+
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
     initial_joints: JointPositions = field(
@@ -67,3 +69,29 @@ class PyBulletTaskSpec:
     object_length: float = 0.1
 
     camera_distance: float = 2.0
+
+    shelf_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
+    shelf_width: float = 1.0
+    shelf_height: float = 0.1
+    shelf_depth: float = 0.3
+    shelf_spacing: float = 0.4
+    shelf_support_width: float = 0.05
+    shelf_num_layers: int = 4
+    shelf_support_height = (shelf_num_layers - 1) * shelf_spacing + (
+        shelf_num_layers - 1
+    ) * shelf_height
+    shelf_pose: Pose = Pose(position=(0.0, 0.75, -shelf_support_height / 2))
+
+    book_rgba: tuple[float, float, float, float] = (0.8, 0.2, 0.2, 1.0)
+    book_half_extents: tuple[float, float, float] = (0.03, 0.08, 0.1)
+    book_pose: Pose = Pose(
+        position=(
+            shelf_pose.position[0],
+            shelf_pose.position[1],
+            shelf_pose.position[2]
+            + (shelf_num_layers - 2) * shelf_spacing
+            + (shelf_num_layers - 2) * shelf_height
+            + book_half_extents[2]
+            + shelf_support_width,
+        )
+    )
