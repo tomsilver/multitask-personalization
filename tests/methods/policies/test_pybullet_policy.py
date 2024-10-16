@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
 from multitask_personalization.envs.pybullet.pybullet_tasks import (
     PyBulletTask,
 )
@@ -12,12 +13,14 @@ from multitask_personalization.methods.policies.pybullet_policy import (
 
 def test_pybullet_policy():
     """Tests for pybullet_policy.py."""
+    rng = np.random.default_rng(123)
+    task_spec = PyBulletTaskSpec(task_objective="hand over book")
     task = PyBulletTask(
         intake_horizon=5,
+        task_spec=task_spec,
         use_gui=False,
     )
     mdp = task.mdp
-    rng = np.random.default_rng(123)
     state = mdp.sample_initial_state(rng)
     assert not mdp.state_is_terminal(state)
     mdp.action_space.seed(123)

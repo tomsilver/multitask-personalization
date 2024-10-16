@@ -187,6 +187,7 @@ class PyBulletSimulator:
 
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
+        self.current_held_object_id: int | None = None
 
         # Uncomment for debug / development.
         # while True:
@@ -199,41 +200,40 @@ class PyBulletSimulator:
         human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
         human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
         object_pose = get_pose(self.object_id, self.physics_client_id)
+        book_pose = get_pose(self.book_id, self.physics_client_id)
+        held_object = {
+            None: None,
+            self.object_id: "cup",
+            self.book_id: "book",
+        }[self.current_held_object_id]
         return _PyBulletState(
             robot_base,
             robot_joints,
             human_base,
             human_joints,
             object_pose,
+            book_pose,
             self.current_grasp_transform,
+            held_object,
         )
 
     def set_state(self, state: _PyBulletState) -> None:
         """Sync the simulator with the given state."""
-        p.resetBasePositionAndOrientation(
-            self.robot.robot_id,
-            state.robot_base.position,
-            state.robot_base.orientation,
-            physicsClientId=self.physics_client_id,
-        )
+        set_pose(self.robot.robot_id, state.robot_base, self.physics_client_id)
         self.robot.set_joints(state.robot_joints)
-        p.resetBasePositionAndOrientation(
-            self.human.body,
-            state.human_base.position,
-            state.human_base.orientation,
-            physicsClientId=self.physics_client_id,
-        )
+        set_pose(self.human.body, state.human_base, self.physics_client_id)
         self.human.set_joint_angles(
             self.human.right_arm_joints,
             state.human_joints,
         )
-        p.resetBasePositionAndOrientation(
-            self.object_id,
-            state.object_pose.position,
-            state.object_pose.orientation,
-            physicsClientId=self.physics_client_id,
-        )
+        set_pose(self.object_id, state.object_pose, self.physics_client_id)
+        set_pose(self.book_id, state.book_pose, self.physics_client_id)
         self.current_grasp_transform = state.grasp_transform
+        self.current_held_object_id = {
+            None: None,
+            "cup": self.object_id,
+            "book": self.book_id,
+        }[state.held_object]
 
     def step(self, action: _PyBulletAction) -> None:
         """Advance the simulator given an action."""
@@ -241,18 +241,21 @@ class PyBulletSimulator:
             if action[1] == _GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
-                world_to_object = get_pose(self.object_id, self.physics_client_id)
-                object_position = world_to_object.position
-                dist = np.sum(
-                    np.square(np.subtract(end_effector_position, object_position))
-                )
-                # Grasp successful.
-                if dist < 1e-3:
-                    self.current_grasp_transform = multiply_poses(
-                        world_to_robot.invert(), world_to_object
+                for object_id in [self.object_id, self.book_id]:
+                    world_to_object = get_pose(object_id, self.physics_client_id)
+                    object_position = world_to_object.position
+                    dist = np.sum(
+                        np.square(np.subtract(end_effector_position, object_position))
                     )
+                    # Grasp successful.
+                    if dist < 1e-3:
+                        self.current_grasp_transform = multiply_poses(
+                            world_to_robot.invert(), world_to_object
+                        )
+                        self.current_held_object_id = object_id
             elif action[1] == _GripperAction.OPEN:
                 self.current_grasp_transform = None
+                self.current_held_object_id = None
             return
         if np.isclose(action[0], 2):
             return  # will handle none case later, when the human moves
@@ -275,11 +278,9 @@ class PyBulletSimulator:
             world_to_object = multiply_poses(
                 world_to_robot, self.current_grasp_transform
             )
-            p.resetBasePositionAndOrientation(
-                self.object_id,
-                world_to_object.position,
-                world_to_object.orientation,
-                physicsClientId=self.physics_client_id,
+            assert self.current_held_object_id is not None
+            set_pose(
+                self.current_held_object_id, world_to_object, self.physics_client_id
             )
 
 
@@ -308,12 +309,15 @@ def _create_shelf(
         layer_z = i * (spacing + shelf_height)
 
         col_shape_id = p.createCollisionShape(
-            p.GEOM_BOX, halfExtents=[shelf_width / 2, shelf_depth / 2, shelf_height / 2]
+            p.GEOM_BOX,
+            halfExtents=[shelf_width / 2, shelf_depth / 2, shelf_height / 2],
+            physicsClientId=physics_client_id,
         )
         visual_shape_id = p.createVisualShape(
             p.GEOM_BOX,
             halfExtents=[shelf_width / 2, shelf_depth / 2, shelf_height / 2],
             rgbaColor=color,
+            physicsClientId=physics_client_id,
         )
 
         collision_shape_ids.append(col_shape_id)
@@ -340,11 +344,13 @@ def _create_shelf(
             support_col_shape_id = p.createCollisionShape(
                 p.GEOM_BOX,
                 halfExtents=[support_width / 2, support_width / 2, support_half_height],
+                physicsClientId=physics_client_id,
             )
             support_visual_shape_id = p.createVisualShape(
                 p.GEOM_BOX,
                 halfExtents=[support_width / 2, support_width / 2, support_half_height],
                 rgbaColor=color,
+                physicsClientId=physics_client_id,
             )
 
             collision_shape_ids.append(support_col_shape_id)

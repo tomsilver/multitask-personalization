@@ -37,9 +37,7 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
 
     @cached_property
     def state_space(self) -> gym.spaces.Box:
-        return gym.spaces.Box(
-            -np.inf, np.inf, shape=(_PyBulletState.get_dimension(),), dtype=np.float32
-        )
+        raise NotImplementedError("TODO")
 
     @cached_property
     def action_space(self) -> gym.spaces.Space:
@@ -75,12 +73,13 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
         raise NotImplementedError("Initial state distribution too large")
 
     def sample_initial_state(self, rng: np.random.Generator) -> _PyBulletState:
-        # In the future, will actually randomize this.
+        # Randomization actually happens in the task spec.
         robot_base = self._sim.task_spec.robot_base_pose
         robot_joints = self._sim.task_spec.initial_joints
         human_base = self._sim.task_spec.human_base_pose
         human_joints = self._sim.task_spec.human_joints
         object_pose = self._sim.task_spec.object_pose
+        book_pose = self._sim.task_spec.book_pose
         grasp_transform = None
         return _PyBulletState(
             robot_base,
@@ -88,6 +87,7 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
             human_base,
             human_joints,
             object_pose,
+            book_pose,
             grasp_transform,
         )
 

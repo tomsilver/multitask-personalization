@@ -14,6 +14,8 @@ class PyBulletTaskSpec:
 
     task_name: str = "default"
 
+    task_objective: str = "hand over cup"
+
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
     initial_joints: JointPositions = field(
