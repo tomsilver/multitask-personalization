@@ -112,7 +112,7 @@ class PyBulletParameterizedPolicy(
         self, initial_state: KinematicState
     ) -> list[KinematicState]:
 
-        collision_ids = {self._sim.table_id, self._sim.human.body}
+        collision_ids = {self._sim.table_id, self._sim.human.body, self._sim.shelf_id}
 
         def _grasp_generator() -> Iterator[Pose]:
             while True:
