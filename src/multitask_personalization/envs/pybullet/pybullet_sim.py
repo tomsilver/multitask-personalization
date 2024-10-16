@@ -186,13 +186,31 @@ class PyBulletSimulator:
         )
         set_pose(self.book_id, self.task_spec.book_pose, self.physics_client_id)
 
+        # Create side table.
+        self.side_table_id = create_pybullet_block(
+            self.task_spec.side_table_rgba,
+            half_extents=self.task_spec.side_table_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        set_pose(
+            self.side_table_id, self.task_spec.side_table_pose, self.physics_client_id
+        )
+
+        # Create tray.
+        self.tray_id = create_pybullet_block(
+            self.task_spec.tray_rgba,
+            half_extents=self.task_spec.tray_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
+
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
 
         # Uncomment for debug / development.
-        # while True:
-        #     p.stepSimulation(self.physics_client_id)
+        while True:
+            p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> _PyBulletState:
         """Get the underlying state from the simulator."""

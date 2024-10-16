@@ -18,7 +18,7 @@ def test_pybullet_policy():
     task = PyBulletTask(
         intake_horizon=5,
         task_spec=task_spec,
-        use_gui=False,
+        use_gui=True,
     )
     mdp = task.mdp
     state = mdp.sample_initial_state(rng)
@@ -40,6 +40,7 @@ def test_pybullet_policy():
         state = next_state
 
     # Uncomment for visualization.
-    # import imageio.v2 as iio
-    # imgs = [mdp.render_state(s) for s in states]
-    # iio.mimsave("pybullet_policy_test.mp4", imgs)
+    import imageio.v2 as iio
+
+    imgs = [mdp.render_state(s) for s in states]
+    iio.mimsave("pybullet_policy_test.mp4", imgs)
