@@ -12,6 +12,8 @@ from pybullet_helpers.joint import JointPositions
 class PyBulletTaskSpec:
     """Defines the specification of tasks in the pybullet environment."""
 
+    task_name: str = "default"
+
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
     initial_joints: JointPositions = field(
