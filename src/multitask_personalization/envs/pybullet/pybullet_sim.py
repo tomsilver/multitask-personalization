@@ -53,19 +53,28 @@ class PyBulletSimulator:
             base_pose=self.task_spec.robot_base_pose,
             control_mode="reset",
             home_joint_positions=self.task_spec.initial_joints,
+            fixed_base=False,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         robot.close_fingers()
         self.robot = robot
 
         # Create robot stand.
-        self.robot_stand_id = create_pybullet_block(
+        self.robot_stand_id = create_pybullet_cylinder(
             self.task_spec.robot_stand_rgba,
-            half_extents=self.task_spec.robot_stand_half_extents,
+            radius=self.task_spec.robot_stand_radius,
+            length=self.task_spec.robot_stand_length,
             physics_client_id=self.physics_client_id,
         )
         set_pose(
             self.robot_stand_id, self.task_spec.robot_stand_pose, self.physics_client_id
+        )
+
+        # Save the transform between the base and stand.
+        world_to_base = self.robot.get_base_pose()
+        world_to_stand = get_pose(self.robot_stand_id, self.physics_client_id)
+        self.robot_base_to_stand = multiply_poses(
+            world_to_base.invert(), world_to_stand
         )
 
         # Create human.
@@ -107,10 +116,10 @@ class PyBulletSimulator:
         )
 
         # Create wheelchair.
-        furniture = Furniture()
+        self.wheelchair = Furniture()
         directory = Path(assistive_gym.envs.__file__).parent / "assets"
         assert directory.exists()
-        furniture.init(
+        self.wheelchair.init(
             "wheelchair",
             directory,
             self.physics_client_id,
@@ -118,7 +127,9 @@ class PyBulletSimulator:
             wheelchair_mounted=False,
         )
         set_pose(
-            furniture.body, self.task_spec.wheelchair_base_pose, self.physics_client_id
+            self.wheelchair.body,
+            self.task_spec.wheelchair_base_pose,
+            self.physics_client_id,
         )
 
         # Placeholder for full range of motion model.
@@ -185,6 +196,24 @@ class PyBulletSimulator:
         )
         set_pose(self.book_id, self.task_spec.book_pose, self.physics_client_id)
 
+        # Create side table.
+        self.side_table_id = create_pybullet_block(
+            self.task_spec.side_table_rgba,
+            half_extents=self.task_spec.side_table_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        set_pose(
+            self.side_table_id, self.task_spec.side_table_pose, self.physics_client_id
+        )
+
+        # Create tray.
+        self.tray_id = create_pybullet_block(
+            self.task_spec.tray_rgba,
+            half_extents=self.task_spec.tray_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
+
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
@@ -221,6 +250,8 @@ class PyBulletSimulator:
         """Sync the simulator with the given state."""
         set_pose(self.robot.robot_id, state.robot_base, self.physics_client_id)
         self.robot.set_joints(state.robot_joints)
+        stand_pose = multiply_poses(state.robot_base, self.robot_base_to_stand)
+        set_pose(self.robot_stand_id, stand_pose, self.physics_client_id)
         set_pose(self.human.body, state.human_base, self.physics_client_id)
         self.human.set_joint_angles(
             self.human.right_arm_joints,
@@ -259,7 +290,18 @@ class PyBulletSimulator:
             return
         if np.isclose(action[0], 2):
             return  # will handle none case later, when the human moves
-        joint_angle_delta = action[1]
+        joint_action = list(action[1])  # type: ignore
+        base_position_delta = joint_action[:3]
+        joint_angle_delta = joint_action[3:]
+        # Update the robot base.
+        world_to_base = self.robot.get_base_pose()
+        dx, dy, dyaw = base_position_delta
+        x, y, z = world_to_base.position
+        roll, pitch, yaw = world_to_base.rpy
+        next_base = Pose.from_rpy((x + dx, y + dy, z), (roll, pitch, yaw + dyaw))
+        self.robot.set_base(next_base)
+        next_stand_pose = multiply_poses(next_base, self.robot_base_to_stand)
+        set_pose(self.robot_stand_id, next_stand_pose, self.physics_client_id)
         # Update the robot arm angles.
         current_joints = self.robot.get_joint_positions()
         # Only update the arm, assuming the first 7 entries are the arm.

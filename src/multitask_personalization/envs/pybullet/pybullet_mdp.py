@@ -7,6 +7,7 @@ from functools import cached_property
 import gymnasium as gym
 import numpy as np
 from pybullet_helpers.camera import capture_image
+from pybullet_helpers.inverse_kinematics import check_body_collisions
 from pybullet_helpers.link import get_link_pose
 from tomsutils.spaces import EnumSpace
 
@@ -43,7 +44,7 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
     def action_space(self) -> gym.spaces.Space:
         return gym.spaces.OneOf(
             (
-                gym.spaces.Box(-np.inf, np.inf, shape=(7,), dtype=np.float32),
+                gym.spaces.Box(-np.inf, np.inf, shape=(10,), dtype=np.float32),
                 EnumSpace([_GripperAction.OPEN, _GripperAction.CLOSE]),
                 EnumSpace([None]),
             )
@@ -51,14 +52,24 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
 
     def state_is_terminal(self, state: _PyBulletState) -> bool:
         # Will be replaced by a real ROM check later.
-        end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
-        dist = np.sqrt(
-            np.sum(
-                np.subtract(end_effector_pose.position, self._sim.rom_sphere_center)
-                ** 2
+        if "hand over" in self._sim.task_spec.task_objective:
+            end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
+            dist = np.sqrt(
+                np.sum(
+                    np.subtract(end_effector_pose.position, self._sim.rom_sphere_center)
+                    ** 2
+                )
             )
+            return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
+        assert self._sim.task_spec.task_objective == "place book on tray"
+        if self._sim.current_grasp_transform:
+            return False
+        return check_body_collisions(
+            self._sim.book_id,
+            self._sim.tray_id,
+            self._sim.physics_client_id,
+            distance_threshold=1e-3,
         )
-        return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
 
     def get_reward(
         self, state: _PyBulletState, action: _PyBulletAction, next_state: _PyBulletState

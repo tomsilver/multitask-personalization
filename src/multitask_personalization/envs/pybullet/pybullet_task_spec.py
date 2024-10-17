@@ -16,6 +16,9 @@ class PyBulletTaskSpec:
 
     task_objective: str = "hand over cup"
 
+    world_lower_bounds: tuple[float, float, float] = (-2.5, -2.5, -2.5)
+    world_upper_bounds: tuple[float, float, float] = (2.5, 2.5, 2.5)
+
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
     initial_joints: JointPositions = field(
@@ -38,8 +41,9 @@ class PyBulletTaskSpec:
     robot_max_joint_delta: float = 0.5
 
     robot_stand_pose: Pose = Pose((0.0, 0.0, -0.2))
-    robot_stand_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
-    robot_stand_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
+    robot_stand_rgba: tuple[float, float, float, float] = (0.3, 0.1, 0.1, 1.0)
+    robot_stand_radius: float = 0.1
+    robot_stand_length: float = 0.4
 
     human_base_pose: Pose = Pose(position=(1.0, 0.53, 0.39))
     human_joints: JointPositions = field(
@@ -83,7 +87,7 @@ class PyBulletTaskSpec:
     shelf_pose: Pose = Pose(position=(0.0, 0.75, -shelf_support_height / 2))
 
     book_rgba: tuple[float, float, float, float] = (0.8, 0.2, 0.2, 1.0)
-    book_half_extents: tuple[float, float, float] = (0.03, 0.08, 0.1)
+    book_half_extents: tuple[float, float, float] = (0.02, 0.05, 0.08)
     book_pose: Pose = Pose(
         position=(
             shelf_pose.position[0],
@@ -95,3 +99,18 @@ class PyBulletTaskSpec:
             + shelf_support_width,
         )
     )
+
+    side_table_pose: Pose = Pose(position=(1.45, 0.0, -0.1))
+    side_table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
+    side_table_half_extents: tuple[float, float, float] = (0.025, 0.1, 0.4)
+
+    tray_half_extents: tuple[float, float, float] = (0.4, 0.2, 0.025)
+    tray_pose: Pose = Pose(
+        position=(
+            side_table_pose.position[0]
+            + -(tray_half_extents[0] - side_table_half_extents[0]),
+            side_table_pose.position[1],
+            side_table_pose.position[2] + side_table_half_extents[2],
+        )
+    )
+    tray_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
