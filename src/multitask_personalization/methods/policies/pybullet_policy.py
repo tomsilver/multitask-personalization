@@ -184,19 +184,21 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
                     continue
                 # Check for contact.
                 if check_body_collisions(
-                    obj1_pybullet_id, obj2_pybullet_id, self._sim.physics_client_id
+                    obj1_pybullet_id, obj2_pybullet_id, self._sim.physics_client_id,
+                    distance_threshold=1e-3
                 ):
                     on_relations.add((obj1, obj2))
         return on_relations
+    
+    def _get_moveable_objects(self) -> set[Object]:
+        return {self._cup} | set(self._books)
 
     def _interpret_IsMovable(self) -> set[GroundAtom]:
-        movable_objs = {self._cup} | set(self._books)
-        return {GroundAtom(IsMovable, [o]) for o in movable_objs}
+        return {GroundAtom(IsMovable, [o]) for o in self._get_moveable_objects()}
 
     def _interpret_NotIsMovable(self) -> set[GroundAtom]:
         objs = {o for o in self._get_objects() if o.is_instance(object_type)}
-        movable_atoms = self._interpret_IsMovable()
-        movable_objs = {a.objects[0] for a in movable_atoms}
+        movable_objs = self._get_moveable_objects()
         not_movable_objs = objs - movable_objs
         return {GroundAtom(NotIsMovable, [o]) for o in not_movable_objs}
 
@@ -214,6 +216,11 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
             pybullet_id_to_obj = {v: k for k, v in self._pybullet_ids.items()}
             held_obj = pybullet_id_to_obj[self._sim.current_held_object_id]
             return {GroundAtom(Holding, [self._robot, held_obj])}
+        # TODO add back
+        # for obj in self._get_moveable_objects():
+        #     obj_id = self._pybullet_ids[obj]
+        #     if check_body_collisions(self._sim.robot.robot_id, obj_id, self._sim.physics_client_id):
+        #         return {GroundAtom(Holding, [self._robot, obj])}
         return set()
 
     def _interpret_GripperEmpty(self) -> set[GroundAtom]:
@@ -438,7 +445,8 @@ class PickSkill(PyBulletSkill):
             self._sim.shelf_id,
             self._sim.tray_id,
             self._sim.side_table_id,
-        }
+        } | set(self._sim.book_ids)
+        collision_ids -= {obj_id}
 
         def _grasp_generator() -> Iterator[Pose]:
             while True:
@@ -540,7 +548,7 @@ class PlaceSkill(PyBulletSkill):
         platform_pose = multiply_poses(state.robot_base_pose, base_to_platform)
         set_pose(self._sim.robot_stand_id, platform_pose, self._sim.physics_client_id)
 
-        # Prepare to place.
+        # Place the object.
         placement_kinematic_plan = get_kinematic_plan_to_place_object(
             state,
             self._sim.robot,
@@ -653,7 +661,7 @@ class PyBulletParameterizedPolicy(
     ) -> None:
         super().__init__()
         # Create a shared simulator for planning and perception.
-        self._sim = PyBulletSimulator(task_spec, use_gui=False)
+        self._sim = PyBulletSimulator(task_spec, use_gui=True)
         # Create perceiver.
         self._perceiver = PyBulletPerceiver(self._sim)
         # Give hyperparameter access to skills.
