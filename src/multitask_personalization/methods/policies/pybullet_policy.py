@@ -1,8 +1,7 @@
 """A domain-specific parameterized policy for pybullet."""
 
 import abc
-from dataclasses import dataclass
-from typing import Any, Callable, Iterator, Sequence
+from typing import Any, Callable, Iterator, Sequence, TypeAlias
 
 import numpy as np
 import pybullet as p
@@ -19,7 +18,7 @@ from pybullet_helpers.manipulation import (
 )
 from pybullet_helpers.math_utils import get_poses_facing_line
 from pybullet_helpers.motion_planning import (
-    run_base_motion_planning_to_goal,
+    run_base_motion_planning,
     run_smooth_motion_planning_to_pose,
 )
 from pybullet_helpers.states import KinematicState
@@ -98,6 +97,7 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
 
         # Map from symbolic objects to PyBullet IDs in simulator.
         self._pybullet_ids = {
+            self._robot: self._sim.robot.robot_id,
             self._book: self._sim.book_id,
             self._cup: self._sim.cup_id,
             self._tray: self._sim.tray_id,
@@ -296,11 +296,7 @@ OPERATORS = {PickOperator, PlaceOperator, HandOverOperator}
 ##############################################################################
 
 
-@dataclass
-class PyBulletSkillHyperparameters:
-    """Hyperparameters for PyBullet skills."""
-
-    rom_radius: float
+PyBulletSkillHyperparameters: TypeAlias = float  # just a radius for now, more to come
 
 
 class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):
@@ -401,8 +397,10 @@ class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):
             self._sim.tray_id: self._task_spec.tray_pose,
         }
         attachments: dict[int, Pose] = {}
-        if obs.grasp_transform:
+        if obs.held_object == "cup":
             attachments[self._sim.cup_id] = obs.grasp_transform
+        if obs.held_object == "book":
+            attachments[self._sim.book_id] = obs.grasp_transform
         return KinematicState(robot_joints, object_poses, attachments, obs.robot_base)
 
 
@@ -472,17 +470,17 @@ class PlaceSkill(PyBulletSkill):
         collision_ids = set(state.object_poses) - {obj_id}
 
         base_to_platform = self._sim.robot_base_to_stand
-        half_extents = self._get_aabb_dimensions(surface_id)
+        surface_extents = self._get_aabb_dimensions(surface_id)
         object_extents = self._get_aabb_dimensions(obj_id)
         placement_lb = (
-            -half_extents[0] + object_extents[0] / 2,
-            -half_extents[1] + object_extents[1] / 2,
-            half_extents[2] + object_extents[2] / 2,
+            -surface_extents[0] / 2 + object_extents[0] / 2,
+            -surface_extents[1] / 2 + object_extents[1] / 2,
+            surface_extents[2] / 2 + object_extents[2] / 2,
         )
         placement_ub = (
-            half_extents[0] - object_extents[0] / 2,
-            half_extents[1] - object_extents[1] / 2,
-            half_extents[2] + object_extents[2] / 2,
+            surface_extents[0] / 2 - object_extents[0] / 2,
+            surface_extents[1] / 2 - object_extents[1] / 2,
+            surface_extents[2] / 2 + object_extents[2] / 2,
         )
 
         def _placement_generator() -> Iterator[Pose]:
@@ -492,42 +490,22 @@ class PlaceSkill(PyBulletSkill):
 
         state.set_pybullet(self._sim.robot)
         current_base_pose = self._sim.robot.get_base_pose()
-        current_ee_pose = self._sim.robot.forward_kinematics(state.robot_joints)
         surface_pose = get_pose(surface_id, self._sim.physics_client_id)
 
-        # Set up at target area for base position motion planning that
-        # checks the position of the end effector and sees whether it is
-        # close enough to the tray. Then run motion planning in SE2 for the
-        # base only.
-        ideal_pre_place_ee_pose = Pose(
+        # Use pre-defined staging base pose for now. Generalize this later.
+        target_base_pose = Pose(
             (
-                surface_pose.position[0] - 0.25,
-                surface_pose.position[1],
-                surface_pose.position[2] + 0.25,
+                surface_pose.position[0] - surface_extents[0],
+                surface_pose.position[1] - surface_extents[1],
+                0.0,
             ),
-            current_ee_pose.orientation,
+            orientation=current_base_pose.orientation,
         )
 
-        def _goal_check(base_pose: Pose) -> bool:
-            self._sim.robot.set_base(base_pose)
-            ee_pose = self._sim.robot.forward_kinematics(state.robot_joints)
-            return bool(
-                np.linalg.norm(
-                    np.subtract(ideal_pre_place_ee_pose.position, ee_pose.position)
-                )
-                < 0.25
-                and np.linalg.norm(
-                    np.subtract(
-                        ideal_pre_place_ee_pose.orientation, ee_pose.orientation
-                    )
-                )
-                < 1.0
-            )
-
-        base_motion_plan = run_base_motion_planning_to_goal(
+        base_motion_plan = run_base_motion_planning(
             self._sim.robot,
             current_base_pose,
-            _goal_check,
+            target_base_pose,
             position_lower_bounds=self._task_spec.world_lower_bounds[:2],
             position_upper_bounds=self._task_spec.world_upper_bounds[:2],
             collision_bodies=collision_ids,
@@ -591,7 +569,7 @@ class HandoverSkill(PyBulletSkill):
         handover_pose: Pose | None = None
         skill_hyperparameters = self._get_skill_hyperparameters()
         while True:
-            candidate = self._sample_handover_pose(skill_hyperparameters.rom_radius)
+            candidate = self._sample_handover_pose(skill_hyperparameters)
             try:
                 inverse_kinematics(self._sim.robot, candidate)
                 handover_pose = candidate
