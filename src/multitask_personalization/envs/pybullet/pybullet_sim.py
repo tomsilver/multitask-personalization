@@ -188,7 +188,7 @@ class PyBulletSimulator:
         )
         set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
-        # Create book.
+        # Create books.
         self.book_ids: list[int] = []
         for book_rgba, book_half_extents, book_pose in zip(
             self.task_spec.book_rgbas,
