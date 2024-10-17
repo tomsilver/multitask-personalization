@@ -68,6 +68,7 @@ NothingOn = Predicate("NothingOn", [object_type])
 Holding = Predicate("Holding", [robot_type, object_type])
 GripperEmpty = Predicate("GripperEmpty", [robot_type])
 HandedOver = Predicate("HandedOver", [object_type])
+NextTo = Predicate("NextTo", [robot_type, object_type])
 
 PREDICATES = {
     IsMovable,
@@ -77,6 +78,7 @@ PREDICATES = {
     Holding,
     GripperEmpty,
     HandedOver,
+    NextTo,
 }
 
 
@@ -120,6 +122,7 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
             self._interpret_Holding,
             self._interpret_GripperEmpty,
             self._interpret_HandedOver,
+            self._interpret_NextTo,
         ]
 
     def reset(
@@ -240,6 +243,20 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
             if dist < self._sim.rom_sphere_radius + handover_padding:
                 handed_over_objs.add(obj)
         return {GroundAtom(HandedOver, [o]) for o in handed_over_objs}
+    
+    def _interpret_NextTo(self) -> set[GroundAtom]:
+        surfaces = [self._table, self._tray, self._shelf]
+        distance_threshold = 1e-1
+        atoms: set[GroundAtom] = set()
+        for surface in surfaces:
+            surface_id = self._pybullet_ids[surface]
+            closest_points = p.getClosestPoints(self._sim.robot.robot_id,
+                                                surface_id,
+                                                distance=distance_threshold,
+                                                physicsClientId=self._sim.physics_client_id)
+            if closest_points is not None and len(closest_points) > 0:
+                atoms.add(GroundAtom(NextTo, [self._robot, surface]))
+        return atoms
 
 
 ##############################################################################
