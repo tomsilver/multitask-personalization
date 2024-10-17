@@ -34,6 +34,7 @@ class PyBulletIntakeProcess(IntakeProcess[_PyBulletIntakeObs, _PyBulletIntakeAct
 
     @cached_property
     def action_space(self) -> gym.spaces.Box:
+        # TODO: implement real ROM model.
         x, y, z = self._sim.rom_sphere_center
         size = 0.5
         return gym.spaces.Box(
@@ -49,6 +50,7 @@ class PyBulletIntakeProcess(IntakeProcess[_PyBulletIntakeObs, _PyBulletIntakeAct
         self,
         action: _PyBulletIntakeAction,
     ) -> CategoricalDistribution[_PyBulletIntakeObs]:
+        # TODO: implement real ROM model.
         dist = np.sqrt(np.sum(np.subtract(action, self._sim.rom_sphere_center) ** 2))
         result = dist < self._sim.rom_sphere_radius
         return CategoricalDistribution({result: 1.0, not result: 0.0})

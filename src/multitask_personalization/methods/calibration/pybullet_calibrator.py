@@ -31,6 +31,7 @@ class PyBulletCalibrator(Calibrator):
         max_positive: float | None = None
         min_negative: float | None = None
         for action, obs in intake_data:
+            # TODO: implement real ROM model.
             dist = np.sqrt(
                 np.sum(np.subtract(action, self._sim.rom_sphere_center) ** 2)
             )
@@ -55,4 +56,5 @@ class OraclePyBulletCalibrator(Calibrator):
     def get_parameters(
         self, task_id: str, intake_data: list[tuple[IntakeAction, IntakeObservation]]
     ) -> PolicyParameters:
+        # TODO: implement real ROM model.
         return self._sim.rom_sphere_radius
