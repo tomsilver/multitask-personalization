@@ -187,12 +187,14 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
                     continue
                 # Check for contact.
                 if check_body_collisions(
-                    obj1_pybullet_id, obj2_pybullet_id, self._sim.physics_client_id,
-                    distance_threshold=1e-3
+                    obj1_pybullet_id,
+                    obj2_pybullet_id,
+                    self._sim.physics_client_id,
+                    distance_threshold=1e-3,
                 ):
                     on_relations.add((obj1, obj2))
         return on_relations
-    
+
     def _get_moveable_objects(self) -> set[Object]:
         return {self._cup} | set(self._books)
 
@@ -219,10 +221,11 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
             pybullet_id_to_obj = {v: k for k, v in self._pybullet_ids.items()}
             held_obj = pybullet_id_to_obj[self._sim.current_held_object_id]
             return {GroundAtom(Holding, [self._robot, held_obj])}
-        # TODO add back
         for obj in self._get_moveable_objects():
             obj_id = self._pybullet_ids[obj]
-            if check_body_collisions(self._sim.robot.robot_id, obj_id, self._sim.physics_client_id):
+            if check_body_collisions(
+                self._sim.robot.robot_id, obj_id, self._sim.physics_client_id
+            ):
                 return {GroundAtom(Holding, [self._robot, obj])}
         return set()
 
@@ -243,18 +246,32 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
             if dist < self._sim.rom_sphere_radius + handover_padding:
                 handed_over_objs.add(obj)
         return {GroundAtom(HandedOver, [o]) for o in handed_over_objs}
-    
+
     def _interpret_NextTo(self) -> set[GroundAtom]:
-        surfaces = [self._table, self._tray, self._shelf]
-        distance_threshold = 1e-1
+        # Generalize and remove redundant code later...
+        tray_position = self._sim.task_spec.tray_pose.position
+        tray_half_extents = self._sim.task_spec.tray_half_extents
+        tray_target_position = (
+            tray_position[0] - 2 * tray_half_extents[0],
+            tray_position[1] - 2 * tray_half_extents[1],
+            0.0,
+        )
+        shelf_target_position = self._sim.task_spec.robot_base_pose.position
+        table_target_position = (
+            shelf_target_position[0],
+            shelf_target_position[1] - 0.1,
+            shelf_target_position[2],
+        )
+        robot_position = self._sim.robot.get_base_pose().position
+        distance_threshold = 1e-3
         atoms: set[GroundAtom] = set()
-        for surface in surfaces:
-            surface_id = self._pybullet_ids[surface]
-            closest_points = p.getClosestPoints(self._sim.robot.robot_id,
-                                                surface_id,
-                                                distance=distance_threshold,
-                                                physicsClientId=self._sim.physics_client_id)
-            if closest_points is not None and len(closest_points) > 0:
+        for surface, target_position in [
+            (self._tray, tray_target_position),
+            (self._shelf, shelf_target_position),
+            (self._table, table_target_position),
+        ]:
+            dist = np.linalg.norm(np.subtract(robot_position, target_position))
+            if dist < distance_threshold:
                 atoms.add(GroundAtom(NextTo, [self._robot, surface]))
         return atoms
 
@@ -272,6 +289,7 @@ PickOperator = LiftedOperator(
     preconditions={
         LiftedAtom(IsMovable, [Obj]),
         LiftedAtom(NotIsMovable, [Surface]),
+        LiftedAtom(NextTo, [Robot, Surface]),
         LiftedAtom(GripperEmpty, [Robot]),
         LiftedAtom(NothingOn, [Obj]),
         LiftedAtom(On, [Obj, Surface]),
@@ -285,12 +303,30 @@ PickOperator = LiftedOperator(
     },
 )
 
+Target = Variable("?target", object_type)
+MoveOperator = LiftedOperator(
+    "Move",
+    [Robot, Surface, Target],
+    preconditions={
+        LiftedAtom(NotIsMovable, [Surface]),
+        LiftedAtom(NotIsMovable, [Target]),
+        LiftedAtom(NextTo, [Robot, Surface]),
+    },
+    add_effects={
+        LiftedAtom(NextTo, [Robot, Target]),
+    },
+    delete_effects={
+        LiftedAtom(NextTo, [Robot, Surface]),
+    },
+)
+
 PlaceOperator = LiftedOperator(
     "Place",
     [Robot, Obj, Surface],
     preconditions={
         LiftedAtom(Holding, [Robot, Obj]),
         LiftedAtom(NotIsMovable, [Surface]),
+        LiftedAtom(NextTo, [Robot, Surface]),
     },
     add_effects={
         LiftedAtom(On, [Obj, Surface]),
@@ -316,7 +352,7 @@ HandOverOperator = LiftedOperator(
     },
 )
 
-OPERATORS = {PickOperator, PlaceOperator, HandOverOperator}
+OPERATORS = {PickOperator, MoveOperator, PlaceOperator, HandOverOperator}
 
 ##############################################################################
 #                                  Skills                                    #
@@ -438,6 +474,12 @@ class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):
                 attachments[book_id] = obs.grasp_transform
         return KinematicState(robot_joints, object_poses, attachments, obs.robot_base)
 
+    def _get_aabb_dimensions(self, obj_id: int) -> tuple[float, float, float]:
+        (min_x, min_y, min_z), (max_x, max_y, max_z) = p.getAABB(
+            obj_id, -1, self._sim.physics_client_id
+        )
+        return (max_x - min_x, max_y - min_y, max_z - min_z)
+
 
 class PickSkill(PyBulletSkill):
     """Skill for picking."""
@@ -484,9 +526,91 @@ class PickSkill(PyBulletSkill):
             surface_id,
             collision_ids,
             grasp_generator=_grasp_generator(),
+            max_motion_planning_time=self._max_motion_planning_time,
         )
 
         assert kinematic_plan is not None
+        return kinematic_plan
+
+
+class MoveSkill(PyBulletSkill):
+    """Skill for moving."""
+
+    def _get_lifted_operator(self) -> LiftedOperator:
+        return MoveOperator
+
+    def _get_kinematic_plan_given_objects(
+        self, objects: Sequence[Object], state: KinematicState
+    ) -> list[KinematicState]:
+        _, _, surface = objects
+
+        surface_id = self._object_to_pybullet_id(surface)
+        collision_ids = set(state.object_poses) - set(state.attachments)
+
+        base_to_platform = self._sim.robot_base_to_stand
+        surface_extents = self._get_aabb_dimensions(surface_id)
+
+        state.set_pybullet(self._sim.robot)
+        current_base_pose = self._sim.robot.get_base_pose()
+        surface_pose = get_pose(surface_id, self._sim.physics_client_id)
+
+        # Use pre-defined staging base poses for now. Generalize this later.
+        if surface.name == "tray":
+            target_base_pose = Pose(
+                (
+                    surface_pose.position[0] - surface_extents[0],
+                    surface_pose.position[1] - surface_extents[1],
+                    0.0,
+                ),
+                orientation=current_base_pose.orientation,
+            )
+        elif surface.name == "shelf":
+            target_base_pose = self._task_spec.robot_base_pose
+        elif surface.name == "table":
+            target_base_pose = Pose(
+                (
+                    self._task_spec.robot_base_pose.position[0],
+                    self._task_spec.robot_base_pose.position[1] - 0.1,
+                    self._task_spec.robot_base_pose.position[2],
+                ),
+                self._task_spec.robot_base_pose.orientation,
+            )
+        else:
+            raise NotImplementedError
+
+        if state.attachments:
+            assert len(state.attachments) == 1
+            held_obj_id, held_obj_tf = next(iter(state.attachments.items()))
+        else:
+            held_obj_id, held_obj_tf = None, None
+
+        base_motion_plan = run_base_motion_planning(
+            self._sim.robot,
+            current_base_pose,
+            target_base_pose,
+            position_lower_bounds=self._task_spec.world_lower_bounds[:2],
+            position_upper_bounds=self._task_spec.world_upper_bounds[:2],
+            collision_bodies=collision_ids,
+            seed=self._seed,
+            physics_client_id=self._sim.physics_client_id,
+            platform=self._sim.robot_stand_id,
+            held_object=held_obj_id,
+            base_link_to_held_obj=held_obj_tf,
+        )
+
+        assert base_motion_plan is not None
+
+        kinematic_plan: list[KinematicState] = []
+        for base_pose in base_motion_plan:
+            kinematic_plan.append(state.copy_with(robot_base_pose=base_pose))
+
+        # Also update the platform in sim.
+        state = kinematic_plan[-1]
+        state.set_pybullet(self._sim.robot)
+        assert state.robot_base_pose is not None
+        platform_pose = multiply_poses(state.robot_base_pose, base_to_platform)
+        set_pose(self._sim.robot_stand_id, platform_pose, self._sim.physics_client_id)
+
         return kinematic_plan
 
 
@@ -505,7 +629,6 @@ class PlaceSkill(PyBulletSkill):
         surface_id = self._object_to_pybullet_id(surface)
         collision_ids = set(state.object_poses) - {obj_id}
 
-        base_to_platform = self._sim.robot_base_to_stand
         surface_extents = self._get_aabb_dimensions(surface_id)
         object_extents = self._get_aabb_dimensions(obj_id)
         placement_lb = (
@@ -525,48 +648,9 @@ class PlaceSkill(PyBulletSkill):
                 yield Pose(tuple(self._rng.uniform(placement_lb, placement_ub)))
 
         state.set_pybullet(self._sim.robot)
-        current_base_pose = self._sim.robot.get_base_pose()
-        surface_pose = get_pose(surface_id, self._sim.physics_client_id)
-
-        # Use pre-defined staging base pose for now. Generalize this later.
-        target_base_pose = Pose(
-            (
-                surface_pose.position[0] - surface_extents[0],
-                surface_pose.position[1] - surface_extents[1],
-                0.0,
-            ),
-            orientation=current_base_pose.orientation,
-        )
-
-        base_motion_plan = run_base_motion_planning(
-            self._sim.robot,
-            current_base_pose,
-            target_base_pose,
-            position_lower_bounds=self._task_spec.world_lower_bounds[:2],
-            position_upper_bounds=self._task_spec.world_upper_bounds[:2],
-            collision_bodies=collision_ids,
-            seed=self._seed,
-            physics_client_id=self._sim.physics_client_id,
-            platform=self._sim.robot_stand_id,
-            held_object=obj_id,
-            base_link_to_held_obj=state.attachments[obj_id],
-        )
-
-        assert base_motion_plan is not None
-
-        kinematic_plan: list[KinematicState] = []
-        for base_pose in base_motion_plan:
-            kinematic_plan.append(state.copy_with(robot_base_pose=base_pose))
-
-        # Also update the platform in sim.
-        state = kinematic_plan[-1]
-        state.set_pybullet(self._sim.robot)
-        assert state.robot_base_pose is not None
-        platform_pose = multiply_poses(state.robot_base_pose, base_to_platform)
-        set_pose(self._sim.robot_stand_id, platform_pose, self._sim.physics_client_id)
 
         # Place the object.
-        placement_kinematic_plan = get_kinematic_plan_to_place_object(
+        kinematic_plan = get_kinematic_plan_to_place_object(
             state,
             self._sim.robot,
             obj_id,
@@ -576,16 +660,8 @@ class PlaceSkill(PyBulletSkill):
             preplace_translation_magnitude=object_extents[2],
             max_motion_planning_time=self._max_motion_planning_time,
         )
-        assert placement_kinematic_plan is not None
-        kinematic_plan.extend(placement_kinematic_plan)
-
+        assert kinematic_plan is not None
         return kinematic_plan
-
-    def _get_aabb_dimensions(self, obj_id: int) -> tuple[float, float, float]:
-        (min_x, min_y, min_z), (max_x, max_y, max_z) = p.getAABB(
-            obj_id, -1, self._sim.physics_client_id
-        )
-        return (max_x - min_x, max_y - min_y, max_z - min_z)
 
 
 class HandoverSkill(PyBulletSkill):
@@ -658,7 +734,7 @@ class HandoverSkill(PyBulletSkill):
         return pose
 
 
-SKILLS = {PickSkill, PlaceSkill, HandoverSkill}
+SKILLS = {PickSkill, MoveSkill, PlaceSkill, HandoverSkill}
 
 ##############################################################################
 #                                 Planner                                    #
@@ -679,7 +755,7 @@ class PyBulletParameterizedPolicy(
     ) -> None:
         super().__init__()
         # Create a shared simulator for planning and perception.
-        self._sim = PyBulletSimulator(task_spec, use_gui=True)
+        self._sim = PyBulletSimulator(task_spec, use_gui=False)
         # Create perceiver.
         self._perceiver = PyBulletPerceiver(self._sim)
         # Give hyperparameter access to skills.
