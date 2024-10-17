@@ -217,10 +217,10 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
             held_obj = pybullet_id_to_obj[self._sim.current_held_object_id]
             return {GroundAtom(Holding, [self._robot, held_obj])}
         # TODO add back
-        # for obj in self._get_moveable_objects():
-        #     obj_id = self._pybullet_ids[obj]
-        #     if check_body_collisions(self._sim.robot.robot_id, obj_id, self._sim.physics_client_id):
-        #         return {GroundAtom(Holding, [self._robot, obj])}
+        for obj in self._get_moveable_objects():
+            obj_id = self._pybullet_ids[obj]
+            if check_body_collisions(self._sim.robot.robot_id, obj_id, self._sim.physics_client_id):
+                return {GroundAtom(Holding, [self._robot, obj])}
         return set()
 
     def _interpret_GripperEmpty(self) -> set[GroundAtom]:
@@ -556,6 +556,7 @@ class PlaceSkill(PyBulletSkill):
             surface_id,
             collision_ids,
             _placement_generator(),
+            preplace_translation_magnitude=object_extents[2],
             max_motion_planning_time=self._max_motion_planning_time,
         )
         assert placement_kinematic_plan is not None
