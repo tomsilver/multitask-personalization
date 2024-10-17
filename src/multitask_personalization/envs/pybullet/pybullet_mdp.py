@@ -51,6 +51,7 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
 
     def state_is_terminal(self, state: _PyBulletState) -> bool:
         # Will be replaced by a real ROM check later.
+        # TODO change this
         end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
         dist = np.sqrt(
             np.sum(

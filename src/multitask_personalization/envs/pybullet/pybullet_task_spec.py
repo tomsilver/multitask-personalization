@@ -104,7 +104,7 @@ class PyBulletTaskSpec:
     side_table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     side_table_half_extents: tuple[float, float, float] = (0.025, 0.1, 0.4)
 
-    tray_half_extents: tuple[float, float, float] = (0.4, 0.1, 0.025)
+    tray_half_extents: tuple[float, float, float] = (0.4, 0.2, 0.025)
     tray_pose: Pose = Pose(
         position=(
             side_table_pose.position[0]

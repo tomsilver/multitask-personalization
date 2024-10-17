@@ -31,6 +31,7 @@ def test_pybullet_policy():
 
     states = [state]
     for _ in range(500):
+        # try:
         action = policy.step(state)
         next_state = mdp.sample_next_state(state, action, rng)
         states.append(state)
@@ -38,8 +39,10 @@ def test_pybullet_policy():
         if rew > 0:
             break
         state = next_state
+        # except:
+        #     break
 
     # Uncomment for visualization.
-    # import imageio.v2 as iio
-    # imgs = [mdp.render_state(s) for s in states]
-    # iio.mimsave("pybullet_policy_test.mp4", imgs)
+    import imageio.v2 as iio
+    imgs = [mdp.render_state(s) for s in states]
+    iio.mimsave("pybullet_policy_test.mp4", imgs)

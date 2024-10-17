@@ -70,6 +70,11 @@ class PyBulletSimulator:
             self.robot_stand_id, self.task_spec.robot_stand_pose, self.physics_client_id
         )
 
+        # Save the transform between the base and stand.
+        world_to_base = self.robot.get_base_pose()
+        world_to_stand = get_pose(self.robot_stand_id, self.physics_client_id)
+        self.robot_base_to_stand = multiply_poses(world_to_base.invert(), world_to_stand)
+
         # Create human.
         human_creation = HumanCreation(
             self.physics_client_id, np_random=self._rng, cloth=False
@@ -241,6 +246,8 @@ class PyBulletSimulator:
         """Sync the simulator with the given state."""
         set_pose(self.robot.robot_id, state.robot_base, self.physics_client_id)
         self.robot.set_joints(state.robot_joints)
+        stand_pose = multiply_poses(state.robot_base, self.robot_base_to_stand)
+        set_pose(self.robot_stand_id, stand_pose, self.physics_client_id)
         set_pose(self.human.body, state.human_base, self.physics_client_id)
         self.human.set_joint_angles(
             self.human.right_arm_joints,
@@ -282,7 +289,15 @@ class PyBulletSimulator:
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
-        del base_position_delta  # TODO
+        # Update the robot base.
+        world_to_base = self.robot.get_base_pose()
+        dx, dy, dyaw = base_position_delta
+        x, y, z = world_to_base.position
+        roll, pitch, yaw = world_to_base.rpy
+        next_base = Pose.from_rpy((x + dx, y + dy, z), (roll, pitch, yaw + dyaw))
+        self.robot.set_base(next_base)
+        next_stand_pose = multiply_poses(next_base, self.robot_base_to_stand)
+        set_pose(self.robot_stand_id, next_stand_pose, self.physics_client_id)
         # Update the robot arm angles.
         current_joints = self.robot.get_joint_positions()
         # Only update the arm, assuming the first 7 entries are the arm.
