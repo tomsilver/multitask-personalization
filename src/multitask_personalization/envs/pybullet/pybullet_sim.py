@@ -73,7 +73,9 @@ class PyBulletSimulator:
         # Save the transform between the base and stand.
         world_to_base = self.robot.get_base_pose()
         world_to_stand = get_pose(self.robot_stand_id, self.physics_client_id)
-        self.robot_base_to_stand = multiply_poses(world_to_base.invert(), world_to_stand)
+        self.robot_base_to_stand = multiply_poses(
+            world_to_base.invert(), world_to_stand
+        )
 
         # Create human.
         human_creation = HumanCreation(
@@ -114,10 +116,10 @@ class PyBulletSimulator:
         )
 
         # Create wheelchair.
-        furniture = Furniture()
+        self.wheelchair = Furniture()
         directory = Path(assistive_gym.envs.__file__).parent / "assets"
         assert directory.exists()
-        furniture.init(
+        self.wheelchair.init(
             "wheelchair",
             directory,
             self.physics_client_id,
@@ -125,7 +127,9 @@ class PyBulletSimulator:
             wheelchair_mounted=False,
         )
         set_pose(
-            furniture.body, self.task_spec.wheelchair_base_pose, self.physics_client_id
+            self.wheelchair.body,
+            self.task_spec.wheelchair_base_pose,
+            self.physics_client_id,
         )
 
         # Placeholder for full range of motion model.

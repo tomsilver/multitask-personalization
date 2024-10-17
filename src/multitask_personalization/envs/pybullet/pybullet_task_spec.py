@@ -87,7 +87,7 @@ class PyBulletTaskSpec:
     shelf_pose: Pose = Pose(position=(0.0, 0.75, -shelf_support_height / 2))
 
     book_rgba: tuple[float, float, float, float] = (0.8, 0.2, 0.2, 1.0)
-    book_half_extents: tuple[float, float, float] = (0.03, 0.08, 0.1)
+    book_half_extents: tuple[float, float, float] = (0.02, 0.05, 0.08)
     book_pose: Pose = Pose(
         position=(
             shelf_pose.position[0],

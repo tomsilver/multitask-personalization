@@ -3,18 +3,21 @@
 from typing import Iterator
 
 import numpy as np
-from pybullet_helpers.geometry import Pose, multiply_poses, get_pose, set_pose
+from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
 )
 from pybullet_helpers.link import get_link_pose
-from pybullet_helpers.manipulation import get_kinematic_plan_to_pick_object, get_kinematic_plan_to_place_object
+from pybullet_helpers.manipulation import (
+    get_kinematic_plan_to_pick_object,
+    get_kinematic_plan_to_place_object,
+)
 from pybullet_helpers.math_utils import get_poses_facing_line
 from pybullet_helpers.motion_planning import (
     create_joint_distance_fn,
-    run_smooth_motion_planning_to_pose,
     run_base_motion_planning_to_goal,
+    run_smooth_motion_planning_to_pose,
 )
 from pybullet_helpers.states import KinematicState
 
@@ -57,7 +60,7 @@ class PyBulletParameterizedPolicy(
         self._rng = np.random.default_rng(seed)
         self._task_spec = task_spec
         # Create a simulator for planning.
-        self._sim = PyBulletSimulator(task_spec, use_gui=True)
+        self._sim = PyBulletSimulator(task_spec, use_gui=False)
         self._joint_distance_fn = create_joint_distance_fn(self._sim.robot)
         # Store an action plan for the robot.
         self._plan: list[_PyBulletAction] = []
@@ -129,8 +132,14 @@ class PyBulletParameterizedPolicy(
         else:
             raise NotImplementedError
 
-        collision_ids = {self._sim.table_id, self._sim.human.body, self._sim.shelf_id,
-                         self._sim.tray_id, self._sim.side_table_id}
+        collision_ids = {
+            self._sim.table_id,
+            self._sim.human.body,
+            self._sim.wheelchair.body,
+            self._sim.shelf_id,
+            self._sim.tray_id,
+            self._sim.side_table_id,
+        }
 
         def _grasp_generator() -> Iterator[Pose]:
             while True:
@@ -155,7 +164,7 @@ class PyBulletParameterizedPolicy(
         assert kinematic_plan is not None
 
         if self._task_spec.task_objective == "place book on tray":
-            
+
             state = kinematic_plan[-1]
             state.set_pybullet(self._sim.robot)
             current_base_pose = self._sim.robot.get_base_pose()
@@ -163,7 +172,9 @@ class PyBulletParameterizedPolicy(
 
             # Prepare to set platform after.
             world_to_base = self._sim.robot.get_base_pose()
-            world_to_platform = get_pose(self._sim.robot_stand_id, self._sim.physics_client_id)
+            world_to_platform = get_pose(
+                self._sim.robot_stand_id, self._sim.physics_client_id
+            )
             base_to_platform = multiply_poses(world_to_base.invert(), world_to_platform)
 
             # Set up at target area for base position motion planning that
@@ -171,21 +182,29 @@ class PyBulletParameterizedPolicy(
             # close enough to the tray. Then run motion planning in SE2 for the
             # base only.
             ideal_pre_place_ee_pose = Pose(
-                (self._task_spec.tray_pose.position[0] - 0.25,
-                self._task_spec.tray_pose.position[1],
-                self._task_spec.tray_pose.position[2] + 0.25),
-                current_ee_pose.orientation)
-            
-            # TODO remove
-            # import pybullet as p
-            # from pybullet_helpers.gui import visualize_pose
-            # while True:
-            #     visualize_pose(ideal_pre_place_ee_pose, self._sim.physics_client_id)
+                (
+                    self._task_spec.tray_pose.position[0] - 0.25,
+                    self._task_spec.tray_pose.position[1],
+                    self._task_spec.tray_pose.position[2] + 0.25,
+                ),
+                current_ee_pose.orientation,
+            )
 
             def _goal_check(base_pose: Pose) -> bool:
                 self._sim.robot.set_base(base_pose)
                 ee_pose = self._sim.robot.forward_kinematics(state.robot_joints)
-                return np.linalg.norm(np.subtract(ideal_pre_place_ee_pose.position, ee_pose.position)) < 0.25 and np.linalg.norm(np.subtract(ideal_pre_place_ee_pose.orientation, ee_pose.orientation)) < 1.0
+                return bool(
+                    np.linalg.norm(
+                        np.subtract(ideal_pre_place_ee_pose.position, ee_pose.position)
+                    )
+                    < 0.25
+                    and np.linalg.norm(
+                        np.subtract(
+                            ideal_pre_place_ee_pose.orientation, ee_pose.orientation
+                        )
+                    )
+                    < 1.0
+                )
 
             base_motion_plan = run_base_motion_planning_to_goal(
                 self._sim.robot,
@@ -210,8 +229,11 @@ class PyBulletParameterizedPolicy(
             # Also update the platform in sim.
             state = kinematic_plan[-1]
             state.set_pybullet(self._sim.robot)
+            assert state.robot_base_pose is not None
             platform_pose = multiply_poses(state.robot_base_pose, base_to_platform)
-            set_pose(self._sim.robot_stand_id, platform_pose, self._sim.physics_client_id)
+            set_pose(
+                self._sim.robot_stand_id, platform_pose, self._sim.physics_client_id
+            )
 
             # Prepare to place.
             half_extents = self._task_spec.tray_half_extents
@@ -228,23 +250,22 @@ class PyBulletParameterizedPolicy(
                 half_extents[2] + object_length / 2,
             )
 
-            def _placement_generator():
+            def _placement_generator() -> Iterator[Pose]:
                 # Sample on the surface of the table.
                 while True:
                     yield Pose(tuple(self._rng.uniform(placement_lb, placement_ub)))
-            
-            placement_kinematic_plan = get_kinematic_plan_to_place_object(state, self._sim.robot, object_id,
-                                               self._sim.tray_id, collision_ids,
-                                               _placement_generator(), max_motion_planning_time=self._max_motion_planning_time)
+
+            placement_kinematic_plan = get_kinematic_plan_to_place_object(
+                state,
+                self._sim.robot,
+                object_id,
+                self._sim.tray_id,
+                collision_ids,
+                _placement_generator(),
+                max_motion_planning_time=self._max_motion_planning_time,
+            )
             assert placement_kinematic_plan is not None
             kinematic_plan.extend(placement_kinematic_plan)
-
-            import time
-            for state in placement_kinematic_plan:
-                state.set_pybullet(self._sim.robot)
-                time.sleep(0.1)
-            import ipdb; ipdb.set_trace()
-
 
             return kinematic_plan
 
@@ -292,10 +313,12 @@ class PyBulletParameterizedPolicy(
     def _kinematic_transition_to_actions(
         self, state: KinematicState, next_state: KinematicState
     ) -> list[_PyBulletAction]:
+        assert state.robot_base_pose is not None
+        assert next_state.robot_base_pose is not None
         base_delta = (
             next_state.robot_base_pose.position[0] - state.robot_base_pose.position[0],
             next_state.robot_base_pose.position[1] - state.robot_base_pose.position[1],
-            next_state.robot_base_pose.rpy[2] - state.robot_base_pose.rpy[2]
+            next_state.robot_base_pose.rpy[2] - state.robot_base_pose.rpy[2],
         )
         joint_delta = np.subtract(next_state.robot_joints, state.robot_joints)
         delta = list(base_delta) + list(joint_delta[:7])
