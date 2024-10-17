@@ -1,11 +1,12 @@
 """A domain-specific parameterized policy for pybullet."""
 
-from typing import Iterator
+from typing import Any, Iterator
 
 import numpy as np
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
+    check_body_collisions,
     inverse_kinematics,
 )
 from pybullet_helpers.link import get_link_pose
@@ -20,6 +21,8 @@ from pybullet_helpers.motion_planning import (
     run_smooth_motion_planning_to_pose,
 )
 from pybullet_helpers.states import KinematicState
+from relational_structs import GroundAtom, Object, Predicate, Type
+from task_then_motion_planning.structs import Perceiver
 
 from multitask_personalization.envs.pybullet.pybullet_sim import (
     PyBulletSimulator,
@@ -36,6 +39,200 @@ from multitask_personalization.methods.policies.parameterized_policy import (
     ParameterizedPolicy,
 )
 from multitask_personalization.utils import sample_spherical
+
+##############################################################################
+#                               Perception                                   #
+##############################################################################
+
+# Create generic types.
+robot_type = Type("robot")
+object_type = Type("obj")  # NOTE: pyperplan breaks with 'object' type name
+TYPES = {robot_type, object_type}
+
+# Create predicates.
+IsMovable = Predicate("IsMovable", [object_type])
+NotIsMovable = Predicate("NotIsMovable", [object_type])
+On = Predicate("On", [object_type, object_type])
+NothingOn = Predicate("NothingOn", [object_type])
+Holding = Predicate("Holding", [robot_type, object_type])
+GripperEmpty = Predicate("GripperEmpty", [robot_type])
+HandedOver = Predicate("HandedOver", [object_type])
+
+PREDICATES = {
+    IsMovable,
+    NotIsMovable,
+    On,
+    NothingOn,
+    Holding,
+    GripperEmpty,
+    HandedOver,
+}
+
+
+class PyBulletPerceiver(Perceiver[_PyBulletState]):
+    """A perceiver for the pybullet env."""
+
+    def __init__(self, sim: PyBulletSimulator) -> None:
+        # Use the simulator for geometric computations.
+        self._sim = sim
+
+        # Create constant objects.
+        self._robot = Object("robot", robot_type)
+        self._book = Object("book", object_type)
+        self._cup = Object("cup", object_type)
+        self._tray = Object("tray", object_type)
+        self._shelf = Object("shelf", object_type)
+        self._table = Object("table", object_type)
+
+        # Map from symbolic objects to PyBullet IDs in simulator.
+        self._pybullet_ids = {
+            self._book: self._sim.book_id,
+            self._cup: self._sim.cup_id,
+            self._tray: self._sim.tray_id,
+            self._shelf: self._sim.shelf_id,
+            self._table: self._sim.table_id,
+        }
+
+        # Store on relations for predicate interpretations.
+        self._on_relations: set[tuple[Object, Object]] = set()
+
+        # Create predicate interpreters.
+        self._predicate_interpreters = [
+            self._interpret_IsMovable,
+            self._interpret_NotIsMovable,
+            self._interpret_On,
+            self._interpret_NothingOn,
+            self._interpret_Holding,
+            self._interpret_GripperEmpty,
+            self._interpret_HandedOver,
+        ]
+
+    def reset(
+        self,
+        obs: _PyBulletState,
+        info: dict[str, Any],
+    ) -> tuple[set[Object], set[GroundAtom], set[GroundAtom]]:
+        atoms = self._parse_observation(obs)
+        objects = self._get_objects()
+        goal = self._get_goal()
+        return objects, atoms, goal
+
+    def step(self, obs: _PyBulletState) -> set[GroundAtom]:
+        atoms = self._parse_observation(obs)
+        return atoms
+
+    def _get_objects(self) -> set[Object]:
+        return set(self._pybullet_ids)
+
+    def _set_sim_from_obs(self, obs: _PyBulletState) -> None:
+        self._sim.set_state(obs)
+
+    def _get_goal(self) -> set[GroundAtom]:
+        task_objective = self._sim.task_spec.task_objective
+        if task_objective == "hand over cup":
+            return {GroundAtom(HandedOver, [self._cup])}
+        if task_objective == "hand over book":
+            return {GroundAtom(HandedOver, [self._book])}
+        if task_objective == "place book on tray":
+            return {GroundAtom(On, [self._book, self._tray])}
+        raise NotImplementedError
+
+    def _parse_observation(self, obs: _PyBulletState) -> set[GroundAtom]:
+
+        # Sync the simulator so that interpretation functions can use PyBullet
+        # direction.
+        self._set_sim_from_obs(obs)
+
+        # Compute which things are on which other things.
+        self._on_relations = self._get_on_relations_from_sim()
+
+        # Create current atoms.
+        atoms: set[GroundAtom] = set()
+        for interpret_fn in self._predicate_interpreters:
+            atoms.update(interpret_fn())
+
+        return atoms
+
+    def _get_on_relations_from_sim(self) -> set[tuple[Object, Object]]:
+        on_relations = set()
+        candidates = {o for o in self._get_objects() if o.is_instance(object_type)}
+        for obj1 in candidates:
+            obj1_pybullet_id = self._pybullet_ids[obj1]
+            pose1 = get_pose(obj1_pybullet_id, self._sim.physics_client_id)
+            for obj2 in candidates:
+                if obj1 == obj2:
+                    continue
+                obj2_pybullet_id = self._pybullet_ids[obj2]
+                # Check if obj1 pose is above obj2 pose.
+                pose2 = get_pose(obj2_pybullet_id, self._sim.physics_client_id)
+                if pose1.position[2] < pose2.position[2]:
+                    continue
+                # Check for contact.
+                if check_body_collisions(
+                    obj1_pybullet_id, obj2_pybullet_id, self._sim.physics_client_id
+                ):
+                    on_relations.add((obj1, obj2))
+        return on_relations
+
+    def _interpret_IsMovable(self) -> set[GroundAtom]:
+        movable_objs = {self._book, self._cup}
+        return {GroundAtom(IsMovable, [o]) for o in movable_objs}
+
+    def _interpret_NotIsMovable(self) -> set[GroundAtom]:
+        objs = {o for o in self._get_objects() if o.is_instance(object_type)}
+        movable_atoms = self._interpret_IsMovable()
+        movable_objs = {a.objects[0] for a in movable_atoms}
+        not_movable_objs = objs - movable_objs
+        return {GroundAtom(NotIsMovable, [o]) for o in not_movable_objs}
+
+    def _interpret_On(self) -> set[GroundAtom]:
+        return {GroundAtom(On, r) for r in self._on_relations}
+
+    def _interpret_NothingOn(self) -> set[GroundAtom]:
+        objs = {o for o in self._get_objects() if o.is_instance(object_type)}
+        for _, bot in self._on_relations:
+            objs.discard(bot)
+        return {GroundAtom(NothingOn, [o]) for o in objs}
+
+    def _interpret_Holding(self) -> set[GroundAtom]:
+        if self._sim.current_held_object_id is not None:
+            pybullet_id_to_obj = {v: k for k, v in self._pybullet_ids.items()}
+            held_obj = pybullet_id_to_obj[self._sim.current_held_object_id]
+            return {GroundAtom(Holding, [self._robot, held_obj])}
+        return set()
+
+    def _interpret_GripperEmpty(self) -> set[GroundAtom]:
+        if not self._sim.current_grasp_transform:
+            return {GroundAtom(GripperEmpty, [self._robot])}
+        return set()
+
+    def _interpret_HandedOver(self) -> set[GroundAtom]:
+        handed_over_objs: set[Object] = set()
+        handover_padding = 1e-2
+        for obj in [self._cup, self._book]:
+            obj_pybullet_id = self._pybullet_ids[obj]
+            pose = get_pose(obj_pybullet_id, self._sim.physics_client_id)
+            dist = np.sqrt(
+                np.sum(np.subtract(pose.position, self._sim.rom_sphere_center) ** 2)
+            )
+            if dist < self._sim.rom_sphere_radius + handover_padding:
+                handed_over_objs.add(obj)
+        return {GroundAtom(HandedOver, [o]) for o in handed_over_objs}
+
+
+##############################################################################
+#                                Operators                                   #
+##############################################################################
+
+
+##############################################################################
+#                                  Skills                                    #
+##############################################################################
+
+
+##############################################################################
+#                                 Planner                                    #
+##############################################################################
 
 
 class PyBulletParameterizedPolicy(
@@ -88,7 +285,7 @@ class PyBulletParameterizedPolicy(
     ) -> KinematicState:
         robot_joints = state.robot_joints
         object_poses = {
-            self._sim.object_id: state.object_pose,
+            self._sim.cup_id: state.object_pose,
             self._sim.book_id: state.book_pose,
             self._sim.table_id: self._task_spec.table_pose,
             self._sim.shelf_id: self._task_spec.shelf_pose,
@@ -96,7 +293,7 @@ class PyBulletParameterizedPolicy(
         }
         attachments: dict[int, Pose] = {}
         if state.grasp_transform:
-            attachments[self._sim.object_id] = state.grasp_transform
+            attachments[self._sim.cup_id] = state.grasp_transform
         return KinematicState(robot_joints, object_poses, attachments, state.robot_base)
 
     def _sample_pybullet_pose(self, radius: float) -> Pose:
@@ -121,7 +318,7 @@ class PyBulletParameterizedPolicy(
     ) -> list[KinematicState]:
 
         if self._task_spec.task_objective == "hand over cup":
-            object_id = self._sim.object_id
+            object_id = self._sim.cup_id
             surface_id = self._sim.table_id
         elif self._task_spec.task_objective == "hand over book":
             object_id = self._sim.book_id

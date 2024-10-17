@@ -167,13 +167,13 @@ class PyBulletSimulator:
         set_pose(self.table_id, self.task_spec.table_pose, self.physics_client_id)
 
         # Create object.
-        self.object_id = create_pybullet_cylinder(
+        self.cup_id = create_pybullet_cylinder(
             self.task_spec.object_rgba,
             self.task_spec.object_radius,
             self.task_spec.object_length,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(self.object_id, self.task_spec.object_pose, self.physics_client_id)
+        set_pose(self.cup_id, self.task_spec.object_pose, self.physics_client_id)
 
         # Create shelf.
         self.shelf_id = _create_shelf(
@@ -228,11 +228,11 @@ class PyBulletSimulator:
         robot_joints = self.robot.get_joint_positions()
         human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
         human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
-        object_pose = get_pose(self.object_id, self.physics_client_id)
+        object_pose = get_pose(self.cup_id, self.physics_client_id)
         book_pose = get_pose(self.book_id, self.physics_client_id)
         held_object = {
             None: None,
-            self.object_id: "cup",
+            self.cup_id: "cup",
             self.book_id: "book",
         }[self.current_held_object_id]
         return _PyBulletState(
@@ -257,12 +257,12 @@ class PyBulletSimulator:
             self.human.right_arm_joints,
             state.human_joints,
         )
-        set_pose(self.object_id, state.object_pose, self.physics_client_id)
+        set_pose(self.cup_id, state.object_pose, self.physics_client_id)
         set_pose(self.book_id, state.book_pose, self.physics_client_id)
         self.current_grasp_transform = state.grasp_transform
         self.current_held_object_id = {
             None: None,
-            "cup": self.object_id,
+            "cup": self.cup_id,
             "book": self.book_id,
         }[state.held_object]
 
@@ -272,7 +272,7 @@ class PyBulletSimulator:
             if action[1] == _GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
-                for object_id in [self.object_id, self.book_id]:
+                for object_id in [self.cup_id, self.book_id]:
                     world_to_object = get_pose(object_id, self.physics_client_id)
                     object_position = world_to_object.position
                     dist = np.sum(
