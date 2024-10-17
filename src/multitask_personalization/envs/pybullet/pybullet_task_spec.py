@@ -16,6 +16,9 @@ class PyBulletTaskSpec:
 
     task_objective: str = "hand over cup"
 
+    world_lower_bounds: tuple[float, float, float] = (-2.5, -2.5, -2.5)
+    world_upper_bounds: tuple[float, float, float] = (2.5, 2.5, 2.5)
+
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
     initial_joints: JointPositions = field(

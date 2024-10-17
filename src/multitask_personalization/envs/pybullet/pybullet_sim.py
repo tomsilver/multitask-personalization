@@ -53,6 +53,7 @@ class PyBulletSimulator:
             base_pose=self.task_spec.robot_base_pose,
             control_mode="reset",
             home_joint_positions=self.task_spec.initial_joints,
+            fixed_base=False,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         robot.close_fingers()

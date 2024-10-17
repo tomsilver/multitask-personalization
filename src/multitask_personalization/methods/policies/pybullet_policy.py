@@ -14,6 +14,7 @@ from pybullet_helpers.math_utils import get_poses_facing_line
 from pybullet_helpers.motion_planning import (
     create_joint_distance_fn,
     run_smooth_motion_planning_to_pose,
+    run_base_motion_planning_to_goal,
 )
 from pybullet_helpers.states import KinematicState
 
@@ -152,9 +153,61 @@ class PyBulletParameterizedPolicy(
         assert kinematic_plan is not None
 
         if self._task_spec.task_objective == "place book on tray":
-            # TODO implement motion planning for base
-            # TODO in future PR, convert to planning with skills framework
+            
+            state = kinematic_plan[-1]
+            state.set_pybullet(self._sim.robot)
+            current_base_pose = self._sim.robot.get_base_pose()
+            current_ee_pose = self._sim.robot.forward_kinematics(state.robot_joints)
+
+            # Set up at target area for base position motion planning that
+            # checks the position of the end effector and sees whether it is
+            # close enough to the tray. Then run motion planning in SE2 for the
+            # base only.
+            ideal_pre_place_ee_pose = Pose(
+                (self._task_spec.tray_pose.position[0] - 0.4,
+                self._task_spec.tray_pose.position[1] - 0.1,
+                self._task_spec.tray_pose.position[2] + 0.25),
+                current_ee_pose.orientation)
+
+            def _goal_check(base_pose: Pose) -> bool:
+                self._sim.robot.set_base(base_pose)
+                ee_pose = self._sim.robot.forward_kinematics(state.robot_joints)
+                return np.linalg.norm(np.subtract(ideal_pre_place_ee_pose.position, ee_pose.position)) < 0.5 and np.linalg.norm(np.subtract(ideal_pre_place_ee_pose.orientation, ee_pose.orientation)) < 1.0
+
+            base_motion_plan = run_base_motion_planning_to_goal(
+                self._sim.robot,
+                current_base_pose,
+                _goal_check,
+                position_lower_bounds=self._task_spec.world_lower_bounds[:2],
+                position_upper_bounds=self._task_spec.world_upper_bounds[:2],
+                collision_bodies=collision_ids,
+                seed=self._seed,
+                physics_client_id=self._sim.physics_client_id,
+                platform=self._sim.robot_stand_id,
+                held_object=object_id,
+                base_link_to_held_obj=state.attachments[object_id],
+            )
+
+            assert base_motion_plan is not None
+
             import ipdb; ipdb.set_trace()
+
+
+            # TODO remove...
+            # Determine a pre-place end effector pose.
+            # current_end_effector_pose = self._sim.robot.forward_kinematics(kinematic_plan[-1].robot_joints)
+            # pre_place_end_effector_pose = Pose(
+            #     (self._task_spec.tray_pose.position[0] - 0.4,
+            #     self._task_spec.tray_pose.position[1] - 0.1,
+            #     self._task_spec.tray_pose.position[2] + 0.25),
+            #     current_end_effector_pose.orientation)
+                        
+            # import pybullet as p
+            # from pybullet_helpers.gui import visualize_pose
+            # visualize_pose(pre_place_end_effector_pose, self._sim.physics_client_id)
+            # while True:
+            #     p.stepSimulation(self._sim.physics_client_id)
+
 
         # Sample a reachable handover pose.
         handover_pose: Pose | None = None
