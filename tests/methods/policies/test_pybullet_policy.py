@@ -15,6 +15,7 @@ from multitask_personalization.methods.policies.pybullet_policy import (
 def test_pybullet_policy():
     """Tests for pybullet_policy.py."""
     rng = np.random.default_rng(123)
+    default_task_spec = PyBulletTaskSpec()
     task_specs = [
         PyBulletTaskSpec(
             task_objective="hand over cup",
@@ -22,7 +23,12 @@ def test_pybullet_policy():
             side_table_pose=Pose((-1000, -1000, -1000)),
         ),
         PyBulletTaskSpec(task_objective="hand over book"),
-        PyBulletTaskSpec(task_objective="place book on tray"),
+        PyBulletTaskSpec(
+            task_objective="place books on tray",
+            book_poses=default_task_spec.book_poses[:2],
+            book_half_extents=default_task_spec.book_half_extents[:2],
+            book_rgbas=default_task_spec.book_rgbas[:2],
+        ),
     ]
     for task_spec in task_specs:
         task = PyBulletTask(
@@ -35,12 +41,14 @@ def test_pybullet_policy():
         assert not mdp.state_is_terminal(state)
         mdp.action_space.seed(123)
 
-        policy = PyBulletParameterizedPolicy(task.task_spec)
+        policy = PyBulletParameterizedPolicy(
+            task.task_spec, max_motion_planning_time=0.1
+        )
         params = 0.3  # radius of ROM sphere
         policy.reset(task.id, params)
 
         states = [state]
-        for _ in range(500):
+        for _ in range(10000):
             action = policy.step(state)
             next_state = mdp.sample_next_state(state, action, rng)
             states.append(state)
