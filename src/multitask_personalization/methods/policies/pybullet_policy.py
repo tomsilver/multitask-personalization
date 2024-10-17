@@ -398,8 +398,10 @@ class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):
         }
         attachments: dict[int, Pose] = {}
         if obs.held_object == "cup":
+            assert obs.grasp_transform is not None
             attachments[self._sim.cup_id] = obs.grasp_transform
         if obs.held_object == "book":
+            assert obs.grasp_transform is not None
             attachments[self._sim.book_id] = obs.grasp_transform
         return KinematicState(robot_joints, object_poses, attachments, obs.robot_base)
 
