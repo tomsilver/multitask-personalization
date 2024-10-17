@@ -89,7 +89,9 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
 
         # Create constant objects.
         self._robot = Object("robot", robot_type)
-        self._book = Object("book", object_type)
+        self._books = [
+            Object(f"book{i}", object_type) for i in range(len(self._sim.book_ids))
+        ]
         self._cup = Object("cup", object_type)
         self._tray = Object("tray", object_type)
         self._shelf = Object("shelf", object_type)
@@ -98,12 +100,13 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
         # Map from symbolic objects to PyBullet IDs in simulator.
         self._pybullet_ids = {
             self._robot: self._sim.robot.robot_id,
-            self._book: self._sim.book_id,
             self._cup: self._sim.cup_id,
             self._tray: self._sim.tray_id,
             self._shelf: self._sim.shelf_id,
             self._table: self._sim.table_id,
         }
+        for book, book_id in zip(self._books, self._sim.book_ids, strict=True):
+            self._pybullet_ids[book] = book_id
 
         # Store on relations for predicate interpretations.
         self._on_relations: set[tuple[Object, Object]] = set()
@@ -144,9 +147,9 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
         if task_objective == "hand over cup":
             return {GroundAtom(HandedOver, [self._cup])}
         if task_objective == "hand over book":
-            return {GroundAtom(HandedOver, [self._book])}
-        if task_objective == "place book on tray":
-            return {GroundAtom(On, [self._book, self._tray])}
+            return {GroundAtom(HandedOver, [self._books[0]])}
+        if task_objective == "place books on tray":
+            return {GroundAtom(On, [book, self._tray]) for book in self._books}
         raise NotImplementedError
 
     def _parse_observation(self, obs: _PyBulletState) -> set[GroundAtom]:
@@ -187,7 +190,7 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
         return on_relations
 
     def _interpret_IsMovable(self) -> set[GroundAtom]:
-        movable_objs = {self._book, self._cup}
+        movable_objs = {self._cup} | set(self._books)
         return {GroundAtom(IsMovable, [o]) for o in movable_objs}
 
     def _interpret_NotIsMovable(self) -> set[GroundAtom]:
@@ -221,7 +224,7 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
     def _interpret_HandedOver(self) -> set[GroundAtom]:
         handed_over_objs: set[Object] = set()
         handover_padding = 1e-2
-        for obj in [self._cup, self._book]:
+        for obj in [self._cup] + self._books:
             obj_pybullet_id = self._pybullet_ids[obj]
             pose = get_pose(obj_pybullet_id, self._sim.physics_client_id)
             dist = np.sqrt(
@@ -320,7 +323,9 @@ class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):
 
         # Create constant objects.
         self._robot = Object("robot", robot_type)
-        self._book = Object("book", object_type)
+        self._books = [
+            Object(f"book{i}", object_type) for i in range(len(self._sim.book_ids))
+        ]
         self._cup = Object("cup", object_type)
         self._tray = Object("tray", object_type)
         self._shelf = Object("shelf", object_type)
@@ -328,12 +333,13 @@ class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):
 
         # Map from symbolic objects to PyBullet IDs in simulator.
         self._pybullet_ids = {
-            self._book: self._sim.book_id,
             self._cup: self._sim.cup_id,
             self._tray: self._sim.tray_id,
             self._shelf: self._sim.shelf_id,
             self._table: self._sim.table_id,
         }
+        for book, book_id in zip(self._books, self._sim.book_ids, strict=True):
+            self._pybullet_ids[book] = book_id
 
     def reset(self, ground_operator: GroundOperator) -> None:
         self._current_plan = []
@@ -391,16 +397,21 @@ class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):
         robot_joints = obs.robot_joints
         object_poses = {
             self._sim.cup_id: obs.object_pose,
-            self._sim.book_id: obs.book_pose,
             self._sim.table_id: self._task_spec.table_pose,
             self._sim.shelf_id: self._task_spec.shelf_pose,
             self._sim.tray_id: self._task_spec.tray_pose,
         }
+        for book_id, book_pose in zip(self._sim.book_ids, obs.book_poses, strict=True):
+            object_poses[book_id] = book_pose
         attachments: dict[int, Pose] = {}
         if obs.held_object == "cup":
+            assert obs.grasp_transform is not None
             attachments[self._sim.cup_id] = obs.grasp_transform
-        if obs.held_object == "book":
-            attachments[self._sim.book_id] = obs.grasp_transform
+        for book in self._books:
+            if obs.held_object == book.name:
+                book_id = self._pybullet_ids[book]
+                assert obs.grasp_transform is not None
+                attachments[book_id] = obs.grasp_transform
         return KinematicState(robot_joints, object_poses, attachments, obs.robot_base)
 
 

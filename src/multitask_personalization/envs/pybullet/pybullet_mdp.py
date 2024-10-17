@@ -61,15 +61,18 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
                 )
             )
             return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
-        assert self._sim.task_spec.task_objective == "place book on tray"
+        assert self._sim.task_spec.task_objective == "place books on tray"
         if self._sim.current_grasp_transform:
             return False
-        return check_body_collisions(
-            self._sim.book_id,
-            self._sim.tray_id,
-            self._sim.physics_client_id,
-            distance_threshold=1e-3,
-        )
+        for book_id in self._sim.book_ids:
+            if not check_body_collisions(
+                book_id,
+                self._sim.tray_id,
+                self._sim.physics_client_id,
+                distance_threshold=1e-3,
+            ):
+                return False
+        return True
 
     def get_reward(
         self, state: _PyBulletState, action: _PyBulletAction, next_state: _PyBulletState
@@ -90,7 +93,7 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
         human_base = self._sim.task_spec.human_base_pose
         human_joints = self._sim.task_spec.human_joints
         object_pose = self._sim.task_spec.object_pose
-        book_pose = self._sim.task_spec.book_pose
+        book_poses = self._sim.task_spec.book_poses
         grasp_transform = None
         return _PyBulletState(
             robot_base,
@@ -98,7 +101,7 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
             human_base,
             human_joints,
             object_pose,
-            book_pose,
+            list(book_poses),
             grasp_transform,
         )
 

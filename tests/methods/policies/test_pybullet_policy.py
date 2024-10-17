@@ -22,13 +22,13 @@ def test_pybullet_policy():
             side_table_pose=Pose((-1000, -1000, -1000)),
         ),
         PyBulletTaskSpec(task_objective="hand over book"),
-        PyBulletTaskSpec(task_objective="place book on tray"),
+        PyBulletTaskSpec(task_objective="place books on tray"),
     ]
     for task_spec in task_specs:
         task = PyBulletTask(
             intake_horizon=5,
             task_spec=task_spec,
-            use_gui=False,
+            use_gui=True,
         )
         mdp = task.mdp
         state = mdp.sample_initial_state(rng)

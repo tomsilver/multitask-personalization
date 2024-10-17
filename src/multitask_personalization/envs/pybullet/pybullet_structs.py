@@ -19,7 +19,7 @@ class _PyBulletState:
     human_base: Pose
     human_joints: JointPositions
     object_pose: Pose
-    book_pose: Pose
+    book_poses: list[Pose]
     grasp_transform: Pose | None
     held_object: str | None = None
 

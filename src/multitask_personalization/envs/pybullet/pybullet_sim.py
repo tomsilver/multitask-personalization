@@ -189,12 +189,20 @@ class PyBulletSimulator:
         set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
         # Create book.
-        self.book_id = create_pybullet_block(
-            self.task_spec.book_rgba,
-            half_extents=self.task_spec.book_half_extents,
-            physics_client_id=self.physics_client_id,
-        )
-        set_pose(self.book_id, self.task_spec.book_pose, self.physics_client_id)
+        self.book_ids: list[int] = []
+        for book_rgba, book_half_extents, book_pose in zip(
+            self.task_spec.book_rgbas,
+            self.task_spec.book_half_extents,
+            self.task_spec.book_poses,
+            strict=True,
+        ):
+            book_id = create_pybullet_block(
+                book_rgba,
+                half_extents=book_half_extents,
+                physics_client_id=self.physics_client_id,
+            )
+            set_pose(book_id, book_pose, self.physics_client_id)
+            self.book_ids.append(book_id)
 
         # Create side table.
         self.side_table_id = create_pybullet_block(
@@ -228,20 +236,25 @@ class PyBulletSimulator:
         robot_joints = self.robot.get_joint_positions()
         human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
         human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
-        object_pose = get_pose(self.cup_id, self.physics_client_id)
-        book_pose = get_pose(self.book_id, self.physics_client_id)
-        held_object = {
+        cup_pose = get_pose(self.cup_id, self.physics_client_id)
+        book_poses = [
+            get_pose(book_id, self.physics_client_id) for book_id in self.book_ids
+        ]
+        obj_to_obj_name = {
             None: None,
             self.cup_id: "cup",
-            self.book_id: "book",
-        }[self.current_held_object_id]
+        }
+        for i, book_id in enumerate(self.book_ids):
+            obj_to_obj_name[book_id] = f"book{i}"
+
+        held_object = obj_to_obj_name[self.current_held_object_id]
         return _PyBulletState(
             robot_base,
             robot_joints,
             human_base,
             human_joints,
-            object_pose,
-            book_pose,
+            cup_pose,
+            book_poses,
             self.current_grasp_transform,
             held_object,
         )
@@ -258,13 +271,16 @@ class PyBulletSimulator:
             state.human_joints,
         )
         set_pose(self.cup_id, state.object_pose, self.physics_client_id)
-        set_pose(self.book_id, state.book_pose, self.physics_client_id)
+        for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
+            set_pose(book_id, book_pose, self.physics_client_id)
         self.current_grasp_transform = state.grasp_transform
-        self.current_held_object_id = {
+        obj_name_to_obj = {
             None: None,
             "cup": self.cup_id,
-            "book": self.book_id,
-        }[state.held_object]
+        }
+        for i, book_id in enumerate(self.book_ids):
+            obj_name_to_obj[f"book{i}"] = book_id
+        self.current_held_object_id = obj_name_to_obj[state.held_object]
 
     def step(self, action: _PyBulletAction) -> None:
         """Advance the simulator given an action."""
@@ -272,7 +288,7 @@ class PyBulletSimulator:
             if action[1] == _GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
-                for object_id in [self.cup_id, self.book_id]:
+                for object_id in [self.cup_id] + self.book_ids:
                     world_to_object = get_pose(object_id, self.physics_client_id)
                     object_position = world_to_object.position
                     dist = np.sum(
