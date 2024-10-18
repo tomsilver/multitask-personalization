@@ -5,13 +5,15 @@ from typing import Any, Callable, Iterator, Sequence, TypeAlias
 
 import numpy as np
 import pybullet as p
+from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     check_body_collisions,
     inverse_kinematics,
 )
-from pybullet_helpers.link import get_link_pose
+
+# from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
@@ -49,7 +51,8 @@ from multitask_personalization.envs.pybullet.pybullet_task_spec import (
 from multitask_personalization.methods.policies.parameterized_policy import (
     ParameterizedPolicy,
 )
-from multitask_personalization.utils import sample_spherical
+
+# from multitask_personalization.utils import sample_spherical
 
 ##############################################################################
 #                               Perception                                   #
@@ -236,14 +239,17 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
 
     def _interpret_HandedOver(self) -> set[GroundAtom]:
         handed_over_objs: set[Object] = set()
-        handover_padding = 1e-2
+        # handover_padding = 1e-2
         for obj in [self._cup] + self._books:
             obj_pybullet_id = self._pybullet_ids[obj]
             pose = get_pose(obj_pybullet_id, self._sim.physics_client_id)
-            dist = np.sqrt(
-                np.sum(np.subtract(pose.position, self._sim.rom_sphere_center) ** 2)
-            )
-            if dist < self._sim.rom_sphere_radius + handover_padding:
+            # check real ROM model implementation.
+            # dist = np.sqrt(
+            #     np.sum(np.subtract(pose.position, self._sim.rom_sphere_center) ** 2)
+            # )
+            # if dist < self._sim.rom_sphere_radius + handover_padding:
+            #     handed_over_objs.add(obj)
+            if self._sim.gt_rom_model.check_position_reachable(np.array(pose.position)):
                 handed_over_objs.add(obj)
         return {GroundAtom(HandedOver, [o]) for o in handed_over_objs}
 
@@ -359,7 +365,7 @@ OPERATORS = {PickOperator, MoveOperator, PlaceOperator, HandOverOperator}
 ##############################################################################
 
 
-PyBulletSkillHyperparameters: TypeAlias = float  # just a radius for now, more to come
+PyBulletSkillHyperparameters: TypeAlias = NDArray  # just a radius for now, more to come
 
 
 class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):
@@ -716,15 +722,32 @@ class HandoverSkill(PyBulletSkill):
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
 
-    def _sample_handover_pose(self, rom_radius: float) -> Pose:
+    def _sample_handover_pose(
+        self, skill_hyperparameters: PyBulletSkillHyperparameters
+    ) -> Pose:
         # Get the sphere center from the simulator.
-        # TODO: use ROM model
-        center = get_link_pose(
-            self._sim.human.body,
-            self._sim.human.right_wrist,
-            self._sim.physics_client_id,
-        ).position
-        position = sample_spherical(center, rom_radius, self._rng)
+        # check real ROM model implementation.
+        # center = get_link_pose(
+        #     self._sim.human.body,
+        #     self._sim.human.right_wrist,
+        #     self._sim.physics_client_id,
+        # ).position
+        # position = sample_spherical(center, rom_radius, self._rng)
+
+        # sample position using parameterized ROM model
+        # check if ROM model parameters need to be updated
+        if not np.array_equal(
+            skill_hyperparameters,
+            self._sim.parameterized_rom_model.get_rom_model_context_parameters(),
+        ):
+            self._sim.parameterized_rom_model.update_parameters(skill_hyperparameters)
+            self._sim.parameterized_rom_model.set_reachable_points(
+                self._sim.create_reachable_position_cloud(
+                    self._sim.parameterized_rom_model.get_reachable_joints()
+                )
+            )
+        position = tuple(self._sim.parameterized_rom_model.sample_reachable_position())
+
         orientation = (
             0.8522037863731384,
             0.4745013415813446,

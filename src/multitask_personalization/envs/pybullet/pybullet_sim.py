@@ -246,7 +246,7 @@ class PyBulletSimulator:
                 self.gt_rom_model.get_reachable_joints()
             )
         )
-        self._visualize_reachable_points(self.gt_rom_model)
+        # self._visualize_reachable_points(self.gt_rom_model)
 
         # Load parameterized ROM model.
         self.parameterized_rom_model = LearnedROMModel(
@@ -257,17 +257,17 @@ class PyBulletSimulator:
                 self.parameterized_rom_model.get_reachable_joints()
             )
         )
-        self._visualize_reachable_points(
-            self.parameterized_rom_model, color=(1.0, 0.2, 0.2, 0.6)
-        )
+        # self._visualize_reachable_points(
+        #     self.parameterized_rom_model, color=(1.0, 0.2, 0.2, 0.6)
+        # )
 
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
 
         # Uncomment for debug / development.
-        while True:
-            p.stepSimulation(self.physics_client_id)
+        # while True:
+        #     p.stepSimulation(self.physics_client_id)
 
     def _visualize_reachable_points(
         self,

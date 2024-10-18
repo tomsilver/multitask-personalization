@@ -111,7 +111,7 @@ def _run_single(
     outdir: Path,
 ) -> float:
 
-    task = PyBulletTask(intake_horizon=num_intake_steps, use_gui=True)
+    task = PyBulletTask(intake_horizon=num_intake_steps, use_gui=False)
 
     # Create the approach.
     if approach_name == "Random":

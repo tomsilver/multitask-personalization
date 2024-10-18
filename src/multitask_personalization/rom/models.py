@@ -62,14 +62,14 @@ class GroundTruthROMModel(ROMModel):
         self._ik_distance_threshold = ik_distance_threshold
         # load array of points from rom/data/rom_points.pkl as self._reachable_joints
         with open(
-            f"src/multitask_personalization/rom/data/{subject}_{condition}_" +
-            "dense_points.pkl",
+            f"src/multitask_personalization/rom/data/{subject}_{condition}_"
+            + "dense_points.pkl",
             "rb",
         ) as f:
             self._reachable_joints = pickle.load(f)
         print(
-            f"Loaded {len(self._reachable_joints)} points" +
-            " from {subject}_{condition}_dense_points.pkl"
+            f"Loaded {len(self._reachable_joints)} points"
+            + " from {subject}_{condition}_dense_points.pkl"
         )
 
     def get_reachable_joints(self) -> NDArray:
@@ -77,6 +77,7 @@ class GroundTruthROMModel(ROMModel):
 
     def set_reachable_points(self, reachable_points: list[NDArray]) -> None:
         self._reachable_points = reachable_points
+        assert len(self._reachable_points) != 0, "No reachable points."
         self._reachable_kd_tree = KDTree(self._reachable_points)
         self._upd_reachable = False
 
@@ -106,10 +107,11 @@ class LearnedROMModel(ROMModel):
             device="cuda" if torch.cuda.is_available() else "cpu"
         )
         self._rom_model.load()
-        # np.array([0.0251, -0.2047, 0.3738, 0.1586])
-        self._rom_model_context_parameters = np.array(
-            [-0.1040, -0.2353, 0.2436, 0.0986]
-        )
+        self._parameter_size = 4
+        self._rom_model_context_parameters = np.array([0.0251, -0.2047, 0.3738, 0.1586])
+        # self._rom_model_context_parameters = np.array(
+        #     [-0.1040, -0.2353, 0.2436, 0.0986]
+        # )
         # np.array([-0.1230, -0.1877,  0.2162,  0.1826])
         # np.array([-0.0645, -0.2141,  0.2723,  0.0986])
 
@@ -133,10 +135,19 @@ class LearnedROMModel(ROMModel):
                 dim_max - dim_min
             )
         self._dense_joint_samples = joint_angle_samples
-        self._update_parameters(self._rom_model_context_parameters)
+        self.update_parameters(self._rom_model_context_parameters)
         print("Learned ROM model created")
 
-    def _update_parameters(self, parameters: NDArray) -> None:
+    def get_parameter_size(self) -> int:
+        """Get the size of the parameter."""
+        return self._parameter_size
+
+    def get_rom_model_context_parameters(self) -> NDArray:
+        """Get the ROM model context parameters."""
+        return self._rom_model_context_parameters
+
+    def update_parameters(self, parameters: NDArray) -> None:
+        """Update the ROM model parameters."""
         self._rom_model_context_parameters = parameters
         # forward pass through the model to get the dense grid of reachable
         # points in task space
@@ -167,8 +178,8 @@ class LearnedROMModel(ROMModel):
         self._reachable_kd_tree = None
         self._upd_reachable = True
         print(
-            "Updated ROM model parameters and reachable joints." +
-            "Need to update reachable points."
+            "Updated ROM model parameters and reachable joints."
+            + "Need to update reachable points."
         )
 
     def get_reachable_joints(self) -> NDArray:
@@ -176,6 +187,7 @@ class LearnedROMModel(ROMModel):
 
     def set_reachable_points(self, reachable_points: list[NDArray]) -> None:
         self._reachable_points = reachable_points
+        assert len(self._reachable_points) != 0, "No reachable points."
         self._reachable_kd_tree = KDTree(self._reachable_points)
         self._upd_reachable = False
 
