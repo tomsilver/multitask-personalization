@@ -21,6 +21,7 @@ dependencies = [
    "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
    "pybullet@git+https://github.com/tomsilver/bullet3.git@link-limit-extension",
    "assistive_gym@git+https://github.com/tomsilver/assistive-gym.git",
+   "task_then_motion_planning@git+https://github.com/tomsilver/task-then-motion-planning.git",
 ]
 
 [project.optional-dependencies]

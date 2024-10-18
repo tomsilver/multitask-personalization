@@ -64,19 +64,28 @@ class PyBulletSimulator:
             base_pose=self.task_spec.robot_base_pose,
             control_mode="reset",
             home_joint_positions=self.task_spec.initial_joints,
+            fixed_base=False,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         robot.close_fingers()
         self.robot = robot
 
         # Create robot stand.
-        self.robot_stand_id = create_pybullet_block(
+        self.robot_stand_id = create_pybullet_cylinder(
             self.task_spec.robot_stand_rgba,
-            half_extents=self.task_spec.robot_stand_half_extents,
+            radius=self.task_spec.robot_stand_radius,
+            length=self.task_spec.robot_stand_length,
             physics_client_id=self.physics_client_id,
         )
         set_pose(
             self.robot_stand_id, self.task_spec.robot_stand_pose, self.physics_client_id
+        )
+
+        # Save the transform between the base and stand.
+        world_to_base = self.robot.get_base_pose()
+        world_to_stand = get_pose(self.robot_stand_id, self.physics_client_id)
+        self.robot_base_to_stand = multiply_poses(
+            world_to_base.invert(), world_to_stand
         )
 
         # Create human.
@@ -118,10 +127,10 @@ class PyBulletSimulator:
         )
 
         # Create wheelchair.
-        furniture = Furniture()
+        self.wheelchair = Furniture()
         directory = Path(assistive_gym.envs.__file__).parent / "assets"
         assert directory.exists()
-        furniture.init(
+        self.wheelchair.init(
             "wheelchair",
             directory,
             self.physics_client_id,
@@ -129,7 +138,9 @@ class PyBulletSimulator:
             wheelchair_mounted=False,
         )
         set_pose(
-            furniture.body, self.task_spec.wheelchair_base_pose, self.physics_client_id
+            self.wheelchair.body,
+            self.task_spec.wheelchair_base_pose,
+            self.physics_client_id,
         )
 
         # Placeholder for full range of motion model.
@@ -167,13 +178,13 @@ class PyBulletSimulator:
         set_pose(self.table_id, self.task_spec.table_pose, self.physics_client_id)
 
         # Create object.
-        self.object_id = create_pybullet_cylinder(
+        self.cup_id = create_pybullet_cylinder(
             self.task_spec.object_rgba,
             self.task_spec.object_radius,
             self.task_spec.object_length,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(self.object_id, self.task_spec.object_pose, self.physics_client_id)
+        set_pose(self.cup_id, self.task_spec.object_pose, self.physics_client_id)
 
         # Create shelf.
         self.shelf_id = _create_shelf(
@@ -188,13 +199,39 @@ class PyBulletSimulator:
         )
         set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
-        # Create book.
-        self.book_id = create_pybullet_block(
-            self.task_spec.book_rgba,
-            half_extents=self.task_spec.book_half_extents,
+        # Create books.
+        self.book_ids: list[int] = []
+        for book_rgba, book_half_extents, book_pose in zip(
+            self.task_spec.book_rgbas,
+            self.task_spec.book_half_extents,
+            self.task_spec.book_poses,
+            strict=True,
+        ):
+            book_id = create_pybullet_block(
+                book_rgba,
+                half_extents=book_half_extents,
+                physics_client_id=self.physics_client_id,
+            )
+            set_pose(book_id, book_pose, self.physics_client_id)
+            self.book_ids.append(book_id)
+
+        # Create side table.
+        self.side_table_id = create_pybullet_block(
+            self.task_spec.side_table_rgba,
+            half_extents=self.task_spec.side_table_half_extents,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(self.book_id, self.task_spec.book_pose, self.physics_client_id)
+        set_pose(
+            self.side_table_id, self.task_spec.side_table_pose, self.physics_client_id
+        )
+
+        # Create tray.
+        self.tray_id = create_pybullet_block(
+            self.task_spec.tray_rgba,
+            half_extents=self.task_spec.tray_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
 
         # Load and create real ROM model.
         # self._create_learned_rom_model() # creates learned ROM model
@@ -321,20 +358,25 @@ class PyBulletSimulator:
         robot_joints = self.robot.get_joint_positions()
         human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
         human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
-        object_pose = get_pose(self.object_id, self.physics_client_id)
-        book_pose = get_pose(self.book_id, self.physics_client_id)
-        held_object = {
+        cup_pose = get_pose(self.cup_id, self.physics_client_id)
+        book_poses = [
+            get_pose(book_id, self.physics_client_id) for book_id in self.book_ids
+        ]
+        obj_to_obj_name = {
             None: None,
-            self.object_id: "cup",
-            self.book_id: "book",
-        }[self.current_held_object_id]
+            self.cup_id: "cup",
+        }
+        for i, book_id in enumerate(self.book_ids):
+            obj_to_obj_name[book_id] = f"book{i}"
+
+        held_object = obj_to_obj_name[self.current_held_object_id]
         return _PyBulletState(
             robot_base,
             robot_joints,
             human_base,
             human_joints,
-            object_pose,
-            book_pose,
+            cup_pose,
+            book_poses,
             self.current_grasp_transform,
             held_object,
         )
@@ -343,19 +385,24 @@ class PyBulletSimulator:
         """Sync the simulator with the given state."""
         set_pose(self.robot.robot_id, state.robot_base, self.physics_client_id)
         self.robot.set_joints(state.robot_joints)
+        stand_pose = multiply_poses(state.robot_base, self.robot_base_to_stand)
+        set_pose(self.robot_stand_id, stand_pose, self.physics_client_id)
         set_pose(self.human.body, state.human_base, self.physics_client_id)
         self.human.set_joint_angles(
             self.human.right_arm_joints,
             state.human_joints,
         )
-        set_pose(self.object_id, state.object_pose, self.physics_client_id)
-        set_pose(self.book_id, state.book_pose, self.physics_client_id)
+        set_pose(self.cup_id, state.object_pose, self.physics_client_id)
+        for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
+            set_pose(book_id, book_pose, self.physics_client_id)
         self.current_grasp_transform = state.grasp_transform
-        self.current_held_object_id = {
+        obj_name_to_obj = {
             None: None,
-            "cup": self.object_id,
-            "book": self.book_id,
-        }[state.held_object]
+            "cup": self.cup_id,
+        }
+        for i, book_id in enumerate(self.book_ids):
+            obj_name_to_obj[f"book{i}"] = book_id
+        self.current_held_object_id = obj_name_to_obj[state.held_object]
 
     def step(self, action: _PyBulletAction) -> None:
         """Advance the simulator given an action."""
@@ -363,7 +410,7 @@ class PyBulletSimulator:
             if action[1] == _GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
-                for object_id in [self.object_id, self.book_id]:
+                for object_id in [self.cup_id] + self.book_ids:
                     world_to_object = get_pose(object_id, self.physics_client_id)
                     object_position = world_to_object.position
                     dist = np.sum(
@@ -381,7 +428,18 @@ class PyBulletSimulator:
             return
         if np.isclose(action[0], 2):
             return  # will handle none case later, when the human moves
-        joint_angle_delta = action[1]
+        joint_action = list(action[1])  # type: ignore
+        base_position_delta = joint_action[:3]
+        joint_angle_delta = joint_action[3:]
+        # Update the robot base.
+        world_to_base = self.robot.get_base_pose()
+        dx, dy, dyaw = base_position_delta
+        x, y, z = world_to_base.position
+        roll, pitch, yaw = world_to_base.rpy
+        next_base = Pose.from_rpy((x + dx, y + dy, z), (roll, pitch, yaw + dyaw))
+        self.robot.set_base(next_base)
+        next_stand_pose = multiply_poses(next_base, self.robot_base_to_stand)
+        set_pose(self.robot_stand_id, next_stand_pose, self.physics_client_id)
         # Update the robot arm angles.
         current_joints = self.robot.get_joint_positions()
         # Only update the arm, assuming the first 7 entries are the arm.

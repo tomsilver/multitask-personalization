@@ -62,14 +62,14 @@ class GroundTruthROMModel(ROMModel):
         self._ik_distance_threshold = ik_distance_threshold
         # load array of points from rom/data/rom_points.pkl as self._reachable_joints
         with open(
-            f"src/multitask_personalization/rom/data/{subject}_{condition}_ \
-            dense_points.pkl",
+            f"src/multitask_personalization/rom/data/{subject}_{condition}_" +
+            "dense_points.pkl",
             "rb",
         ) as f:
             self._reachable_joints = pickle.load(f)
         print(
-            f"Loaded {len(self._reachable_joints)} points \
-             from {subject}_{condition}_dense_points.pkl"
+            f"Loaded {len(self._reachable_joints)} points" +
+            " from {subject}_{condition}_dense_points.pkl"
         )
 
     def get_reachable_joints(self) -> NDArray:
@@ -167,8 +167,8 @@ class LearnedROMModel(ROMModel):
         self._reachable_kd_tree = None
         self._upd_reachable = True
         print(
-            "Updated ROM model parameters and reachable joints. \
-            Need to update reachable points."
+            "Updated ROM model parameters and reachable joints." +
+            "Need to update reachable points."
         )
 
     def get_reachable_joints(self) -> NDArray:
