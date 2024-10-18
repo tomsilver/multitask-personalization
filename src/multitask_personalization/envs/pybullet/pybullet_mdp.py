@@ -52,14 +52,18 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
     def state_is_terminal(self, state: _PyBulletState) -> bool:
         # Will be replaced by a real ROM check later.
         # TODO: implement real ROM model.
+        # end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
+        # dist = np.sqrt(
+        #     np.sum(
+        #         np.subtract(end_effector_pose.position, self._sim.rom_sphere_center)
+        #         ** 2
+        #     )
+        # )
+        # return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
         end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
-        dist = np.sqrt(
-            np.sum(
-                np.subtract(end_effector_pose.position, self._sim.rom_sphere_center)
-                ** 2
-            )
+        return self._sim.gt_rom_model.check_position_reachable(
+            np.array(end_effector_pose.position)
         )
-        return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
 
     def get_reward(
         self, state: _PyBulletState, action: _PyBulletAction, next_state: _PyBulletState

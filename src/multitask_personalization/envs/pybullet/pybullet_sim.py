@@ -7,7 +7,6 @@ from pathlib import Path
 import assistive_gym.envs
 import numpy as np
 import pybullet as p
-import torch
 from assistive_gym.envs.agents.furniture import Furniture
 from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
@@ -18,7 +17,6 @@ from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
-from scipy.spatial import KDTree
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     _GripperAction,
@@ -28,11 +26,12 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     PyBulletTaskSpec,
 )
-from multitask_personalization.rom.implicit_mlp import MLPROMClassifierTorch
+from multitask_personalization.rom.models import (
+    GroundTruthROMModel,
+    LearnedROMModel,
+    ROMModel,
+)
 from multitask_personalization.utils import (
-    DIMENSION_LIMITS,
-    DIMENSION_NAMES,
-    denormalize_samples,
     rotation_matrix_x,
     rotation_matrix_y,
     rotmat2euler,
@@ -198,8 +197,32 @@ class PyBulletSimulator:
         set_pose(self.book_id, self.task_spec.book_pose, self.physics_client_id)
 
         # Load and create real ROM model.
-        self._create_rom_model()
-        self._visualize_reachable_points()
+        # self._create_learned_rom_model() # creates learned ROM model
+        self._ik_distance_threshold = 0.1
+        self._gt_subject = 1
+        self._gt_condition = "limit_4"
+        self.gt_rom_model = GroundTruthROMModel(
+            self._rng, self._gt_subject, self._gt_condition, self._ik_distance_threshold
+        )
+        self.gt_rom_model.set_reachable_points(
+            self.create_reachable_position_cloud(
+                self.gt_rom_model.get_reachable_joints()
+            )
+        )
+        self._visualize_reachable_points(self.gt_rom_model)
+
+        # Load parameterized ROM model.
+        self.parameterized_rom_model = LearnedROMModel(
+            self._rng, self._ik_distance_threshold
+        )
+        self.parameterized_rom_model.set_reachable_points(
+            self.create_reachable_position_cloud(
+                self.parameterized_rom_model.get_reachable_joints()
+            )
+        )
+        self._visualize_reachable_points(
+            self.parameterized_rom_model, color=(1.0, 0.2, 0.2, 0.6)
+        )
 
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
@@ -209,83 +232,27 @@ class PyBulletSimulator:
         while True:
             p.stepSimulation(self.physics_client_id)
 
-    def _create_rom_model(self) -> None:
-        print("Creating ROM model")
-        self.rom_model = MLPROMClassifierTorch(
-            device="cuda" if torch.cuda.is_available() else "cpu"
-        )
-        self.rom_model.load()
-
-        # self.rom_model_context_parameters = (
-        #     np.random.rand(self.rom_model.input_size - 4) * 2 - 0
-        # ) * 0.3
-
-        self.rom_model_context_parameters = np.array([0.0251, -0.2047, 0.3738, 0.1586])
-        # self.rom_model_context_parameters = np.array([-0.1040, -0.2353,  0.2436,  0.0986])
-        # self.rom_model_context_parameters = np.array([-0.1230, -0.1877,  0.2162,  0.1826])
-        # self.rom_model_context_parameters = np.array([-0.0645, -0.2141,  0.2723,  0.0986])
-
-        print("ROM model context parameters:", self.rom_model_context_parameters)
-
-        # generate a dense grid of joint-space points
-        grids = []
-        num_pos, num_neg = 0, 0
-        for dim_name in DIMENSION_NAMES:
-            grids.append(
-                np.linspace(
-                    DIMENSION_LIMITS[dim_name][0],
-                    DIMENSION_LIMITS[dim_name][1],
-                    40,
-                )
-            )
-        grid = np.meshgrid(*grids)
-        joint_angle_samples = np.vstack([g.ravel() for g in grid]).T
-        # normalize samples using DIMENSION_LIMITS
-        joint_angle_samples = np.array(joint_angle_samples)
-        for i, dim_name in enumerate(DIMENSION_NAMES):
-            dim_min, dim_max = DIMENSION_LIMITS[dim_name]
-            joint_angle_samples[:, i] = (joint_angle_samples[:, i] - dim_min) / (
-                dim_max - dim_min
-            )
-        # forward pass through the model to get the dense grid of reachable
-        # points in task space
-        context_parameters = np.tile(
-            self.rom_model_context_parameters, (len(joint_angle_samples), 1)
-        )
-        input_data = np.concatenate((context_parameters, joint_angle_samples), axis=1)
-        preds = (
-            self.rom_model.classify(
-                torch.tensor(input_data, dtype=torch.float32).to(self.rom_model.device)
-            )
-            .detach()
-            .cpu()
-            .numpy()
-            .astype(np.bool_)
-        )
-        num_pos = np.sum(preds == 1)
-        num_neg = np.sum(preds == 0)
-        print(f"Number of positive samples: {num_pos}")
-        print(f"Number of negative samples: {num_neg}")
-
-        self._reachable_joints = denormalize_samples(joint_angle_samples[preds == 1])
-        self._reachable_points = self._create_reachable_position_cloud()
-        self._reachable_kd_tree = KDTree(self._reachable_points)
-        print("ROM model created")
-
-    def _visualize_reachable_points(self, n: int = 200) -> None:
+    def _visualize_reachable_points(
+        self,
+        rom_model: ROMModel,
+        n: int = 300,
+        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6),
+    ) -> None:
         # randomly sample n reachable points
         sampled_points = np.array(
             [
-                self._reachable_points[i]
-                for i in np.random.choice(len(self._reachable_points), n, replace=False)
+                rom_model.get_reachable_points()[i]
+                for i in np.random.choice(
+                    len(rom_model.get_reachable_points()), n, replace=False
+                )
             ]
         )
         # create a visual shape for each sampled point
         for i, point in enumerate(sampled_points):
             visual_shape_id = p.createVisualShape(
                 shapeType=p.GEOM_SPHERE,
-                radius=0.025,
-                rgbaColor=[0.5, 1.0, 0.2, 0.6],
+                radius=0.04,
+                rgbaColor=color,
                 physicsClientId=self.physics_client_id,
             )
 
@@ -295,8 +262,12 @@ class PyBulletSimulator:
                 physicsClientId=self.physics_client_id,
             )
 
-    def _create_reachable_position_cloud(self) -> list[NDArray]:
-        return [self._run_human_fk(point) for point in self._reachable_joints]
+    def create_reachable_position_cloud(
+        self, reachable_joints: NDArray
+    ) -> list[NDArray]:
+        """Create a cloud of reachable positions from the given joint
+        positions."""
+        return [self._run_human_fk(point) for point in reachable_joints]
 
     def _run_human_fk(self, joint_positions: NDArray) -> NDArray:
         """Run forward kinematics for the human given joint positions."""

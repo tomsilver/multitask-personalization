@@ -95,6 +95,7 @@ class PyBulletParameterizedPolicy(
         return KinematicState(robot_joints, object_poses, attachments)
 
     def _sample_pybullet_pose(self, radius: float) -> Pose:
+        """Sample a candidate pose based on current parameters."""
         # TODO: implement real ROM model.
         # Get the sphere center from the simulator.
         center = get_link_pose(
