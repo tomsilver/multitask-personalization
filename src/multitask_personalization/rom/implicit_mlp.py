@@ -1,7 +1,5 @@
 """Implicit MLP model for ROM."""
 
-import pickle
-
 import torch
 from torch import nn
 
@@ -38,17 +36,32 @@ class MLPROMClassifierTorch(nn.Module):
     def load(self, ckpt_path=None) -> None:
         """Load the model from a checkpoint."""
         if ckpt_path is None:
-            ckpt_path = "src/multitask_personalization/rom/ckpts/implicit-mlp.model"
-        with open(ckpt_path, "rb") as f:
-            _, _, state_dict = pickle.load(f)
+            # ckpt_path = "src/multitask_personalization/rom/ckpts/implicit-mlp.model"
+            ckpt_path = "src/multitask_personalization/rom/ckpts/implicit-mlp_cpu.pth"
+        # with open(ckpt_path, "rb") as f:
+        #     _, _, state_dict = pickle.load(f)
 
         # Remove 'net.' prefix from the keys in the state_dict
-        new_state_dict = {}
-        for key in state_dict.keys():
-            new_key = key.replace("net.", "")  # Remove 'net.' prefix
-            new_state_dict[new_key] = state_dict[key]
+        # new_state_dict = {}
+        # for key in state_dict.keys():
+        #     new_key = key.replace("net.", "")  # Remove 'net.' prefix
+        #     new_state_dict[new_key] = state_dict[key]
 
-        self._mlp.load_state_dict(new_state_dict)
+        # new_state_dict = {key.replace("net.", ""): value.to('cpu') for \
+        # key, value in state_dict.items()}
+        # self._mlp.load_state_dict(new_state_dict)
+
+        print(f"Using device: {self.device}")
+
+        # Load the model state dictionary with map location set to the chosen device
+        state_dict = torch.load(ckpt_path, weights_only=True)
+
+        # Load the state dictionary into your model
+        self._mlp.load_state_dict(state_dict)
+
+        # Move the entire model to the chosen device
+        self._mlp.to(self.device)
+        print("Model loaded and moved to device.")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
