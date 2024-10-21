@@ -12,7 +12,6 @@ from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
     inverse_kinematics,
 )
-
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
