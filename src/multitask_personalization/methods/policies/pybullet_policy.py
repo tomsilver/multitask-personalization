@@ -13,7 +13,6 @@ from pybullet_helpers.inverse_kinematics import (
     inverse_kinematics,
 )
 
-# from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
@@ -52,7 +51,6 @@ from multitask_personalization.methods.policies.parameterized_policy import (
     ParameterizedPolicy,
 )
 
-# from multitask_personalization.utils import sample_spherical
 
 ##############################################################################
 #                               Perception                                   #
@@ -243,12 +241,7 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
         for obj in [self._cup] + self._books:
             obj_pybullet_id = self._pybullet_ids[obj]
             pose = get_pose(obj_pybullet_id, self._sim.physics_client_id)
-            # check real ROM model implementation.
-            # dist = np.sqrt(
-            #     np.sum(np.subtract(pose.position, self._sim.rom_sphere_center) ** 2)
-            # )
-            # if dist < self._sim.rom_sphere_radius + handover_padding:
-            #     handed_over_objs.add(obj)
+            # check if object pose is reachable
             if self._sim.gt_rom_model.check_position_reachable(np.array(pose.position)):
                 handed_over_objs.add(obj)
         return {GroundAtom(HandedOver, [o]) for o in handed_over_objs}
@@ -725,17 +718,7 @@ class HandoverSkill(PyBulletSkill):
     def _sample_handover_pose(
         self, skill_hyperparameters: PyBulletSkillHyperparameters
     ) -> Pose:
-        # Get the sphere center from the simulator.
-        # check real ROM model implementation.
-        # center = get_link_pose(
-        #     self._sim.human.body,
-        #     self._sim.human.right_wrist,
-        #     self._sim.physics_client_id,
-        # ).position
-        # position = sample_spherical(center, rom_radius, self._rng)
-
         # sample position using parameterized ROM model
-        # check if ROM model parameters need to be updated
         if not np.array_equal(
             skill_hyperparameters,
             self._sim.parameterized_rom_model.get_rom_model_context_parameters(),

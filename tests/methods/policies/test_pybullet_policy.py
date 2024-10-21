@@ -44,7 +44,6 @@ def test_pybullet_policy():
         policy = PyBulletParameterizedPolicy(
             task.task_spec, max_motion_planning_time=0.1
         )
-        # params = 0.3  # radius of ROM sphere
         params = np.array([0.0251, -0.2047, 0.3738, 0.1586])
         policy.reset(task.id, params)
 

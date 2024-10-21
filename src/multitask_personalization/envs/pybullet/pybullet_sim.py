@@ -143,32 +143,6 @@ class PyBulletSimulator:
             self.physics_client_id,
         )
 
-        # Placeholder for full range of motion model.
-        # self.rom_sphere_center = get_link_pose(
-        #     self.human.body, self.human.right_wrist, self.physics_client_id
-        # ).position
-        # self.rom_sphere_radius = 0.25
-        # Visualize.
-        # shape_id = p.createVisualShape(
-        #     shapeType=p.GEOM_SPHERE,
-        #     radius=self.rom_sphere_radius,
-        #     rgbaColor=(1.0, 0.0, 0.0, 0.5),
-        #     physicsClientId=self.physics_client_id,
-        # )
-        # collision_id = p.createCollisionShape(
-        #     shapeType=p.GEOM_SPHERE,
-        #     radius=1e-6,
-        #     physicsClientId=self.physics_client_id,
-        # )
-        # self._rom_viz_id = p.createMultiBody(
-        #     baseMass=-1,
-        #     baseCollisionShapeIndex=collision_id,
-        #     baseVisualShapeIndex=shape_id,
-        #     basePosition=self.rom_sphere_center,
-        #     baseOrientation=[0, 0, 0, 1],
-        #     physicsClientId=self.physics_client_id,
-        # )
-
         # Create table.
         self.table_id = create_pybullet_block(
             self.task_spec.table_rgba,
@@ -234,7 +208,6 @@ class PyBulletSimulator:
         set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
 
         # Load and create real ROM model.
-        # self._create_learned_rom_model() # creates learned ROM model
         self._ik_distance_threshold = 0.1
         self._gt_subject = 1
         self._gt_condition = "limit_4"
