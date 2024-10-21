@@ -54,7 +54,7 @@ class MLPROMClassifierTorch(nn.Module):
         print(f"Using device: {self.device}")
 
         # Load the model state dictionary with map location set to the chosen device
-        state_dict = torch.load(ckpt_path, weights_only=True)
+        state_dict = torch.load(ckpt_path, weights_only=True, map_location=self.device)
 
         # Load the state dictionary into your model
         self._mlp.load_state_dict(state_dict)
