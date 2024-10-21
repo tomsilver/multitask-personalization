@@ -38,15 +38,11 @@ class MLPROMClassifierTorch(nn.Module):
         if ckpt_path is None:
             # ckpt_path = "src/multitask_personalization/rom/ckpts/implicit-mlp.model"
             ckpt_path = "src/multitask_personalization/rom/ckpts/implicit-mlp_cpu.pth"
+        # load and convert original model to cpu
         # with open(ckpt_path, "rb") as f:
         #     _, _, state_dict = pickle.load(f)
 
         # Remove 'net.' prefix from the keys in the state_dict
-        # new_state_dict = {}
-        # for key in state_dict.keys():
-        #     new_key = key.replace("net.", "")  # Remove 'net.' prefix
-        #     new_state_dict[new_key] = state_dict[key]
-
         # new_state_dict = {key.replace("net.", ""): value.to('cpu') for \
         # key, value in state_dict.items()}
         # self._mlp.load_state_dict(new_state_dict)
