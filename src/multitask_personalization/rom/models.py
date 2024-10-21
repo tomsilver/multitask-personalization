@@ -109,11 +109,13 @@ class LearnedROMModel(ROMModel):
         self._rom_model.load()
         self._parameter_size = 4
         self._rom_model_context_parameters = np.array([0.0251, -0.2047, 0.3738, 0.1586])
-        # self._rom_model_context_parameters = np.array(
-        #     [-0.1040, -0.2353, 0.2436, 0.0986]
-        # )
-        # np.array([-0.1230, -0.1877,  0.2162,  0.1826])
-        # np.array([-0.0645, -0.2141,  0.2723,  0.0986])
+        """Parameters generated from functional score encoder as samples from.
+
+        the learned distribution
+        - [-0.1040, -0.2353, 0.2436, 0.0986]
+        - [-0.1230, -0.1877,  0.2162,  0.1826]
+        - [-0.0645, -0.2141,  0.2723,  0.0986]
+        """
 
         # generate a dense grid of joint-space points
         grids = []
