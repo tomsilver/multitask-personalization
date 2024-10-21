@@ -34,8 +34,12 @@ class PyBulletIntakeProcess(IntakeProcess[_PyBulletIntakeObs, _PyBulletIntakeAct
 
     @cached_property
     def action_space(self) -> gym.spaces.Box:
-        x, y, z = self._sim.rom_sphere_center
-        size = 0.5
+        # use right shoulder position as center for ROM sampling
+        shoulder_position, _ = self._sim.human.get_pos_orient(
+            self._sim.human.right_shoulder
+        )
+        x, y, z = shoulder_position
+        size = 1.0
         return gym.spaces.Box(
             low=np.array([x - size, y - size, z - size], dtype=np.float32),
             high=np.array([x + size, y + size, z + size], dtype=np.float32),
@@ -49,6 +53,6 @@ class PyBulletIntakeProcess(IntakeProcess[_PyBulletIntakeObs, _PyBulletIntakeAct
         self,
         action: _PyBulletIntakeAction,
     ) -> CategoricalDistribution[_PyBulletIntakeObs]:
-        dist = np.sqrt(np.sum(np.subtract(action, self._sim.rom_sphere_center) ** 2))
-        result = dist < self._sim.rom_sphere_radius
+        # check if the action results in point inside ROM
+        result = self._sim.gt_rom_model.check_position_reachable(np.array(action))
         return CategoricalDistribution({result: 1.0, not result: 0.0})

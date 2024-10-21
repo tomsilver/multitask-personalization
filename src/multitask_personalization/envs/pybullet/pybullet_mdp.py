@@ -51,16 +51,12 @@ class PyBulletMDP(MDP[_PyBulletState, _PyBulletAction]):
         )
 
     def state_is_terminal(self, state: _PyBulletState) -> bool:
-        # Will be replaced by a real ROM check later.
+        # check if EE pos is reachable within GT ROM
         if "hand over" in self._sim.task_spec.task_objective:
             end_effector_pose = self._sim.robot.forward_kinematics(state.robot_joints)
-            dist = np.sqrt(
-                np.sum(
-                    np.subtract(end_effector_pose.position, self._sim.rom_sphere_center)
-                    ** 2
-                )
+            return self._sim.gt_rom_model.check_position_reachable(
+                np.array(end_effector_pose.position)
             )
-            return dist < self._sim.rom_sphere_radius + self._terminal_state_padding
         assert self._sim.task_spec.task_objective == "place books on tray"
         if self._sim.current_grasp_transform:
             return False

@@ -10,6 +10,7 @@ import pybullet as p
 from assistive_gym.envs.agents.furniture import Furniture
 from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
+from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.link import get_link_pose
@@ -24,6 +25,16 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     PyBulletTaskSpec,
+)
+from multitask_personalization.rom.models import (
+    GroundTruthROMModel,
+    LearnedROMModel,
+    ROMModel,
+)
+from multitask_personalization.utils import (
+    rotation_matrix_x,
+    rotation_matrix_y,
+    rotmat2euler,
 )
 
 
@@ -132,32 +143,6 @@ class PyBulletSimulator:
             self.physics_client_id,
         )
 
-        # Placeholder for full range of motion model.
-        self.rom_sphere_center = get_link_pose(
-            self.human.body, self.human.right_wrist, self.physics_client_id
-        ).position
-        self.rom_sphere_radius = 0.25
-        # Visualize.
-        # shape_id = p.createVisualShape(
-        #     shapeType=p.GEOM_SPHERE,
-        #     radius=self.rom_sphere_radius,
-        #     rgbaColor=(1.0, 0.0, 0.0, 0.5),
-        #     physicsClientId=self.physics_client_id,
-        # )
-        # collision_id = p.createCollisionShape(
-        #     shapeType=p.GEOM_SPHERE,
-        #     radius=1e-6,
-        #     physicsClientId=self.physics_client_id,
-        # )
-        # self._rom_viz_id = p.createMultiBody(
-        #     baseMass=-1,
-        #     baseCollisionShapeIndex=collision_id,
-        #     baseVisualShapeIndex=shape_id,
-        #     basePosition=self.rom_sphere_center,
-        #     baseOrientation=[0, 0, 0, 1],
-        #     physicsClientId=self.physics_client_id,
-        # )
-
         # Create table.
         self.table_id = create_pybullet_block(
             self.task_spec.table_rgba,
@@ -222,6 +207,33 @@ class PyBulletSimulator:
         )
         set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
 
+        # Load and create real ROM model.
+        self._ik_distance_threshold = 0.1
+        self._gt_subject = 1
+        self._gt_condition = "limit_4"
+        self.gt_rom_model = GroundTruthROMModel(
+            self._rng, self._gt_subject, self._gt_condition, self._ik_distance_threshold
+        )
+        self.gt_rom_model.set_reachable_points(
+            self.create_reachable_position_cloud(
+                self.gt_rom_model.get_reachable_joints()
+            )
+        )
+        # self._visualize_reachable_points(self.gt_rom_model)
+
+        # Load parameterized ROM model.
+        self.parameterized_rom_model = LearnedROMModel(
+            self._rng, self._ik_distance_threshold
+        )
+        self.parameterized_rom_model.set_reachable_points(
+            self.create_reachable_position_cloud(
+                self.parameterized_rom_model.get_reachable_joints()
+            )
+        )
+        # self._visualize_reachable_points(
+        #     self.parameterized_rom_model, color=(1.0, 0.2, 0.2, 0.6)
+        # )
+
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
@@ -229,6 +241,89 @@ class PyBulletSimulator:
         # Uncomment for debug / development.
         # while True:
         #     p.stepSimulation(self.physics_client_id)
+
+    def _visualize_reachable_points(
+        self,
+        rom_model: ROMModel,
+        n: int = 300,
+        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6),
+    ) -> None:
+        # randomly sample n reachable points
+        sampled_points = np.array(
+            [
+                rom_model.get_reachable_points()[i]
+                for i in np.random.choice(
+                    len(rom_model.get_reachable_points()), n, replace=False
+                )
+            ]
+        )
+        # create a visual shape for each sampled point
+        for i, point in enumerate(sampled_points):
+            visual_shape_id = p.createVisualShape(
+                shapeType=p.GEOM_SPHERE,
+                radius=0.04,
+                rgbaColor=color,
+                physicsClientId=self.physics_client_id,
+            )
+
+            p.createMultiBody(
+                baseVisualShapeIndex=visual_shape_id,
+                basePosition=point,
+                physicsClientId=self.physics_client_id,
+            )
+
+    def create_reachable_position_cloud(
+        self, reachable_joints: NDArray
+    ) -> list[NDArray]:
+        """Create a cloud of reachable positions from the given joint
+        positions."""
+        return [self._run_human_fk(point) for point in reachable_joints]
+
+    def _run_human_fk(self, joint_positions: NDArray) -> NDArray:
+        """Run forward kinematics for the human given joint positions."""
+
+        # Transform from collected data angle space into pybullet angle space.
+        shoulder_aa, shoulder_fe, shoulder_rot, elbow_flexion = joint_positions
+        shoulder_aa = -shoulder_aa
+        shoulder_rot -= 90
+        shoulder_rot = -shoulder_rot
+        local_rot_mat = (
+            rotation_matrix_y(90)
+            @ rotation_matrix_x(shoulder_aa)
+            @ rotation_matrix_y(shoulder_fe)
+            @ rotation_matrix_x(shoulder_rot)
+        )
+        transformed_angles = rotmat2euler(local_rot_mat, seq="YZX")
+        shoulder_x = transformed_angles[0] - 90
+        shoulder_y = transformed_angles[1]
+        shoulder_z = 180 - transformed_angles[2]
+        elbow = elbow_flexion
+
+        current_right_arm_joint_angles = self.human.get_joint_angles(
+            self.human.right_arm_joints
+        )
+        target_right_arm_angles = np.copy(current_right_arm_joint_angles)
+        shoulder_x_index = self.human.j_right_shoulder_x
+        shoulder_y_index = self.human.j_right_shoulder_y
+        shoulder_z_index = self.human.j_right_shoulder_z
+        elbow_index = self.human.j_right_elbow
+
+        target_right_arm_angles[shoulder_x_index] = np.radians(shoulder_x)
+        target_right_arm_angles[shoulder_y_index] = np.radians(shoulder_y)
+        target_right_arm_angles[shoulder_z_index] = np.radians(shoulder_z)
+        target_right_arm_angles[elbow_index] = np.radians(elbow)
+        other_idxs = set(self.human.right_arm_joints) - {
+            shoulder_x_index,
+            shoulder_y_index,
+            shoulder_z_index,
+            elbow_index,
+        }
+        assert np.allclose([target_right_arm_angles[i] for i in other_idxs], 0.0)
+        self.human.set_joint_angles(
+            self.human.right_arm_joints, target_right_arm_angles, use_limits=False
+        )
+        right_wrist_pos, _ = self.human.get_pos_orient(self.human.right_wrist)
+        return right_wrist_pos
 
     def get_state(self) -> _PyBulletState:
         """Get the underlying state from the simulator."""

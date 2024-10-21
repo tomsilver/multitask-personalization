@@ -27,22 +27,10 @@ class PyBulletCalibrator(Calibrator):
     def get_parameters(
         self, task_id: str, intake_data: list[tuple[IntakeAction, IntakeObservation]]
     ) -> PolicyParameters:
-        # Find decision boundary between maximal positive and minimal negative.
-        max_positive: float | None = None
-        min_negative: float | None = None
-        for action, obs in intake_data:
-            dist = np.sqrt(
-                np.sum(np.subtract(action, self._sim.rom_sphere_center) ** 2)
-            )
-            if obs:
-                if max_positive is None or dist > max_positive:
-                    max_positive = dist
-            else:
-                if min_negative is None or dist < min_negative:
-                    min_negative = dist
-        if max_positive is None or min_negative is None:
-            return np.inf
-        params = (max_positive + min_negative) / 2
+        # placeholder: return random parameters
+        lower_bound = [-0.3, -0.3, 0.0, 0.0]
+        upper_bound = [0.3, 0.0, 0.5, 0.5]
+        params = np.random.uniform(lower_bound, upper_bound)
         return params
 
 
@@ -55,4 +43,5 @@ class OraclePyBulletCalibrator(Calibrator):
     def get_parameters(
         self, task_id: str, intake_data: list[tuple[IntakeAction, IntakeObservation]]
     ) -> PolicyParameters:
-        return self._sim.rom_sphere_radius
+        # directly return the context parameters from the ROM model
+        return self._sim.parameterized_rom_model.get_rom_model_context_parameters()

@@ -33,4 +33,4 @@ def test_grid_world_calibrator():
         im.observe(obs)
         data.append((action, obs))
     parameters = calibrator.get_parameters(task.id, data)
-    assert 0 < parameters < 1
+    assert isinstance(parameters, np.ndarray) and parameters.shape == (4,)
