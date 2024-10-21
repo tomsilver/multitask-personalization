@@ -235,7 +235,6 @@ class PyBulletPerceiver(Perceiver[_PyBulletState]):
 
     def _interpret_HandedOver(self) -> set[GroundAtom]:
         handed_over_objs: set[Object] = set()
-        # handover_padding = 1e-2
         for obj in [self._cup] + self._books:
             obj_pybullet_id = self._pybullet_ids[obj]
             pose = get_pose(obj_pybullet_id, self._sim.physics_client_id)
@@ -356,7 +355,7 @@ OPERATORS = {PickOperator, MoveOperator, PlaceOperator, HandOverOperator}
 ##############################################################################
 
 
-PyBulletSkillHyperparameters: TypeAlias = NDArray  # just a radius for now, more to come
+PyBulletSkillHyperparameters: TypeAlias = NDArray  # array of parameters for skill
 
 
 class PyBulletSkill(LiftedOperatorSkill[_PyBulletState, _PyBulletAction]):

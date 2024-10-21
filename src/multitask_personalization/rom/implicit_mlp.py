@@ -36,7 +36,6 @@ class MLPROMClassifierTorch(nn.Module):
     def load(self, ckpt_path=None) -> None:
         """Load the model from a checkpoint."""
         if ckpt_path is None:
-            # ckpt_path = "src/multitask_personalization/rom/ckpts/implicit-mlp.model"
             ckpt_path = "src/multitask_personalization/rom/ckpts/implicit-mlp_cpu.pth"
         # load and convert original model to cpu
         # with open(ckpt_path, "rb") as f:
