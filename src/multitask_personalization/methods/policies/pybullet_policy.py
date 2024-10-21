@@ -50,7 +50,6 @@ from multitask_personalization.methods.policies.parameterized_policy import (
     ParameterizedPolicy,
 )
 
-
 ##############################################################################
 #                               Perception                                   #
 ##############################################################################
