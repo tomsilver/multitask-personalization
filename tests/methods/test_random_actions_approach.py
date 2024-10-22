@@ -14,6 +14,11 @@ def test_random_actions_approach():
 
     task_spec = PyBulletTaskSpec()
     env = PyBulletEnv(task_spec, use_gui=False, seed=seed)
+
+    # Uncomment to make videos.
+    # from gym.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/pybullet-random-actions-test")
+
     approach = RandomActionsApproach(env.action_space, seed=seed)
     approach.eval()
     env.action_space.seed(seed)

@@ -14,6 +14,7 @@ from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
 from gymnasium.core import RenderFrame
 from numpy.typing import NDArray
+from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.link import get_link_pose
@@ -45,6 +46,8 @@ from multitask_personalization.utils import (
 class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
     """A pybullet based environment."""
 
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 4}
+
     def __init__(
         self,
         task_spec: PyBulletTaskSpec,
@@ -54,6 +57,7 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
 
         self._rng = np.random.default_rng(seed)
         self.task_spec = task_spec
+        self.render_mode = "rgb_array"
 
         # Create action space.
         self.action_space = gym.spaces.OneOf(
@@ -464,7 +468,16 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
         return self.get_state(), 0.0, False, False, {}
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        raise NotImplementedError
+        target = get_link_pose(
+            self.human.body,
+            self.human.right_wrist,
+            self.physics_client_id,
+        ).position
+        return capture_image(  # type: ignore
+            self.physics_client_id,
+            camera_target=target,
+            camera_distance=self.task_spec.camera_distance,
+        )
 
 
 def _create_shelf(
