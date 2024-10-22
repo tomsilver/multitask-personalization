@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from tomsutils.spaces import EnumSpace
 
 import assistive_gym.envs
 import gymnasium as gym
@@ -21,6 +20,7 @@ from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
+from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
@@ -54,7 +54,7 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
 
         self._rng = np.random.default_rng(seed)
         self.task_spec = task_spec
-        
+
         # Create action space.
         self.action_space = gym.spaces.OneOf(
             (
