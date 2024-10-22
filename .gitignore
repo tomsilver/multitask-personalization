@@ -3,6 +3,7 @@
 *.gif
 *.mp4
 results
+videos
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
