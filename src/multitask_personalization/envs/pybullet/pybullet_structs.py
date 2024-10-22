@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TypeAlias
 
-from pybullet_helpers.geometry import Pose, Pose3D
+from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
 
 @dataclass(frozen=True)
-class _PyBulletState:
+class PyBulletState:
     """A state in the pybullet environment."""
 
     robot_base: Pose
@@ -32,5 +32,3 @@ class _GripperAction(Enum):
 
 
 _PyBulletAction: TypeAlias = tuple[int, JointPositions | _GripperAction | None]  # OneOf
-_PyBulletIntakeObs: TypeAlias = bool  # whether or not reaching is successful
-_PyBulletIntakeAction: TypeAlias = Pose3D  # test handover position

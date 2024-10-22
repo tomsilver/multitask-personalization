@@ -69,7 +69,7 @@ class GroundTruthROMModel(ROMModel):
             self._reachable_joints = pickle.load(f)
         print(
             f"Loaded {len(self._reachable_joints)} points"
-            + " from {subject}_{condition}_dense_points.pkl"
+            + f" from {subject}_{condition}_dense_points.pkl"
         )
 
     def get_reachable_joints(self) -> NDArray:
@@ -181,7 +181,7 @@ class LearnedROMModel(ROMModel):
         self._upd_reachable = True
         print(
             "Updated ROM model parameters and reachable joints."
-            + "Need to update reachable points."
+            + " Need to update reachable points."
         )
 
     def get_reachable_joints(self) -> NDArray:

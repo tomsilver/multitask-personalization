@@ -1,15 +1,19 @@
-"""A shared simulator used for both the MDP and intake process."""
+"""A pybullet based environment."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
+from tomsutils.spaces import EnumSpace
 
 import assistive_gym.envs
+import gymnasium as gym
 import numpy as np
 import pybullet as p
 from assistive_gym.envs.agents.furniture import Furniture
 from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
+from gymnasium.core import RenderFrame
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
@@ -19,9 +23,9 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
+    PyBulletState,
     _GripperAction,
     _PyBulletAction,
-    _PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     PyBulletTaskSpec,
@@ -38,8 +42,8 @@ from multitask_personalization.utils import (
 )
 
 
-class PyBulletSimulator:
-    """A shared simulator used for both MDP and intake."""
+class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
+    """A pybullet based environment."""
 
     def __init__(
         self,
@@ -50,6 +54,15 @@ class PyBulletSimulator:
 
         self._rng = np.random.default_rng(seed)
         self.task_spec = task_spec
+        
+        # Create action space.
+        self.action_space = gym.spaces.OneOf(
+            (
+                gym.spaces.Box(-np.inf, np.inf, shape=(10,), dtype=np.float32),
+                EnumSpace([_GripperAction.OPEN, _GripperAction.CLOSE]),
+                EnumSpace([None]),
+            )
+        )
 
         # Create the PyBullet client.
         if use_gui:
@@ -258,7 +271,7 @@ class PyBulletSimulator:
             ]
         )
         # create a visual shape for each sampled point
-        for i, point in enumerate(sampled_points):
+        for _, point in enumerate(sampled_points):
             visual_shape_id = p.createVisualShape(
                 shapeType=p.GEOM_SPHERE,
                 radius=0.04,
@@ -325,7 +338,7 @@ class PyBulletSimulator:
         right_wrist_pos, _ = self.human.get_pos_orient(self.human.right_wrist)
         return right_wrist_pos
 
-    def get_state(self) -> _PyBulletState:
+    def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
         robot_base = self.robot.get_base_pose()
         robot_joints = self.robot.get_joint_positions()
@@ -343,7 +356,7 @@ class PyBulletSimulator:
             obj_to_obj_name[book_id] = f"book{i}"
 
         held_object = obj_to_obj_name[self.current_held_object_id]
-        return _PyBulletState(
+        return PyBulletState(
             robot_base,
             robot_joints,
             human_base,
@@ -354,7 +367,7 @@ class PyBulletSimulator:
             held_object,
         )
 
-    def set_state(self, state: _PyBulletState) -> None:
+    def set_state(self, state: PyBulletState) -> None:
         """Sync the simulator with the given state."""
         set_pose(self.robot.robot_id, state.robot_base, self.physics_client_id)
         self.robot.set_joints(state.robot_joints)
@@ -377,7 +390,19 @@ class PyBulletSimulator:
             obj_name_to_obj[f"book{i}"] = book_id
         self.current_held_object_id = obj_name_to_obj[state.held_object]
 
-    def step(self, action: _PyBulletAction) -> None:
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[PyBulletState, dict[str, Any]]:
+        # Implement this in future PR.
+        super().reset(seed=seed, options=options)
+        return self.get_state(), {}
+
+    def step(
+        self, action: _PyBulletAction
+    ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
         """Advance the simulator given an action."""
         if np.isclose(action[0], 1):
             if action[1] == _GripperAction.CLOSE:
@@ -398,9 +423,9 @@ class PyBulletSimulator:
             elif action[1] == _GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
-            return
+            return self.get_state(), 0.0, False, False, {}
         if np.isclose(action[0], 2):
-            return  # will handle none case later, when the human moves
+            return self.get_state(), 0.0, False, False, {}
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
@@ -435,6 +460,11 @@ class PyBulletSimulator:
             set_pose(
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
+
+        return self.get_state(), 0.0, False, False, {}
+
+    def render(self) -> RenderFrame | list[RenderFrame] | None:
+        raise NotImplementedError
 
 
 def _create_shelf(
