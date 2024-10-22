@@ -31,9 +31,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-from multitask_personalization.envs.pybullet.pybullet_task_spec import (
-    PyBulletTaskSpec,
-)
 
 
 def get_object_id_from_name(object_name: str, sim: PyBulletEnv) -> int:
@@ -104,6 +101,14 @@ def generate_side_grasps(rng: np.random.Generator) -> Iterator[Pose]:
         yield relative_pose
 
 
+def get_aabb_dimensions(object_id: int, sim: PyBulletEnv) -> tuple[float, float, float]:
+    """Get the 3D bounding box dimensions of an object."""
+    (min_x, min_y, min_z), (max_x, max_y, max_z) = p.getAABB(
+        object_id, -1, sim.physics_client_id
+    )
+    return (max_x - min_x, max_y - min_y, max_z - min_z)
+
+
 def get_pybullet_action_plan_from_kinematic_plan(
     kinematic_plan: list[KinematicState],
 ) -> list[PyBulletAction]:
@@ -120,7 +125,7 @@ def get_kinematic_state_from_pybullet_state(
 ) -> KinematicState:
     robot_joints = pybullet_state.robot_joints
     object_poses = {
-        sim.cup_id: pybullet_state.object_pose,
+        sim.cup_id: pybullet_state.cup_pose,
         sim.table_id: sim.task_spec.table_pose,
         sim.shelf_id: sim.task_spec.shelf_pose,
         sim.tray_id: sim.task_spec.tray_pose,
@@ -185,4 +190,73 @@ def get_plan_to_pick_object(
         max_motion_planning_time=max_motion_planning_time,
     )
     assert kinematic_plan is not None
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+
+
+def get_plan_to_move_next_to_object(
+    state: PyBulletState,
+    object_name: str,
+    sim: PyBulletEnv,
+    seed: int = 0,
+) -> list[PyBulletAction]:
+    """Get a plan to move next to a given object."""
+    sim.set_state(state)
+    object_id = get_object_id_from_name(object_name, sim)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    collision_ids = get_collision_ids(sim) - set(kinematic_state.attachments)
+    surface_extents = get_aabb_dimensions(object_id, sim)
+
+    current_base_pose = state.robot_base
+    object_pose = get_pose(object_id, sim.physics_client_id)
+
+    # Use pre-defined staging base poses for now. Generalize this later.
+    if object_name == "tray":
+        target_base_pose = Pose(
+            (
+                object_pose.position[0] - surface_extents[0],
+                object_pose.position[1] - surface_extents[1],
+                0.0,
+            ),
+            orientation=current_base_pose.orientation,
+        )
+    elif object_name == "shelf":
+        target_base_pose = sim.task_spec.robot_base_pose  # initial base pose
+    elif object_name == "table":
+        target_base_pose = Pose(
+            (
+                sim.task_spec.robot_base_pose.position[0],
+                sim.task_spec.robot_base_pose.position[1] - 0.1,
+                sim.task_spec.robot_base_pose.position[2],
+            ),
+            sim.task_spec.robot_base_pose.orientation,
+        )
+    else:
+        raise NotImplementedError
+
+    if kinematic_state.attachments:
+        assert len(kinematic_state.attachments) == 1
+        held_obj_id, held_obj_tf = next(iter(kinematic_state.attachments.items()))
+    else:
+        held_obj_id, held_obj_tf = None, None
+
+    base_motion_plan = run_base_motion_planning(
+        sim.robot,
+        current_base_pose,
+        target_base_pose,
+        position_lower_bounds=sim.task_spec.world_lower_bounds[:2],
+        position_upper_bounds=sim.task_spec.world_upper_bounds[:2],
+        collision_bodies=collision_ids,
+        seed=seed,
+        physics_client_id=sim.physics_client_id,
+        platform=sim.robot_stand_id,
+        held_object=held_obj_id,
+        base_link_to_held_obj=held_obj_tf,
+    )
+
+    assert base_motion_plan is not None
+
+    kinematic_plan: list[KinematicState] = []
+    for base_pose in base_motion_plan:
+        kinematic_plan.append(kinematic_state.copy_with(robot_base_pose=base_pose))
+
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)

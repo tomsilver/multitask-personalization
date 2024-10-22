@@ -382,7 +382,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.human.right_arm_joints,
             state.human_joints,
         )
-        set_pose(self.cup_id, state.object_pose, self.physics_client_id)
+        set_pose(self.cup_id, state.cup_pose, self.physics_client_id)
         for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
             set_pose(book_id, book_pose, self.physics_client_id)
         self.current_grasp_transform = state.grasp_transform
