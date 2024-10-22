@@ -1,0 +1,188 @@
+"""Python programs that implement various behaviors in PyBullet envs."""
+
+import abc
+from typing import Any, Callable, Iterator, Sequence, TypeAlias
+
+import numpy as np
+import pybullet as p
+from numpy.typing import NDArray
+from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
+from pybullet_helpers.inverse_kinematics import (
+    InverseKinematicsError,
+    check_body_collisions,
+    inverse_kinematics,
+)
+from pybullet_helpers.manipulation import (
+    get_kinematic_plan_to_pick_object,
+    get_kinematic_plan_to_place_object,
+)
+from pybullet_helpers.math_utils import get_poses_facing_line
+from pybullet_helpers.motion_planning import (
+    run_base_motion_planning,
+    run_smooth_motion_planning_to_pose,
+)
+from pybullet_helpers.states import KinematicState
+
+from multitask_personalization.envs.pybullet.pybullet_env import (
+    PyBulletEnv,
+)
+from multitask_personalization.envs.pybullet.pybullet_structs import (
+    GripperAction,
+    PyBulletAction,
+    PyBulletState,
+)
+from multitask_personalization.envs.pybullet.pybullet_task_spec import (
+    PyBulletTaskSpec,
+)
+
+
+def get_object_id_from_name(object_name: str, sim: PyBulletEnv) -> int:
+    """Get the PyBullet ID in the given sim env from a name."""
+    if object_name.startswith("book"):
+        idx = int(object_name[len("book") :])
+        return sim.book_ids[idx]
+    return {
+        "cup": sim.cup_id,
+        "table": sim.table_id,
+        "tray": sim.tray_id,
+        "shelf": sim.shelf_id,
+    }[object_name]
+
+
+def get_surface_ids(sim: PyBulletEnv) -> set[int]:
+    """Get all possible surfaces in the simulator."""
+    surface_names = ["table", "tray", "shelf"]
+    return {get_object_id_from_name(n, sim) for n in surface_names}
+
+
+def get_surface_that_object_is_on(
+    object_id: int, sim: PyBulletEnv, distance_threshold: float = 1e-3
+) -> int:
+    """Get the PyBullet ID of the surface that the object is on."""
+    surfaces = get_surface_ids(sim)
+    assert object_id not in surfaces
+    object_pose = get_pose(object_id, sim.physics_client_id)
+    for surface_id in surfaces:
+        surface_pose = get_pose(surface_id, sim.physics_client_id)
+        # Check if object pose is above surface pose.
+        if object_pose.position[2] < surface_pose.position[2]:
+            continue
+        # Check for contact.
+        if check_body_collisions(
+            object_id,
+            surface_id,
+            sim.physics_client_id,
+            distance_threshold=distance_threshold,
+        ):
+            return surface_id
+    raise ValueError(f"Object {object_id} not on any surface.")
+
+
+def get_collision_ids(sim: PyBulletEnv) -> set[int]:
+    """Get all collision IDs for a sim env."""
+    return set(sim.book_ids) | {
+        sim.table_id,
+        sim.human.body,
+        sim.wheelchair.body,
+        sim.shelf_id,
+        sim.tray_id,
+        sim.side_table_id,
+    }
+
+
+def generate_side_grasps(rng: np.random.Generator) -> Iterator[Pose]:
+    """Generate side grasps."""
+    while True:
+        angle_offset = rng.uniform(-np.pi, np.pi)
+        relative_pose = get_poses_facing_line(
+            axis=(0.0, 0.0, 1.0),
+            point_on_line=(0.0, 0.0, 0),
+            radius=1e-3,
+            num_points=1,
+            angle_offset=angle_offset,
+        )[0]
+        yield relative_pose
+
+
+def get_pybullet_action_plan_from_kinematic_plan(
+    kinematic_plan: list[KinematicState],
+) -> list[PyBulletAction]:
+    """Convert a kinematic plan into a pybullet action plan."""
+    action_plan: list[PyBulletAction] = []
+    for s0, s1 in zip(kinematic_plan[:-1], kinematic_plan[1:], strict=True):
+        actions = get_actions_from_kinematic_transition(s0, s1)
+        action_plan.extend(actions)
+    return action_plan
+
+
+def get_kinematic_state_from_pybullet_state(
+    pybullet_state: PyBulletState, sim: PyBulletEnv
+) -> KinematicState:
+    robot_joints = pybullet_state.robot_joints
+    object_poses = {
+        sim.cup_id: pybullet_state.object_pose,
+        sim.table_id: sim.task_spec.table_pose,
+        sim.shelf_id: sim.task_spec.shelf_pose,
+        sim.tray_id: sim.task_spec.tray_pose,
+    }
+    for book_id, book_pose in zip(sim.book_ids, pybullet_state.book_poses, strict=True):
+        object_poses[book_id] = book_pose
+    attachments: dict[int, Pose] = {}
+    if pybullet_state.held_object == "cup":
+        assert pybullet_state.grasp_transform is not None
+        attachments[sim.cup_id] = pybullet_state.grasp_transform
+    for book_idx, book_id in enumerate(sim.book_ids):
+        if pybullet_state.held_object == f"book{book_idx}":
+            assert pybullet_state.grasp_transform is not None
+            attachments[book_id] = pybullet_state.grasp_transform
+    return KinematicState(
+        robot_joints, object_poses, attachments, pybullet_state.robot_base
+    )
+
+
+def get_actions_from_kinematic_transition(
+    state: KinematicState, next_state: KinematicState
+) -> list[PyBulletAction]:
+    """Convert a single kinematic state transition into one or more actions."""
+    assert state.robot_base_pose is not None
+    assert next_state.robot_base_pose is not None
+    base_delta = (
+        next_state.robot_base_pose.position[0] - state.robot_base_pose.position[0],
+        next_state.robot_base_pose.position[1] - state.robot_base_pose.position[1],
+        next_state.robot_base_pose.rpy[2] - state.robot_base_pose.rpy[2],
+    )
+    joint_delta = np.subtract(next_state.robot_joints, state.robot_joints)
+    delta = list(base_delta) + list(joint_delta[:7])
+    actions: list[PyBulletAction] = [(0, delta)]
+    if next_state.attachments and not state.attachments:
+        actions.append((1, GripperAction.CLOSE))
+    elif state.attachments and not next_state.attachments:
+        actions.append((1, GripperAction.OPEN))
+    return actions
+
+
+def get_plan_to_pick_object(
+    state: PyBulletState,
+    object_name: str,
+    sim: PyBulletEnv,
+    rng: np.random.Generator,
+    max_motion_planning_time: float = 1.0,
+) -> list[PyBulletAction]:
+    """Get a plan to pick up an object from some current state."""
+    sim.set_state(state)
+    obj_id = get_object_id_from_name(object_name, sim)
+    surface_id = get_surface_that_object_is_on(obj_id, sim)
+    collision_ids = get_collision_ids(sim)
+    grasp_generator = generate_side_grasps(rng)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    kinematic_plan = get_kinematic_plan_to_pick_object(
+        kinematic_state,
+        sim.robot,
+        obj_id,
+        surface_id,
+        collision_ids,
+        grasp_generator=grasp_generator,
+        max_motion_planning_time=max_motion_planning_time,
+    )
+    assert kinematic_plan is not None
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)

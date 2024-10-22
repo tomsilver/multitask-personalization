@@ -24,11 +24,11 @@ class PyBulletState:
     held_object: str | None = None
 
 
-class _GripperAction(Enum):
+class GripperAction(Enum):
     """Open or close the gripper."""
 
     OPEN = 1
     CLOSE = 2
 
 
-_PyBulletAction: TypeAlias = tuple[int, JointPositions | _GripperAction | None]  # OneOf
+PyBulletAction: TypeAlias = tuple[int, JointPositions | GripperAction | None]  # OneOf

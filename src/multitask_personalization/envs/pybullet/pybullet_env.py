@@ -24,9 +24,9 @@ from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylind
 from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
+    GripperAction,
+    PyBulletAction,
     PyBulletState,
-    _GripperAction,
-    _PyBulletAction,
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     PyBulletTaskSpec,
@@ -43,7 +43,7 @@ from multitask_personalization.utils import (
 )
 
 
-class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
+class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     """A pybullet based environment."""
 
     metadata = {"render_modes": ["rgb_array"], "render_fps": 4}
@@ -63,7 +63,7 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
         self.action_space = gym.spaces.OneOf(
             (
                 gym.spaces.Box(-np.inf, np.inf, shape=(10,), dtype=np.float32),
-                EnumSpace([_GripperAction.OPEN, _GripperAction.CLOSE]),
+                EnumSpace([GripperAction.OPEN, GripperAction.CLOSE]),
                 EnumSpace([None]),
             )
         )
@@ -405,11 +405,11 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
         return self.get_state(), {}
 
     def step(
-        self, action: _PyBulletAction
+        self, action: PyBulletAction
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
         """Advance the simulator given an action."""
         if np.isclose(action[0], 1):
-            if action[1] == _GripperAction.CLOSE:
+            if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
                 for object_id in [self.cup_id] + self.book_ids:
@@ -424,7 +424,7 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
                             world_to_robot.invert(), world_to_object
                         )
                         self.current_held_object_id = object_id
-            elif action[1] == _GripperAction.OPEN:
+            elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
             return self.get_state(), 0.0, False, False, {}
