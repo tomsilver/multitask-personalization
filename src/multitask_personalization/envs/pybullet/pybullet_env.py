@@ -228,28 +228,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._ik_distance_threshold = 0.1
         self._gt_subject = 1
         self._gt_condition = "limit_4"
-        self.gt_rom_model = GroundTruthROMModel(
+        self._gt_rom_model = GroundTruthROMModel(
             self._rng, self._gt_subject, self._gt_condition, self._ik_distance_threshold
         )
-        self.gt_rom_model.set_reachable_points(
+        self._gt_rom_model.set_reachable_points(
             self.create_reachable_position_cloud(
-                self.gt_rom_model.get_reachable_joints()
+                self._gt_rom_model.get_reachable_joints()
             )
         )
-        # self._visualize_reachable_points(self.gt_rom_model)
-
-        # Load parameterized ROM model.
-        self.parameterized_rom_model = LearnedROMModel(
-            self._rng, self._ik_distance_threshold
-        )
-        self.parameterized_rom_model.set_reachable_points(
-            self.create_reachable_position_cloud(
-                self.parameterized_rom_model.get_reachable_joints()
-            )
-        )
-        # self._visualize_reachable_points(
-        #     self.parameterized_rom_model, color=(1.0, 0.2, 0.2, 0.6)
-        # )
+        # self._visualize_reachable_points(self._gt_rom_model)
 
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
