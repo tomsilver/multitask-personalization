@@ -6,9 +6,7 @@ import numpy as np
 import pybullet as p
 from pybullet_helpers.geometry import Pose, get_pose
 from pybullet_helpers.inverse_kinematics import (
-    InverseKinematicsError,
     check_body_collisions,
-    inverse_kinematics,
 )
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
@@ -192,8 +190,8 @@ def get_actions_from_kinematic_transition(
 def get_plan_to_pick_object(
     state: PyBulletState,
     object_name: str,
+    grasp_pose: Pose,
     sim: PyBulletEnv,
-    rng: np.random.Generator,
     max_motion_planning_time: float = 1.0,
 ) -> list[PyBulletAction]:
     """Get a plan to pick up an object from some current state."""
@@ -201,7 +199,7 @@ def get_plan_to_pick_object(
     obj_id = get_object_id_from_name(object_name, sim)
     surface_id = get_surface_that_object_is_on(obj_id, sim)
     collision_ids = get_collision_ids(sim) - {obj_id}
-    grasp_generator = generate_side_grasps(rng)
+    grasp_generator = iter([grasp_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan = get_kinematic_plan_to_pick_object(
         kinematic_state,
@@ -288,8 +286,8 @@ def get_plan_to_move_next_to_object(
 def get_plan_to_handover_object(
     state: PyBulletState,
     object_name: str,
+    handover_pose: Pose,
     sim: PyBulletEnv,
-    rom_model: ROMModel,
     seed: int = 0,
     max_motion_planning_time: float = 1.0,
 ) -> list[PyBulletAction]:
@@ -299,18 +297,6 @@ def get_plan_to_handover_object(
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     assert object_id in kinematic_state.attachments
     collision_ids = get_collision_ids(sim) - set(kinematic_state.attachments)
-
-    # Sample a reachable handover pose.
-    handover_pose: Pose | None = None
-    while True:
-        candidate = sample_handover_pose(rom_model)
-        try:
-            inverse_kinematics(sim.robot, candidate)
-            handover_pose = candidate
-            break
-        except InverseKinematicsError:
-            continue
-    assert handover_pose is not None
 
     # Motion plan to hand over.
     kinematic_state.set_pybullet(sim.robot)
@@ -332,9 +318,9 @@ def get_plan_to_handover_object(
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
-def sample_handover_pose(rom_model: ROMModel) -> Pose:
+def sample_handover_pose(rom_model: ROMModel, rng: np.random.Generator) -> Pose:
     """Sample a candidate handover pose that is within the ROM."""
-    position = tuple(rom_model.sample_reachable_position())
+    position = tuple(rom_model.sample_reachable_position(rng))
     orientation = (
         0.8522037863731384,
         0.4745013415813446,

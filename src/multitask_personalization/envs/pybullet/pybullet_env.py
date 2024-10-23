@@ -228,7 +228,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._gt_subject = 1
         self._gt_condition = "limit_4"
         self._gt_rom_model = GroundTruthROMModel(
-            self._rng, self._gt_subject, self._gt_condition, self._ik_distance_threshold
+            self._gt_subject, self._gt_condition, self._ik_distance_threshold
         )
         self._gt_rom_model.set_reachable_points(
             self.create_reachable_position_cloud(
