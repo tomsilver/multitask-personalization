@@ -17,6 +17,9 @@ from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
+from pybullet_helpers.inverse_kinematics import (
+    check_body_collisions,
+)
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
@@ -24,16 +27,15 @@ from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylind
 from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
+    GripperAction,
+    PyBulletAction,
     PyBulletState,
-    _GripperAction,
-    _PyBulletAction,
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     PyBulletTaskSpec,
 )
 from multitask_personalization.rom.models import (
     GroundTruthROMModel,
-    LearnedROMModel,
     ROMModel,
 )
 from multitask_personalization.utils import (
@@ -43,10 +45,10 @@ from multitask_personalization.utils import (
 )
 
 
-class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
+class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     """A pybullet based environment."""
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 30}
 
     def __init__(
         self,
@@ -63,7 +65,7 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
         self.action_space = gym.spaces.OneOf(
             (
                 gym.spaces.Box(-np.inf, np.inf, shape=(10,), dtype=np.float32),
-                EnumSpace([_GripperAction.OPEN, _GripperAction.CLOSE]),
+                EnumSpace([GripperAction.OPEN, GripperAction.CLOSE]),
                 EnumSpace([None]),
             )
         )
@@ -84,7 +86,7 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
             fixed_base=False,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
-        robot.close_fingers()
+        robot.open_fingers()
         self.robot = robot
 
         # Create robot stand.
@@ -228,28 +230,18 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
         self._ik_distance_threshold = 0.1
         self._gt_subject = 1
         self._gt_condition = "limit_4"
-        self.gt_rom_model = GroundTruthROMModel(
+        self._gt_rom_model = GroundTruthROMModel(
             self._rng, self._gt_subject, self._gt_condition, self._ik_distance_threshold
         )
-        self.gt_rom_model.set_reachable_points(
+        self._gt_rom_model.set_reachable_points(
             self.create_reachable_position_cloud(
-                self.gt_rom_model.get_reachable_joints()
+                self._gt_rom_model.get_reachable_joints()
             )
         )
-        # self._visualize_reachable_points(self.gt_rom_model)
-
-        # Load parameterized ROM model.
-        self.parameterized_rom_model = LearnedROMModel(
-            self._rng, self._ik_distance_threshold
+        self.human.set_joint_angles(
+            self.human.right_arm_joints, self.task_spec.human_joints
         )
-        self.parameterized_rom_model.set_reachable_points(
-            self.create_reachable_position_cloud(
-                self.parameterized_rom_model.get_reachable_joints()
-            )
-        )
-        # self._visualize_reachable_points(
-        #     self.parameterized_rom_model, color=(1.0, 0.2, 0.2, 0.6)
-        # )
+        # self._visualize_reachable_points(self._gt_rom_model)
 
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
@@ -382,7 +374,7 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
             self.human.right_arm_joints,
             state.human_joints,
         )
-        set_pose(self.cup_id, state.object_pose, self.physics_client_id)
+        set_pose(self.cup_id, state.cup_pose, self.physics_client_id)
         for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
             set_pose(book_id, book_pose, self.physics_client_id)
         self.current_grasp_transform = state.grasp_transform
@@ -405,11 +397,11 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
         return self.get_state(), {}
 
     def step(
-        self, action: _PyBulletAction
+        self, action: PyBulletAction
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
         """Advance the simulator given an action."""
         if np.isclose(action[0], 1):
-            if action[1] == _GripperAction.CLOSE:
+            if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
                 for object_id in [self.cup_id] + self.book_ids:
@@ -424,7 +416,7 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
                             world_to_robot.invert(), world_to_object
                         )
                         self.current_held_object_id = object_id
-            elif action[1] == _GripperAction.OPEN:
+            elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
             return self.get_state(), 0.0, False, False, {}
@@ -478,6 +470,58 @@ class PyBulletEnv(gym.Env[PyBulletState, _PyBulletAction]):
             camera_target=target,
             camera_distance=self.task_spec.camera_distance,
         )
+
+    def get_object_id_from_name(self, object_name: str) -> int:
+        """Get the PyBullet object ID given a name."""
+        if object_name.startswith("book"):
+            idx = int(object_name[len("book") :])
+            return self.book_ids[idx]
+        return {
+            "cup": self.cup_id,
+            "table": self.table_id,
+            "tray": self.tray_id,
+            "shelf": self.shelf_id,
+        }[object_name]
+
+    def get_surface_ids(self) -> set[int]:
+        """Get all possible surfaces in the environment."""
+        surface_names = ["table", "tray", "shelf"]
+        return {self.get_object_id_from_name(n) for n in surface_names}
+
+    def get_surface_that_object_is_on(
+        self, object_id: int, distance_threshold: float = 1e-3
+    ) -> int:
+        """Get the PyBullet ID of the surface that the object is on."""
+        surfaces = self.get_surface_ids()
+        assert object_id not in surfaces
+        object_pose = get_pose(object_id, self.physics_client_id)
+        for surface_id in surfaces:
+            surface_pose = get_pose(surface_id, self.physics_client_id)
+            # Check if object pose is above surface pose.
+            # NOTE: this assumes that the local frame of the objects are
+            # roughly at the center.
+            if object_pose.position[2] < surface_pose.position[2]:
+                continue
+            # Check for contact.
+            if check_body_collisions(
+                object_id,
+                surface_id,
+                self.physics_client_id,
+                distance_threshold=distance_threshold,
+            ):
+                return surface_id
+        raise ValueError(f"Object {object_id} not on any surface.")
+
+    def get_collision_ids(self) -> set[int]:
+        """Get all collision IDs for the environment."""
+        return set(self.book_ids) | {
+            self.table_id,
+            self.human.body,
+            self.wheelchair.body,
+            self.shelf_id,
+            self.tray_id,
+            self.side_table_id,
+        }
 
 
 def _create_shelf(
