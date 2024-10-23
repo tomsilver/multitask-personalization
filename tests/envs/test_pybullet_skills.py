@@ -1,6 +1,7 @@
 """Tests for pybullet_skills.py."""
 
 import numpy as np
+from pybullet_helpers.geometry import Pose
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_skills import (
@@ -13,7 +14,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-from pybullet_helpers.geometry import Pose
 from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
 
 
@@ -80,11 +80,11 @@ def test_pybullet_skills():
     handover_pose = Pose(
         (0.6096954345703125, 0.029336635023355484, 0.4117525517940521),
         (
-        0.8522037863731384,
-        0.4745013415813446,
-        -0.01094298530369997,
-        0.22017613053321838,
-    )
+            0.8522037863731384,
+            0.4745013415813446,
+            -0.01094298530369997,
+            0.22017613053321838,
+        ),
     )
     place_book_on_tray_plan = get_plan_to_handover_object(
         obs, "book0", handover_pose, sim, seed
