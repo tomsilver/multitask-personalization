@@ -1,12 +1,10 @@
 """Python programs that implement various behaviors in PyBullet envs."""
 
-import abc
-from typing import Any, Callable, Iterator, Sequence, TypeAlias
+from typing import Iterator
 
 import numpy as np
 import pybullet as p
-from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
+from pybullet_helpers.geometry import Pose, get_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     check_body_collisions,
@@ -30,6 +28,9 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     GripperAction,
     PyBulletAction,
     PyBulletState,
+)
+from multitask_personalization.rom.models import (
+    ROMModel,
 )
 
 
@@ -101,6 +102,27 @@ def generate_side_grasps(rng: np.random.Generator) -> Iterator[Pose]:
         yield relative_pose
 
 
+def generate_surface_placements(
+    surface_id: int, obj_id: int, sim: PyBulletEnv, rng: np.random.Generator
+) -> Iterator[Pose]:
+    """Sample placements uniformly on the top of the given surface."""
+    surface_extents = get_aabb_dimensions(surface_id, sim)
+    object_extents = get_aabb_dimensions(obj_id, sim)
+    placement_lb = (
+        -surface_extents[0] / 2 + object_extents[0] / 2,
+        -surface_extents[1] / 2 + object_extents[1] / 2,
+        surface_extents[2] / 2 + object_extents[2] / 2,
+    )
+    placement_ub = (
+        surface_extents[0] / 2 - object_extents[0] / 2,
+        surface_extents[1] / 2 - object_extents[1] / 2,
+        surface_extents[2] / 2 + object_extents[2] / 2,
+    )
+
+    while True:
+        yield Pose(tuple(rng.uniform(placement_lb, placement_ub)))
+
+
 def get_aabb_dimensions(object_id: int, sim: PyBulletEnv) -> tuple[float, float, float]:
     """Get the 3D bounding box dimensions of an object."""
     (min_x, min_y, min_z), (max_x, max_y, max_z) = p.getAABB(
@@ -123,6 +145,7 @@ def get_pybullet_action_plan_from_kinematic_plan(
 def get_kinematic_state_from_pybullet_state(
     pybullet_state: PyBulletState, sim: PyBulletEnv
 ) -> KinematicState:
+    """Convert a PyBulletState into a KinematicState."""
     robot_joints = pybullet_state.robot_joints
     object_poses = {
         sim.cup_id: pybullet_state.cup_pose,
@@ -259,4 +282,94 @@ def get_plan_to_move_next_to_object(
     for base_pose in base_motion_plan:
         kinematic_plan.append(kinematic_state.copy_with(robot_base_pose=base_pose))
 
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+
+
+def get_plan_to_handover_object(
+    state: PyBulletState,
+    object_name: str,
+    sim: PyBulletEnv,
+    rom_model: ROMModel,
+    seed: int = 0,
+    max_motion_planning_time: float = 1.0,
+) -> list[PyBulletAction]:
+    """Get a plan to hand over a held object while next to a person."""
+    sim.set_state(state)
+    object_id = get_object_id_from_name(object_name, sim)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    assert object_id in kinematic_state.attachments
+    collision_ids = get_collision_ids(sim) - set(kinematic_state.attachments)
+
+    # Sample a reachable handover pose.
+    handover_pose: Pose | None = None
+    while True:
+        candidate = sample_handover_pose(rom_model)
+        try:
+            inverse_kinematics(sim.robot, candidate)
+            handover_pose = candidate
+            break
+        except InverseKinematicsError:
+            continue
+    assert handover_pose is not None
+
+    # Motion plan to hand over.
+    kinematic_state.set_pybullet(sim.robot)
+    robot_joint_plan = run_smooth_motion_planning_to_pose(
+        handover_pose,
+        sim.robot,
+        collision_ids=collision_ids,
+        end_effector_frame_to_plan_frame=Pose.identity(),
+        seed=seed,
+        max_time=max_motion_planning_time,
+        held_object=object_id,
+        base_link_to_held_obj=kinematic_state.attachments[object_id],
+    )
+    assert robot_joint_plan is not None
+    kinematic_plan: list[KinematicState] = []
+    for robot_joints in robot_joint_plan:
+        kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
+
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+
+
+def sample_handover_pose(rom_model: ROMModel) -> Pose:
+    """Sample a candidate handover pose that is within the ROM."""
+    position = tuple(rom_model.sample_reachable_position())
+    orientation = (
+        0.8522037863731384,
+        0.4745013415813446,
+        -0.01094298530369997,
+        0.22017613053321838,
+    )
+    pose = Pose(position, orientation)
+    return pose
+
+
+def get_plan_to_place_object(
+    state: PyBulletState,
+    object_name: str,
+    surface_name: str,
+    sim: PyBulletEnv,
+    rng: np.random.Generator,
+    max_motion_planning_time: float = 1.0,
+) -> list[PyBulletAction]:
+    """Get a plan to place a held object on a given surface."""
+    sim.set_state(state)
+    object_id = get_object_id_from_name(object_name, sim)
+    surface_id = get_object_id_from_name(surface_name, sim)
+    collision_ids = get_collision_ids(sim) - {object_id}
+    placement_generator = generate_surface_placements(surface_id, object_id, sim, rng)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    object_extents = get_aabb_dimensions(object_id, sim)
+    kinematic_plan = get_kinematic_plan_to_place_object(
+        kinematic_state,
+        sim.robot,
+        object_id,
+        surface_id,
+        collision_ids,
+        placement_generator,
+        preplace_translation_magnitude=object_extents[2],
+        max_motion_planning_time=max_motion_planning_time,
+    )
+    assert kinematic_plan is not None
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
