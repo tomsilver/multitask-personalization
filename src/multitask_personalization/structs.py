@@ -29,7 +29,7 @@ class CSPConstraint:
     constraint_fn: Callable[..., bool]  # inputs are CSPVariable values
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
-        """Check whether the constraint holds given values of the varaibles."""
+        """Check whether the constraint holds given values of the variables."""
         vals = [sol[v] for v in self.variables]
         return self.constraint_fn(*vals)
 
@@ -42,7 +42,7 @@ class CSP:
     constraints: list[CSPConstraint]
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
-        """Check whether all constraints hold given values of the varaibles."""
+        """Check whether all constraints hold given values of the variables."""
         for constraint in self.constraints:
             if not constraint.check_solution(sol):
                 return False
@@ -50,7 +50,7 @@ class CSP:
 
 
 class CSPSampler(abc.ABC):
-    """Samples values of one or more variables in a CSP conditioned.
+    """Samples values of one or more variables in a CSP.
 
     The sampler can optionally use existing bindings of variables, e.g.,
     for conditional sampling, or for MCMC-style sampling.
