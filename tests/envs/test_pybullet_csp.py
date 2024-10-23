@@ -38,7 +38,7 @@ def test_pybullet_csp():
     assert isinstance(obs, PyBulletState)
 
     # Create a simulator.
-    sim = PyBulletEnv(task_spec, use_gui=True, seed=seed)
+    sim = PyBulletEnv(task_spec, use_gui=False, seed=seed)
 
     # Create the CSP.
     csp, samplers, policy, initialization = create_book_handover_csp(

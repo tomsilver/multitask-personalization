@@ -277,10 +277,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
-            reward, done = self._get_reward_and_done()
+            reward, done = self._get_reward_and_done(robot_indicated_done=False)
             return self.get_state(), reward, done, False, {}
         if np.isclose(action[0], 2):
-            reward, done = self._get_reward_and_done()
+            reward, done = self._get_reward_and_done(robot_indicated_done=True)
             return self.get_state(), reward, done, False, {}
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
@@ -317,13 +317,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
 
-        reward, done = self._get_reward_and_done()
+        reward, done = self._get_reward_and_done(robot_indicated_done=False)
         return self.get_state(), reward, done, False, {}
 
-    def _get_reward_and_done(self) -> tuple[float, bool]:
+    def _get_reward_and_done(
+        self, robot_indicated_done: bool = False
+    ) -> tuple[float, bool]:
         if self._hidden_spec is None:
             raise NotImplementedError("Should not call step() in sim")
         if self.task_spec.task_objective == "hand over book":
+            # Robot needs to indicate done for the handover task.
+            if not robot_indicated_done:
+                return 0.0, False
             # Must be holding a book.
             if self.current_held_object_id not in self.book_ids:
                 return 0.0, False

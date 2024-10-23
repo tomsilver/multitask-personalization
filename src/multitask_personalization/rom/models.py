@@ -73,7 +73,9 @@ class GroundTruthROMModel(ROMModel):
         # self._physics_client_id = create_gui_connection()
         self._physics_client_id = p.connect(p.DIRECT)
         self._rng = np.random.default_rng(seed)
-        self._human = create_human_from_spec(human_spec, self._rng, self._physics_client_id)
+        self._human = create_human_from_spec(
+            human_spec, self._rng, self._physics_client_id
+        )
         # Create reachable point cloud using human FK.
         self._reachable_points = [
             self._run_human_fk(point) for point in self._reachable_joints
@@ -141,9 +143,12 @@ class GroundTruthROMModel(ROMModel):
         )
         right_wrist_pos, _ = self._human.get_pos_orient(self._human.right_wrist)
         return right_wrist_pos
-    
-    def _visualize_reachable_points(self, n: int = 300,
-        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6)) -> None:
+
+    def _visualize_reachable_points(
+        self,
+        n: int = 300,
+        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6),
+    ) -> None:
         # Randomly sample n reachable points.
         sampled_points = np.array(
             [

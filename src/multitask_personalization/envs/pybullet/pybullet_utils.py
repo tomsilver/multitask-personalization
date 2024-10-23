@@ -1,13 +1,11 @@
 """Utilities specific to pybullet environment, skills, etc."""
 
+from dataclasses import dataclass, field
+
 import numpy as np
 from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
-from pybullet_helpers.geometry import set_pose
-
-from dataclasses import dataclass, field
-
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, set_pose
 from pybullet_helpers.joint import JointPositions
 
 

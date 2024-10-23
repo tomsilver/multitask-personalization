@@ -62,9 +62,12 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         """Assume that the robot starts out holding book and near person."""
         book_name = self._get_value("book")
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
-        return get_plan_to_handover_object(
+        handover_plan = get_plan_to_handover_object(
             obs, book_name, handover_pose, self._sim, self._seed
         )
+        # Finish the plan by indicating done.
+        handover_plan.append((2, None))
+        return handover_plan
 
 
 def _book_grasp_to_pose(yaw: NDArray) -> Pose:
@@ -203,7 +206,8 @@ def create_book_handover_csp(
     def _sample_grasp_pose(
         _: dict[CSPVariable, Any], rng: np.random.Generator
     ) -> dict[CSPVariable, Any]:
-        yaw = rng.uniform(-np.pi, np.pi, size=(1,))
+        del rng  # not actually sampling right now, for simplicity
+        yaw = np.array([-np.pi / 2])
         return {book_grasp: yaw}
 
     grasp_sampler = FunctionalCSPSampler(_sample_grasp_pose, csp, {book_grasp})

@@ -7,8 +7,8 @@ from dataclasses import dataclass, field
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
-from multitask_personalization.rom.models import ROMModel
 from multitask_personalization.envs.pybullet.pybullet_utils import HumanSpec
+from multitask_personalization.rom.models import ROMModel
 
 
 @dataclass(frozen=True)
