@@ -1,9 +1,13 @@
 """General utility functions."""
 
+from typing import Any
+
 import numpy as np
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose3D
 from scipy.spatial.transform import Rotation as R
+
+from multitask_personalization.structs import CSP, CSPSampler, CSPVariable
 
 DIMENSION_NAMES = ("shoulder_aa", "shoulder_fe", "shoulder_rot", "elbow_flexion")
 DIMENSION_LIMITS = {
@@ -65,3 +69,18 @@ def sample_spherical(center: Pose3D, radius: float, rng: np.random.Generator) ->
     # Translate.
     vec = np.add(center, vec)
     return vec.tolist()
+
+
+def solve_csp(
+    csp: CSP,
+    initialization: dict[CSPVariable, Any],
+    samplers: list[CSPSampler],
+    rng: np.random.Generator,
+) -> dict[CSPVariable, Any]:
+    """A very naive solver for CSPs."""
+    sol = initialization
+    while True:
+        if csp.check_solution(sol):
+            return sol
+        sampler = samplers[rng.choice(len(samplers))]
+        sol = sampler.sample(sol, rng)
