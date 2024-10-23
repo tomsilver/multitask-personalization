@@ -6,7 +6,8 @@ import numpy as np
 import pybullet as p
 from pybullet_helpers.geometry import Pose, get_pose
 from pybullet_helpers.inverse_kinematics import (
-    check_body_collisions,
+    InverseKinematicsError,
+    inverse_kinematics,
 )
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
@@ -32,80 +33,15 @@ from multitask_personalization.rom.models import (
 )
 
 
-def get_object_id_from_name(object_name: str, sim: PyBulletEnv) -> int:
-    """Get the PyBullet ID in the given sim env from a name."""
-    if object_name.startswith("book"):
-        idx = int(object_name[len("book") :])
-        return sim.book_ids[idx]
-    return {
-        "cup": sim.cup_id,
-        "table": sim.table_id,
-        "tray": sim.tray_id,
-        "shelf": sim.shelf_id,
-    }[object_name]
-
-
-def get_surface_ids(sim: PyBulletEnv) -> set[int]:
-    """Get all possible surfaces in the simulator."""
-    surface_names = ["table", "tray", "shelf"]
-    return {get_object_id_from_name(n, sim) for n in surface_names}
-
-
-def get_surface_that_object_is_on(
-    object_id: int, sim: PyBulletEnv, distance_threshold: float = 1e-3
-) -> int:
-    """Get the PyBullet ID of the surface that the object is on."""
-    surfaces = get_surface_ids(sim)
-    assert object_id not in surfaces
-    object_pose = get_pose(object_id, sim.physics_client_id)
-    for surface_id in surfaces:
-        surface_pose = get_pose(surface_id, sim.physics_client_id)
-        # Check if object pose is above surface pose.
-        if object_pose.position[2] < surface_pose.position[2]:
-            continue
-        # Check for contact.
-        if check_body_collisions(
-            object_id,
-            surface_id,
-            sim.physics_client_id,
-            distance_threshold=distance_threshold,
-        ):
-            return surface_id
-    raise ValueError(f"Object {object_id} not on any surface.")
-
-
-def get_collision_ids(sim: PyBulletEnv) -> set[int]:
-    """Get all collision IDs for a sim env."""
-    return set(sim.book_ids) | {
-        sim.table_id,
-        sim.human.body,
-        sim.wheelchair.body,
-        sim.shelf_id,
-        sim.tray_id,
-        sim.side_table_id,
-    }
-
-
-def generate_side_grasps(rng: np.random.Generator) -> Iterator[Pose]:
-    """Generate side grasps."""
-    while True:
-        angle_offset = rng.uniform(-np.pi, np.pi)
-        relative_pose = get_poses_facing_line(
-            axis=(0.0, 0.0, 1.0),
-            point_on_line=(0.0, 0.0, 0),
-            radius=1e-3,
-            num_points=1,
-            angle_offset=angle_offset,
-        )[0]
-        yield relative_pose
-
 
 def generate_surface_placements(
     surface_id: int, obj_id: int, sim: PyBulletEnv, rng: np.random.Generator
 ) -> Iterator[Pose]:
     """Sample placements uniformly on the top of the given surface."""
-    surface_extents = get_aabb_dimensions(surface_id, sim)
-    object_extents = get_aabb_dimensions(obj_id, sim)
+    # NOTE: this function currently assumes that the surface is a cube and that
+    # the local frame is at the center of the cube.
+    surface_extents = sim.get_aabb_dimensions(surface_id)
+    object_extents = sim.get_aabb_dimensions(obj_id)
     placement_lb = (
         -surface_extents[0] / 2 + object_extents[0] / 2,
         -surface_extents[1] / 2 + object_extents[1] / 2,
@@ -119,14 +55,6 @@ def generate_surface_placements(
 
     while True:
         yield Pose(tuple(rng.uniform(placement_lb, placement_ub)))
-
-
-def get_aabb_dimensions(object_id: int, sim: PyBulletEnv) -> tuple[float, float, float]:
-    """Get the 3D bounding box dimensions of an object."""
-    (min_x, min_y, min_z), (max_x, max_y, max_z) = p.getAABB(
-        object_id, -1, sim.physics_client_id
-    )
-    return (max_x - min_x, max_y - min_y, max_z - min_z)
 
 
 def get_pybullet_action_plan_from_kinematic_plan(
@@ -190,16 +118,16 @@ def get_actions_from_kinematic_transition(
 def get_plan_to_pick_object(
     state: PyBulletState,
     object_name: str,
-    grasp_pose: Pose,
     sim: PyBulletEnv,
+    grasp_pose: Pose,
     max_motion_planning_time: float = 1.0,
 ) -> list[PyBulletAction]:
     """Get a plan to pick up an object from some current state."""
     sim.set_state(state)
-    obj_id = get_object_id_from_name(object_name, sim)
-    surface_id = get_surface_that_object_is_on(obj_id, sim)
-    collision_ids = get_collision_ids(sim) - {obj_id}
-    grasp_generator = iter([grasp_pose])
+    obj_id = sim.get_object_id_from_name(object_name)
+    surface_id = sim.get_surface_that_object_is_on(obj_id)
+    collision_ids = sim.get_collision_ids() - {obj_id}
+    grasp_generator = generate_side_grasps([grasp_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan = get_kinematic_plan_to_pick_object(
         kinematic_state,
@@ -222,10 +150,10 @@ def get_plan_to_move_next_to_object(
 ) -> list[PyBulletAction]:
     """Get a plan to move next to a given object."""
     sim.set_state(state)
-    object_id = get_object_id_from_name(object_name, sim)
+    object_id = sim.get_object_id_from_name(object_name)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    collision_ids = get_collision_ids(sim) - set(kinematic_state.attachments)
-    surface_extents = get_aabb_dimensions(object_id, sim)
+    collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
+    surface_extents = sim.get_aabb_dimensions(object_id)
 
     current_base_pose = state.robot_base
     object_pose = get_pose(object_id, sim.physics_client_id)
@@ -286,17 +214,17 @@ def get_plan_to_move_next_to_object(
 def get_plan_to_handover_object(
     state: PyBulletState,
     object_name: str,
-    handover_pose: Pose,
     sim: PyBulletEnv,
+    handover_pose: Pose,
     seed: int = 0,
     max_motion_planning_time: float = 1.0,
 ) -> list[PyBulletAction]:
     """Get a plan to hand over a held object while next to a person."""
     sim.set_state(state)
-    object_id = get_object_id_from_name(object_name, sim)
+    object_id = sim.get_object_id_from_name(object_name)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     assert object_id in kinematic_state.attachments
-    collision_ids = get_collision_ids(sim) - set(kinematic_state.attachments)
+    collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
 
     # Motion plan to hand over.
     kinematic_state.set_pybullet(sim.robot)
@@ -318,19 +246,6 @@ def get_plan_to_handover_object(
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
-def sample_handover_pose(rom_model: ROMModel, rng: np.random.Generator) -> Pose:
-    """Sample a candidate handover pose that is within the ROM."""
-    position = tuple(rom_model.sample_reachable_position(rng))
-    orientation = (
-        0.8522037863731384,
-        0.4745013415813446,
-        -0.01094298530369997,
-        0.22017613053321838,
-    )
-    pose = Pose(position, orientation)
-    return pose
-
-
 def get_plan_to_place_object(
     state: PyBulletState,
     object_name: str,
@@ -341,12 +256,12 @@ def get_plan_to_place_object(
 ) -> list[PyBulletAction]:
     """Get a plan to place a held object on a given surface."""
     sim.set_state(state)
-    object_id = get_object_id_from_name(object_name, sim)
-    surface_id = get_object_id_from_name(surface_name, sim)
-    collision_ids = get_collision_ids(sim) - {object_id}
+    object_id = sim.get_object_id_from_name(object_name)
+    surface_id = sim.get_object_id_from_name(surface_name)
+    collision_ids = sim.get_collision_ids() - {object_id}
     placement_generator = generate_surface_placements(surface_id, object_id, sim, rng)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    object_extents = get_aabb_dimensions(object_id, sim)
+    object_extents = sim.get_aabb_dimensions(object_id)
     kinematic_plan = get_kinematic_plan_to_place_object(
         kinematic_state,
         sim.robot,
