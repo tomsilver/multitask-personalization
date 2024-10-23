@@ -14,6 +14,9 @@ from gymnasium.core import RenderFrame
 from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
+from pybullet_helpers.inverse_kinematics import (
+    check_body_collisions,
+)
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
@@ -360,6 +363,65 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             camera_target=target,
             camera_distance=self.task_spec.camera_distance,
         )
+
+    def get_object_id_from_name(self, object_name: str) -> int:
+        """Get the PyBullet object ID given a name."""
+        if object_name.startswith("book"):
+            idx = int(object_name[len("book") :])
+            return self.book_ids[idx]
+        return {
+            "cup": self.cup_id,
+            "table": self.table_id,
+            "tray": self.tray_id,
+            "shelf": self.shelf_id,
+        }[object_name]
+
+    def get_surface_ids(self) -> set[int]:
+        """Get all possible surfaces in the environment."""
+        surface_names = ["table", "tray", "shelf"]
+        return {self.get_object_id_from_name(n) for n in surface_names}
+
+    def get_surface_that_object_is_on(
+        self, object_id: int, distance_threshold: float = 1e-3
+    ) -> int:
+        """Get the PyBullet ID of the surface that the object is on."""
+        surfaces = self.get_surface_ids()
+        assert object_id not in surfaces
+        object_pose = get_pose(object_id, self.physics_client_id)
+        for surface_id in surfaces:
+            surface_pose = get_pose(surface_id, self.physics_client_id)
+            # Check if object pose is above surface pose.
+            # NOTE: this assumes that the local frame of the objects are
+            # roughly at the center.
+            if object_pose.position[2] < surface_pose.position[2]:
+                continue
+            # Check for contact.
+            if check_body_collisions(
+                object_id,
+                surface_id,
+                self.physics_client_id,
+                distance_threshold=distance_threshold,
+            ):
+                return surface_id
+        raise ValueError(f"Object {object_id} not on any surface.")
+
+    def get_collision_ids(self) -> set[int]:
+        """Get all collision IDs for the environment."""
+        return set(self.book_ids) | {
+            self.table_id,
+            self.human.body,
+            self.wheelchair.body,
+            self.shelf_id,
+            self.tray_id,
+            self.side_table_id,
+        }
+
+    def get_aabb_dimensions(self, object_id: int) -> tuple[float, float, float]:
+        """Get the 3D bounding box dimensions of an object."""
+        (min_x, min_y, min_z), (max_x, max_y, max_z) = p.getAABB(
+            object_id, -1, self.physics_client_id
+        )
+        return (max_x - min_x, max_y - min_y, max_z - min_z)
 
 
 def _create_shelf(

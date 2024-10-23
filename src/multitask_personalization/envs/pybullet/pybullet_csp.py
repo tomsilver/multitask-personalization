@@ -62,12 +62,9 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         """Assume that the robot starts out holding book and near person."""
         book_name = self._get_value("book")
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
-        handover_plan = get_plan_to_handover_object(
+        return get_plan_to_handover_object(
             obs, book_name, handover_pose, self._sim, self._seed
         )
-        # Finish the plan by indicating done.
-        handover_plan.append((2, None))
-        return handover_plan
 
 
 def _book_grasp_to_pose(yaw: NDArray) -> Pose:
