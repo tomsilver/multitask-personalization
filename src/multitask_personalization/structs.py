@@ -7,6 +7,7 @@ from typing import Any, Callable, Generic
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType, ObsType
+from typing_extensions import Unpack
 
 
 @dataclass(frozen=True)
@@ -16,6 +17,9 @@ class CSPVariable:
     name: str
     domain: gym.spaces.Space
 
+    def __hash__(self) -> int:
+        return hash(self.name)
+
 
 @dataclass(frozen=True)
 class CSPConstraint:
@@ -23,12 +27,12 @@ class CSPConstraint:
 
     name: str
     variables: list[CSPVariable]
-    constraint_fn: Callable[[list[Any]], bool]  # inputs are CSPVariable values
+    constraint_fn: Callable[[Unpack[Any]], bool]  # inputs are CSPVariable values
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether the constraint holds given values of the varaibles."""
         vals = [sol[v] for v in self.variables]
-        return self.constraint_fn(vals)
+        return self.constraint_fn(*vals)
 
 
 @dataclass(frozen=True)
@@ -63,6 +67,31 @@ class CSPSampler(abc.ABC):
         self, current_vals: dict[CSPVariable, Any], rng: np.random.Generator
     ) -> dict[CSPVariable, Any]:
         """Sample values for self.sampled_vars given values of all CSP vars."""
+
+
+class FunctionalCSPSampler(CSPSampler):
+    """A CSPSampler implemented with a function."""
+
+    def __init__(
+        self,
+        fn: Callable[
+            [dict[CSPVariable, Any], np.random.Generator], dict[CSPVariable, Any]
+        ],
+        csp: CSP,
+        sampled_vars: set[CSPVariable],
+    ) -> None:
+        self._fn = fn
+        super().__init__(csp, sampled_vars)
+
+    def sample(
+        self, current_vals: dict[CSPVariable, Any], rng: np.random.Generator
+    ) -> dict[CSPVariable, Any]:
+        sample = self._fn(current_vals, rng)
+        # Validate.
+        for v, val in sample.items():
+            assert v in self._sampled_vars, f"Sampled {v}"
+            assert v.domain.contains(val), f"Value {val} not in domain {v.domain}"
+        return sample
 
 
 class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
