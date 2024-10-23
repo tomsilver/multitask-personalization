@@ -3,17 +3,11 @@
 from typing import Iterator
 
 import numpy as np
-import pybullet as p
 from pybullet_helpers.geometry import Pose, get_pose
-from pybullet_helpers.inverse_kinematics import (
-    InverseKinematicsError,
-    inverse_kinematics,
-)
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
 )
-from pybullet_helpers.math_utils import get_poses_facing_line
 from pybullet_helpers.motion_planning import (
     run_base_motion_planning,
     run_smooth_motion_planning_to_pose,
@@ -28,10 +22,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-from multitask_personalization.rom.models import (
-    ROMModel,
-)
-
 
 
 def generate_surface_placements(
@@ -118,8 +108,8 @@ def get_actions_from_kinematic_transition(
 def get_plan_to_pick_object(
     state: PyBulletState,
     object_name: str,
-    sim: PyBulletEnv,
     grasp_pose: Pose,
+    sim: PyBulletEnv,
     max_motion_planning_time: float = 1.0,
 ) -> list[PyBulletAction]:
     """Get a plan to pick up an object from some current state."""
@@ -127,7 +117,7 @@ def get_plan_to_pick_object(
     obj_id = sim.get_object_id_from_name(object_name)
     surface_id = sim.get_surface_that_object_is_on(obj_id)
     collision_ids = sim.get_collision_ids() - {obj_id}
-    grasp_generator = generate_side_grasps([grasp_pose])
+    grasp_generator = iter([grasp_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan = get_kinematic_plan_to_pick_object(
         kinematic_state,
@@ -214,8 +204,8 @@ def get_plan_to_move_next_to_object(
 def get_plan_to_handover_object(
     state: PyBulletState,
     object_name: str,
-    sim: PyBulletEnv,
     handover_pose: Pose,
+    sim: PyBulletEnv,
     seed: int = 0,
     max_motion_planning_time: float = 1.0,
 ) -> list[PyBulletAction]:
