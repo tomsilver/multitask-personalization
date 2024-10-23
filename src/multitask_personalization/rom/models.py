@@ -41,7 +41,7 @@ class ROMModel(abc.ABC):
         """Check if a position is reachable."""
 
     @abc.abstractmethod
-    def sample_reachable_position(self) -> NDArray:
+    def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         """Sample a reachable position."""
 
 
@@ -50,13 +50,11 @@ class GroundTruthROMModel(ROMModel):
 
     def __init__(
         self,
-        rng: np.random.Generator,
         subject: int,
         condition: str,
         ik_distance_threshold: float = 1e-1,
     ) -> None:
         super().__init__()
-        self._rng = rng
         self._subject = subject
         self._condition = condition
         self._ik_distance_threshold = ik_distance_threshold
@@ -89,19 +87,16 @@ class GroundTruthROMModel(ROMModel):
         distance, _ = self._reachable_kd_tree.query(position)
         return distance < self._ik_distance_threshold
 
-    def sample_reachable_position(self) -> NDArray:
+    def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         assert not self._upd_reachable, "Must set reachable points first."
-        return self._rng.choice(self._reachable_points)
+        return rng.choice(self._reachable_points)
 
 
 class LearnedROMModel(ROMModel):
     """ROM model learned from data."""
 
-    def __init__(
-        self, rng: np.random.Generator, ik_distance_threshold: float = 1e-1
-    ) -> None:
+    def __init__(self, ik_distance_threshold: float = 1e-1) -> None:
         super().__init__()
-        self._rng = rng
         self._ik_distance_threshold = ik_distance_threshold
         self._rom_model = MLPROMClassifierTorch(
             device="cuda" if torch.cuda.is_available() else "cpu"
@@ -201,6 +196,6 @@ class LearnedROMModel(ROMModel):
         distance, _ = self._reachable_kd_tree.query(position)
         return distance < self._ik_distance_threshold
 
-    def sample_reachable_position(self) -> NDArray:
+    def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         assert not self._upd_reachable, "Must set reachable points first."
-        return self._rng.choice(self._reachable_points)
+        return rng.choice(self._reachable_points)
