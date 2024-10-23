@@ -33,7 +33,6 @@ from multitask_personalization.envs.pybullet.pybullet_task_spec import (
 )
 from multitask_personalization.rom.models import (
     GroundTruthROMModel,
-    LearnedROMModel,
     ROMModel,
 )
 from multitask_personalization.utils import (
@@ -46,7 +45,7 @@ from multitask_personalization.utils import (
 class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     """A pybullet based environment."""
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 30}
 
     def __init__(
         self,
@@ -84,7 +83,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             fixed_base=False,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
-        robot.close_fingers()
+        robot.open_fingers()
         self.robot = robot
 
         # Create robot stand.
@@ -235,6 +234,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.create_reachable_position_cloud(
                 self._gt_rom_model.get_reachable_joints()
             )
+        )
+        self.human.set_joint_angles(
+            self.human.right_arm_joints, self.task_spec.human_joints
         )
         # self._visualize_reachable_points(self._gt_rom_model)
 

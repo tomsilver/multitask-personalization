@@ -200,7 +200,7 @@ def get_plan_to_pick_object(
     sim.set_state(state)
     obj_id = get_object_id_from_name(object_name, sim)
     surface_id = get_surface_that_object_is_on(obj_id, sim)
-    collision_ids = get_collision_ids(sim)
+    collision_ids = get_collision_ids(sim) - {obj_id}
     grasp_generator = generate_side_grasps(rng)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan = get_kinematic_plan_to_pick_object(
