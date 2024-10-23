@@ -14,6 +14,10 @@ from pybullet_helpers.math_utils import get_poses_facing_line
 from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
+from multitask_personalization.envs.pybullet.pybullet_skills import (
+    get_plan_to_handover_object,
+    get_plan_to_pick_object,
+)
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
@@ -31,44 +35,71 @@ from multitask_personalization.structs import (
 
 class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
-    def step(self, obs: PyBulletState) -> PyBulletAction:
-        import ipdb
+    def __init__(self, sim: PyBulletEnv, csp: CSP, seed: int = 0) -> None:
+        super().__init__(csp, seed)
+        self._sim = sim
+        self._current_plan: list[PyBulletAction] = []
 
-        ipdb.set_trace()
+    def reset(self, solution: dict[CSPVariable, Any]) -> None:
+        super().reset(solution)
+        self._current_plan = []
+
+    def step(self, obs: PyBulletState) -> PyBulletAction:
+        if not self._current_plan:
+            if obs.held_object is None:
+                self._current_plan = self._get_pick_plan(obs)
+            else:
+                self._current_plan = self._get_handover_plan(obs)
+        return self._current_plan.pop(0)
+
+    def _get_pick_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
+        """Assume that the robot starts out empty-handed and near the books."""
+        book_name = self._get_value("book")
+        book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
+        return get_plan_to_pick_object(obs, book_name, book_grasp, self._sim)
+
+    def _get_handover_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
+        """Assume that the robot starts out holding book and near person."""
+        book_name = self._get_value("book")
+        handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
+        return get_plan_to_handover_object(
+            obs, book_name, handover_pose, self._sim, self._seed
+        )
+
+
+def _book_grasp_to_pose(yaw: NDArray) -> Pose:
+    assert len(yaw) == 1
+    return get_poses_facing_line(
+        axis=(0.0, 0.0, 1.0),
+        point_on_line=(0.0, 0.0, 0),
+        radius=1e-3,
+        num_points=1,
+        angle_offset=yaw[0],
+    )[0]
+
+
+def _handover_position_to_pose(position: NDArray) -> Pose:
+    handover_orientation = (
+        0.8522037863731384,
+        0.4745013415813446,
+        -0.01094298530369997,
+        0.22017613053321838,
+    )
+    return Pose(tuple(position), handover_orientation)
+
+
+def _pose_is_reachable(pose: Pose, sim: PyBulletEnv) -> bool:
+    try:
+        inverse_kinematics(sim.robot, pose)
+    except InverseKinematicsError:
+        return False
+    return True
 
 
 def create_book_handover_csp(
     sim: PyBulletEnv, rom_model: ROMModel, preferred_books: list[str], seed: int = 0
 ) -> tuple[CSP, list[CSPSampler], CSPPolicy]:
     """Create a CSP for the task of handing over a book."""
-
-    ################################ Utilities ################################
-
-    def _book_grasp_to_pose(yaw: NDArray) -> Pose:
-        assert len(yaw) == 1
-        return get_poses_facing_line(
-            axis=(0.0, 0.0, 1.0),
-            point_on_line=(0.0, 0.0, 0),
-            radius=1e-3,
-            num_points=1,
-            angle_offset=yaw[0],
-        )[0]
-
-    def _handover_position_to_pose(position: NDArray) -> Pose:
-        handover_orientation = (
-            0.8522037863731384,
-            0.4745013415813446,
-            -0.01094298530369997,
-            0.22017613053321838,
-        )
-        return Pose(tuple(position), handover_orientation)
-
-    def _pose_is_reachable(pose: Pose) -> bool:
-        try:
-            inverse_kinematics(sim.robot, pose)
-        except InverseKinematicsError:
-            return False
-        return True
 
     ################################ Variables ################################
 
@@ -92,9 +123,11 @@ def create_book_handover_csp(
     # Create a user preference constraint for the book.
     def _book_is_preferred(book_name: str) -> bool:
         return book_name in preferred_books
-    
+
     book_preference_constraint = CSPConstraint(
-        "book_preference", [book], _book_is_preferred,
+        "book_preference",
+        [book],
+        _book_is_preferred,
     )
 
     # Create a handover constraint given the user ROM.
@@ -110,7 +143,7 @@ def create_book_handover_csp(
     # Create reaching constraints.
     def _book_grasp_is_reachable(yaw: NDArray) -> bool:
         pose = _book_grasp_to_pose(yaw)
-        return _pose_is_reachable(pose)
+        return _pose_is_reachable(pose, sim)
 
     book_grasp_reachable_constraint = CSPConstraint(
         "book_reachable",
@@ -120,7 +153,7 @@ def create_book_handover_csp(
 
     def _handover_position_is_reachable(position: NDArray) -> bool:
         pose = _handover_position_to_pose(position)
-        return _pose_is_reachable(pose)
+        return _pose_is_reachable(pose, sim)
 
     handover_reachable_constraint = CSPConstraint(
         "handover_reachable",
@@ -171,6 +204,6 @@ def create_book_handover_csp(
 
     ################################# Policy ##################################
 
-    policy: CSPPolicy = _BookHandoverCSPPolicy(csp, seed=seed)
+    policy: CSPPolicy = _BookHandoverCSPPolicy(sim, csp, seed=seed)
 
     return csp, samplers, policy
