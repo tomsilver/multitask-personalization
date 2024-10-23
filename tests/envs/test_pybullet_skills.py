@@ -4,6 +4,7 @@ import numpy as np
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_skills import (
+    get_plan_to_handover_object,
     get_plan_to_move_next_to_object,
     get_plan_to_pick_object,
     get_plan_to_place_object,
@@ -13,6 +14,7 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
+from multitask_personalization.rom.models import LearnedROMModel
 
 
 def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
@@ -72,9 +74,14 @@ def test_pybullet_skills():
     move_to_tray_plan = get_plan_to_move_next_to_object(obs, "tray", sim, seed=seed)
     obs = _run_plan(move_to_tray_plan, env)
 
-    # Test place book on tray.
-    place_book_on_tray_plan = get_plan_to_place_object(obs, "book0", "tray", sim, rng)
+    # Test hand over book.
+    rom_model = LearnedROMModel(rng, 0.1)
+    rom_model.set_reachable_points(
+        sim.create_reachable_position_cloud(rom_model.get_reachable_joints())
+    )
+    place_book_on_tray_plan = get_plan_to_handover_object(
+        obs, "book0", sim, rom_model, seed
+    )
     obs = _run_plan(place_book_on_tray_plan, env)
-    assert obs.held_object is None
 
     env.close()
