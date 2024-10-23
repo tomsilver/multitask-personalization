@@ -231,7 +231,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._gt_subject = 1
         self._gt_condition = "limit_4"
         self._gt_rom_model = GroundTruthROMModel(
-            self._rng, self._gt_subject, self._gt_condition, self._ik_distance_threshold
+            self._gt_subject, self._gt_condition, self._ik_distance_threshold
         )
         self._gt_rom_model.set_reachable_points(
             self.create_reachable_position_cloud(
@@ -522,6 +522,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.tray_id,
             self.side_table_id,
         }
+
+    def get_aabb_dimensions(self, object_id: int) -> tuple[float, float, float]:
+        """Get the 3D bounding box dimensions of an object."""
+        (min_x, min_y, min_z), (max_x, max_y, max_z) = p.getAABB(
+            object_id, -1, self.physics_client_id
+        )
+        return (max_x - min_x, max_y - min_y, max_z - min_z)
 
 
 def _create_shelf(

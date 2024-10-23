@@ -1,6 +1,7 @@
 """Tests for pybullet_skills.py."""
 
 import numpy as np
+from pybullet_helpers.geometry import Pose
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_skills import (
@@ -14,7 +15,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
-from multitask_personalization.rom.models import LearnedROMModel
 
 
 def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
@@ -48,7 +48,8 @@ def test_pybullet_skills():
     sim = PyBulletEnv(task_spec, use_gui=False, seed=seed)
 
     # Test pick book.
-    pick_book_plan = get_plan_to_pick_object(obs, "book1", sim, rng)
+    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
+    pick_book_plan = get_plan_to_pick_object(obs, "book1", grasp_pose, sim)
     obs = _run_plan(pick_book_plan, env)
     assert obs.held_object == "book1"
 
@@ -66,7 +67,8 @@ def test_pybullet_skills():
     obs = _run_plan(move_to_shelf_plan, env)
 
     # Test pick another book.
-    pick_book_plan = get_plan_to_pick_object(obs, "book0", sim, rng)
+    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
+    pick_book_plan = get_plan_to_pick_object(obs, "book0", grasp_pose, sim)
     obs = _run_plan(pick_book_plan, env)
     assert obs.held_object == "book0"
 
@@ -75,12 +77,17 @@ def test_pybullet_skills():
     obs = _run_plan(move_to_tray_plan, env)
 
     # Test hand over book.
-    rom_model = LearnedROMModel(rng, 0.1)
-    rom_model.set_reachable_points(
-        sim.create_reachable_position_cloud(rom_model.get_reachable_joints())
+    handover_pose = Pose(
+        (0.6096954345703125, 0.029336635023355484, 0.4117525517940521),
+        (
+            0.8522037863731384,
+            0.4745013415813446,
+            -0.01094298530369997,
+            0.22017613053321838,
+        ),
     )
     place_book_on_tray_plan = get_plan_to_handover_object(
-        obs, "book0", sim, rom_model, seed
+        obs, "book0", handover_pose, sim, seed
     )
     obs = _run_plan(place_book_on_tray_plan, env)
 

@@ -101,6 +101,11 @@ class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._current_solution: dict[CSPVariable, Any] | None = None
+        self._csp_var_name_to_var = {v.name: v for v in self._csp.variables}
+
+    def _get_value(self, var_name: str) -> Any:
+        assert self._current_solution is not None
+        return self._current_solution[self._csp_var_name_to_var[var_name]]
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         """Reset the policy given a solution to the CSP."""
