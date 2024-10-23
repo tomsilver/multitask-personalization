@@ -29,7 +29,7 @@ class CSPConstraint:
     constraint_fn: Callable[..., bool]  # inputs are CSPVariable values
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
-        """Check whether the constraint holds given values of the varaibles."""
+        """Check whether the constraint holds given values of the variables."""
         vals = [sol[v] for v in self.variables]
         return self.constraint_fn(*vals)
 
@@ -42,7 +42,7 @@ class CSP:
     constraints: list[CSPConstraint]
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
-        """Check whether all constraints hold given values of the varaibles."""
+        """Check whether all constraints hold given values of the variables."""
         for constraint in self.constraints:
             if not constraint.check_solution(sol):
                 return False
@@ -50,7 +50,7 @@ class CSP:
 
 
 class CSPSampler(abc.ABC):
-    """Samples values of one or more variables in a CSP conditioned.
+    """Samples values of one or more variables in a CSP.
 
     The sampler can optionally use existing bindings of variables, e.g.,
     for conditional sampling, or for MCMC-style sampling.
@@ -101,11 +101,6 @@ class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._current_solution: dict[CSPVariable, Any] | None = None
-        self._csp_var_name_to_var = {v.name: v for v in self._csp.variables}
-
-    def _get_value(self, var_name: str) -> Any:
-        assert self._current_solution is not None
-        return self._current_solution[self._csp_var_name_to_var[var_name]]
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         """Reset the policy given a solution to the CSP."""
