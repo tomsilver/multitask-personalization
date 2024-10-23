@@ -25,7 +25,6 @@ class ROMModel(abc.ABC):
     def __init__(self) -> None:
         self._reachable_points: list[NDArray] = []
         self._reachable_kd_tree: KDTree = KDTree(np.array([[0, 0]]))
-        self._upd_reachable: bool = True
 
     @abc.abstractmethod
     def get_reachable_joints(self) -> NDArray:
@@ -69,13 +68,20 @@ class GroundTruthROMModel(ROMModel):
             + f" from {self._subject}_{self._condition}_dense_points.pkl"
         )
         # Create human for forward IK.
-        physics_client_id = p.connect(p.DIRECT)
-        rng = np.random.default_rng(seed)
-        self._human = create_human_from_spec(human_spec, rng, physics_client_id)
+        # Uncomment for debugging
+        # from pybullet_helpers.gui import create_gui_connection
+        # self._physics_client_id = create_gui_connection()
+        self._physics_client_id = p.connect(p.DIRECT)
+        self._rng = np.random.default_rng(seed)
+        self._human = create_human_from_spec(human_spec, self._rng, self._physics_client_id)
         # Create reachable point cloud using human FK.
         self._reachable_points = [
             self._run_human_fk(point) for point in self._reachable_joints
         ]
+        self._reachable_kd_tree = KDTree(self._reachable_points)
+
+        # Uncomment for debugging.
+        # self._visualize_reachable_points()
 
     def get_reachable_joints(self) -> NDArray:
         return self._reachable_joints
@@ -84,12 +90,10 @@ class GroundTruthROMModel(ROMModel):
         return self._reachable_points
 
     def check_position_reachable(self, position: NDArray) -> bool:
-        assert not self._upd_reachable, "Must set reachable points first."
         distance, _ = self._reachable_kd_tree.query(position)
         return distance < self._ik_distance_threshold
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
-        assert not self._upd_reachable, "Must set reachable points first."
         return rng.choice(self._reachable_points)
 
     def _run_human_fk(self, joint_positions: NDArray) -> NDArray:
@@ -137,3 +141,32 @@ class GroundTruthROMModel(ROMModel):
         )
         right_wrist_pos, _ = self._human.get_pos_orient(self._human.right_wrist)
         return right_wrist_pos
+    
+    def _visualize_reachable_points(self, n: int = 300,
+        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6)) -> None:
+        # Randomly sample n reachable points.
+        sampled_points = np.array(
+            [
+                self.get_reachable_points()[i]
+                for i in self._rng.choice(
+                    len(self.get_reachable_points()), n, replace=False
+                )
+            ]
+        )
+        # Create a visual shape for each sampled point.
+        for _, point in enumerate(sampled_points):
+            visual_shape_id = p.createVisualShape(
+                shapeType=p.GEOM_SPHERE,
+                radius=0.04,
+                rgbaColor=color,
+                physicsClientId=self._physics_client_id,
+            )
+
+            p.createMultiBody(
+                baseVisualShapeIndex=visual_shape_id,
+                basePosition=point,
+                physicsClientId=self._physics_client_id,
+            )
+
+        while True:
+            p.stepSimulation(self._physics_client_id)

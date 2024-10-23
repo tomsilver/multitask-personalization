@@ -5,7 +5,48 @@ from assistive_gym.envs.agents.human import Human
 from assistive_gym.envs.human_creation import HumanCreation
 from pybullet_helpers.geometry import set_pose
 
-from multitask_personalization.envs.pybullet.pybullet_task_spec import HumanSpec
+from dataclasses import dataclass, field
+
+from pybullet_helpers.geometry import Pose
+from pybullet_helpers.joint import JointPositions
+
+
+@dataclass(frozen=True)
+class HumanSpec:
+    """Defines the spec for a human user in the pybullet environment."""
+
+    impairment: str = "none"
+    gender: str = "male"
+    subject_id: int = 1
+    condition: str = "limit_4"
+    base_pose: Pose = Pose(position=(1.0, 0.53, 0.39))
+    init_joints: JointPositions = field(
+        default_factory=lambda: [
+            0.0,
+            0.0,
+            0.0,
+            0.08726646,
+            0.0,
+            0.0,
+            -1.57079633,
+            0.0,
+            0.0,
+            0.0,
+        ]
+    )
+    setup_joints: dict[str, float] = field(
+        default_factory=lambda: {
+            "right_elbow": -90,
+            "left_elbow": -90,
+            "right_hip_x": -90,
+            "right_knee": 80,
+            "left_hip_x": -90,
+            "left_knee": 80,
+            "head_x": 0,
+            "head_y": 0,
+            "head_z": 0,
+        }
+    )
 
 
 def create_human_from_spec(

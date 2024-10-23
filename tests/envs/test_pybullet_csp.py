@@ -30,9 +30,8 @@ def test_pybullet_csp():
     env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
 
     # Uncomment to create video.
-    from gymnasium.wrappers import RecordVideo
-
-    env = RecordVideo(env, "videos/test-pybullet-csp")
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     env.action_space.seed(seed)
     obs, _ = env.reset()
