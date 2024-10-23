@@ -7,7 +7,6 @@ from typing import Any, Callable, Generic
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType, ObsType
-from typing_extensions import Unpack
 
 
 @dataclass(frozen=True)
@@ -27,7 +26,7 @@ class CSPConstraint:
 
     name: str
     variables: list[CSPVariable]
-    constraint_fn: Callable[[Unpack[Any]], bool]  # inputs are CSPVariable values
+    constraint_fn: Callable[..., bool]  # inputs are CSPVariable values
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether the constraint holds given values of the varaibles."""

@@ -294,6 +294,7 @@ def get_plan_to_handover_object(
     max_motion_planning_time: float = 1.0,
 ) -> list[PyBulletAction]:
     """Get a plan to hand over a held object while next to a person."""
+    rng = np.random.default_rng(seed)
     sim.set_state(state)
     object_id = get_object_id_from_name(object_name, sim)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
@@ -303,7 +304,7 @@ def get_plan_to_handover_object(
     # Sample a reachable handover pose.
     handover_pose: Pose | None = None
     while True:
-        candidate = sample_handover_pose(rom_model)
+        candidate = sample_handover_pose(rom_model, rng)
         try:
             inverse_kinematics(sim.robot, candidate)
             handover_pose = candidate
@@ -332,9 +333,9 @@ def get_plan_to_handover_object(
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
-def sample_handover_pose(rom_model: ROMModel) -> Pose:
+def sample_handover_pose(rom_model: ROMModel, rng: np.random.Generator) -> Pose:
     """Sample a candidate handover pose that is within the ROM."""
-    position = tuple(rom_model.sample_reachable_position())
+    position = tuple(rom_model.sample_reachable_position(rng))
     orientation = (
         0.8522037863731384,
         0.4745013415813446,
