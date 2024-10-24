@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
+from multitask_personalization.envs.pybullet.pybullet_human_spec import HumanSpec
+from multitask_personalization.rom.models import ROMModel
+
 
 @dataclass(frozen=True)
 class PyBulletTaskSpec:
@@ -14,7 +17,7 @@ class PyBulletTaskSpec:
 
     task_name: str = "default"
 
-    task_objective: str = "hand over cup"
+    task_objective: str = "hand over book"
 
     world_lower_bounds: tuple[float, float, float] = (-0.5, -0.5, 0.0)
     world_upper_bounds: tuple[float, float, float] = (0.5, 0.5, 0.0)
@@ -45,21 +48,7 @@ class PyBulletTaskSpec:
     robot_stand_radius: float = 0.1
     robot_stand_length: float = 0.4
 
-    human_base_pose: Pose = Pose(position=(1.0, 0.53, 0.39))
-    human_joints: JointPositions = field(
-        default_factory=lambda: [
-            0.0,
-            0.0,
-            0.0,
-            0.08726646,
-            0.0,
-            0.0,
-            -1.57079633,
-            0.0,
-            0.0,
-            0.0,
-        ]
-    )
+    human_spec: HumanSpec = HumanSpec()
 
     wheelchair_base_pose: Pose = Pose(position=(1.0, 0.5, -0.46))
 
@@ -146,3 +135,11 @@ class PyBulletTaskSpec:
         )
     )
     tray_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
+
+
+@dataclass(frozen=True)
+class HiddenTaskSpec:
+    """Defines hidden parameters for a pybullet environment."""
+
+    book_preferences: list[str]
+    rom_model: ROMModel

@@ -4,15 +4,18 @@ import abc
 import pickle
 
 import numpy as np
-import torch
+import pybullet as p
 from numpy.typing import NDArray
 from scipy.spatial import KDTree
 
-from multitask_personalization.rom.implicit_mlp import MLPROMClassifierTorch
+from multitask_personalization.envs.pybullet.pybullet_human_spec import (
+    HumanSpec,
+    create_human_from_spec,
+)
 from multitask_personalization.utils import (
-    DIMENSION_LIMITS,
-    DIMENSION_NAMES,
-    denormalize_samples,
+    rotation_matrix_x,
+    rotation_matrix_y,
+    rotmat2euler,
 )
 
 
@@ -22,15 +25,10 @@ class ROMModel(abc.ABC):
     def __init__(self) -> None:
         self._reachable_points: list[NDArray] = []
         self._reachable_kd_tree: KDTree = KDTree(np.array([[0, 0]]))
-        self._upd_reachable: bool = True
 
     @abc.abstractmethod
     def get_reachable_joints(self) -> NDArray:
         """Get the reachable joints."""
-
-    @abc.abstractmethod
-    def set_reachable_points(self, reachable_points: list[NDArray]) -> None:
-        """Set the reachable points."""
 
     @abc.abstractmethod
     def get_reachable_points(self) -> list[NDArray]:
@@ -50,152 +48,130 @@ class GroundTruthROMModel(ROMModel):
 
     def __init__(
         self,
-        subject: int,
-        condition: str,
+        human_spec: HumanSpec,
         ik_distance_threshold: float = 1e-1,
+        seed: int = 0,
     ) -> None:
         super().__init__()
-        self._subject = subject
-        self._condition = condition
+        self._subject = human_spec.subject_id
+        self._condition = human_spec.condition
         self._ik_distance_threshold = ik_distance_threshold
-        # load array of points from rom/data/rom_points.pkl as self._reachable_joints
+        # Load array of points from rom/data/rom_points.pkl.
         with open(
-            f"src/multitask_personalization/rom/data/{subject}_{condition}_"
-            + "dense_points.pkl",
+            f"src/multitask_personalization/rom/data/{self._subject}_"
+            + f"{self._condition}_dense_points.pkl",
             "rb",
         ) as f:
             self._reachable_joints = pickle.load(f)
         print(
             f"Loaded {len(self._reachable_joints)} points"
-            + f" from {subject}_{condition}_dense_points.pkl"
+            + f" from {self._subject}_{self._condition}_dense_points.pkl"
         )
+        # Create human for forward IK.
+        # Uncomment for debugging
+        # from pybullet_helpers.gui import create_gui_connection
+        # self._physics_client_id = create_gui_connection()
+        self._physics_client_id = p.connect(p.DIRECT)
+        self._rng = np.random.default_rng(seed)
+        self._human = create_human_from_spec(
+            human_spec, self._rng, self._physics_client_id
+        )
+        # Create reachable point cloud using human FK.
+        self._reachable_points = [
+            self._run_human_fk(point) for point in self._reachable_joints
+        ]
+        self._reachable_kd_tree = KDTree(self._reachable_points)
+
+        # Uncomment for debugging.
+        # self._visualize_reachable_points()
 
     def get_reachable_joints(self) -> NDArray:
         return self._reachable_joints
-
-    def set_reachable_points(self, reachable_points: list[NDArray]) -> None:
-        self._reachable_points = reachable_points
-        assert len(self._reachable_points) != 0, "No reachable points."
-        self._reachable_kd_tree = KDTree(self._reachable_points)
-        self._upd_reachable = False
 
     def get_reachable_points(self) -> list[NDArray]:
         return self._reachable_points
 
     def check_position_reachable(self, position: NDArray) -> bool:
-        assert not self._upd_reachable, "Must set reachable points first."
         distance, _ = self._reachable_kd_tree.query(position)
         return distance < self._ik_distance_threshold
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
-        assert not self._upd_reachable, "Must set reachable points first."
         return rng.choice(self._reachable_points)
 
+    def _run_human_fk(self, joint_positions: NDArray) -> NDArray:
+        """Run forward kinematics for the human given joint positions."""
 
-class LearnedROMModel(ROMModel):
-    """ROM model learned from data."""
-
-    def __init__(self, ik_distance_threshold: float = 1e-1) -> None:
-        super().__init__()
-        self._ik_distance_threshold = ik_distance_threshold
-        self._rom_model = MLPROMClassifierTorch(
-            device="cuda" if torch.cuda.is_available() else "cpu"
+        # Transform from collected data angle space into pybullet angle space.
+        shoulder_aa, shoulder_fe, shoulder_rot, elbow_flexion = joint_positions
+        shoulder_aa = -shoulder_aa
+        shoulder_rot -= 90
+        shoulder_rot = -shoulder_rot
+        local_rot_mat = (
+            rotation_matrix_y(90)
+            @ rotation_matrix_x(shoulder_aa)
+            @ rotation_matrix_y(shoulder_fe)
+            @ rotation_matrix_x(shoulder_rot)
         )
-        self._rom_model.load()
-        self._parameter_size = 4
-        self._rom_model_context_parameters = np.array([0.0251, -0.2047, 0.3738, 0.1586])
-        """Parameters generated from functional score encoder as samples from.
+        transformed_angles = rotmat2euler(local_rot_mat, seq="YZX")
+        shoulder_x = transformed_angles[0] - 90
+        shoulder_y = transformed_angles[1]
+        shoulder_z = 180 - transformed_angles[2]
+        elbow = elbow_flexion
 
-        the learned distribution
-        - [-0.1040, -0.2353, 0.2436, 0.0986]
-        - [-0.1230, -0.1877,  0.2162,  0.1826]
-        - [-0.0645, -0.2141,  0.2723,  0.0986]
-        """
+        current_right_arm_joint_angles = self._human.get_joint_angles(
+            self._human.right_arm_joints
+        )
+        target_right_arm_angles = np.copy(current_right_arm_joint_angles)
+        shoulder_x_index = self._human.j_right_shoulder_x
+        shoulder_y_index = self._human.j_right_shoulder_y
+        shoulder_z_index = self._human.j_right_shoulder_z
+        elbow_index = self._human.j_right_elbow
 
-        # generate a dense grid of joint-space points
-        grids = []
-        for dim_name in DIMENSION_NAMES:
-            grids.append(
-                np.linspace(
-                    DIMENSION_LIMITS[dim_name][0],
-                    DIMENSION_LIMITS[dim_name][1],
-                    40,
+        target_right_arm_angles[shoulder_x_index] = np.radians(shoulder_x)
+        target_right_arm_angles[shoulder_y_index] = np.radians(shoulder_y)
+        target_right_arm_angles[shoulder_z_index] = np.radians(shoulder_z)
+        target_right_arm_angles[elbow_index] = np.radians(elbow)
+        other_idxs = set(self._human.right_arm_joints) - {
+            shoulder_x_index,
+            shoulder_y_index,
+            shoulder_z_index,
+            elbow_index,
+        }
+        assert np.allclose([target_right_arm_angles[i] for i in other_idxs], 0.0)
+        self._human.set_joint_angles(
+            self._human.right_arm_joints, target_right_arm_angles, use_limits=False
+        )
+        right_wrist_pos, _ = self._human.get_pos_orient(self._human.right_wrist)
+        return right_wrist_pos
+
+    def _visualize_reachable_points(
+        self,
+        n: int = 300,
+        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6),
+    ) -> None:
+        # Randomly sample n reachable points.
+        sampled_points = np.array(
+            [
+                self.get_reachable_points()[i]
+                for i in self._rng.choice(
+                    len(self.get_reachable_points()), n, replace=False
                 )
+            ]
+        )
+        # Create a visual shape for each sampled point.
+        for _, point in enumerate(sampled_points):
+            visual_shape_id = p.createVisualShape(
+                shapeType=p.GEOM_SPHERE,
+                radius=0.04,
+                rgbaColor=color,
+                physicsClientId=self._physics_client_id,
             )
-        grid = np.meshgrid(*grids)
-        joint_angle_samples = np.vstack([g.ravel() for g in grid]).T
-        # normalize samples using DIMENSION_LIMITS
-        joint_angle_samples = np.array(joint_angle_samples)
-        for i, dim_name in enumerate(DIMENSION_NAMES):
-            dim_min, dim_max = DIMENSION_LIMITS[dim_name]
-            joint_angle_samples[:, i] = (joint_angle_samples[:, i] - dim_min) / (
-                dim_max - dim_min
+
+            p.createMultiBody(
+                baseVisualShapeIndex=visual_shape_id,
+                basePosition=point,
+                physicsClientId=self._physics_client_id,
             )
-        self._dense_joint_samples = joint_angle_samples
-        self.update_parameters(self._rom_model_context_parameters)
-        print("Learned ROM model created")
 
-    def get_parameter_size(self) -> int:
-        """Get the size of the parameter."""
-        return self._parameter_size
-
-    def get_rom_model_context_parameters(self) -> NDArray:
-        """Get the ROM model context parameters."""
-        return self._rom_model_context_parameters
-
-    def update_parameters(self, parameters: NDArray) -> None:
-        """Update the ROM model parameters."""
-        self._rom_model_context_parameters = parameters
-        # forward pass through the model to get the dense grid of reachable
-        # points in task space
-        context_parameters = np.tile(
-            self._rom_model_context_parameters, (len(self._dense_joint_samples), 1)
-        )
-        input_data = np.concatenate(
-            (context_parameters, self._dense_joint_samples), axis=1
-        )
-        preds = (
-            self._rom_model.classify(
-                torch.tensor(input_data, dtype=torch.float32).to(self._rom_model.device)
-            )
-            .detach()
-            .cpu()
-            .numpy()
-            .astype(np.bool_)
-        )
-        num_pos = np.sum(preds == 1)
-        num_neg = np.sum(preds == 0)
-        print(f"Number of positive samples: {num_pos}")
-        print(f"Number of negative samples: {num_neg}")
-
-        self._reachable_joints = denormalize_samples(
-            self._dense_joint_samples[preds == 1]
-        )
-        self._reachable_points = []
-        self._reachable_kd_tree = None
-        self._upd_reachable = True
-        print(
-            "Updated ROM model parameters and reachable joints."
-            + " Need to update reachable points."
-        )
-
-    def get_reachable_joints(self) -> NDArray:
-        return self._reachable_joints
-
-    def set_reachable_points(self, reachable_points: list[NDArray]) -> None:
-        self._reachable_points = reachable_points
-        assert len(self._reachable_points) != 0, "No reachable points."
-        self._reachable_kd_tree = KDTree(self._reachable_points)
-        self._upd_reachable = False
-
-    def get_reachable_points(self) -> list[NDArray]:
-        return self._reachable_points
-
-    def check_position_reachable(self, position: NDArray) -> bool:
-        assert not self._upd_reachable, "Must set reachable points first."
-        distance, _ = self._reachable_kd_tree.query(position)
-        return distance < self._ik_distance_threshold
-
-    def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
-        assert not self._upd_reachable, "Must set reachable points first."
-        return rng.choice(self._reachable_points)
+        while True:
+            p.stepSimulation(self._physics_client_id)

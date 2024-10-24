@@ -14,7 +14,11 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
+from multitask_personalization.envs.pybullet.pybullet_task_spec import (
+    HiddenTaskSpec,
+    PyBulletTaskSpec,
+)
+from multitask_personalization.rom.models import GroundTruthROMModel
 
 
 def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
@@ -32,9 +36,12 @@ def test_pybullet_skills():
     seed = 123
     rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec()
+    preferred_books = ["book2"]
+    rom_model = GroundTruthROMModel(task_spec.human_spec)
+    hidden_spec = HiddenTaskSpec(book_preferences=preferred_books, rom_model=rom_model)
 
     # Create a real environment.
-    env = PyBulletEnv(task_spec, use_gui=False, seed=seed)
+    env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
 
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo

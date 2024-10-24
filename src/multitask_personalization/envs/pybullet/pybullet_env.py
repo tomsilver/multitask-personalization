@@ -10,10 +10,7 @@ import gymnasium as gym
 import numpy as np
 import pybullet as p
 from assistive_gym.envs.agents.furniture import Furniture
-from assistive_gym.envs.agents.human import Human
-from assistive_gym.envs.human_creation import HumanCreation
 from gymnasium.core import RenderFrame
-from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
@@ -26,22 +23,17 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.spaces import EnumSpace
 
+from multitask_personalization.envs.pybullet.pybullet_human_spec import (
+    create_human_from_spec,
+)
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     GripperAction,
     PyBulletAction,
     PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
+    HiddenTaskSpec,
     PyBulletTaskSpec,
-)
-from multitask_personalization.rom.models import (
-    GroundTruthROMModel,
-    ROMModel,
-)
-from multitask_personalization.utils import (
-    rotation_matrix_x,
-    rotation_matrix_y,
-    rotmat2euler,
 )
 
 
@@ -53,12 +45,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     def __init__(
         self,
         task_spec: PyBulletTaskSpec,
+        hidden_spec: HiddenTaskSpec | None = None,
         use_gui: bool = False,
         seed: int = 0,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
         self.task_spec = task_spec
+        self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
 
         # Create action space.
@@ -108,41 +102,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Create human.
-        human_creation = HumanCreation(
-            self.physics_client_id, np_random=self._rng, cloth=False
-        )
-        self.human = Human([], controllable=False)
-        self.human.init(
-            human_creation,
-            static_human_base=True,
-            impairment="none",
-            gender="male",
-            config=None,
-            id=self.physics_client_id,
-            np_random=self._rng,
-        )
-        set_pose(
-            self.human.body, self.task_spec.human_base_pose, self.physics_client_id
-        )
-
-        # Use some default joint positions from assistive gym first.
-        joints_positions = [
-            (self.human.j_right_elbow, -90),
-            (self.human.j_left_elbow, -90),
-            (self.human.j_right_hip_x, -90),
-            (self.human.j_right_knee, 80),
-            (self.human.j_left_hip_x, -90),
-            (self.human.j_left_knee, 80),
-            (self.human.j_head_x, 0.0),
-            (self.human.j_head_y, 0.0),
-            (self.human.j_head_z, 0.0),
-        ]
-        self.human.setup_joints(
-            joints_positions, use_static_joints=True, reactive_force=None
-        )
-        # Now set arm joints using task spec.
-        self.human.set_joint_angles(
-            self.human.right_arm_joints, self.task_spec.human_joints
+        self.human = create_human_from_spec(
+            self.task_spec.human_spec, self._rng, self.physics_client_id
         )
 
         # Create wheelchair.
@@ -226,23 +187,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
         set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
 
-        # Load and create real ROM model.
-        self._ik_distance_threshold = 0.1
-        self._gt_subject = 1
-        self._gt_condition = "limit_4"
-        self._gt_rom_model = GroundTruthROMModel(
-            self._gt_subject, self._gt_condition, self._ik_distance_threshold
-        )
-        self._gt_rom_model.set_reachable_points(
-            self.create_reachable_position_cloud(
-                self._gt_rom_model.get_reachable_joints()
-            )
-        )
-        self.human.set_joint_angles(
-            self.human.right_arm_joints, self.task_spec.human_joints
-        )
-        # self._visualize_reachable_points(self._gt_rom_model)
-
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
@@ -250,89 +194,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Uncomment for debug / development.
         # while True:
         #     p.stepSimulation(self.physics_client_id)
-
-    def _visualize_reachable_points(
-        self,
-        rom_model: ROMModel,
-        n: int = 300,
-        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6),
-    ) -> None:
-        # randomly sample n reachable points
-        sampled_points = np.array(
-            [
-                rom_model.get_reachable_points()[i]
-                for i in np.random.choice(
-                    len(rom_model.get_reachable_points()), n, replace=False
-                )
-            ]
-        )
-        # create a visual shape for each sampled point
-        for _, point in enumerate(sampled_points):
-            visual_shape_id = p.createVisualShape(
-                shapeType=p.GEOM_SPHERE,
-                radius=0.04,
-                rgbaColor=color,
-                physicsClientId=self.physics_client_id,
-            )
-
-            p.createMultiBody(
-                baseVisualShapeIndex=visual_shape_id,
-                basePosition=point,
-                physicsClientId=self.physics_client_id,
-            )
-
-    def create_reachable_position_cloud(
-        self, reachable_joints: NDArray
-    ) -> list[NDArray]:
-        """Create a cloud of reachable positions from the given joint
-        positions."""
-        return [self._run_human_fk(point) for point in reachable_joints]
-
-    def _run_human_fk(self, joint_positions: NDArray) -> NDArray:
-        """Run forward kinematics for the human given joint positions."""
-
-        # Transform from collected data angle space into pybullet angle space.
-        shoulder_aa, shoulder_fe, shoulder_rot, elbow_flexion = joint_positions
-        shoulder_aa = -shoulder_aa
-        shoulder_rot -= 90
-        shoulder_rot = -shoulder_rot
-        local_rot_mat = (
-            rotation_matrix_y(90)
-            @ rotation_matrix_x(shoulder_aa)
-            @ rotation_matrix_y(shoulder_fe)
-            @ rotation_matrix_x(shoulder_rot)
-        )
-        transformed_angles = rotmat2euler(local_rot_mat, seq="YZX")
-        shoulder_x = transformed_angles[0] - 90
-        shoulder_y = transformed_angles[1]
-        shoulder_z = 180 - transformed_angles[2]
-        elbow = elbow_flexion
-
-        current_right_arm_joint_angles = self.human.get_joint_angles(
-            self.human.right_arm_joints
-        )
-        target_right_arm_angles = np.copy(current_right_arm_joint_angles)
-        shoulder_x_index = self.human.j_right_shoulder_x
-        shoulder_y_index = self.human.j_right_shoulder_y
-        shoulder_z_index = self.human.j_right_shoulder_z
-        elbow_index = self.human.j_right_elbow
-
-        target_right_arm_angles[shoulder_x_index] = np.radians(shoulder_x)
-        target_right_arm_angles[shoulder_y_index] = np.radians(shoulder_y)
-        target_right_arm_angles[shoulder_z_index] = np.radians(shoulder_z)
-        target_right_arm_angles[elbow_index] = np.radians(elbow)
-        other_idxs = set(self.human.right_arm_joints) - {
-            shoulder_x_index,
-            shoulder_y_index,
-            shoulder_z_index,
-            elbow_index,
-        }
-        assert np.allclose([target_right_arm_angles[i] for i in other_idxs], 0.0)
-        self.human.set_joint_angles(
-            self.human.right_arm_joints, target_right_arm_angles, use_limits=False
-        )
-        right_wrist_pos, _ = self.human.get_pos_orient(self.human.right_wrist)
-        return right_wrist_pos
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
@@ -419,9 +280,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
-            return self.get_state(), 0.0, False, False, {}
+            reward, done = self._get_reward_and_done(robot_indicated_done=False)
+            return self.get_state(), reward, done, False, {}
         if np.isclose(action[0], 2):
-            return self.get_state(), 0.0, False, False, {}
+            reward, done = self._get_reward_and_done(robot_indicated_done=True)
+            return self.get_state(), reward, done, False, {}
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
@@ -457,7 +320,37 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
 
-        return self.get_state(), 0.0, False, False, {}
+        reward, done = self._get_reward_and_done(robot_indicated_done=False)
+        return self.get_state(), reward, done, False, {}
+
+    def _get_reward_and_done(
+        self, robot_indicated_done: bool = False
+    ) -> tuple[float, bool]:
+        if self._hidden_spec is None:
+            raise NotImplementedError("Should not call step() in sim")
+        if self.task_spec.task_objective == "hand over book":
+            # Robot needs to indicate done for the handover task.
+            if not robot_indicated_done:
+                return 0.0, False
+            # Must be holding a book.
+            if self.current_held_object_id not in self.book_ids:
+                return 0.0, False
+            book_idx = self.book_ids.index(self.current_held_object_id)
+            book_name = f"book{book_idx}"
+            # Should be holding a preferred book.
+            if book_name not in self._hidden_spec.book_preferences:
+                return 0.0, False
+            # Holding a preferred book, so check if it's being held at a
+            # position that is reachable by the person.
+            end_effector_position = self.robot.get_end_effector_pose().position
+            reachable = self._hidden_spec.rom_model.check_position_reachable(
+                np.array(end_effector_position)
+            )
+            if not reachable:
+                return 0.0, False
+            # Success!
+            return 1.0, True
+        raise NotImplementedError
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         target = get_link_pose(

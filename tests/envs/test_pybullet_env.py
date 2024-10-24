@@ -2,7 +2,11 @@
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_structs import PyBulletState
-from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
+from multitask_personalization.envs.pybullet.pybullet_task_spec import (
+    HiddenTaskSpec,
+    PyBulletTaskSpec,
+)
+from multitask_personalization.rom.models import GroundTruthROMModel
 
 
 def test_pybullet():
@@ -10,7 +14,10 @@ def test_pybullet():
     seed = 123
 
     task_spec = PyBulletTaskSpec()
-    env = PyBulletEnv(task_spec, use_gui=False, seed=seed)
+    preferred_books = ["book2"]
+    rom_model = GroundTruthROMModel(task_spec.human_spec)
+    hidden_spec = HiddenTaskSpec(book_preferences=preferred_books, rom_model=rom_model)
+    env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
     env.action_space.seed(seed)
     obs, _ = env.reset()
     assert isinstance(obs, PyBulletState)
