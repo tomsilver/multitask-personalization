@@ -8,7 +8,7 @@ import pybullet as p
 from numpy.typing import NDArray
 from scipy.spatial import KDTree
 
-from multitask_personalization.envs.pybullet.pybullet_utils import (
+from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     HumanSpec,
     create_human_from_spec,
 )

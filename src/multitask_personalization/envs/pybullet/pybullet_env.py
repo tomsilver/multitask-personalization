@@ -23,6 +23,9 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.spaces import EnumSpace
 
+from multitask_personalization.envs.pybullet.pybullet_human_spec import (
+    create_human_from_spec,
+)
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     GripperAction,
     PyBulletAction,
@@ -31,9 +34,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     HiddenTaskSpec,
     PyBulletTaskSpec,
-)
-from multitask_personalization.envs.pybullet.pybullet_utils import (
-    create_human_from_spec,
 )
 
 
