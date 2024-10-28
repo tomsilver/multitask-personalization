@@ -9,7 +9,7 @@ from multitask_personalization.rom.models import LearnedROMModel
 
 
 def test_learned_rom_model():
-    """Tests for pybullet.py."""
+    """Tests for rom/models.py."""
     seed = 123
 
     rng = np.random.default_rng(seed)
