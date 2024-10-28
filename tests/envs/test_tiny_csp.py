@@ -29,7 +29,9 @@ def test_tiny_csp():
     human_position = obs.human
 
     # Create the CSP.
-    csp, samplers, policy, initialization = create_tiny_csp(human_position, seed)
+    csp, samplers, policy, initialization = create_tiny_csp(
+        human_position, seed, distance_threshold=distance_threshold
+    )
     # Use ground-truth parameters for constraint.
     assert len(csp.constraints) == 1
     constraint = csp.constraints[0]

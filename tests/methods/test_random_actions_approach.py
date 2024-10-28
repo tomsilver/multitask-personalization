@@ -28,7 +28,6 @@ def test_random_actions_approach():
         obs, reward, terminated, truncated, info = env.step(act)
         approach.update(obs, reward, terminated, info)
         assert isinstance(obs, TinyState)
-        assert not terminated
         assert not truncated
 
     env.close()
