@@ -29,14 +29,14 @@ def test_random_actions_approach():
     approach = RandomActionsApproach(env.action_space, seed=seed)
     approach.eval()
     env.action_space.seed(seed)
-    obs, _ = env.reset()
-    approach.reset(obs)
+    obs, info = env.reset()
+    approach.reset(obs, info)
     assert isinstance(obs, PyBulletState)
 
     for _ in range(10):
         act = approach.step()
-        obs, reward, terminated, truncated, _ = env.step(act)
-        approach.update(obs, reward, terminated)
+        obs, reward, terminated, truncated, info = env.step(act)
+        approach.update(obs, reward, terminated, info)
         assert isinstance(obs, PyBulletState)
         assert reward >= 0
         assert not terminated
