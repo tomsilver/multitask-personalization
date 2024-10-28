@@ -35,10 +35,17 @@ from multitask_personalization.structs import (
 
 class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
-    def __init__(self, sim: PyBulletEnv, csp: CSP, seed: int = 0) -> None:
+    def __init__(
+        self,
+        sim: PyBulletEnv,
+        csp: CSP,
+        seed: int = 0,
+        max_motion_planning_time: float = 1.0,
+    ) -> None:
         super().__init__(csp, seed)
         self._sim = sim
         self._current_plan: list[PyBulletAction] = []
+        self._max_motion_planning_time = max_motion_planning_time
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
@@ -56,14 +63,25 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         """Assume that the robot starts out empty-handed and near the books."""
         book_name = self._get_value("book")
         book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
-        return get_plan_to_pick_object(obs, book_name, book_grasp, self._sim)
+        return get_plan_to_pick_object(
+            obs,
+            book_name,
+            book_grasp,
+            self._sim,
+            max_motion_planning_time=self._max_motion_planning_time,
+        )
 
     def _get_handover_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out holding book and near person."""
         book_name = self._get_value("book")
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
         handover_plan = get_plan_to_handover_object(
-            obs, book_name, handover_pose, self._sim, self._seed
+            obs,
+            book_name,
+            handover_pose,
+            self._sim,
+            self._seed,
+            max_motion_planning_time=self._max_motion_planning_time,
         )
         # Finish the plan by indicating done.
         handover_plan.append((2, None))
@@ -100,7 +118,11 @@ def _pose_is_reachable(pose: Pose, sim: PyBulletEnv) -> bool:
 
 
 def create_book_handover_csp(
-    sim: PyBulletEnv, rom_model: ROMModel, preferred_books: list[str], seed: int = 0
+    sim: PyBulletEnv,
+    rom_model: ROMModel,
+    preferred_books: list[str],
+    seed: int = 0,
+    max_motion_planning_time: float = 1.0,
 ) -> tuple[CSP, list[CSPSampler], CSPPolicy, dict[CSPVariable, Any]]:
     """Create a CSP for the task of handing over a book."""
 
@@ -216,6 +238,8 @@ def create_book_handover_csp(
 
     ################################# Policy ##################################
 
-    policy: CSPPolicy = _BookHandoverCSPPolicy(sim, csp, seed=seed)
+    policy: CSPPolicy = _BookHandoverCSPPolicy(
+        sim, csp, seed=seed, max_motion_planning_time=max_motion_planning_time
+    )
 
     return csp, samplers, policy, initialization

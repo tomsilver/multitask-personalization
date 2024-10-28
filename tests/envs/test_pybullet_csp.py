@@ -42,7 +42,11 @@ def test_pybullet_csp():
 
     # Create the CSP.
     csp, samplers, policy, initialization = create_book_handover_csp(
-        sim, rom_model, preferred_books, seed
+        sim,
+        rom_model,
+        preferred_books,
+        seed,
+        max_motion_planning_time=0.1,
     )
 
     # Solve the CSP.
