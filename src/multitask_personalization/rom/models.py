@@ -2,6 +2,7 @@
 
 import abc
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pybullet as p
@@ -77,10 +78,30 @@ class GroundTruthROMModel(ROMModel):
         self._human = create_human_from_spec(
             human_spec, self._rng, self._physics_client_id
         )
-        # Create reachable point cloud using human FK.
-        self._reachable_points = [
-            self._run_human_fk(point) for point in self._reachable_joints
-        ]
+        # Load reachable points from cache if available, otherwise generate and cache
+        cache_dir = Path(__file__).parent / "cache"
+        # use pathlib Path for path
+        reachable_points_cache_path = (
+            cache_dir / f"{human_spec.subject_id}_{human_spec.condition}_"
+            f"{human_spec.gender}_{human_spec.impairment}_reachable_points.pkl"
+        )
+        if reachable_points_cache_path.exists():
+            with open(reachable_points_cache_path, "rb") as f:
+                self._reachable_points = pickle.load(f)
+            print("Loaded reachable points from cache.")
+        else:
+            # Create reachable point cloud using human FK.
+            self._reachable_points = [
+                self._run_human_fk(point) for point in self._reachable_joints
+            ]
+            cache_dir.mkdir(exist_ok=True)
+            # Cache reachable points
+            with open(
+                reachable_points_cache_path,
+                "wb",
+            ) as f:
+                pickle.dump(self._reachable_points, f)
+            print("Cached reachable points.")
         self._reachable_kd_tree = KDTree(self._reachable_points)
 
         # Uncomment for debugging.
