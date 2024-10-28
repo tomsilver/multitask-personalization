@@ -45,6 +45,3 @@ def test_spherical_rom_model():
         point = spherical_rom_model.sample_reachable_position(rng)
         distance = np.linalg.norm(point - sphere_center)
         assert distance < sphere_radius + 1e-6
-
-
-test_spherical_rom_model()
