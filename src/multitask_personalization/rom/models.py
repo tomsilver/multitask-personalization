@@ -16,6 +16,7 @@ from multitask_personalization.utils import (
     rotation_matrix_x,
     rotation_matrix_y,
     rotmat2euler,
+    sample_spherical,
 )
 
 
@@ -156,6 +157,85 @@ class GroundTruthROMModel(ROMModel):
                 for i in self._rng.choice(
                     len(self.get_reachable_points()), n, replace=False
                 )
+            ]
+        )
+        # Create a visual shape for each sampled point.
+        for _, point in enumerate(sampled_points):
+            visual_shape_id = p.createVisualShape(
+                shapeType=p.GEOM_SPHERE,
+                radius=0.04,
+                rgbaColor=color,
+                physicsClientId=self._physics_client_id,
+            )
+
+            p.createMultiBody(
+                baseVisualShapeIndex=visual_shape_id,
+                basePosition=point,
+                physicsClientId=self._physics_client_id,
+            )
+
+        while True:
+            p.stepSimulation(self._physics_client_id)
+
+
+class SphericalROMModel(ROMModel):
+    """ROM model with spherical reachability."""
+
+    def __init__(
+        self,
+        human_spec: HumanSpec,
+        seed: int = 0,
+        radius: float = 0.5,
+    ) -> None:
+        super().__init__()
+        self._radius = radius
+        # Create human
+        # Uncomment for debugging
+        # from pybullet_helpers.gui import create_gui_connection
+        # self._physics_client_id = create_gui_connection()
+        self._physics_client_id = p.connect(p.DIRECT)
+        self._rng = np.random.default_rng(seed)
+        self._human = create_human_from_spec(
+            human_spec, self._rng, self._physics_client_id
+        )
+        origin, _ = self._human.get_pos_orient(self._human.right_wrist)
+        self._sphere_center = origin
+
+        # Uncomment for debugging.
+        # self._reachable_points = self._sample_spherical_points(n=500)
+        # self._visualize_reachable_points()
+
+    def check_position_reachable(
+        self, position: NDArray, padding: float = 1e-6
+    ) -> bool:
+        distance = float(np.linalg.norm(position - self._sphere_center))
+        return distance < self._radius + padding
+
+    def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
+        return np.array(sample_spherical(self._sphere_center, self._radius, rng))
+
+    def get_reachable_joints(self) -> NDArray:
+        raise NotImplementedError("SphericalROMModel does not have reachable joints.")
+
+    def get_reachable_points(self) -> list[NDArray]:
+        raise NotImplementedError("SphericalROMModel does not have reachable joints.")
+
+    def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:
+        return [
+            np.array(sample_spherical(self._sphere_center, self._radius, self._rng))
+            for _ in range(n)
+        ]
+
+    def _visualize_reachable_points(
+        self,
+        n: int = 300,
+        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6),
+    ) -> None:
+        # Randomly sample n reachable points.
+        sampled_points = np.array(
+            [
+                self._reachable_points[i]
+                for i in self._rng.choice(len(self._reachable_points), n, replace=False)
             ]
         )
         # Create a visual shape for each sampled point.
