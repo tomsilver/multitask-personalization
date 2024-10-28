@@ -1,0 +1,107 @@
+"""A tiny environment from rapid development and testing."""
+
+from dataclasses import dataclass
+from typing import Any, TypeAlias
+
+import gymnasium as gym
+import numpy as np
+from gymnasium.core import RenderFrame
+from tomsutils.spaces import EnumSpace
+
+
+@dataclass(frozen=True)
+class TinyState:
+    """A state in the TinyEnv."""
+
+    robot: float
+    human: float
+
+
+TinyAction: TypeAlias = tuple[int, float | None]  # delta move or declare done
+
+
+@dataclass(frozen=True)
+class TinyHiddenSpec:
+    """A hidden specification of human user preferences."""
+
+    desired_distance: float
+    distance_threshold: float
+
+
+class TinyEnv(gym.Env[TinyState, TinyAction]):
+    """A tiny environment from rapid development and testing.
+
+    A robot and a human are on a 1D line with randomly initialized
+    location. The human has a hidden preference about how close the
+    robot should be when it executes a "done" action.
+
+    Actions are bounded delta movements for the robot.
+    """
+
+    def __init__(
+        self,
+        hidden_spec: TinyHiddenSpec | None = None,
+        seed: int = 0,
+    ) -> None:
+
+        self._rng = np.random.default_rng(seed)
+        self._hidden_spec = hidden_spec
+
+        self.action_space = gym.spaces.OneOf(
+            (
+                gym.spaces.Box(-1.0, 1.0, dtype=np.float32),
+                EnumSpace([None]),
+            )
+        )
+
+        # Reset in reset().
+        self._robot_position = -1.0
+        self._human_position = 1.0
+
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[TinyState, dict[str, Any]]:
+        # Implement this in future PR.
+        super().reset(seed=seed, options=options)
+        return self._get_state(), {}
+
+    def step(
+        self, action: TinyAction
+    ) -> tuple[TinyState, float, bool, bool, dict[str, Any]]:
+        assert self.action_space.contains(action)
+        if np.isclose(action[0], 1):
+            reward, done = self._get_reward_and_done(robot_indicated_done=True)
+            return self._get_state(), reward, done, False, {}
+
+        assert np.isclose(action[0], 0)
+        delta_action = action[1]
+        assert delta_action is not None
+        self._robot_position += float(delta_action)
+
+        reward, done = self._get_reward_and_done(robot_indicated_done=False)
+        return self._get_state(), reward, done, False, {}
+
+    def render(self) -> RenderFrame | list[RenderFrame] | None:
+        raise NotImplementedError
+
+    def _get_state(self) -> TinyState:
+        return TinyState(self._robot_position, self._human_position)
+
+    def _get_reward_and_done(
+        self, robot_indicated_done: bool = False
+    ) -> tuple[float, bool]:
+        if self._hidden_spec is None:
+            raise NotImplementedError("Should not call step() in sim")
+        # Robot needs to indicate done.
+        if not robot_indicated_done:
+            return 0.0, False
+        dist = abs(self._robot_position - self._human_position)
+        desired_dist = self._hidden_spec.desired_distance
+        if abs(dist - desired_dist) < self._hidden_spec.distance_threshold:
+            # Success!
+            return 1.0, True
+        # Penalize if not close enough to human.
+        return -1.0, False
