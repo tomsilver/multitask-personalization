@@ -117,4 +117,4 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
             # Success!
             return 1.0, True
         # Penalize if not close enough to human.
-        return -1.0, False
+        return -1.0, True

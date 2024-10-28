@@ -7,6 +7,7 @@ from typing import Any, Callable, Generic
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType, ObsType
+from tomsutils.gym_agent import _ActType, _ObsType
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,22 @@ class CSPConstraint:
         """Check whether the constraint holds given values of the variables."""
         vals = [sol[v] for v in self.variables]
         return self.constraint_fn(*vals)
+
+
+class TrainableCSPConstraint(CSPConstraint, Generic[_ObsType, _ActType]):
+    """A CSP constraint that can be updated from experience."""
+
+    @abc.abstractmethod
+    def learn_from_transition(
+        self,
+        obs: _ObsType,
+        act: _ActType,
+        next_obs: _ObsType,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        """Update the constraint given the new data point."""
 
 
 @dataclass(frozen=True)

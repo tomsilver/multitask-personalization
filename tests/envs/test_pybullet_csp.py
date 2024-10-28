@@ -18,7 +18,7 @@ from multitask_personalization.utils import solve_csp
 
 
 def test_pybullet_csp():
-    """Tests for pybullet_skills.py."""
+    """Tests for pybullet_csp.py."""
     seed = 123
     rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec()
@@ -55,7 +55,7 @@ def test_pybullet_csp():
 
     # Run the policy.
     # For now, just inspecting this visually; assertions coming soon.
-    for _ in range(200):
+    for _ in range(1000):
         act = policy.step(obs)
         obs, reward, terminated, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
