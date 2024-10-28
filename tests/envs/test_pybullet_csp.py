@@ -48,7 +48,6 @@ def test_pybullet_csp():
     policy.reset(sol)
 
     # Run the policy.
-    # For now, just inspecting this visually; assertions coming soon.
     for _ in range(200):
         act = policy.step(obs)
         obs, reward, terminated, truncated, _ = env.step(act)
