@@ -4,11 +4,8 @@ from typing import Any
 
 import gymnasium as gym
 
-from multitask_personalization.envs.pybullet.pybullet_csp import (
-    create_book_handover_csp,
-)
-from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
-from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
+from multitask_personalization.envs.tiny.tiny_csp import create_tiny_csp
+from multitask_personalization.envs.tiny.tiny_env import TinyState
 from multitask_personalization.methods.approach import BaseApproach, _ActType, _ObsType
 from multitask_personalization.structs import (
     CSP,
@@ -36,18 +33,16 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         info: dict[str, Any],
     ) -> None:
         super().reset(obs, info)
-        # At the moment, this implementation is extremely specific to the book
-        # handover task in the pybullet environment. Will generalize later.
-        # For efficiency, and because the task spec is not changing right now,
-        # we only create the CSP one time.
         if self._current_csp is None:
-            task_spec = info["task_spec"]
-            assert isinstance(task_spec, PyBulletTaskSpec)
-            sim = PyBulletEnv(task_spec, seed=self._seed)
-            csp, samplers, policy, initialization = create_book_handover_csp(
-                sim,
-                self._seed,
-            )
+            # At the moment, this part is extremely environment-specific.
+            # We will refactor this in a future PR.
+            if isinstance(obs, TinyState):
+                csp, samplers, policy, initialization = create_tiny_csp(
+                    obs.human, seed=self._seed
+                )
+            else:
+                raise NotImplementedError()
+
             self._current_csp = csp
             self._current_samplers = samplers
             self._current_policy = policy
@@ -62,9 +57,6 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         )
         assert self._current_policy is not None
         self._current_policy.reset(sol)
-        # Reset learnable constraints.
-        for constraint in self._get_trainable_constraints():
-            constraint.reset(obs)
 
     def _get_action(self) -> _ActType:
         assert self._current_policy is not None
@@ -82,7 +74,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         # Update the trainable constraints. Right now this is done serially but
         # it could be parallelized in the future.
         for constraint in self._get_trainable_constraints():
-            constraint.update(act, next_obs)
+            constraint.learn_from_transition(obs, act, next_obs, reward, done, info)
 
     def _get_trainable_constraints(self) -> list[TrainableCSPConstraint]:
         assert self._current_csp is not None

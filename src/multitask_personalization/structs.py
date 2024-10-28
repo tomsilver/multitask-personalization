@@ -39,12 +39,16 @@ class TrainableCSPConstraint(CSPConstraint, Generic[_ObsType, _ActType]):
     """A CSP constraint that can be updated from experience."""
 
     @abc.abstractmethod
-    def reset(self, obs: _ObsType) -> None:
-        """Called at the beginning of a new episode."""
-
-    @abc.abstractmethod
-    def update(self, action: _ActType, obs: _ObsType) -> None:
-        """Called after an action is executed."""
+    def learn_from_transition(
+        self,
+        obs: _ObsType,
+        act: _ActType,
+        next_obs: _ObsType,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        """Update the constraint given the new data point."""
 
 
 @dataclass(frozen=True)
