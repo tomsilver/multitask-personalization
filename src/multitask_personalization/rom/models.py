@@ -17,23 +17,30 @@ from multitask_personalization.utils import (
     rotation_matrix_x,
     rotation_matrix_y,
     rotmat2euler,
+    sample_spherical,
 )
 
 
 class ROMModel(abc.ABC):
     """Base class for ROM models."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        human_spec: HumanSpec,
+        seed: int = 0,
+    ) -> None:
+        # Create human.
+        # Uncomment for debugging
+        # from pybullet_helpers.gui import create_gui_connection
+        # self._physics_client_id = create_gui_connection()
+        self._physics_client_id = p.connect(p.DIRECT)
+        self._rng = np.random.default_rng(seed)
+        self._human = create_human_from_spec(
+            human_spec, self._rng, self._physics_client_id
+        )
+
         self._reachable_points: list[NDArray] = []
         self._reachable_kd_tree: KDTree = KDTree(np.array([[0, 0]]))
-
-    @abc.abstractmethod
-    def get_reachable_joints(self) -> NDArray:
-        """Get the reachable joints."""
-
-    @abc.abstractmethod
-    def get_reachable_points(self) -> list[NDArray]:
-        """Get the reachable points."""
 
     @abc.abstractmethod
     def check_position_reachable(self, position: NDArray) -> bool:
@@ -42,6 +49,36 @@ class ROMModel(abc.ABC):
     @abc.abstractmethod
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         """Sample a reachable position."""
+
+    def _visualize_reachable_points(
+        self,
+        n: int = 300,
+        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6),
+    ) -> None:
+        # Randomly sample n reachable points.
+        sampled_points = np.array(
+            [
+                self._reachable_points[i]
+                for i in self._rng.choice(len(self._reachable_points), n, replace=False)
+            ]
+        )
+        # Create a visual shape for each sampled point.
+        for _, point in enumerate(sampled_points):
+            visual_shape_id = p.createVisualShape(
+                shapeType=p.GEOM_SPHERE,
+                radius=0.04,
+                rgbaColor=color,
+                physicsClientId=self._physics_client_id,
+            )
+
+            p.createMultiBody(
+                baseVisualShapeIndex=visual_shape_id,
+                basePosition=point,
+                physicsClientId=self._physics_client_id,
+            )
+
+        while True:
+            p.stepSimulation(self._physics_client_id)
 
 
 class GroundTruthROMModel(ROMModel):
@@ -53,7 +90,7 @@ class GroundTruthROMModel(ROMModel):
         ik_distance_threshold: float = 1e-1,
         seed: int = 0,
     ) -> None:
-        super().__init__()
+        super().__init__(human_spec, seed=seed)
         self._subject = human_spec.subject_id
         self._condition = human_spec.condition
         self._ik_distance_threshold = ik_distance_threshold
@@ -67,15 +104,6 @@ class GroundTruthROMModel(ROMModel):
         print(
             f"Loaded {len(self._reachable_joints)} points"
             + f" from {self._subject}_{self._condition}_dense_points.pkl"
-        )
-        # Create human for forward IK.
-        # Uncomment for debugging
-        # from pybullet_helpers.gui import create_gui_connection
-        # self._physics_client_id = create_gui_connection()
-        self._physics_client_id = p.connect(p.DIRECT)
-        self._rng = np.random.default_rng(seed)
-        self._human = create_human_from_spec(
-            human_spec, self._rng, self._physics_client_id
         )
         # Load reachable points from cache if available, otherwise generate and cache
         cache_dir = Path(__file__).parent / "cache"
@@ -105,12 +133,6 @@ class GroundTruthROMModel(ROMModel):
 
         # Uncomment for debugging.
         # self._visualize_reachable_points()
-
-    def get_reachable_joints(self) -> NDArray:
-        return self._reachable_joints
-
-    def get_reachable_points(self) -> list[NDArray]:
-        return self._reachable_points
 
     def check_position_reachable(self, position: NDArray) -> bool:
         distance, _ = self._reachable_kd_tree.query(position)
@@ -165,34 +187,36 @@ class GroundTruthROMModel(ROMModel):
         right_wrist_pos, _ = self._human.get_pos_orient(self._human.right_wrist)
         return right_wrist_pos
 
-    def _visualize_reachable_points(
+
+class SphericalROMModel(ROMModel):
+    """ROM model with spherical reachability."""
+
+    def __init__(
         self,
-        n: int = 300,
-        color: tuple[float, float, float, float] = (0.5, 1.0, 0.2, 0.6),
+        human_spec: HumanSpec,
+        seed: int = 0,
+        radius: float = 0.5,
     ) -> None:
-        # Randomly sample n reachable points.
-        sampled_points = np.array(
-            [
-                self.get_reachable_points()[i]
-                for i in self._rng.choice(
-                    len(self.get_reachable_points()), n, replace=False
-                )
-            ]
-        )
-        # Create a visual shape for each sampled point.
-        for _, point in enumerate(sampled_points):
-            visual_shape_id = p.createVisualShape(
-                shapeType=p.GEOM_SPHERE,
-                radius=0.04,
-                rgbaColor=color,
-                physicsClientId=self._physics_client_id,
-            )
+        super().__init__(human_spec, seed=seed)
+        self._radius = radius
+        origin, _ = self._human.get_pos_orient(self._human.right_wrist)
+        self._sphere_center = origin
 
-            p.createMultiBody(
-                baseVisualShapeIndex=visual_shape_id,
-                basePosition=point,
-                physicsClientId=self._physics_client_id,
-            )
+        # Uncomment for debugging.
+        # self._reachable_points = self._sample_spherical_points(n=500)
+        # self._visualize_reachable_points()
 
-        while True:
-            p.stepSimulation(self._physics_client_id)
+    def check_position_reachable(
+        self, position: NDArray, padding: float = 1e-6
+    ) -> bool:
+        distance = float(np.linalg.norm(position - self._sphere_center))
+        return distance < self._radius + padding
+
+    def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
+        return np.array(sample_spherical(self._sphere_center, self._radius, rng))
+
+    def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:
+        return [
+            np.array(sample_spherical(self._sphere_center, self._radius, self._rng))
+            for _ in range(n)
+        ]
