@@ -1,6 +1,7 @@
 """ROM models."""
 
 import abc
+import os
 import pickle
 
 import numpy as np
@@ -76,10 +77,31 @@ class GroundTruthROMModel(ROMModel):
         self._human = create_human_from_spec(
             human_spec, self._rng, self._physics_client_id
         )
-        # Create reachable point cloud using human FK.
-        self._reachable_points = [
-            self._run_human_fk(point) for point in self._reachable_joints
-        ]
+        # Load reachable points from cache if available, otherwise generate and cache
+        cache_dir = "src/multitask_personalization/rom/cache"
+        reachable_points_cache_path = (
+            f"{cache_dir}/{human_spec.subject_id}_{human_spec.condition}_"
+            + f"{human_spec.gender}_{human_spec.impairment}_reachable_points.pkl"
+        )
+
+        if os.path.exists(reachable_points_cache_path):
+            with open(reachable_points_cache_path, "rb") as f:
+                self._reachable_points = pickle.load(f)
+            print("Loaded reachable points from cache.")
+        else:
+            # Create reachable point cloud using human FK.
+            self._reachable_points = [
+                self._run_human_fk(point) for point in self._reachable_joints
+            ]
+            if not os.path.exists(cache_dir):
+                os.makedirs(cache_dir)
+            # Cache reachable points
+            with open(
+                reachable_points_cache_path,
+                "wb",
+            ) as f:
+                pickle.dump(self._reachable_points, f)
+            print("Cached reachable points.")
         self._reachable_kd_tree = KDTree(self._reachable_points)
 
         # Uncomment for debugging.
