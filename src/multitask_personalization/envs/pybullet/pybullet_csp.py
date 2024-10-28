@@ -100,7 +100,7 @@ def _pose_is_reachable(pose: Pose, sim: PyBulletEnv) -> bool:
 
 
 def create_book_handover_csp(
-    sim: PyBulletEnv, rom_model: ROMModel, preferred_books: list[str], seed: int = 0
+    sim: PyBulletEnv, seed: int = 0
 ) -> tuple[CSP, list[CSPSampler], CSPPolicy, dict[CSPVariable, Any]]:
     """Create a CSP for the task of handing over a book."""
 

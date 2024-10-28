@@ -12,6 +12,7 @@ class BaseApproach(Agent[_ObsType, _ActType]):
     def __init__(self, action_space: gym.spaces.Space[_ActType], seed: int):
         super().__init__(seed)
         self._action_space = action_space
+        self._seed = seed
 
     @abc.abstractmethod
     def _get_action(self) -> _ActType:

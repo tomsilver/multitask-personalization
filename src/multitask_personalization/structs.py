@@ -43,12 +43,8 @@ class TrainableCSPConstraint(CSPConstraint, Generic[_ObsType, _ActType]):
         """Called at the beginning of a new episode."""
 
     @abc.abstractmethod
-    def observe(self, action: _ActType, obs: _ObsType) -> None:
+    def update(self, action: _ActType, obs: _ObsType) -> None:
         """Called after an action is executed."""
-
-    @abc.abstractmethod
-    def train(self) -> None:
-        """Called when the constraint should train."""
 
 
 @dataclass(frozen=True)
