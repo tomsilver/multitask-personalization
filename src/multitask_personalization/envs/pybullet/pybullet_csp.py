@@ -30,7 +30,64 @@ from multitask_personalization.structs import (
     CSPSampler,
     CSPVariable,
     FunctionalCSPSampler,
+    TrainableCSPConstraint,
 )
+
+
+class _BookPreferenceConstraint(TrainableCSPConstraint[PyBulletState, PyBulletAction]):
+    """Constraints a book variable to conform to preferences.
+
+    For now, the constraint is simply paramterized by a list of all
+    books preferred by the user.
+    """
+
+    def __init__(
+        self, book_variable: CSPVariable, init_preferred_books: list[str]
+    ) -> None:
+        super().__init__(
+            name="book_preference",
+            variables=[book_variable],
+            constraint_fn=self._user_enjoys_book,
+        )
+        self._preferred_books = list(init_preferred_books)
+
+    def _user_enjoys_book(self, book_name: str) -> bool:
+        return book_name in self._preferred_books
+
+    def reset(self, obs: PyBulletState) -> None:
+        pass
+
+    def update(self, action: PyBulletAction, obs: PyBulletState) -> None:
+        # We will later add some code that updates self._preferred_books in
+        # certain relevant transitions. For now, do nothing.
+        pass
+
+
+class _UserROMConstraint(TrainableCSPConstraint[PyBulletState, PyBulletAction]):
+    """Constraints position variables to be within a user's ROM."""
+
+    def __init__(self, position_variable: CSPVariable, rom_model: ROMModel) -> None:
+        super().__init__(
+            name="user_rom",
+            variables=[position_variable],
+            constraint_fn=self._position_in_rom,
+        )
+        self._rom_model = rom_model
+
+    def _position_in_rom(self, position: NDArray) -> bool:
+        return self._rom_model.check_position_reachable(position)
+
+    def reset(self, obs: PyBulletState) -> None:
+        # TODO
+        import ipdb
+
+        ipdb.set_trace()
+
+    def update(self, action: PyBulletAction, obs: PyBulletState) -> None:
+        # TODO
+        import ipdb
+
+        ipdb.set_trace()
 
 
 class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
@@ -108,7 +165,6 @@ def create_book_handover_csp(
 
     # Choose a book to fetch.
     book_names = [f"book{i}" for i in range(len(sim.book_ids))]
-    assert set(preferred_books).issubset(book_names)
     book = CSPVariable("book", EnumSpace(book_names))
 
     # Choose a grasp on the book. Only the grasp yaw is unknown.
@@ -132,24 +188,13 @@ def create_book_handover_csp(
     ############################### Constraints ###############################
 
     # Create a user preference constraint for the book.
-    def _book_is_preferred(book_name: str) -> bool:
-        return book_name in preferred_books
-
-    book_preference_constraint = CSPConstraint(
-        "book_preference",
-        [book],
-        _book_is_preferred,
+    book_preference_constraint = _BookPreferenceConstraint(
+        book, init_preferred_books=["book2"]
     )
 
     # Create a handover constraint given the user ROM.
-    def _handover_position_is_in_rom(position: NDArray) -> bool:
-        return rom_model.check_position_reachable(position)
-
-    handover_rom_constraint = CSPConstraint(
-        "handover_rom_constraint",
-        [handover_position],
-        _handover_position_is_in_rom,
-    )
+    rom_model = ...  # TODO need Ziang
+    handover_rom_constraint = _UserROMConstraint(handover_position, rom_model)
 
     # Create reaching constraints.
     def _book_grasp_is_reachable(yaw: NDArray) -> bool:
@@ -188,7 +233,7 @@ def create_book_handover_csp(
     def _sample_book_fn(
         _: dict[CSPVariable, Any], rng: np.random.Generator
     ) -> dict[CSPVariable, Any]:
-        preferred_book = preferred_books[rng.choice(len(preferred_books))]
+        preferred_book = book_names[rng.choice(len(book_names))]
         return {book: preferred_book}
 
     book_sampler = FunctionalCSPSampler(_sample_book_fn, csp, {book})
@@ -196,6 +241,9 @@ def create_book_handover_csp(
     def _sample_handover_pose(
         _: dict[CSPVariable, Any], rng: np.random.Generator
     ) -> dict[CSPVariable, Any]:
+        # NOTE: this sampling will update as the ROM model updates. So it is
+        # not just the constraints, but also the samplers, that update from
+        # training.
         position = rom_model.sample_reachable_position(rng)
         return {handover_position: position}
 
