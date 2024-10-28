@@ -71,6 +71,23 @@ def sample_spherical(center: Pose3D, radius: float, rng: np.random.Generator) ->
     return vec.tolist()
 
 
+def sample_within_sphere(
+    center: Pose3D, radius: float, rng: np.random.Generator
+) -> Pose3D:
+    """Sample a random point within a sphere of given radius and center."""
+    # Sample a random point on the unit sphere.
+    vec = rng.normal(size=(3,))
+    vec /= np.linalg.norm(vec, axis=0)
+
+    # Scale with a random value between 0 and radius to stay within the sphere.
+    scale = rng.uniform(0, radius)
+    vec = scale * vec
+
+    # Translate to the center.
+    vec = np.add(center, vec)
+    return vec.tolist()
+
+
 def solve_csp(
     csp: CSP,
     initialization: dict[CSPVariable, Any],

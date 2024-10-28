@@ -13,7 +13,7 @@ from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     HiddenTaskSpec,
     PyBulletTaskSpec,
 )
-from multitask_personalization.rom.models import GroundTruthROMModel
+from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.utils import solve_csp
 
 
@@ -23,7 +23,7 @@ def test_pybullet_csp():
     rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec()
     preferred_books = ["book2"]
-    rom_model = GroundTruthROMModel(task_spec.human_spec)
+    rom_model = SphericalROMModel(task_spec.human_spec)
     hidden_spec = HiddenTaskSpec(book_preferences=preferred_books, rom_model=rom_model)
 
     # Create a real environment.
