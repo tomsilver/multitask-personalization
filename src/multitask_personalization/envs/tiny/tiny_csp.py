@@ -23,11 +23,16 @@ class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
     def __init__(
         self,
         position_var: CSPVariable,
+        threshold_var: CSPVariable,
         human_position: float,
         init_desired_distance: float = 1.0,
         init_distance_threshold: float = 100.0,
     ) -> None:
-        super().__init__("user_preference", [position_var], self._position_close_enough)
+        super().__init__(
+            "user_preference",
+            [position_var, threshold_var],
+            self._position_close_enough,
+        )
         self._human_position = human_position
         # Updated through learning.
         self._desired_distance = init_desired_distance
@@ -36,9 +41,9 @@ class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
         self._training_inputs: list[float] = []
         self._training_outputs: list[bool] = []
 
-    def _position_close_enough(self, position: np.float_) -> bool:
+    def _position_close_enough(self, position: np.float_, threshold: np.float_) -> bool:
         dist = abs(self._human_position - position)
-        return bool(abs(dist - self._desired_distance) < self._distance_threshold)
+        return bool(abs(dist - self._desired_distance) < threshold)
 
     def learn_from_transition(
         self,
@@ -54,7 +59,7 @@ class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
             return
         assert act[1] is None
         # Check if the trigger was successful.
-        label = done
+        label = reward > 0
         # Get the current distance.
         dist = abs(obs.robot - obs.human)
         # Update the training data.
@@ -64,13 +69,13 @@ class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
         self._update_constraint_parameters()
 
     def _update_constraint_parameters(self) -> None:
-        positive_dists: list[float] = []
-        negative_dists: list[float] = []
+        positive_dists: set[float] = set()
+        negative_dists: set[float] = set()
         for d, l in zip(self._training_inputs, self._training_outputs, strict=True):
             if l:
-                positive_dists.append(d)
+                positive_dists.add(d)
             else:
-                negative_dists.append(d)
+                negative_dists.add(d)
         if not positive_dists or not negative_dists:
             return  # need to wait for data
         min_positive_dist = min(positive_dists)
@@ -78,11 +83,11 @@ class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
         self._desired_distance = (min_positive_dist + max_positive_dist) / 2
         # Keep the threshold optimistic... otherwise, the agent will fail to
         # optimistically explore after it has collected a small amount of data.
-        negs_above = [d for d in negative_dists if d > self._desired_distance]
-        negs_below = [d for d in negative_dists if d < self._desired_distance]
+        negs_above = {d for d in negative_dists if d > self._desired_distance}
+        negs_below = {d for d in negative_dists if d < self._desired_distance}
         if not negs_above or not negs_below:
             return  # wait to update threshold
-        self._distance_threshold = min(
+        self._distance_threshold = max(
             min(negs_above) - self._desired_distance,
             self._desired_distance - max(negs_below),
         )
@@ -90,12 +95,20 @@ class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
 
 class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
 
+    def __init__(self, csp: CSP, seed: int = 0) -> None:
+        super().__init__(csp, seed)
+        self._target_position: float | None = None
+
+    def reset(self, solution: dict[CSPVariable, Any]) -> None:
+        super().reset(solution)
+        mean = self._get_value("position")
+        thresh = self._get_value("threshold")
+        self._target_position = self._rng.uniform(mean - thresh, mean + thresh)
+
     def step(self, obs: TinyState) -> TinyAction:
-        assert self._current_solution is not None
-        assert len(self._current_solution) == 1
-        target_position = next(iter(self._current_solution.values()))
+        assert self._target_position is not None
         robot_position = obs.robot
-        delta = np.clip(target_position - robot_position, -1, 1)
+        delta = np.clip(self._target_position - robot_position, -1, 1)
         if abs(delta) < 1e-6:
             return (1, None)
         return (0, delta)
@@ -109,20 +122,22 @@ def create_tiny_csp(
 
     ################################ Variables ################################
 
-    # Choose a position to target.
+    # Choose a position region to target.
     position = CSPVariable("position", Box(-np.inf, np.inf, shape=(), dtype=np.float_))
-    variables = [position]
+    threshold = CSPVariable("threshold", Box(0, np.inf, shape=(), dtype=np.float_))
+    variables = [position, threshold]
 
     ############################## Initialization #############################
 
     initialization = {
         position: 0.0,
+        threshold: 100.0,
     }
 
     ############################### Constraints ###############################
 
     # Create a user preference constraint.
-    user_preference_constraint = TinyUserConstraint(position, human_position)
+    user_preference_constraint = TinyUserConstraint(position, threshold, human_position)
     constraints: list[CSPConstraint] = [user_preference_constraint]
 
     ################################### CSP ###################################

@@ -14,8 +14,8 @@ from multitask_personalization.envs.tiny.tiny_env import (
 from multitask_personalization.utils import solve_csp
 
 
-def test_pybullet_csp():
-    """Tests for pybullet_skills.py."""
+def test_tiny_csp():
+    """Tests for tiny_csp.py."""
     seed = 123
     rng = np.random.default_rng(seed)
     desired_distance = 0.1

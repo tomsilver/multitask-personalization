@@ -18,7 +18,7 @@ from multitask_personalization.utils import solve_csp
 
 
 def test_pybullet_csp():
-    """Tests for pybullet_skills.py."""
+    """Tests for pybullet_csp.py."""
     seed = 123
     rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec()
