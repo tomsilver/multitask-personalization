@@ -110,7 +110,7 @@ def create_tiny_csp(
 
     ################################ Variables ################################
 
-    # Choose a position region to target.
+    # Choose a position to target.
     position = CSPVariable("position", Box(-np.inf, np.inf, shape=(), dtype=np.float_))
     variables = [position]
 
