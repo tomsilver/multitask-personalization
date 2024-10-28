@@ -49,7 +49,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
 
         self.action_space = gym.spaces.OneOf(
             (
-                gym.spaces.Box(-1.0, 1.0, dtype=np.float32),
+                gym.spaces.Box(-1.0, 1.0, shape=(), dtype=np.float32),
                 EnumSpace([None]),
             )
         )
@@ -64,8 +64,21 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[TinyState, dict[str, Any]]:
-        # Implement this in future PR.
         super().reset(seed=seed, options=options)
+        # Randomly reset the positions of the human and robot.
+        robot_position = self._rng.uniform(-10.0, 10.0)
+        while True:
+            human_position = self._rng.uniform(-10.0, 10.0)
+            dist = abs(robot_position - human_position)
+            assert self._hidden_spec is not None
+            if (
+                dist
+                >= self._hidden_spec.desired_distance
+                + self._hidden_spec.distance_threshold
+            ):
+                break
+        self._robot_position = robot_position
+        self._human_position = human_position
         return self._get_state(), {}
 
     def step(

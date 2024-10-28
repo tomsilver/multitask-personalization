@@ -24,7 +24,7 @@ class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
         target_position = next(iter(self._current_solution.values()))
         robot_position = obs.robot
         delta = np.clip(target_position - robot_position, -1, 1)
-        if delta < 1e-6:
+        if abs(delta) < 1e-6:
             return (1, None)
         return (0, delta)
 
@@ -40,7 +40,7 @@ def create_tiny_csp(
     ################################ Variables ################################
 
     # Choose a position to target.
-    position = CSPVariable("position", Box(-np.pi, np.pi, dtype=np.float_))
+    position = CSPVariable("position", Box(-np.inf, np.inf, shape=(), dtype=np.float_))
     variables = [position]
 
     ############################## Initialization #############################
