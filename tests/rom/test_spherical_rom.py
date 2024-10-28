@@ -16,7 +16,7 @@ from multitask_personalization.utils import (
 
 
 def test_spherical_rom_model():
-    """Tests for pybullet.py."""
+    """Tests for rom/models.py."""
     seed = 123
 
     rng = np.random.default_rng(seed)
