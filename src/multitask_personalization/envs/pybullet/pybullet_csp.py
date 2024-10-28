@@ -35,7 +35,7 @@ from multitask_personalization.structs import (
 
 
 class _BookPreferenceConstraint(TrainableCSPConstraint[PyBulletState, PyBulletAction]):
-    """Constraints a book variable to conform to preferences.
+    """Constrains a book variable to conform to preferences.
 
     For now, the constraint is simply paramterized by a list of all
     books preferred by the user.
@@ -64,7 +64,10 @@ class _BookPreferenceConstraint(TrainableCSPConstraint[PyBulletState, PyBulletAc
 
 
 class _UserROMConstraint(TrainableCSPConstraint[PyBulletState, PyBulletAction]):
-    """Constraints position variables to be within a user's ROM."""
+    """Constrains position variables to be within a user's ROM.
+
+    The ROMModel itself is what gets trained through experience.
+    """
 
     def __init__(self, position_variable: CSPVariable, rom_model: ROMModel) -> None:
         super().__init__(
@@ -79,15 +82,11 @@ class _UserROMConstraint(TrainableCSPConstraint[PyBulletState, PyBulletAction]):
 
     def reset(self, obs: PyBulletState) -> None:
         # TODO
-        import ipdb
-
-        ipdb.set_trace()
+        pass
 
     def update(self, action: PyBulletAction, obs: PyBulletState) -> None:
         # TODO
-        import ipdb
-
-        ipdb.set_trace()
+        pass
 
 
 class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
@@ -193,7 +192,9 @@ def create_book_handover_csp(
     )
 
     # Create a handover constraint given the user ROM.
-    rom_model = ...  # TODO need Ziang
+    from multitask_personalization.rom.models import GroundTruthROMModel
+
+    rom_model = GroundTruthROMModel(sim.task_spec.human_spec)  # TODO change!!
     handover_rom_constraint = _UserROMConstraint(handover_position, rom_model)
 
     # Create reaching constraints.

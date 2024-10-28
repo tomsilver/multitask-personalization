@@ -35,7 +35,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         obs: _ObsType,
         info: dict[str, Any],
     ) -> None:
-        super().reset(obs)
+        super().reset(obs, info)
         # At the moment, this implementation is extremely specific to the book
         # handover task in the pybullet environment. Will generalize later.
         # For efficiency, and because the task spec is not changing right now,
@@ -60,12 +60,14 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             self._current_samplers,
             self._rng,
         )
+        assert self._current_policy is not None
         self._current_policy.reset(sol)
         # Reset learnable constraints.
         for constraint in self._get_trainable_constraints():
             constraint.reset(obs)
 
     def _get_action(self) -> _ActType:
+        assert self._current_policy is not None
         return self._current_policy.step(self._last_observation)
 
     def _learn_from_transition(
@@ -75,6 +77,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         next_obs: _ObsType,
         reward: float,
         done: bool,
+        info: dict[str, Any],
     ) -> None:
         # Update the trainable constraints. Right now this is done serially but
         # it could be parallelized in the future.
