@@ -1,8 +1,8 @@
 """ROM models."""
 
 import abc
-import os
 import pickle
+from pathlib import Path
 
 import numpy as np
 import pybullet as p
@@ -78,13 +78,13 @@ class GroundTruthROMModel(ROMModel):
             human_spec, self._rng, self._physics_client_id
         )
         # Load reachable points from cache if available, otherwise generate and cache
-        cache_dir = "src/multitask_personalization/rom/cache"
+        cache_dir = Path(__file__).parent / "cache"
+        # use pathlib Path for path
         reachable_points_cache_path = (
-            f"{cache_dir}/{human_spec.subject_id}_{human_spec.condition}_"
-            + f"{human_spec.gender}_{human_spec.impairment}_reachable_points.pkl"
+            cache_dir / f"{human_spec.subject_id}_{human_spec.condition}_"
+            f"{human_spec.gender}_{human_spec.impairment}_reachable_points.pkl"
         )
-
-        if os.path.exists(reachable_points_cache_path):
+        if reachable_points_cache_path.exists():
             with open(reachable_points_cache_path, "rb") as f:
                 self._reachable_points = pickle.load(f)
             print("Loaded reachable points from cache.")
@@ -93,8 +93,7 @@ class GroundTruthROMModel(ROMModel):
             self._reachable_points = [
                 self._run_human_fk(point) for point in self._reachable_joints
             ]
-            if not os.path.exists(cache_dir):
-                os.makedirs(cache_dir)
+            cache_dir.mkdir(exist_ok=True)
             # Cache reachable points
             with open(
                 reachable_points_cache_path,
