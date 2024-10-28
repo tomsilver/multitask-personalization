@@ -41,9 +41,7 @@ def test_pybullet_csp():
     sim = PyBulletEnv(task_spec, use_gui=False, seed=seed)
 
     # Create the CSP.
-    csp, samplers, policy, initialization = create_book_handover_csp(
-        sim, rom_model, preferred_books, seed
-    )
+    csp, samplers, policy, initialization = create_book_handover_csp(sim, seed)
 
     # Solve the CSP.
     sol = solve_csp(csp, initialization, samplers, rng)
