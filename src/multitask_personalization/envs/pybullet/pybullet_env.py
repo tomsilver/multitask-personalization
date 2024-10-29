@@ -268,8 +268,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 for object_id in [self.cup_id] + self.book_ids:
                     world_to_object = get_pose(object_id, self.physics_client_id)
                     object_position = world_to_object.position
-                    dist = np.linalg.norm(
-                        np.subtract(end_effector_position, object_position)
+                    dist = np.sum(
+                        np.square(np.subtract(end_effector_position, object_position))
                     )
                     # Grasp successful.
                     if dist < 1e-3:
