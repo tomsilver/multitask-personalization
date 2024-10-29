@@ -4,9 +4,18 @@ from typing import Any
 
 import gymnasium as gym
 
+from multitask_personalization.envs.pybullet.pybullet_csp import (
+    create_book_handover_csp,
+)
+from multitask_personalization.envs.pybullet.pybullet_env import (
+    PyBulletEnv,
+    PyBulletState,
+)
+from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
 from multitask_personalization.envs.tiny.tiny_csp import create_tiny_csp
 from multitask_personalization.envs.tiny.tiny_env import TinyState
 from multitask_personalization.methods.approach import BaseApproach, _ActType, _ObsType
+from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import (
     CSP,
     CSPPolicy,
@@ -39,6 +48,15 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             if isinstance(obs, TinyState):
                 csp, samplers, policy, initialization = create_tiny_csp(
                     obs.human, seed=self._seed
+                )
+            elif isinstance(obs, PyBulletState):
+                task_spec = info["task_spec"]
+                assert isinstance(task_spec, PyBulletTaskSpec)
+                sim = PyBulletEnv(task_spec, seed=self._seed)
+                rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
+                preferred_books = ["book2"]  # coming soon: learning this
+                csp, samplers, policy, initialization = create_book_handover_csp(
+                    sim, rom_model, preferred_books, seed=self._seed
                 )
             else:
                 raise NotImplementedError()
