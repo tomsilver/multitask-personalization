@@ -19,12 +19,14 @@ def _main(cfg: DictConfig) -> None:
     # Initialize.
     env = hydra.utils.instantiate(cfg.env, seed=cfg.seed)
     assert isinstance(env, gym.Env)
+    env.action_space.seed(cfg.seed)
     approach = hydra.utils.instantiate(
         cfg.approach,
         action_space=env.action_space,
         seed=cfg.seed,
     )
     assert isinstance(approach, BaseApproach)
+    approach.train()
 
     # Run a certain number of episodes and log metrics along the way.
     metrics: list[dict[str, float]] = []
@@ -52,9 +54,18 @@ def _main(cfg: DictConfig) -> None:
         }
         metrics.append(episode_metrics)
 
-    # Aggregate and save results.
+    # Aggregate and print results.
     df = pd.DataFrame(metrics)
-    print(df)
+    with pd.option_context(
+        "display.max_colwidth",
+        None,
+        "display.max_columns",
+        None,
+        "display.max_rows",
+        None,
+    ):
+
+        print(df)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+seed: 0
+num_episodes: 1000
+max_episode_length: 100
+defaults:
+  - _self_
+  - approach: random
+  - env: tiny
