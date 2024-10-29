@@ -2,4 +2,4 @@ _target_: "multitask_personalization.rom.models.SphericalROM"
 human_spec:
   _target_: "multitask_personalization.envs.pybullet.pybullet_human_spec.HumanSpec"
   seed: ${seed}
-  radius: 0.5
+radius: 0.5
