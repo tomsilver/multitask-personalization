@@ -1,4 +1,9 @@
-"""Script for running experiments with hydra."""
+"""Script for running experiments with hydra.
+
+Example:
+    python experiments/run_single_experiment.py -m seed=1,2,3 \
+        approach=csp,random env=tiny
+"""
 
 import logging
 import time
