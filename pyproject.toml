@@ -16,6 +16,8 @@ dependencies = [
    "imageio",
    "pandas",
    "pandas-stubs",
+   "hydra-core",
+   "omegaconf",
    "moviepy",
    "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
    "gymnasium==1.0.0",

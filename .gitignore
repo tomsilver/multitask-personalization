@@ -4,6 +4,7 @@
 *.mp4
 results
 videos
+logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
