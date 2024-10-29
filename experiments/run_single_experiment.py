@@ -7,6 +7,7 @@ Example:
 
 import logging
 import time
+from pathlib import Path
 
 import gymnasium as gym
 import hydra
@@ -24,6 +25,9 @@ def _main(cfg: DictConfig) -> None:
     # Initialize.
     env = hydra.utils.instantiate(cfg.env, seed=cfg.seed)
     assert isinstance(env, gym.Env)
+    if cfg.record_videos:
+        logdir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+        env = gym.wrappers.RecordVideo(env, Path(logdir) / cfg.video_dir)
     env.action_space.seed(cfg.seed)
     approach = hydra.utils.instantiate(
         cfg.approach,
@@ -58,6 +62,7 @@ def _main(cfg: DictConfig) -> None:
             "duration": episode_duration,
         }
         metrics.append(episode_metrics)
+    env.close()
 
     # Aggregate and print results.
     df = pd.DataFrame(metrics)
