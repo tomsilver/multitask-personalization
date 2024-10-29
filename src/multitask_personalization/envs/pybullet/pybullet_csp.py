@@ -210,14 +210,7 @@ def create_book_handover_csp(
     )
 
     # Create a handover constraint given the user ROM.
-    def _handover_position_is_in_rom(position: NDArray) -> bool:
-        return rom_model.check_position_reachable(position)
-
-    handover_rom_constraint = CSPConstraint(
-        "handover_rom_constraint",
-        [handover_position],
-        _handover_position_is_in_rom,
-    )
+    handover_rom_constraint = ROMConstraint(handover_position, rom_model, sim)
 
     # Create reaching constraints.
     def _book_grasp_is_reachable(yaw: NDArray) -> bool:
