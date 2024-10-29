@@ -1,3 +1,10 @@
+hydra:
+  run:
+    dir: ./logs/${now:%Y-%m-%d-%H-%M-%S}
+  sweep:
+    dir: ./logs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+
 seed: 0
 num_episodes: 1000
 max_episode_length: 100
