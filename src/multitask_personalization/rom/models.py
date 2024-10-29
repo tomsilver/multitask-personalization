@@ -205,6 +205,10 @@ class TrainableROMModel(ROMModel):
     def set_trainable_parameters(self, params: Any) -> None:
         """Set the trainable parameter values."""
 
+    @abc.abstractmethod
+    def train(self, data: list[tuple[NDArray, bool]]) -> None:
+        """Update trainable parameters given a dataset of (position, label)."""
+
 
 class SphericalROMModel(TrainableROMModel):
     """ROM model with spherical reachability."""
@@ -245,6 +249,24 @@ class SphericalROMModel(TrainableROMModel):
             np.array(sample_spherical(self._sphere_center, self._radius, self._rng))
             for _ in range(n)
         ]
+
+    def train(self, data: list[tuple[NDArray, bool]]) -> None:
+        # Find decision boundary between maximal positive and minimal negative.
+        max_positive: float | None = None
+        min_negative: float | None = None
+        for position, label in data:
+            dist = np.sqrt(np.sum(np.subtract(position, self._sphere_center) ** 2))
+            if label:
+                if max_positive is None or dist > max_positive:
+                    max_positive = dist
+            else:
+                if min_negative is None or dist < min_negative:
+                    min_negative = dist
+        if max_positive is None or min_negative is None:
+            new_params = np.inf
+        else:
+            new_params = (max_positive + min_negative) / 2
+        self.set_trainable_parameters(new_params)
 
 
 class LearnedROMModel(TrainableROMModel):
@@ -343,3 +365,6 @@ class LearnedROMModel(TrainableROMModel):
             f"Updated ROM model parameters, resulting in {len(self._reachable_points)}"
             " reachable points."
         )
+
+    def train(self, data: list[tuple[NDArray, bool]]) -> None:
+        raise NotImplementedError("Figure this out in a future PR...")

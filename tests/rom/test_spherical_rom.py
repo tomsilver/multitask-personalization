@@ -45,3 +45,17 @@ def test_spherical_rom_model():
         point = spherical_rom_model.sample_reachable_position(rng)
         distance = np.linalg.norm(point - sphere_center)
         assert distance < sphere_radius + 1e-6
+
+    # Test training the parameters.
+    init_params = spherical_rom_model.get_trainable_parameters()
+    assert np.isclose(init_params, sphere_radius)
+
+    data = [
+        (sphere_center + np.array([0.0, 0.0, 0.9]), False),
+        (sphere_center + np.array([0.0, 0.0, 1.1]), True),
+    ]
+
+    spherical_rom_model.train(data)
+
+    new_params = spherical_rom_model.get_trainable_parameters()
+    assert np.isclose(new_params, 1.0)
