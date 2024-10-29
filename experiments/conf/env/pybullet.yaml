@@ -1,0 +1,9 @@
+_target_: "multitask_personalization.envs.pybullet.pybullet_env.PyBulletEnv"
+task_spec:
+  _target_: "multitask_personalization.envs.pybullet.pybullet_task_spec.PyBulletTaskSpec"
+hidden_spec:
+  _target_: "multitask_personalization.envs.pybullet.pybullet_task_spec.HiddenTaskSpec"
+  book_preferences:
+    - "book2"
+  rom_model: spherical
+seed: ${seed}
