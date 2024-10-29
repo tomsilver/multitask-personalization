@@ -3,6 +3,7 @@
 import abc
 import pickle
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pybullet as p
@@ -193,7 +194,19 @@ class GroundTruthROMModel(ROMModel):
         return rng.choice(self._reachable_points)
 
 
-class SphericalROMModel(ROMModel):
+class TrainableROMModel(ROMModel):
+    """Base class for trainable ROM models."""
+
+    @abc.abstractmethod
+    def get_trainable_parameters(self) -> Any:
+        """Access the current trainable parameter values."""
+
+    @abc.abstractmethod
+    def set_trainable_parameters(self, params: Any) -> None:
+        """Set the trainable parameter values."""
+
+
+class SphericalROMModel(TrainableROMModel):
     """ROM model with spherical reachability."""
 
     def __init__(
@@ -211,6 +224,13 @@ class SphericalROMModel(ROMModel):
         # self._reachable_points = self._sample_spherical_points(n=500)
         # self._visualize_reachable_points()
 
+    def get_trainable_parameters(self) -> Any:
+        return self._radius
+
+    def set_trainable_parameters(self, params: Any) -> None:
+        assert isinstance(params, float)
+        self._radius = params
+
     def check_position_reachable(
         self, position: NDArray, padding: float = 1e-6
     ) -> bool:
@@ -227,14 +247,13 @@ class SphericalROMModel(ROMModel):
         ]
 
 
-class LearnedROMModel(ROMModel):
+class LearnedROMModel(TrainableROMModel):
     """ROM model learned from data."""
 
     def __init__(
         self,
         human_spec: HumanSpec,
         ik_distance_threshold: float = 1e-1,
-        seed: int = 0,
     ) -> None:
         super().__init__(human_spec)
         self._ik_distance_threshold = ik_distance_threshold
@@ -242,7 +261,6 @@ class LearnedROMModel(ROMModel):
             device="cuda" if torch.cuda.is_available() else "cpu"
         )
         self._rom_model.load()
-        self._parameter_size = 4
         self._rom_model_context_parameters = np.array([0.0251, -0.2047, 0.3738, 0.1586])
         """Parameters generated from functional score encoder as samples from.
 
@@ -272,27 +290,25 @@ class LearnedROMModel(ROMModel):
                 dim_max - dim_min
             )
         self._dense_joint_samples = joint_angle_samples
-        self.update_parameters(self._rom_model_context_parameters)
+        self.set_trainable_parameters(self._rom_model_context_parameters)
         print("Learned ROM model created")
 
         # Uncomment for debugging.
         # self._visualize_reachable_points()
 
-    def get_parameter_size(self) -> int:
-        """Get the size of the parameter."""
-        return self._parameter_size
+    def check_position_reachable(self, position: NDArray) -> bool:
+        distance, _ = self._reachable_kd_tree.query(position)
+        return distance < self._ik_distance_threshold
 
-    def get_rom_model_context_parameters(self) -> NDArray:
-        """Get the ROM model context parameters."""
-        return self._rom_model_context_parameters
+    def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
+        return rng.choice(self._reachable_points)
 
-    def get_reachable_points(self) -> list[NDArray]:
-        """Get the reachable points."""
-        return self._reachable_points
+    def get_trainable_parameters(self) -> Any:
+        return self._rom_model_context_parameters.copy()
 
-    def update_parameters(self, parameters: NDArray) -> None:
-        """Update the ROM model parameters."""
-        self._rom_model_context_parameters = parameters
+    def set_trainable_parameters(self, params: Any) -> None:
+        assert isinstance(params, np.ndarray)
+        self._rom_model_context_parameters = params
         # forward pass through the model to get the dense grid of reachable
         # points in task space
         context_parameters = np.tile(
@@ -327,10 +343,3 @@ class LearnedROMModel(ROMModel):
             f"Updated ROM model parameters, resulting in {len(self._reachable_points)}"
             " reachable points."
         )
-
-    def check_position_reachable(self, position: NDArray) -> bool:
-        distance, _ = self._reachable_kd_tree.query(position)
-        return distance < self._ik_distance_threshold
-
-    def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
-        return rng.choice(self._reachable_points)
