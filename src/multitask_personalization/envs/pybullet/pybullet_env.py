@@ -255,7 +255,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     ) -> tuple[PyBulletState, dict[str, Any]]:
         # Implement this in future PR.
         super().reset(seed=seed, options=options)
-        return self.get_state(), {}
+        return self.get_state(), self._get_info()
 
     def step(
         self, action: PyBulletAction
@@ -281,10 +281,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
             reward, done = self._get_reward_and_done(robot_indicated_done=False)
-            return self.get_state(), reward, done, False, {}
+            return self.get_state(), reward, done, False, self._get_info()
         if np.isclose(action[0], 2):
             reward, done = self._get_reward_and_done(robot_indicated_done=True)
-            return self.get_state(), reward, done, False, {}
+            return self.get_state(), reward, done, False, self._get_info()
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
@@ -321,7 +321,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
 
         reward, done = self._get_reward_and_done(robot_indicated_done=False)
-        return self.get_state(), reward, done, False, {}
+        return self.get_state(), reward, done, False, self._get_info()
 
     def _get_reward_and_done(
         self, robot_indicated_done: bool = False
@@ -351,6 +351,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             # Success!
             return 1.0, True
         raise NotImplementedError
+
+    def _get_info(self) -> dict[str, Any]:
+        return {"task_spec": self.task_spec}
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         target = get_link_pose(
