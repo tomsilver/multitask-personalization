@@ -22,7 +22,7 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-from multitask_personalization.rom.models import ROMModel
+from multitask_personalization.rom.models import ROMModel, TrainableROMModel
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
@@ -30,7 +30,53 @@ from multitask_personalization.structs import (
     CSPSampler,
     CSPVariable,
     FunctionalCSPSampler,
+    TrainableCSPConstraint,
 )
+
+
+class ROMConstraint(TrainableCSPConstraint[PyBulletState, PyBulletAction]):
+    """Learnable ROM constraint for the pybullet environment."""
+
+    def __init__(
+        self,
+        position_var: CSPVariable,
+        rom_model: ROMModel,
+        sim: PyBulletEnv,
+    ) -> None:
+        super().__init__(
+            "user_rom",
+            [position_var],
+            self._position_in_rom,
+        )
+        self._rom_model = rom_model
+        self._sim = sim  # used for robot FK
+        self._training_data: list[tuple[NDArray, bool]] = []
+
+    def _position_in_rom(self, position: NDArray) -> bool:
+        return self._rom_model.check_position_reachable(position)
+
+    def learn_from_transition(
+        self,
+        obs: PyBulletState,
+        act: PyBulletAction,
+        next_obs: PyBulletState,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        # Only learn from cases where the robot triggered "done".
+        if not np.isclose(act[0], 2):
+            return
+        assert act[1] is None
+        # Check if the trigger was successful.
+        label = reward > 0
+        # Get the end effector position.
+        self._sim.set_state(obs)
+        pose = self._sim.robot.forward_kinematics(obs.robot_joints)
+        self._training_data.append((np.array(pose.position), label))
+        # Update the ROM model.
+        assert isinstance(self._rom_model, TrainableROMModel)
+        self._rom_model.train(self._training_data)
 
 
 class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
