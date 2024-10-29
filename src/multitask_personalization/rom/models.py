@@ -330,7 +330,7 @@ class LearnedROMModel(TrainableROMModel):
 
     def set_trainable_parameters(self, params: Any) -> None:
         assert isinstance(params, np.ndarray)
-        self._rom_model_context_parameters = params
+        self._rom_model_context_parameters = params.copy()
         # forward pass through the model to get the dense grid of reachable
         # points in task space
         context_parameters = np.tile(
