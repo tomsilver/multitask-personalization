@@ -51,8 +51,8 @@ def test_spherical_rom_model():
     assert np.isclose(init_params, sphere_radius)
 
     data = [
-        (sphere_center + np.array([0.0, 0.0, 0.9]), False),
-        (sphere_center + np.array([0.0, 0.0, 1.1]), True),
+        (sphere_center + np.array([0.0, 0.0, 0.9]), True),
+        (sphere_center + np.array([0.0, 0.0, 1.1]), False),
     ]
 
     spherical_rom_model.train(data)

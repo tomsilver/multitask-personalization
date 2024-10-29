@@ -21,9 +21,9 @@ def test_learned_rom_model():
     parameters = learned_rom_model.get_trainable_parameters()
     assert isinstance(parameters, np.ndarray)
     assert parameters.shape == (4,)
-    # Add small gaussian noise to parameters
     pts = learned_rom_model._reachable_points  # pylint: disable=protected-access
     n_prev_reachable_points = len(pts)
+    # Add small gaussian noise to parameters.
     noise = rng.normal(0, 2e-1, len(parameters))
     learned_rom_model.set_trainable_parameters(parameters + noise)
     new_parameters = learned_rom_model.get_trainable_parameters()

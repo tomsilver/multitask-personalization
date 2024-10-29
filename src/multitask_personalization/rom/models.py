@@ -255,7 +255,7 @@ class SphericalROMModel(TrainableROMModel):
         max_positive: float | None = None
         min_negative: float | None = None
         for position, label in data:
-            dist = np.sqrt(np.sum(np.subtract(position, self._sphere_center) ** 2))
+            dist = float(np.linalg.norm(np.subtract(position, self._sphere_center)))
             if label:
                 if max_positive is None or dist > max_positive:
                     max_positive = dist
