@@ -8,11 +8,8 @@ from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import TinyState
 from multitask_personalization.methods.approach import BaseApproach, _ActType, _ObsType
 from multitask_personalization.structs import (
-    CSP,
     CSPGenerator,
     CSPPolicy,
-    CSPSampler,
-    CSPVariable,
 )
 from multitask_personalization.utils import solve_csp
 

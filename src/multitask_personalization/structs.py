@@ -7,7 +7,6 @@ from typing import Any, Callable, Generic
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType, ObsType
-from tomsutils.gym_agent import _ActType, _ObsType
 
 
 @dataclass(frozen=True)
