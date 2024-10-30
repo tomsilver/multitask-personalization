@@ -1,0 +1,6 @@
+_target_: "multitask_personalization.envs.pybullet.pybullet_env.PyBulletEnv"
+task_spec:
+  _target_: "multitask_personalization.envs.pybullet.pybullet_task_spec.PyBulletTaskSpec"
+seed: ${seed}
+defaults:
+  - hidden_spec: pybullet_fetch_book

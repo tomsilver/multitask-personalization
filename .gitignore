@@ -4,6 +4,7 @@
 *.mp4
 results
 videos
+logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -128,11 +129,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
-env/
 venv/
-ENV/
-env.bak/
-venv.bak/
 
 # Spyder project settings
 .spyderproject
