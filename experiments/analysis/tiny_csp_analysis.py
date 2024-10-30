@@ -8,14 +8,14 @@ import argparse
 from pathlib import Path
 
 import seaborn as sns
-from analysis_utils import combine_csvs
+from analysis_utils import combine_results_csvs
 from matplotlib import pyplot as plt
 
 
 def _main(results_dir: Path, outfile: Path) -> None:
     plt.rcParams.update({"font.size": 16})
 
-    df = combine_csvs(results_dir)
+    df = combine_results_csvs(results_dir)
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 7))
     ax0, ax1 = axes  # type: ignore
