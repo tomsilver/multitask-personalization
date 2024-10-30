@@ -27,7 +27,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
         df,
         x="episode",
         y="returns",
-        order=3,
+        order=15,
         scatter_kws={
             "s": 2,
             "color": (0, 0, 1, 0.1),
@@ -45,7 +45,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
         df,
         x="episode",
         y="tiny_user_proximity_learned_distance",
-        order=3,
+        order=15,
         scatter_kws={
             "s": 2,
             "color": (0, 0, 1, 0.1),
