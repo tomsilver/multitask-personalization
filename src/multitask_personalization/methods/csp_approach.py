@@ -65,12 +65,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
 
     def get_episode_metrics(self) -> dict[str, float]:
         episode_metrics = super().get_episode_metrics()
-        # Allow the trainable CSP constraints to report metrics, e.g., values
-        # of their current learned parameters.
-        for constraint in self._get_trainable_constraints():
-            constraint_metrics = constraint.get_metrics()
-            assert not set(constraint_metrics) & set(
-                episode_metrics
-            ), "Constraint metric name conflict"
-            episode_metrics.update(constraint_metrics)
+        assert self._csp_generator is not None
+        csp_metrics = self._csp_generator.get_metrics()
+        assert not set(csp_metrics) & set(episode_metrics), "Metric name conflict"
+        episode_metrics.update(csp_metrics)
         return episode_metrics
