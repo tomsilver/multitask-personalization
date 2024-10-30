@@ -58,7 +58,9 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         self._training_outputs: list[bool] = []
 
     def generate(
-        self, obs: TinyState
+        self,
+        obs: TinyState,
+        explore: bool = False,
     ) -> tuple[
         CSP, list[CSPSampler], CSPPolicy[TinyState, TinyAction], dict[CSPVariable, Any]
     ]:
@@ -81,15 +83,21 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
 
         ############################### Constraints ###############################
 
-        # Create a user preference constraint.
-        def _position_close_enough(position: np.float_) -> bool:
-            dist = abs(human_position - position)
-            return bool(abs(dist - self._desired_distance) < self._distance_threshold)
+        constraints: list[CSPConstraint] = []
 
-        user_preference_constraint = CSPConstraint(
-            "user_preference", [position], _position_close_enough
-        )
-        constraints: list[CSPConstraint] = [user_preference_constraint]
+        if not explore:
+            # Create a user preference constraint.
+            def _position_close_enough(position: np.float_) -> bool:
+                dist = abs(human_position - position)
+                return bool(
+                    abs(dist - self._desired_distance) < self._distance_threshold
+                )
+
+            user_preference_constraint = CSPConstraint(
+                "user_preference", [position], _position_close_enough
+            )
+
+            constraints.append(user_preference_constraint)
 
         ################################### CSP ###################################
 
