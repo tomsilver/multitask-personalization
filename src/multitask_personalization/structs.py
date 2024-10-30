@@ -50,6 +50,10 @@ class TrainableCSPConstraint(CSPConstraint, Generic[_ObsType, _ActType]):
     ) -> None:
         """Update the constraint given the new data point."""
 
+    def get_metrics(self) -> dict[str, float]:
+        """Report any metrics that might be useful for analysis."""
+        return {}
+
 
 @dataclass(frozen=True)
 class CSP:

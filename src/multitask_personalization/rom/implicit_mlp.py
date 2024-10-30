@@ -1,5 +1,7 @@
 """Implicit MLP model for ROM."""
 
+import logging
+
 import torch
 from torch import nn
 
@@ -38,7 +40,7 @@ class MLPROMClassifierTorch(nn.Module):
         if ckpt_path is None:
             ckpt_path = "src/multitask_personalization/rom/ckpts/implicit-mlp_cpu.pth"
 
-        print(f"Using device: {self.device}")
+        logging.info(f"Using device: {self.device}")
 
         # Load the model state dictionary with map location set to the chosen device
         state_dict = torch.load(ckpt_path, weights_only=True, map_location=self.device)
@@ -48,7 +50,7 @@ class MLPROMClassifierTorch(nn.Module):
 
         # Move the entire model to the chosen device
         self._mlp.to(self.device)
-        print("Model loaded and moved to device.")
+        logging.info("Model loaded and moved to device.")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass."""
