@@ -135,7 +135,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._preferred_books = preferred_books
         self._max_motion_planning_time = max_motion_planning_time
 
-    def generate(self, obs: PyBulletState) -> tuple[
+    def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
         CSP,
         list[CSPSampler],
         CSPPolicy[PyBulletState, PyBulletAction],

@@ -17,8 +17,14 @@ from multitask_personalization.utils import solve_csp
 class CSPApproach(BaseApproach[_ObsType, _ActType]):
     """An approach that generates and solves a CSP to make decisions."""
 
-    def __init__(self, action_space: gym.spaces.Space[_ActType], seed: int):
+    def __init__(
+        self,
+        action_space: gym.spaces.Space[_ActType],
+        seed: int,
+        explore_epsilon: float = 0.1,
+    ):
         super().__init__(action_space, seed)
+        self._explore_epsilon = explore_epsilon
         self._current_policy: CSPPolicy | None = None
         self._csp_generator: CSPGenerator | None = None
 
@@ -35,7 +41,10 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 self._csp_generator = TinyCSPGenerator(self._seed)
             else:
                 raise NotImplementedError()
-        csp, samplers, policy, initialization = self._csp_generator.generate(obs)
+        explore = self._rng.uniform() < self._explore_epsilon
+        csp, samplers, policy, initialization = self._csp_generator.generate(
+            obs, explore=explore
+        )
         sol = solve_csp(
             csp,
             initialization,

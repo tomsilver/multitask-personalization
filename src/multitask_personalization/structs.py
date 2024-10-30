@@ -126,7 +126,9 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
 
     @abc.abstractmethod
     def generate(
-        self, obs: ObsType
+        self,
+        obs: ObsType,
+        explore: bool = False,
     ) -> tuple[
         CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
     ]:
