@@ -3,7 +3,7 @@
 import numpy as np
 
 from multitask_personalization.envs.pybullet.pybullet_csp import (
-    create_book_handover_csp,
+    PyBulletCSPGenerator,
 )
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_structs import (
@@ -41,13 +41,10 @@ def test_pybullet_csp():
     sim = PyBulletEnv(task_spec, use_gui=False, seed=seed)
 
     # Create the CSP.
-    csp, samplers, policy, initialization = create_book_handover_csp(
-        sim,
-        rom_model,
-        preferred_books,
-        seed,
-        max_motion_planning_time=0.1,
+    csp_generator = PyBulletCSPGenerator(
+        sim, rom_model, preferred_books, seed, max_motion_planning_time=0.1
     )
+    csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
     sol = solve_csp(csp, initialization, samplers, rng)
