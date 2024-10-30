@@ -12,7 +12,7 @@ from pathlib import Path
 import gymnasium as gym
 import hydra
 import pandas as pd
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from multitask_personalization.methods.approach import BaseApproach
 
@@ -21,6 +21,8 @@ from multitask_personalization.methods.approach import BaseApproach
 def _main(cfg: DictConfig) -> None:
 
     logging.info(f"Running seed={cfg.seed}, env={cfg.env}, approach={cfg.approach}")
+    logging.info("Full config:")
+    logging.info(OmegaConf.to_yaml(cfg))
 
     # Initialize.
     env = hydra.utils.instantiate(cfg.env, seed=cfg.seed)
