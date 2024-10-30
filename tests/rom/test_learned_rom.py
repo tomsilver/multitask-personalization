@@ -15,20 +15,18 @@ def test_learned_rom_model():
     rng = np.random.default_rng(seed)
 
     task_spec = PyBulletTaskSpec()
-    learned_rom_model = LearnedROMModel(task_spec.human_spec, seed=seed)
+    learned_rom_model = LearnedROMModel(task_spec.human_spec)
 
     # Test LearnedROMModel
-    assert (
-        len(learned_rom_model.get_rom_model_context_parameters())
-        == learned_rom_model.get_parameter_size()
-    )
-    # Test update_parameters is updating the parameters and reachable_points
-    parameters = learned_rom_model.get_rom_model_context_parameters()
-    # add small gaussian noise to parameters
-    n_prev_reachable_points = len(learned_rom_model.get_reachable_points())
+    parameters = learned_rom_model.get_trainable_parameters()
+    assert isinstance(parameters, np.ndarray)
+    assert parameters.shape == (4,)
+    pts = learned_rom_model._reachable_points  # pylint: disable=protected-access
+    n_prev_reachable_points = len(pts)
+    # Add small gaussian noise to parameters.
     noise = rng.normal(0, 2e-1, len(parameters))
-    learned_rom_model.update_parameters(parameters + noise)
-    assert np.allclose(
-        learned_rom_model.get_rom_model_context_parameters(), parameters + noise
-    )
-    assert len(learned_rom_model.get_reachable_points()) != n_prev_reachable_points
+    learned_rom_model.set_trainable_parameters(parameters + noise)
+    new_parameters = learned_rom_model.get_trainable_parameters()
+    assert np.allclose(new_parameters, parameters + noise)
+    pts = learned_rom_model._reachable_points  # pylint: disable=protected-access
+    assert len(pts) != n_prev_reachable_points
