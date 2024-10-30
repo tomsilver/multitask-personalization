@@ -3,8 +3,7 @@
 import numpy as np
 
 from multitask_personalization.envs.tiny.tiny_csp import (
-    TinyUserConstraint,
-    create_tiny_csp,
+    TinyCSPGenerator,
 )
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
@@ -26,20 +25,14 @@ def test_tiny_csp():
     env = TinyEnv(hidden_spec=hidden_spec, seed=seed)
     obs, _ = env.reset()
     assert isinstance(obs, TinyState)
-    human_position = obs.human
 
     # Create the CSP.
-    csp, samplers, policy, initialization = create_tiny_csp(
-        human_position, seed, distance_threshold=distance_threshold
+    csp_generator = TinyCSPGenerator(
+        seed,
+        distance_threshold=distance_threshold,
+        init_desired_distance=desired_distance,
     )
-    # Use ground-truth parameters for constraint.
-    assert len(csp.constraints) == 1
-    constraint = csp.constraints[0]
-    assert isinstance(constraint, TinyUserConstraint)
-    constraint._desired_distance = desired_distance  # pylint: disable=protected-access
-    constraint._distance_threshold = (  # pylint: disable=protected-access
-        distance_threshold
-    )
+    csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
     sol = solve_csp(csp, initialization, samplers, rng)
