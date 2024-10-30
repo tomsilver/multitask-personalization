@@ -26,6 +26,7 @@ from multitask_personalization.rom.models import ROMModel
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
+    CSPGenerator,
     CSPPolicy,
     CSPSampler,
     CSPVariable,
@@ -117,129 +118,163 @@ def _pose_is_reachable(pose: Pose, sim: PyBulletEnv) -> bool:
     return True
 
 
-def create_book_handover_csp(
-    sim: PyBulletEnv,
-    rom_model: ROMModel,
-    preferred_books: list[str],
-    seed: int = 0,
-    max_motion_planning_time: float = 1.0,
-) -> tuple[CSP, list[CSPSampler], CSPPolicy, dict[CSPVariable, Any]]:
-    """Create a CSP for the task of handing over a book."""
+class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
+    """Generate CSPs for the pybullet environment."""
 
-    ################################ Variables ################################
+    def __init__(
+        self,
+        sim: PyBulletEnv,
+        rom_model: ROMModel,
+        preferred_books: list[str],
+        seed: int = 0,
+        max_motion_planning_time: float = 1.0,
+    ) -> None:
+        super().__init__(seed=seed)
+        self._sim = sim
+        self._rom_model = rom_model
+        self._preferred_books = preferred_books
+        self._max_motion_planning_time = max_motion_planning_time
 
-    # Choose a book to fetch.
-    book_names = [f"book{i}" for i in range(len(sim.book_ids))]
-    assert set(preferred_books).issubset(book_names)
-    book = CSPVariable("book", EnumSpace(book_names))
+    def generate(self, obs: PyBulletState) -> tuple[
+        CSP,
+        list[CSPSampler],
+        CSPPolicy[PyBulletState, PyBulletAction],
+        dict[CSPVariable, Any],
+    ]:
 
-    # Choose a grasp on the book. Only the grasp yaw is unknown.
-    book_grasp = CSPVariable("book_grasp", Box(-np.pi, np.pi, dtype=np.float_))
+        # Create a CSP for the task of handing over a book.
 
-    # Choose a handover position. Relative to the resting hand position.
-    handover_position = CSPVariable(
-        "handover_position", Box(-np.inf, np.inf, shape=(3,), dtype=np.float_)
-    )
+        ################################ Variables ################################
 
-    variables = [book, book_grasp, handover_position]
+        # Choose a book to fetch.
+        book_names = [f"book{i}" for i in range(len(self._sim.book_ids))]
+        assert set(self._preferred_books).issubset(book_names)
+        book = CSPVariable("book", EnumSpace(book_names))
 
-    ############################## Initialization #############################
+        # Choose a grasp on the book. Only the grasp yaw is unknown.
+        book_grasp = CSPVariable("book_grasp", Box(-np.pi, np.pi, dtype=np.float_))
 
-    initialization = {
-        book: book_names[0],
-        book_grasp: np.zeros((1,)),
-        handover_position: np.zeros((3,)),
-    }
+        # Choose a handover position. Relative to the resting hand position.
+        handover_position = CSPVariable(
+            "handover_position", Box(-np.inf, np.inf, shape=(3,), dtype=np.float_)
+        )
 
-    ############################### Constraints ###############################
+        variables = [book, book_grasp, handover_position]
 
-    # Create a user preference constraint for the book.
-    def _book_is_preferred(book_name: str) -> bool:
-        return book_name in preferred_books
+        ############################## Initialization #############################
 
-    book_preference_constraint = CSPConstraint(
-        "book_preference",
-        [book],
-        _book_is_preferred,
-    )
+        initialization = {
+            book: book_names[0],
+            book_grasp: np.zeros((1,)),
+            handover_position: np.zeros((3,)),
+        }
 
-    # Create a handover constraint given the user ROM.
-    def _handover_position_is_in_rom(position: NDArray) -> bool:
-        return rom_model.check_position_reachable(position)
+        ############################### Constraints ###############################
 
-    handover_rom_constraint = CSPConstraint(
-        "handover_rom_constraint",
-        [handover_position],
-        _handover_position_is_in_rom,
-    )
+        # Create a user preference constraint for the book.
+        def _book_is_preferred(book_name: str) -> bool:
+            return book_name in self._preferred_books
 
-    # Create reaching constraints.
-    def _book_grasp_is_reachable(yaw: NDArray) -> bool:
-        pose = _book_grasp_to_pose(yaw)
-        return _pose_is_reachable(pose, sim)
+        book_preference_constraint = CSPConstraint(
+            "book_preference",
+            [book],
+            _book_is_preferred,
+        )
 
-    book_grasp_reachable_constraint = CSPConstraint(
-        "book_reachable",
-        [book_grasp],
-        _book_grasp_is_reachable,
-    )
+        # Create a handover constraint given the user ROM.
+        def _handover_position_is_in_rom(position: NDArray) -> bool:
+            return self._rom_model.check_position_reachable(position)
 
-    def _handover_position_is_reachable(position: NDArray) -> bool:
-        pose = _handover_position_to_pose(position)
-        return _pose_is_reachable(pose, sim)
+        handover_rom_constraint = CSPConstraint(
+            "handover_rom_constraint",
+            [handover_position],
+            _handover_position_is_in_rom,
+        )
 
-    handover_reachable_constraint = CSPConstraint(
-        "handover_reachable",
-        [handover_position],
-        _handover_position_is_reachable,
-    )
+        # Create reaching constraints.
+        def _book_grasp_is_reachable(yaw: NDArray) -> bool:
+            pose = _book_grasp_to_pose(yaw)
+            return _pose_is_reachable(pose, self._sim)
 
-    constraints = [
-        book_preference_constraint,
-        handover_rom_constraint,
-        book_grasp_reachable_constraint,
-        handover_reachable_constraint,
-    ]
+        book_grasp_reachable_constraint = CSPConstraint(
+            "book_reachable",
+            [book_grasp],
+            _book_grasp_is_reachable,
+        )
 
-    ################################### CSP ###################################
+        def _handover_position_is_reachable(position: NDArray) -> bool:
+            pose = _handover_position_to_pose(position)
+            return _pose_is_reachable(pose, self._sim)
 
-    csp = CSP(variables, constraints)
+        handover_reachable_constraint = CSPConstraint(
+            "handover_reachable",
+            [handover_position],
+            _handover_position_is_reachable,
+        )
 
-    ################################# Samplers ################################
+        constraints = [
+            book_preference_constraint,
+            handover_rom_constraint,
+            book_grasp_reachable_constraint,
+            handover_reachable_constraint,
+        ]
 
-    def _sample_book_fn(
-        _: dict[CSPVariable, Any], rng: np.random.Generator
-    ) -> dict[CSPVariable, Any]:
-        preferred_book = preferred_books[rng.choice(len(preferred_books))]
-        return {book: preferred_book}
+        ################################### CSP ###################################
 
-    book_sampler = FunctionalCSPSampler(_sample_book_fn, csp, {book})
+        csp = CSP(variables, constraints)
 
-    def _sample_handover_pose(
-        _: dict[CSPVariable, Any], rng: np.random.Generator
-    ) -> dict[CSPVariable, Any]:
-        position = rom_model.sample_reachable_position(rng)
-        return {handover_position: position}
+        ################################# Samplers ################################
 
-    handover_sampler = FunctionalCSPSampler(
-        _sample_handover_pose, csp, {handover_position}
-    )
+        def _sample_book_fn(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            preferred_book = self._preferred_books[
+                rng.choice(len(self._preferred_books))
+            ]
+            return {book: preferred_book}
 
-    def _sample_grasp_pose(
-        _: dict[CSPVariable, Any], rng: np.random.Generator
-    ) -> dict[CSPVariable, Any]:
-        del rng  # not actually sampling right now, for simplicity
-        yaw = np.array([-np.pi / 2])
-        return {book_grasp: yaw}
+        book_sampler = FunctionalCSPSampler(_sample_book_fn, csp, {book})
 
-    grasp_sampler = FunctionalCSPSampler(_sample_grasp_pose, csp, {book_grasp})
+        def _sample_handover_pose(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            position = self._rom_model.sample_reachable_position(rng)
+            return {handover_position: position}
 
-    samplers: list[CSPSampler] = [book_sampler, handover_sampler, grasp_sampler]
+        handover_sampler = FunctionalCSPSampler(
+            _sample_handover_pose, csp, {handover_position}
+        )
 
-    ################################# Policy ##################################
+        def _sample_grasp_pose(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            del rng  # not actually sampling right now, for simplicity
+            yaw = np.array([-np.pi / 2])
+            return {book_grasp: yaw}
 
-    policy: CSPPolicy = _BookHandoverCSPPolicy(
-        sim, csp, seed=seed, max_motion_planning_time=max_motion_planning_time
-    )
+        grasp_sampler = FunctionalCSPSampler(_sample_grasp_pose, csp, {book_grasp})
 
-    return csp, samplers, policy, initialization
+        samplers: list[CSPSampler] = [book_sampler, handover_sampler, grasp_sampler]
+
+        ################################# Policy ##################################
+
+        policy: CSPPolicy = _BookHandoverCSPPolicy(
+            self._sim,
+            csp,
+            seed=self._seed,
+            max_motion_planning_time=self._max_motion_planning_time,
+        )
+
+        return csp, samplers, policy, initialization
+
+    def learn_from_transition(
+        self,
+        obs: PyBulletState,
+        act: PyBulletAction,
+        next_obs: PyBulletState,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        # Coming soon.
+        pass

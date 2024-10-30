@@ -9,30 +9,47 @@ from multitask_personalization.envs.tiny.tiny_env import TinyAction, TinyState
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
+    CSPGenerator,
     CSPPolicy,
     CSPSampler,
     CSPVariable,
     FunctionalCSPSampler,
-    TrainableCSPConstraint,
 )
 
 
-class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
-    """User proximity preference for the tiny environment."""
+class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
+
+    def __init__(
+        self, csp: CSP, seed: int = 0, distance_threshold: float = 1e-1
+    ) -> None:
+        super().__init__(csp, seed)
+        self._target_position: float | None = None
+        self._distance_threshold = distance_threshold
+
+    def reset(self, solution: dict[CSPVariable, Any]) -> None:
+        super().reset(solution)
+        self._target_position = self._get_value("position")
+
+    def step(self, obs: TinyState) -> TinyAction:
+        assert self._target_position is not None
+        robot_position = obs.robot
+        delta = np.clip(self._target_position - robot_position, -1, 1)
+        if abs(delta) < 1e-6:
+            return (1, None)
+        return (0, delta)
+
+
+class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
+    """Create a CSP for the tiny environment."""
 
     def __init__(
         self,
-        position_var: CSPVariable,
-        human_position: float,
-        init_desired_distance: float = 1.0,
+        seed: int = 0,
         distance_threshold: float = 1e-1,
+        init_desired_distance: float = 1.0,
     ) -> None:
-        super().__init__(
-            "user_preference",
-            [position_var],
-            self._position_close_enough,
-        )
-        self._human_position = human_position
+        super().__init__(seed=seed)
+        self._distance_threshold = distance_threshold
         # Updated through learning.
         self._desired_distance = init_desired_distance
         self._distance_threshold = distance_threshold
@@ -40,9 +57,63 @@ class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
         self._training_inputs: list[float] = []
         self._training_outputs: list[bool] = []
 
-    def _position_close_enough(self, position: np.float_) -> bool:
-        dist = abs(self._human_position - position)
-        return bool(abs(dist - self._desired_distance) < self._distance_threshold)
+    def generate(
+        self, obs: TinyState
+    ) -> tuple[
+        CSP, list[CSPSampler], CSPPolicy[TinyState, TinyAction], dict[CSPVariable, Any]
+    ]:
+
+        human_position = obs.human
+
+        ################################ Variables ################################
+
+        # Choose a position to target.
+        position = CSPVariable(
+            "position", Box(-np.inf, np.inf, shape=(), dtype=np.float_)
+        )
+        variables = [position]
+
+        ############################## Initialization #############################
+
+        initialization = {
+            position: 0.0,
+        }
+
+        ############################### Constraints ###############################
+
+        # Create a user preference constraint.
+        def _position_close_enough(position: np.float_) -> bool:
+            dist = abs(human_position - position)
+            return bool(abs(dist - self._desired_distance) < self._distance_threshold)
+
+        user_preference_constraint = CSPConstraint(
+            "user_preference", [position], _position_close_enough
+        )
+        constraints: list[CSPConstraint] = [user_preference_constraint]
+
+        ################################### CSP ###################################
+
+        csp = CSP(variables, constraints)
+
+        ################################# Samplers ################################
+
+        def _sample_position_fn(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            sample = rng.normal(loc=human_position, scale=10.0)
+            return {position: sample}
+
+        position_sampler = FunctionalCSPSampler(_sample_position_fn, csp, {position})
+
+        samplers: list[CSPSampler] = [position_sampler]
+
+        ################################# Policy ##################################
+
+        policy: CSPPolicy = _TinyCSPPolicy(
+            csp, seed=self._seed, distance_threshold=self._distance_threshold
+        )
+
+        return csp, samplers, policy, initialization
 
     def learn_from_transition(
         self,
@@ -77,77 +148,3 @@ class TinyUserConstraint(TrainableCSPConstraint[TinyState, TinyAction]):
         min_positive_dist = min(positive_dists)
         max_positive_dist = max(positive_dists)
         self._desired_distance = (min_positive_dist + max_positive_dist) / 2
-
-
-class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
-
-    def __init__(
-        self, csp: CSP, seed: int = 0, distance_threshold: float = 1e-1
-    ) -> None:
-        super().__init__(csp, seed)
-        self._target_position: float | None = None
-        self._distance_threshold = distance_threshold
-
-    def reset(self, solution: dict[CSPVariable, Any]) -> None:
-        super().reset(solution)
-        self._target_position = self._get_value("position")
-
-    def step(self, obs: TinyState) -> TinyAction:
-        assert self._target_position is not None
-        robot_position = obs.robot
-        delta = np.clip(self._target_position - robot_position, -1, 1)
-        if abs(delta) < 1e-6:
-            return (1, None)
-        return (0, delta)
-
-
-def create_tiny_csp(
-    human_position: float,
-    seed: int = 0,
-    distance_threshold: float = 1e-1,
-) -> tuple[CSP, list[CSPSampler], CSPPolicy, dict[CSPVariable, Any]]:
-    """Create a CSP for the tiny environment."""
-
-    ################################ Variables ################################
-
-    # Choose a position to target.
-    position = CSPVariable("position", Box(-np.inf, np.inf, shape=(), dtype=np.float_))
-    variables = [position]
-
-    ############################## Initialization #############################
-
-    initialization = {
-        position: 0.0,
-    }
-
-    ############################### Constraints ###############################
-
-    # Create a user preference constraint.
-    user_preference_constraint = TinyUserConstraint(
-        position, human_position, distance_threshold=distance_threshold
-    )
-    constraints: list[CSPConstraint] = [user_preference_constraint]
-
-    ################################### CSP ###################################
-
-    csp = CSP(variables, constraints)
-
-    ################################# Samplers ################################
-
-    def _sample_position_fn(
-        _: dict[CSPVariable, Any], rng: np.random.Generator
-    ) -> dict[CSPVariable, Any]:
-        sample = rng.normal(loc=human_position, scale=10.0)
-        return {position: sample}
-
-    position_sampler = FunctionalCSPSampler(_sample_position_fn, csp, {position})
-
-    samplers: list[CSPSampler] = [position_sampler]
-
-    ################################# Policy ##################################
-
-    policy: CSPPolicy = _TinyCSPPolicy(
-        csp, seed=seed, distance_threshold=distance_threshold
-    )
-
-    return csp, samplers, policy, initialization

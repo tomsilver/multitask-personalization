@@ -7,7 +7,6 @@ from typing import Any, Callable, Generic
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType, ObsType
-from tomsutils.gym_agent import _ActType, _ObsType
 
 
 @dataclass(frozen=True)
@@ -33,22 +32,6 @@ class CSPConstraint:
         """Check whether the constraint holds given values of the variables."""
         vals = [sol[v] for v in self.variables]
         return self.constraint_fn(*vals)
-
-
-class TrainableCSPConstraint(CSPConstraint, Generic[_ObsType, _ActType]):
-    """A CSP constraint that can be updated from experience."""
-
-    @abc.abstractmethod
-    def learn_from_transition(
-        self,
-        obs: _ObsType,
-        act: _ActType,
-        next_obs: _ObsType,
-        reward: float,
-        done: bool,
-        info: dict[str, Any],
-    ) -> None:
-        """Update the constraint given the new data point."""
 
 
 @dataclass(frozen=True)
@@ -131,3 +114,32 @@ class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
     @abc.abstractmethod
     def step(self, obs: ObsType) -> ActType:
         """Return an action and advance any memory assuming action executes."""
+
+
+class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
+    """Generates CSPs, samplers, policies, and initializations; and learns from
+    environment transitions."""
+
+    def __init__(self, seed: int = 0) -> None:
+        self._seed = seed
+        self._rng = np.random.default_rng(seed)
+
+    @abc.abstractmethod
+    def generate(
+        self, obs: ObsType
+    ) -> tuple[
+        CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
+    ]:
+        """Generate a CSP, samplers, policy, and initialization."""
+
+    @abc.abstractmethod
+    def learn_from_transition(
+        self,
+        obs: ObsType,
+        act: ActType,
+        next_obs: ObsType,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        """Update the generator given the new data point."""

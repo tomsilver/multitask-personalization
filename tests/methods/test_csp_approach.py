@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from multitask_personalization.envs.tiny.tiny_csp import TinyUserConstraint
+from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
     TinyHiddenSpec,
@@ -34,10 +34,9 @@ def test_csp_approach():
             if terminated:
                 break
 
-    csp = approach._current_csp  # pylint: disable=protected-access
-    constraint = csp.constraints[0]
-    assert isinstance(constraint, TinyUserConstraint)
-    learned_dist = constraint._desired_distance  # pylint: disable=protected-access
+    csp_generator = approach._csp_generator  # pylint: disable=protected-access
+    assert isinstance(csp_generator, TinyCSPGenerator)
+    learned_dist = csp_generator._desired_distance  # pylint: disable=protected-access
     assert np.isclose(learned_dist, 1.0, atol=1e-1)
 
     env.close()
