@@ -60,6 +60,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
                 "color": color,
             },
             ax=ax1,
+            label=f"Epsilon={epsilon}",
         )
     ax1.legend()
 
