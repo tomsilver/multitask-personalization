@@ -59,18 +59,6 @@ def rotmat2euler(rot_matrix: NDArray, seq: str = "ZXY") -> NDArray:
     return rotation.as_euler(seq, degrees=True)
 
 
-def sample_spherical(center: Pose3D, radius: float, rng: np.random.Generator) -> Pose3D:
-    """Based on https://stackoverflow.com/questions/33976911/"""
-    # Sample on the unit sphere.
-    vec = rng.normal(size=(3,))
-    vec /= np.linalg.norm(vec, axis=0)
-    # Scale.
-    vec = radius * vec
-    # Translate.
-    vec = np.add(center, vec)
-    return vec.tolist()
-
-
 def sample_within_sphere(
     center: Pose3D, radius: float, rng: np.random.Generator
 ) -> Pose3D:

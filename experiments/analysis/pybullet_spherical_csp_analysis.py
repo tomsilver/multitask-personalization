@@ -1,7 +1,8 @@
-"""Analyze results for running the CSP approach in the TinyEnv, e.g.,
+"""Analyze results for running the CSP approach in the PyBullet with the
+spherical ROM model e.g.,
 
 ```
-python experiments/run_single_experiment.py -m +experiment=tiny_csp \
+python experiments/run_single_experiment.py -m +experiment=pybullet_csp \
     seed="range(1, 11)"
 ```
 """
@@ -21,7 +22,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 7))
     ax0, ax1 = axes  # type: ignore
-    fig.suptitle("CSP Approach in Tiny Env")
+    fig.suptitle("CSP Approach in PyBullet Env with Spherical ROM")
 
     # Make a plot showing returns over time.
     ax0.set_title("Returns")
@@ -42,11 +43,11 @@ def _main(results_dir: Path, outfile: Path) -> None:
     )
 
     # Make a plot showing learned proximity over time.
-    ax1.set_title("Learned Proximity")
+    ax1.set_title("Learned Radius")
     sns.regplot(
         df,
         x="episode",
-        y="tiny_user_proximity_learned_distance",
+        y="spherical_rom_radius",
         order=15,
         scatter_kws={
             "s": 2,

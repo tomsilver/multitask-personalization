@@ -1,0 +1,7 @@
+# @package _global_
+defaults:
+  - override /approach: csp
+  - override /env: pybullet
+num_episodes: 25
+max_episode_length: 10000
+record_videos: False

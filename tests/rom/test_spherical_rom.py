@@ -11,7 +11,7 @@ from multitask_personalization.envs.pybullet.pybullet_task_spec import (
 )
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.utils import (
-    sample_spherical,
+    sample_within_sphere,
 )
 
 
@@ -37,7 +37,7 @@ def test_spherical_rom_model():
     assert spherical_rom_model.sample_reachable_position(rng).shape == (3,)
     # Check check_position_reachable
     for _ in range(100):
-        point = sample_spherical(sphere_center, sphere_radius, rng)
+        point = sample_within_sphere(sphere_center, sphere_radius, rng)
         distance = np.linalg.norm(point - sphere_center)
         assert spherical_rom_model.check_position_reachable(point)
     # Check sample_reachable_position

@@ -24,7 +24,7 @@ from multitask_personalization.utils import (
     rotation_matrix_x,
     rotation_matrix_y,
     rotmat2euler,
-    sample_spherical,
+    sample_within_sphere,
 )
 
 
@@ -210,6 +210,10 @@ class TrainableROMModel(ROMModel):
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         """Update trainable parameters given a dataset of (position, label)."""
 
+    def get_metrics(self) -> dict[str, float]:
+        """Optionally report metrics, e.g., learned parameters."""
+        return {}
+
 
 class SphericalROMModel(TrainableROMModel):
     """ROM model with spherical reachability."""
@@ -219,9 +223,11 @@ class SphericalROMModel(TrainableROMModel):
         human_spec: HumanSpec,
         seed: int = 0,
         radius: float = 0.5,
+        max_possible_radius: float = 1.5,
     ) -> None:
         super().__init__(human_spec, seed=seed)
         self._radius = radius
+        self._max_possible_radius = max_possible_radius
         origin, _ = self._human.get_pos_orient(self._human.right_wrist)
         self._sphere_center = origin
 
@@ -237,22 +243,24 @@ class SphericalROMModel(TrainableROMModel):
         self._radius = params
 
     def check_position_reachable(
-        self, position: NDArray, padding: float = 1e-6
+        self, position: NDArray, padding: float = 1e-4
     ) -> bool:
         distance = float(np.linalg.norm(position - self._sphere_center))
-        return distance < self._radius + padding
+        reachable = distance < self._radius + padding
+        return reachable
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
-        return np.array(sample_spherical(self._sphere_center, self._radius, rng))
+        return np.array(sample_within_sphere(self._sphere_center, self._radius, rng))
 
     def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:
         return [
-            np.array(sample_spherical(self._sphere_center, self._radius, self._rng))
+            np.array(sample_within_sphere(self._sphere_center, self._radius, self._rng))
             for _ in range(n)
         ]
 
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         # Find decision boundary between maximal positive and minimal negative.
+        logging.info(f"Training SphericalROMModel with {len(data)} data")
         max_positive: float | None = None
         min_negative: float | None = None
         for position, label in data:
@@ -264,10 +272,14 @@ class SphericalROMModel(TrainableROMModel):
                 if min_negative is None or dist < min_negative:
                     min_negative = dist
         if max_positive is None or min_negative is None:
-            new_params = np.inf
+            new_params = self._max_possible_radius
         else:
             new_params = (max_positive + min_negative) / 2
+        logging.info(f"Updating SphericalROMModel params to {new_params}")
         self.set_trainable_parameters(new_params)
+
+    def get_metrics(self) -> dict[str, float]:
+        return {"spherical_rom_radius": self._radius}
 
 
 class LearnedROMModel(TrainableROMModel):

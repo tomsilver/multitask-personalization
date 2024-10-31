@@ -9,6 +9,7 @@ from pybullet_helpers.geometry import Pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
+    sample_collision_free_inverse_kinematics,
 )
 from pybullet_helpers.math_utils import get_poses_facing_line
 from tomsutils.spaces import EnumSpace
@@ -22,7 +23,7 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-from multitask_personalization.rom.models import ROMModel
+from multitask_personalization.rom.models import ROMModel, TrainableROMModel
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
@@ -41,12 +42,10 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         csp: CSP,
         seed: int = 0,
-        max_motion_planning_time: float = 1.0,
     ) -> None:
         super().__init__(csp, seed)
         self._sim = sim
         self._current_plan: list[PyBulletAction] = []
-        self._max_motion_planning_time = max_motion_planning_time
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
@@ -69,7 +68,6 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             book_name,
             book_grasp,
             self._sim,
-            max_motion_planning_time=self._max_motion_planning_time,
         )
 
     def _get_handover_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
@@ -82,7 +80,6 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             handover_pose,
             self._sim,
             self._seed,
-            max_motion_planning_time=self._max_motion_planning_time,
         )
         # Finish the plan by indicating done.
         handover_plan.append((2, None))
@@ -127,13 +124,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         rom_model: ROMModel,
         preferred_books: list[str],
         seed: int = 0,
-        max_motion_planning_time: float = 1.0,
     ) -> None:
         super().__init__(seed=seed)
         self._sim = sim
         self._rom_model = rom_model
         self._preferred_books = preferred_books
-        self._max_motion_planning_time = max_motion_planning_time
+        self._rom_model_training_data: list[tuple[NDArray, bool]] = []
 
     def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
         CSP,
@@ -141,6 +137,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         CSPPolicy[PyBulletState, PyBulletAction],
         dict[CSPVariable, Any],
     ]:
+
+        self._sim.set_state(obs)
 
         # Create a CSP for the task of handing over a book.
 
@@ -165,31 +163,36 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         initialization = {
             book: book_names[0],
-            book_grasp: np.zeros((1,)),
+            book_grasp: np.array([-np.pi / 2]),
             handover_position: np.zeros((3,)),
         }
 
         ############################### Constraints ###############################
 
-        # Create a user preference constraint for the book.
-        def _book_is_preferred(book_name: str) -> bool:
-            return book_name in self._preferred_books
+        constraints: list[CSPConstraint] = []
 
-        book_preference_constraint = CSPConstraint(
-            "book_preference",
-            [book],
-            _book_is_preferred,
-        )
+        if not explore:
+            # Create a user preference constraint for the book.
+            def _book_is_preferred(book_name: str) -> bool:
+                return book_name in self._preferred_books
 
-        # Create a handover constraint given the user ROM.
-        def _handover_position_is_in_rom(position: NDArray) -> bool:
-            return self._rom_model.check_position_reachable(position)
+            book_preference_constraint = CSPConstraint(
+                "book_preference",
+                [book],
+                _book_is_preferred,
+            )
+            constraints.append(book_preference_constraint)
 
-        handover_rom_constraint = CSPConstraint(
-            "handover_rom_constraint",
-            [handover_position],
-            _handover_position_is_in_rom,
-        )
+            # Create a handover constraint given the user ROM.
+            def _handover_position_is_in_rom(position: NDArray) -> bool:
+                return self._rom_model.check_position_reachable(position)
+
+            handover_rom_constraint = CSPConstraint(
+                "handover_rom_constraint",
+                [handover_position],
+                _handover_position_is_in_rom,
+            )
+            constraints.append(handover_rom_constraint)
 
         # Create reaching constraints.
         def _book_grasp_is_reachable(yaw: NDArray) -> bool:
@@ -201,23 +204,48 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             [book_grasp],
             _book_grasp_is_reachable,
         )
+        constraints.append(book_grasp_reachable_constraint)
 
         def _handover_position_is_reachable(position: NDArray) -> bool:
             pose = _handover_position_to_pose(position)
-            return _pose_is_reachable(pose, self._sim)
+            handover_reachable = _pose_is_reachable(pose, self._sim)
+            return handover_reachable
 
         handover_reachable_constraint = CSPConstraint(
             "handover_reachable",
             [handover_position],
             _handover_position_is_reachable,
         )
+        constraints.append(handover_reachable_constraint)
 
-        constraints = [
-            book_preference_constraint,
-            handover_rom_constraint,
-            book_grasp_reachable_constraint,
-            handover_reachable_constraint,
-        ]
+        # Create collision constraints.
+        def _handover_position_is_collision_free(
+            position: NDArray, book_name: str, yaw: NDArray
+        ) -> bool:
+            book_id = self._sim.get_object_id_from_name(book_name)
+            end_effector_pose = _handover_position_to_pose(position)
+            grasp_pose = _book_grasp_to_pose(yaw)
+            collision_bodies = self._sim.get_collision_ids() - {book_id}
+            samples = list(
+                sample_collision_free_inverse_kinematics(
+                    self._sim.robot,
+                    end_effector_pose,
+                    collision_bodies,
+                    self._rng,
+                    held_object=book_id,
+                    base_link_to_held_obj=grasp_pose.invert(),
+                    max_candidates=1,
+                )
+            )
+            assert len(samples) <= 1
+            return len(samples) == 1
+
+        handover_collision_free_constraint = CSPConstraint(
+            "handover_collision_free",
+            [handover_position, book, book_grasp],
+            _handover_position_is_collision_free,
+        )
+        constraints.append(handover_collision_free_constraint)
 
         ################################### CSP ###################################
 
@@ -262,7 +290,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             self._sim,
             csp,
             seed=self._seed,
-            max_motion_planning_time=self._max_motion_planning_time,
         )
 
         return csp, samplers, policy, initialization
@@ -276,5 +303,25 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        # Coming soon.
-        pass
+        # Only train trainable ROM models.
+        if not isinstance(self._rom_model, TrainableROMModel):
+            return
+        # Only learn from cases where the robot triggered "done".
+        if not np.isclose(act[0], 2):
+            return
+        assert act[1] is None
+        # Check if the trigger was successful.
+        label = reward > 0
+        # Get the current position.
+        self._sim.set_state(obs)
+        pose = self._sim.robot.forward_kinematics(obs.robot_joints)
+        # Update the training data.
+        self._rom_model_training_data.append((np.array(pose.position), label))
+        # Retrain the ROM model.
+        self._rom_model.train(self._rom_model_training_data)
+
+    def get_metrics(self) -> dict[str, float]:
+        metrics: dict[str, float] = {}
+        if isinstance(self._rom_model, TrainableROMModel):
+            metrics.update(self._rom_model.get_metrics())
+        return metrics
