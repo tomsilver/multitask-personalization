@@ -26,8 +26,10 @@ def test_pybullet():
         act = env.action_space.sample()
         obs, reward, terminated, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
-        assert reward >= 0
-        assert not terminated
+        if terminated:
+            assert reward in {-1, 1}
+            break
+        assert reward == 0
         assert not truncated
 
     env.close()

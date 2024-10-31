@@ -80,7 +80,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             fixed_base=False,
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
-        robot.open_fingers()
         self.robot = robot
 
         # Create robot stand.
@@ -89,16 +88,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             radius=self.task_spec.robot_stand_radius,
             length=self.task_spec.robot_stand_length,
             physics_client_id=self.physics_client_id,
-        )
-        set_pose(
-            self.robot_stand_id, self.task_spec.robot_stand_pose, self.physics_client_id
-        )
-
-        # Save the transform between the base and stand.
-        world_to_base = self.robot.get_base_pose()
-        world_to_stand = get_pose(self.robot_stand_id, self.physics_client_id)
-        self.robot_base_to_stand = multiply_poses(
-            world_to_base.invert(), world_to_stand
         )
 
         # Create human.
@@ -117,11 +106,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self._rng,
             wheelchair_mounted=False,
         )
-        set_pose(
-            self.wheelchair.body,
-            self.task_spec.wheelchair_base_pose,
-            self.physics_client_id,
-        )
 
         # Create table.
         self.table_id = create_pybullet_block(
@@ -129,16 +113,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             half_extents=self.task_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(self.table_id, self.task_spec.table_pose, self.physics_client_id)
 
-        # Create object.
+        # Create cup.
         self.cup_id = create_pybullet_cylinder(
             self.task_spec.object_rgba,
             self.task_spec.object_radius,
             self.task_spec.object_length,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(self.cup_id, self.task_spec.object_pose, self.physics_client_id)
 
         # Create shelf.
         self.shelf_id = _create_shelf(
@@ -151,14 +133,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             num_layers=self.task_spec.shelf_num_layers,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
         # Create books.
         self.book_ids: list[int] = []
-        for book_rgba, book_half_extents, book_pose in zip(
+        for book_rgba, book_half_extents in zip(
             self.task_spec.book_rgbas,
             self.task_spec.book_half_extents,
-            self.task_spec.book_poses,
             strict=True,
         ):
             book_id = create_pybullet_block(
@@ -166,7 +146,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 half_extents=book_half_extents,
                 physics_client_id=self.physics_client_id,
             )
-            set_pose(book_id, book_pose, self.physics_client_id)
             self.book_ids.append(book_id)
 
         # Create side table.
@@ -175,9 +154,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             half_extents=self.task_spec.side_table_half_extents,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(
-            self.side_table_id, self.task_spec.side_table_pose, self.physics_client_id
-        )
 
         # Create tray.
         self.tray_id = create_pybullet_block(
@@ -185,11 +161,20 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             half_extents=self.task_spec.tray_half_extents,
             physics_client_id=self.physics_client_id,
         )
-        set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
 
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
+
+        # Reset all states.
+        self.reset()
+
+        # Save the transform between the base and stand.
+        world_to_base = self.robot.get_base_pose()
+        world_to_stand = get_pose(self.robot_stand_id, self.physics_client_id)
+        self.robot_base_to_stand = multiply_poses(
+            world_to_base.invert(), world_to_stand
+        )
 
         # Uncomment for debug / development.
         # while True:
@@ -253,9 +238,56 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[PyBulletState, dict[str, Any]]:
-        # Implement this in future PR.
+        # Add randomization in future PR.
         super().reset(seed=seed, options=options)
-        return self.get_state(), {}
+
+        # Reset robot.
+        self.robot.set_base(self.task_spec.robot_base_pose)
+        self.robot.set_joints(self.task_spec.initial_joints)
+        self.robot.open_fingers()
+
+        # Reset robot stand.
+        set_pose(
+            self.robot_stand_id, self.task_spec.robot_stand_pose, self.physics_client_id
+        )
+
+        # Reset wheelchair.
+        set_pose(
+            self.wheelchair.body,
+            self.task_spec.wheelchair_base_pose,
+            self.physics_client_id,
+        )
+
+        # Reset table.
+        set_pose(self.table_id, self.task_spec.table_pose, self.physics_client_id)
+
+        # Reset cup.
+        set_pose(self.cup_id, self.task_spec.object_pose, self.physics_client_id)
+
+        # Reset shelf.
+        set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
+
+        # Reset books.
+        for book_pose, book_id in zip(
+            self.task_spec.book_poses,
+            self.book_ids,
+            strict=True,
+        ):
+            set_pose(book_id, book_pose, self.physics_client_id)
+
+        # Reset side table.
+        set_pose(
+            self.side_table_id, self.task_spec.side_table_pose, self.physics_client_id
+        )
+
+        # Reset tray.
+        set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
+
+        # Reset held object statuses.
+        self.current_grasp_transform = None
+        self.current_held_object_id = None
+
+        return self.get_state(), self._get_info()
 
     def step(
         self, action: PyBulletAction
@@ -281,10 +313,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
             reward, done = self._get_reward_and_done(robot_indicated_done=False)
-            return self.get_state(), reward, done, False, {}
+            return self.get_state(), reward, done, False, self._get_info()
         if np.isclose(action[0], 2):
             reward, done = self._get_reward_and_done(robot_indicated_done=True)
-            return self.get_state(), reward, done, False, {}
+            return self.get_state(), reward, done, False, self._get_info()
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
@@ -321,7 +353,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
 
         reward, done = self._get_reward_and_done(robot_indicated_done=False)
-        return self.get_state(), reward, done, False, {}
+        return self.get_state(), reward, done, False, self._get_info()
 
     def _get_reward_and_done(
         self, robot_indicated_done: bool = False
@@ -334,12 +366,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 return 0.0, False
             # Must be holding a book.
             if self.current_held_object_id not in self.book_ids:
-                return 0.0, False
+                return -1.0, True
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_name = f"book{book_idx}"
             # Should be holding a preferred book.
             if book_name not in self._hidden_spec.book_preferences:
-                return 0.0, False
+                return -1.0, True
             # Holding a preferred book, so check if it's being held at a
             # position that is reachable by the person.
             end_effector_position = self.robot.get_end_effector_pose().position
@@ -347,10 +379,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 np.array(end_effector_position)
             )
             if not reachable:
-                return 0.0, False
+                return -1.0, True
             # Success!
             return 1.0, True
         raise NotImplementedError
+
+    def _get_info(self) -> dict[str, Any]:
+        return {"task_spec": self.task_spec}
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         target = get_link_pose(

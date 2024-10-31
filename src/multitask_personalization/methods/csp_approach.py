@@ -4,9 +4,16 @@ from typing import Any
 
 import gymnasium as gym
 
+from multitask_personalization.envs.pybullet.pybullet_csp import PyBulletCSPGenerator
+from multitask_personalization.envs.pybullet.pybullet_env import (
+    PyBulletEnv,
+    PyBulletState,
+)
+from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
 from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import TinyState
 from multitask_personalization.methods.approach import BaseApproach, _ActType, _ObsType
+from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import (
     CSPGenerator,
     CSPPolicy,
@@ -39,9 +46,19 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             # We will refactor this in a future PR.
             if isinstance(obs, TinyState):
                 self._csp_generator = TinyCSPGenerator(self._seed)
+            elif isinstance(obs, PyBulletState):
+                task_spec = info["task_spec"]
+                assert isinstance(task_spec, PyBulletTaskSpec)
+                sim = PyBulletEnv(task_spec, seed=self._seed)
+                rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
+                preferred_books = ["book2"]  # coming soon: learning this
+                self._csp_generator = PyBulletCSPGenerator(
+                    sim, rom_model, preferred_books, self._seed
+                )
             else:
                 raise NotImplementedError()
         explore = self._rng.uniform() < self._explore_epsilon
+        assert isinstance(self._csp_generator, CSPGenerator)
         csp, samplers, policy, initialization = self._csp_generator.generate(
             obs, explore=explore
         )
