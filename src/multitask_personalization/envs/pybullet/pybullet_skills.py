@@ -1,7 +1,5 @@
 """Python programs that implement various behaviors in PyBullet envs."""
 
-from typing import Iterator
-
 import numpy as np
 from pybullet_helpers.geometry import Pose, get_pose
 from pybullet_helpers.manipulation import (
@@ -22,29 +20,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-
-
-def generate_surface_placements(
-    surface_id: int, obj_id: int, sim: PyBulletEnv, rng: np.random.Generator
-) -> Iterator[Pose]:
-    """Sample placements uniformly on the top of the given surface."""
-    # NOTE: this function currently assumes that the surface is a cube and that
-    # the local frame is at the center of the cube.
-    surface_extents = sim.get_aabb_dimensions(surface_id)
-    object_extents = sim.get_aabb_dimensions(obj_id)
-    placement_lb = (
-        -surface_extents[0] / 2 + object_extents[0] / 2,
-        -surface_extents[1] / 2 + object_extents[1] / 2,
-        surface_extents[2] / 2 + object_extents[2] / 2,
-    )
-    placement_ub = (
-        surface_extents[0] / 2 - object_extents[0] / 2,
-        surface_extents[1] / 2 - object_extents[1] / 2,
-        surface_extents[2] / 2 + object_extents[2] / 2,
-    )
-
-    while True:
-        yield Pose(tuple(rng.uniform(placement_lb, placement_ub)))
 
 
 def get_pybullet_action_plan_from_kinematic_plan(
@@ -242,8 +217,8 @@ def get_plan_to_place_object(
     state: PyBulletState,
     object_name: str,
     surface_name: str,
+    placement_pose: Pose,
     sim: PyBulletEnv,
-    rng: np.random.Generator,
     max_motion_planning_candidates: int = 1,
     max_motion_planning_time: float = np.inf,
 ) -> list[PyBulletAction]:
@@ -252,7 +227,7 @@ def get_plan_to_place_object(
     object_id = sim.get_object_id_from_name(object_name)
     surface_id = sim.get_object_id_from_name(surface_name)
     collision_ids = sim.get_collision_ids() - {object_id}
-    placement_generator = generate_surface_placements(surface_id, object_id, sim, rng)
+    placement_generator = iter([placement_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     object_extents = sim.get_aabb_dimensions(object_id)
     kinematic_plan = get_kinematic_plan_to_place_object(

@@ -33,7 +33,6 @@ def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
 def test_pybullet_skills():
     """Tests for pybullet_skills.py."""
     seed = 123
-    rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec(side_table_pose=Pose(position=(1.45, 0.0, -0.1)))
     preferred_books = ["book2"]
     rom_model = SphericalROMModel(task_spec.human_spec)
@@ -69,12 +68,21 @@ def test_pybullet_skills():
     obs = _run_plan(move_to_tray_plan, env)
 
     # Test place book on tray.
+    surface_extents = sim.get_aabb_dimensions(sim.tray_id)
+    object_extents = sim.get_aabb_dimensions(sim.book_ids[1])
+    placement_pose = Pose(
+        (
+            -surface_extents[0] / 2 + object_extents[0] / 2,
+            0,
+            surface_extents[2] / 2 + object_extents[2] / 2,
+        )
+    )
     place_book_on_tray_plan = get_plan_to_place_object(
         obs,
         "book1",
         "tray",
+        placement_pose,
         sim,
-        rng,
     )
     obs = _run_plan(place_book_on_tray_plan, env)
     assert obs.held_object is None
