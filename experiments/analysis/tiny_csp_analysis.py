@@ -59,6 +59,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
                 "lw": 3,
                 "color": color,
             },
+            scatter=False,
             ax=ax1,
             label=f"Epsilon={epsilon}",
         )
