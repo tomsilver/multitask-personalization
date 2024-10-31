@@ -136,6 +136,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create books.
         self.book_ids: list[int] = []
+        self.book_descriptions: list[str] = []  # created in reset()
         for book_rgba, book_half_extents in zip(
             self.task_spec.book_rgbas,
             self.task_spec.book_half_extents,
@@ -274,11 +275,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
         # Reset books.
+        self.book_descriptions = []
         for book_pose, book_id in zip(
             self.task_spec.book_poses,
             self.book_ids,
             strict=True,
         ):
+            book_description = f"Title: 'Book {book_id}.' Author: 'Me.'"
+            self.book_descriptions.append(book_description)
             set_pose(book_id, book_pose, self.physics_client_id)
 
         # Reset side table.
@@ -376,7 +380,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_description = self.book_descriptions[book_idx]
             # Should be holding a preferred book.
-            if book_name not in self._hidden_spec.book_preferences:
+            if not self._hidden_spec.user_enjoys_book(book_description):
                 return -1.0, True
             # Holding a preferred book, so check if it's being held at a
             # position that is reachable by the person.
