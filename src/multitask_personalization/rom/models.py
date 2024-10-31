@@ -244,7 +244,8 @@ class SphericalROMModel(TrainableROMModel):
         self, position: NDArray, padding: float = 1e-6
     ) -> bool:
         distance = float(np.linalg.norm(position - self._sphere_center))
-        return distance < self._radius + padding
+        reachable = distance < self._radius + padding
+        return reachable
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return np.array(sample_spherical(self._sphere_center, self._radius, rng))
@@ -257,6 +258,7 @@ class SphericalROMModel(TrainableROMModel):
 
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         # Find decision boundary between maximal positive and minimal negative.
+        logging.info(f"Training SphericalROMModel with {len(data)} data")
         max_positive: float | None = None
         min_negative: float | None = None
         for position, label in data:
@@ -271,6 +273,7 @@ class SphericalROMModel(TrainableROMModel):
             new_params = np.inf
         else:
             new_params = (max_positive + min_negative) / 2
+        logging.info(f"Updating SphericalROMModel params to {new_params}")
         self.set_trainable_parameters(new_params)
 
     def get_metrics(self) -> dict[str, float]:
