@@ -1,1 +1,2 @@
 _target_: "multitask_personalization.methods.csp_approach.CSPApproach"
+explore_epsilon: 0.1

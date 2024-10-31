@@ -74,6 +74,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
 
     def get_episode_metrics(self) -> dict[str, float]:
         episode_metrics = super().get_episode_metrics()
+        episode_metrics["epsilon"] = self._explore_epsilon
         assert self._csp_generator is not None
         csp_metrics = self._csp_generator.get_metrics()
         assert not set(csp_metrics) & set(episode_metrics), "Metric name conflict"

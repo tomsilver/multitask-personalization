@@ -23,39 +23,45 @@ def _main(results_dir: Path, outfile: Path) -> None:
 
     # Make a plot showing returns over time.
     ax0.set_title("Returns")
-    sns.regplot(
-        df,
-        x="episode",
-        y="returns",
-        order=15,
-        scatter_kws={
-            "s": 2,
-            "color": (0, 0, 1, 0.1),
-        },
-        line_kws={
-            "lw": 3,
-            "color": "red",
-        },
-        ax=ax0,
-    )
+    for epsilon, color in zip(df.epsilon.unique(), ["red", "blue"], strict=True):
+        sns.regplot(
+            df[df.epsilon == epsilon],
+            x="episode",
+            y="returns",
+            order=15,
+            scatter_kws={
+                "s": 2,
+                "color": (0, 0, 1, 0.1),
+            },
+            line_kws={
+                "lw": 3,
+                "color": color,
+            },
+            scatter=False,
+            ax=ax0,
+            label=f"Epsilon={epsilon}",
+        )
+    ax0.legend()
 
     # Make a plot showing learned proximity over time.
     ax1.set_title("Learned Proximity")
-    sns.regplot(
-        df,
-        x="episode",
-        y="tiny_user_proximity_learned_distance",
-        order=15,
-        scatter_kws={
-            "s": 2,
-            "color": (0, 0, 1, 0.1),
-        },
-        line_kws={
-            "lw": 3,
-            "color": "red",
-        },
-        ax=ax1,
-    )
+    for epsilon, color in zip(df.epsilon.unique(), ["red", "blue"], strict=True):
+        sns.regplot(
+            df[df.epsilon == epsilon],
+            x="episode",
+            y="tiny_user_proximity_learned_distance",
+            order=15,
+            scatter_kws={
+                "s": 2,
+                "color": (0, 0, 1, 0.1),
+            },
+            line_kws={
+                "lw": 3,
+                "color": color,
+            },
+            ax=ax1,
+        )
+    ax1.legend()
 
     plt.tight_layout()
     plt.savefig(outfile, dpi=500)
