@@ -1,7 +1,9 @@
 """Analyze results for running the CSP approach in the TinyEnv, e.g.,
 
+```
 python experiments/run_single_experiment.py -m  approach=csp env=tiny \
-seed=1,2,3,4,5,6,7,8,9,10
+    seed=1,2,3,4,5,6,7,8,9,10
+```
 """
 
 import argparse

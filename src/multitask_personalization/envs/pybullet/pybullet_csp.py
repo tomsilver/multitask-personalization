@@ -173,9 +173,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if not explore:
             # Create a user preference constraint for the book.
             def _book_is_preferred(book_name: str) -> bool:
-                book_preferred = book_name in self._preferred_books
-                print("book_preferred:", book_preferred)
-                return book_preferred
+                return book_name in self._preferred_books
 
             book_preference_constraint = CSPConstraint(
                 "book_preference",
@@ -186,9 +184,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             # Create a handover constraint given the user ROM.
             def _handover_position_is_in_rom(position: NDArray) -> bool:
-                handover_in_rom = self._rom_model.check_position_reachable(position)
-                print("handover_in_rom:", handover_in_rom)
-                return handover_in_rom
+                return self._rom_model.check_position_reachable(position)
 
             handover_rom_constraint = CSPConstraint(
                 "handover_rom_constraint",
@@ -200,9 +196,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Create reaching constraints.
         def _book_grasp_is_reachable(yaw: NDArray) -> bool:
             pose = _book_grasp_to_pose(yaw)
-            grasp_reachable = _pose_is_reachable(pose, self._sim)
-            print("grasp_reachable:", grasp_reachable)
-            return grasp_reachable
+            return _pose_is_reachable(pose, self._sim)
 
         book_grasp_reachable_constraint = CSPConstraint(
             "book_reachable",
@@ -214,7 +208,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         def _handover_position_is_reachable(position: NDArray) -> bool:
             pose = _handover_position_to_pose(position)
             handover_reachable = _pose_is_reachable(pose, self._sim)
-            print("handover_reachable", handover_reachable)
             return handover_reachable
 
         handover_reachable_constraint = CSPConstraint(
