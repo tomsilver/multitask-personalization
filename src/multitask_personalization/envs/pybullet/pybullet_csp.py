@@ -9,6 +9,7 @@ from pybullet_helpers.geometry import Pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
+    sample_collision_free_inverse_kinematics,
 )
 from pybullet_helpers.math_utils import get_poses_facing_line
 from tomsutils.spaces import EnumSpace
@@ -216,6 +217,35 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             _handover_position_is_reachable,
         )
         constraints.append(handover_reachable_constraint)
+
+        # Create collision constraints.
+        def _handover_position_is_collision_free(
+            position: NDArray, book_name: str, yaw: NDArray
+        ) -> bool:
+            book_id = self._sim.get_object_id_from_name(book_name)
+            end_effector_pose = _handover_position_to_pose(position)
+            grasp_pose = _book_grasp_to_pose(yaw)
+            collision_bodies = self._sim.get_collision_ids() - {book_id}
+            samples = list(
+                sample_collision_free_inverse_kinematics(
+                    self._sim.robot,
+                    end_effector_pose,
+                    collision_bodies,
+                    self._rng,
+                    held_object=book_id,
+                    base_link_to_held_obj=grasp_pose.invert(),
+                    max_candidates=1,
+                )
+            )
+            assert len(samples) <= 1
+            return len(samples) == 1
+
+        handover_collision_free_constraint = CSPConstraint(
+            "handover_collision_free",
+            [handover_position, book, book_grasp],
+            _handover_position_is_collision_free,
+        )
+        constraints.append(handover_collision_free_constraint)
 
         ################################### CSP ###################################
 
