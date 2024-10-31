@@ -22,7 +22,7 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-from multitask_personalization.rom.models import ROMModel
+from multitask_personalization.rom.models import ROMModel, TrainableROMModel
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
@@ -134,6 +134,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._rom_model = rom_model
         self._preferred_books = preferred_books
         self._max_motion_planning_time = max_motion_planning_time
+        self._rom_model_training_data: list[tuple[NDArray, bool]] = []
 
     def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
         CSP,
@@ -171,25 +172,30 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         ############################### Constraints ###############################
 
-        # Create a user preference constraint for the book.
-        def _book_is_preferred(book_name: str) -> bool:
-            return book_name in self._preferred_books
+        constraints: list[CSPConstraint] = []
 
-        book_preference_constraint = CSPConstraint(
-            "book_preference",
-            [book],
-            _book_is_preferred,
-        )
+        if not explore:
+            # Create a user preference constraint for the book.
+            def _book_is_preferred(book_name: str) -> bool:
+                return book_name in self._preferred_books
 
-        # Create a handover constraint given the user ROM.
-        def _handover_position_is_in_rom(position: NDArray) -> bool:
-            return self._rom_model.check_position_reachable(position)
+            book_preference_constraint = CSPConstraint(
+                "book_preference",
+                [book],
+                _book_is_preferred,
+            )
+            constraints.append(book_preference_constraint)
 
-        handover_rom_constraint = CSPConstraint(
-            "handover_rom_constraint",
-            [handover_position],
-            _handover_position_is_in_rom,
-        )
+            # Create a handover constraint given the user ROM.
+            def _handover_position_is_in_rom(position: NDArray) -> bool:
+                return self._rom_model.check_position_reachable(position)
+
+            handover_rom_constraint = CSPConstraint(
+                "handover_rom_constraint",
+                [handover_position],
+                _handover_position_is_in_rom,
+            )
+            constraints.append(handover_rom_constraint)
 
         # Create reaching constraints.
         def _book_grasp_is_reachable(yaw: NDArray) -> bool:
@@ -201,6 +207,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             [book_grasp],
             _book_grasp_is_reachable,
         )
+        constraints.append(book_grasp_reachable_constraint)
 
         def _handover_position_is_reachable(position: NDArray) -> bool:
             pose = _handover_position_to_pose(position)
@@ -211,13 +218,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             [handover_position],
             _handover_position_is_reachable,
         )
-
-        constraints = [
-            book_preference_constraint,
-            handover_rom_constraint,
-            book_grasp_reachable_constraint,
-            handover_reachable_constraint,
-        ]
+        constraints.append(handover_reachable_constraint)
 
         ################################### CSP ###################################
 
@@ -276,5 +277,19 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        # Coming soon.
-        pass
+        # Only train trainable ROM models.
+        if not isinstance(self._rom_model, TrainableROMModel):
+            return
+        # Only learn from cases where the robot triggered "done".
+        if not np.isclose(act[0], 2):
+            return
+        assert act[1] is None
+        # Check if the trigger was successful.
+        label = reward > 0
+        # Get the current position.
+        self._sim.set_state(obs)
+        pose = self._sim.robot.forward_kinematics(obs.robot_joints)
+        # Update the training data.
+        self._rom_model_training_data.append((np.array(pose.position), label))
+        # Retrain the ROM model.
+        self._rom_model.train(self._rom_model_training_data)
