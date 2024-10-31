@@ -227,6 +227,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         set_pose(self.cup_id, state.cup_pose, self.physics_client_id)
         for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
             set_pose(book_id, book_pose, self.physics_client_id)
+        print("ASNDJKANDSKJDKNSKAAD")
         self.book_descriptions = state.book_descriptions
         self.current_grasp_transform = state.grasp_transform
         obj_name_to_obj = {
