@@ -1,8 +1,10 @@
 """Script for running experiments with hydra.
 
-Example:
-    python experiments/run_single_experiment.py -m seed=1,2,3 \
-        approach=csp,random env=tiny
+Examples:
+```
+    python experiments/run_single_experiment.py +experiment=tiny_csp
+    python experiments/run_single_experiment.py +experiment=pybullet_csp
+```
 """
 
 import logging
