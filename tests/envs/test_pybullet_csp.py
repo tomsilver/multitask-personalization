@@ -42,7 +42,10 @@ def test_pybullet_csp():
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
-        sim, rom_model, preferred_books, seed, max_motion_planning_time=0.1
+        sim,
+        rom_model,
+        preferred_books,
+        seed,
     )
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 

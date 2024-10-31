@@ -110,7 +110,8 @@ def get_plan_to_pick_object(
     object_name: str,
     grasp_pose: Pose,
     sim: PyBulletEnv,
-    max_motion_planning_time: float = 1.0,
+    max_motion_planning_candidates: int = 1,
+    max_motion_planning_time: float = np.inf,
 ) -> list[PyBulletAction]:
     """Get a plan to pick up an object from some current state."""
     sim.set_state(state)
@@ -127,6 +128,7 @@ def get_plan_to_pick_object(
         collision_ids,
         grasp_generator=grasp_generator,
         max_motion_planning_time=max_motion_planning_time,
+        max_motion_planning_candidates=max_motion_planning_candidates,
     )
     assert kinematic_plan is not None
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
@@ -207,7 +209,7 @@ def get_plan_to_handover_object(
     handover_pose: Pose,
     sim: PyBulletEnv,
     seed: int = 0,
-    max_motion_planning_time: float = 1.0,
+    max_motion_planning_candidates: int = 1,
 ) -> list[PyBulletAction]:
     """Get a plan to hand over a held object while next to a person."""
     sim.set_state(state)
@@ -224,7 +226,7 @@ def get_plan_to_handover_object(
         collision_ids=collision_ids,
         end_effector_frame_to_plan_frame=Pose.identity(),
         seed=seed,
-        max_time=max_motion_planning_time,
+        max_candidate_plans=max_motion_planning_candidates,
         held_object=object_id,
         base_link_to_held_obj=kinematic_state.attachments[object_id],
     )
@@ -242,7 +244,8 @@ def get_plan_to_place_object(
     surface_name: str,
     sim: PyBulletEnv,
     rng: np.random.Generator,
-    max_motion_planning_time: float = 1.0,
+    max_motion_planning_candidates: int = 1,
+    max_motion_planning_time: float = np.inf,
 ) -> list[PyBulletAction]:
     """Get a plan to place a held object on a given surface."""
     sim.set_state(state)
@@ -261,6 +264,7 @@ def get_plan_to_place_object(
         placement_generator,
         preplace_translation_magnitude=object_extents[2],
         max_motion_planning_time=max_motion_planning_time,
+        max_motion_planning_candidates=max_motion_planning_candidates,
     )
     assert kinematic_plan is not None
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)

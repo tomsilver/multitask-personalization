@@ -41,12 +41,10 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         csp: CSP,
         seed: int = 0,
-        max_motion_planning_time: float = 1.0,
     ) -> None:
         super().__init__(csp, seed)
         self._sim = sim
         self._current_plan: list[PyBulletAction] = []
-        self._max_motion_planning_time = max_motion_planning_time
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
@@ -69,7 +67,6 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             book_name,
             book_grasp,
             self._sim,
-            max_motion_planning_time=self._max_motion_planning_time,
         )
 
     def _get_handover_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
@@ -82,7 +79,6 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             handover_pose,
             self._sim,
             self._seed,
-            max_motion_planning_time=self._max_motion_planning_time,
         )
         # Finish the plan by indicating done.
         handover_plan.append((2, None))
@@ -127,13 +123,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         rom_model: ROMModel,
         preferred_books: list[str],
         seed: int = 0,
-        max_motion_planning_time: float = 1.0,
     ) -> None:
         super().__init__(seed=seed)
         self._sim = sim
         self._rom_model = rom_model
         self._preferred_books = preferred_books
-        self._max_motion_planning_time = max_motion_planning_time
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
 
     def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
@@ -142,7 +136,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         CSPPolicy[PyBulletState, PyBulletAction],
         dict[CSPVariable, Any],
     ]:
-        
+
         self._sim.set_state(obs)
 
         # Create a CSP for the task of handing over a book.
@@ -273,7 +267,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             self._sim,
             csp,
             seed=self._seed,
-            max_motion_planning_time=self._max_motion_planning_time,
         )
 
         return csp, samplers, policy, initialization

@@ -24,7 +24,7 @@ from multitask_personalization.utils import (
     rotation_matrix_x,
     rotation_matrix_y,
     rotmat2euler,
-    sample_spherical,
+    sample_within_sphere,
 )
 
 
@@ -241,18 +241,18 @@ class SphericalROMModel(TrainableROMModel):
         self._radius = params
 
     def check_position_reachable(
-        self, position: NDArray, padding: float = 1e-6
+        self, position: NDArray, padding: float = 1e-4
     ) -> bool:
         distance = float(np.linalg.norm(position - self._sphere_center))
         reachable = distance < self._radius + padding
         return reachable
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
-        return np.array(sample_spherical(self._sphere_center, self._radius, rng))
+        return np.array(sample_within_sphere(self._sphere_center, self._radius, rng))
 
     def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:
         return [
-            np.array(sample_spherical(self._sphere_center, self._radius, self._rng))
+            np.array(sample_within_sphere(self._sphere_center, self._radius, self._rng))
             for _ in range(n)
         ]
 

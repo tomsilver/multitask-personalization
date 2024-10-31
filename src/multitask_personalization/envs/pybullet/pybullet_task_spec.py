@@ -121,20 +121,25 @@ class PyBulletTaskSpec:
         ),
     )
 
-    side_table_pose: Pose = Pose(position=(1.45, 0.0, -0.1))
+    # NOTE: the side table and tray are effectively disabled for now.
+    side_table_pose: Pose = Pose(position=(-1000, -1000, -0.1))
     side_table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     side_table_half_extents: tuple[float, float, float] = (0.025, 0.1, 0.4)
 
     tray_half_extents: tuple[float, float, float] = (0.4, 0.2, 0.025)
-    tray_pose: Pose = Pose(
-        position=(
-            side_table_pose.position[0]
-            + -(tray_half_extents[0] - side_table_half_extents[0]),
-            side_table_pose.position[1],
-            side_table_pose.position[2] + side_table_half_extents[2],
-        )
-    )
     tray_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
+
+    @property
+    def tray_pose(self) -> Pose:
+        """Calculate the tray pose relative to the side table pose."""
+        return Pose(
+            position=(
+                self.side_table_pose.position[0]
+                + -(self.tray_half_extents[0] - self.side_table_half_extents[0]),
+                self.side_table_pose.position[1],
+                self.side_table_pose.position[2] + self.side_table_half_extents[2],
+            )
+        )
 
 
 @dataclass(frozen=True)
