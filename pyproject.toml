@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
    "matplotlib",
+   "seaborn",
    "numpy",
    "scipy",
    "scikit-image",
@@ -68,5 +69,6 @@ module = [
     "skimage.*",
     "assistive_gym.*",
     "pybullet.*",
+    "seaborn.*",
 ]
 ignore_missing_imports = true

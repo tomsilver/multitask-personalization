@@ -17,3 +17,7 @@ class BaseApproach(Agent[_ObsType, _ActType]):
     @abc.abstractmethod
     def _get_action(self) -> _ActType:
         """The main action selection method."""
+
+    def get_episode_metrics(self) -> dict[str, float]:
+        """Return any approach-specific metrics for the present episode."""
+        return {}

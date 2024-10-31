@@ -71,3 +71,11 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._csp_generator.learn_from_transition(
             obs, act, next_obs, reward, done, info
         )
+
+    def get_episode_metrics(self) -> dict[str, float]:
+        episode_metrics = super().get_episode_metrics()
+        assert self._csp_generator is not None
+        csp_metrics = self._csp_generator.get_metrics()
+        assert not set(csp_metrics) & set(episode_metrics), "Metric name conflict"
+        episode_metrics.update(csp_metrics)
+        return episode_metrics

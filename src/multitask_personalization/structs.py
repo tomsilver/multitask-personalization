@@ -145,3 +145,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         info: dict[str, Any],
     ) -> None:
         """Update the generator given the new data point."""
+
+    def get_metrics(self) -> dict[str, float]:
+        """Report any metrics, e.g., about learned constraint parameters."""
+        return {}

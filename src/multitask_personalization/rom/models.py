@@ -1,6 +1,7 @@
 """ROM models."""
 
 import abc
+import logging
 import pickle
 from pathlib import Path
 from typing import Any
@@ -153,7 +154,7 @@ class GroundTruthROMModel(ROMModel):
             "rb",
         ) as f:
             self._reachable_joints = pickle.load(f)
-        print(
+        logging.info(
             f"Loaded {len(self._reachable_joints)} points"
             + f" from {self._subject}_{self._condition}_dense_points.pkl"
         )
@@ -167,7 +168,7 @@ class GroundTruthROMModel(ROMModel):
         if reachable_points_cache_path.exists():
             with open(reachable_points_cache_path, "rb") as f:
                 self._reachable_points = pickle.load(f)
-            print("Loaded reachable points from cache.")
+            logging.info("Loaded reachable points from cache.")
         else:
             # Create reachable point cloud using human FK.
             self._reachable_points = [
@@ -180,7 +181,7 @@ class GroundTruthROMModel(ROMModel):
                 "wb",
             ) as f:
                 pickle.dump(self._reachable_points, f)
-            print("Cached reachable points.")
+            logging.info("Cached reachable points.")
         self._reachable_kd_tree = KDTree(self._reachable_points)
 
         # Uncomment for debugging.
@@ -313,7 +314,7 @@ class LearnedROMModel(TrainableROMModel):
             )
         self._dense_joint_samples = joint_angle_samples
         self.set_trainable_parameters(self._rom_model_context_parameters)
-        print("Learned ROM model created")
+        logging.info("Learned ROM model created")
 
         # Uncomment for debugging.
         # self._visualize_reachable_points()
@@ -350,8 +351,8 @@ class LearnedROMModel(TrainableROMModel):
         )
         num_pos = np.sum(preds == 1)
         num_neg = np.sum(preds == 0)
-        print(f"Number of positive samples: {num_pos}")
-        print(f"Number of negative samples: {num_neg}")
+        logging.info(f"Number of positive samples: {num_pos}")
+        logging.info(f"Number of negative samples: {num_neg}")
 
         self._reachable_joints = denormalize_samples(
             self._dense_joint_samples[preds == 1]
@@ -361,7 +362,7 @@ class LearnedROMModel(TrainableROMModel):
         ]
         assert len(self._reachable_points) != 0, "No reachable points."
         self._reachable_kd_tree = KDTree(self._reachable_points)
-        print(
+        logging.info(
             f"Updated ROM model parameters, resulting in {len(self._reachable_points)}"
             " reachable points."
         )

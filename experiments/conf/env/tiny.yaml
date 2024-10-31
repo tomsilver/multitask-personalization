@@ -1,5 +1,5 @@
 _target_: "multitask_personalization.envs.tiny.tiny_env.TinyEnv"
 hidden_spec:
   _target_: "multitask_personalization.envs.tiny.tiny_env.TinyHiddenSpec"
-  desired_distance: 1.0
+  desired_distance: 2.5
   distance_threshold: 0.5

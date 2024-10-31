@@ -7,7 +7,6 @@ Example:
 
 import logging
 import time
-from pathlib import Path
 
 import gymnasium as gym
 import hydra
@@ -28,8 +27,7 @@ def _main(cfg: DictConfig) -> None:
     env = hydra.utils.instantiate(cfg.env, seed=cfg.seed)
     assert isinstance(env, gym.Env)
     if cfg.record_videos:
-        logdir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-        env = gym.wrappers.RecordVideo(env, Path(logdir) / cfg.video_dir)
+        env = gym.wrappers.RecordVideo(env, cfg.video_dir)
     env.action_space.seed(cfg.seed)
     approach = hydra.utils.instantiate(
         cfg.approach,
@@ -42,6 +40,7 @@ def _main(cfg: DictConfig) -> None:
     # Run a certain number of episodes and log metrics along the way.
     metrics: list[dict[str, float]] = []
     for episode in range(cfg.num_episodes):
+        logging.info(f"Starting episode {episode}")
         obs, info = env.reset()
         approach.reset(obs, info)
         episode_returns = 0.0
@@ -62,22 +61,16 @@ def _main(cfg: DictConfig) -> None:
             "returns": episode_returns,
             "steps": episode_steps,
             "duration": episode_duration,
+            **approach.get_episode_metrics(),
         }
+        logging.info(f"Finished episode with returns {episode_returns}")
         metrics.append(episode_metrics)
     env.close()
 
-    # Aggregate and print results.
+    # Aggregate and save results.
     df = pd.DataFrame(metrics)
-    with pd.option_context(
-        "display.max_colwidth",
-        None,
-        "display.max_columns",
-        None,
-        "display.max_rows",
-        None,
-    ):
-
-        print(df)
+    df.to_csv(cfg.results_file)
+    logging.info(f"Wrote out results to {cfg.results_file}")
 
 
 if __name__ == "__main__":

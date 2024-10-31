@@ -156,3 +156,8 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         min_positive_dist = min(positive_dists)
         max_positive_dist = max(positive_dists)
         self._desired_distance = (min_positive_dist + max_positive_dist) / 2
+
+    def get_metrics(self) -> dict[str, float]:
+        return {
+            "tiny_user_proximity_learned_distance": self._desired_distance,
+        }
