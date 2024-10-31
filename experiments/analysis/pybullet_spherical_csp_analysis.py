@@ -2,8 +2,8 @@
 spherical ROM model e.g.,
 
 ```
-python experiments/run_single_experiment.py -m approach=csp env=pybullet \
-    seed=1,2,3,4,5,6,7,8,9,10
+python experiments/run_single_experiment.py -m +experiment=pybullet_csp \
+    seed="range(1, 11)"
 ```
 """
 

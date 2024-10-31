@@ -44,6 +44,7 @@ def test_pybullet_csp():
     csp_generator = PyBulletCSPGenerator(
         sim,
         rom_model,
+        preferred_books,
         seed,
     )
     csp, samplers, policy, initialization = csp_generator.generate(obs)

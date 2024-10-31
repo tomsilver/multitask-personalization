@@ -127,6 +127,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         super().__init__(seed=seed)
         self._sim = sim
         self._rom_model = rom_model
+        self._preferred_books = preferred_books
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
 
     def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
@@ -158,7 +159,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         ############################## Initialization #############################
 
         initialization = {
-            book: self._sim.book_descriptions[0],
+            book: book_names[0],
             book_grasp: np.array([-np.pi / 2]),
             handover_position: np.zeros((3,)),
         }
@@ -169,9 +170,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if not explore:
             # Create a user preference constraint for the book.
-            def _book_is_preferred(book_description: str) -> bool:
-                del book_description
-                return True  # coming soon!
+            def _book_is_preferred(book_name: str) -> bool:
+                return book_name in self._preferred_books
 
             book_preference_constraint = CSPConstraint(
                 "book_preference",
@@ -217,9 +217,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         # Create collision constraints.
         def _handover_position_is_collision_free(
-            position: NDArray, book_description: str, yaw: NDArray
+            position: NDArray, book_name: str, yaw: NDArray
         ) -> bool:
-            book_id = self._sim.get_object_id_from_name(book_description)
+            book_id = self._sim.get_object_id_from_name(book_name)
             end_effector_pose = _handover_position_to_pose(position)
             grasp_pose = _book_grasp_to_pose(yaw)
             collision_bodies = self._sim.get_collision_ids() - {book_id}
