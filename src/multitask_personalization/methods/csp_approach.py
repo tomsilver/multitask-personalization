@@ -45,15 +45,15 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             # At the moment, this part is extremely environment-specific.
             # We will refactor this in a future PR.
             if isinstance(obs, TinyState):
-                self._csp_generator = TinyCSPGenerator(self._seed)
+                self._csp_generator = TinyCSPGenerator(seed=self._seed)
             elif isinstance(obs, PyBulletState):
                 task_spec = info["task_spec"]
                 assert isinstance(task_spec, PyBulletTaskSpec)
                 sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=False)
-                rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
+                rom_model = SphericalROMModel(task_spec.human_spec, seed=self._seed)
                 preferred_books = ["book2"]  # coming soon: learning this
                 self._csp_generator = PyBulletCSPGenerator(
-                    sim, rom_model, preferred_books, self._seed
+                    sim, rom_model, preferred_books, seed=self._seed
                 )
             else:
                 raise NotImplementedError()
