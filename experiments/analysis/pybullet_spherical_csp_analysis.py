@@ -1,4 +1,4 @@
-r"""Analyze results for running the CSP approach in the PyBullet with the
+"""Analyze results for running the CSP approach in the PyBullet with the
 spherical ROM model e.g.,
 
 python experiments/run_single_experiment.py -m seed=1,2,3,4,5,6,7,8,9,10
