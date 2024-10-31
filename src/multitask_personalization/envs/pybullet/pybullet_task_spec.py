@@ -146,5 +146,11 @@ class PyBulletTaskSpec:
 class HiddenTaskSpec:
     """Defines hidden parameters for a pybullet environment."""
 
-    book_preferences: list[str]
+    book_preferences: str  # a natural language description
     rom_model: ROMModel
+
+    def user_enjoys_book(self, book_description: str) -> bool:
+        """Report whether the user would like the book."""
+        # Coming soon: actual implementation.
+        del book_description
+        return True

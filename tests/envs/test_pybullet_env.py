@@ -14,9 +14,9 @@ def test_pybullet():
     seed = 123
 
     task_spec = PyBulletTaskSpec()
-    preferred_books = ["book2"]
+    book_preferences = "I like pretty much anything"
     rom_model = SphericalROMModel(task_spec.human_spec)
-    hidden_spec = HiddenTaskSpec(book_preferences=preferred_books, rom_model=rom_model)
+    hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)
     env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
     env.action_space.seed(seed)
     obs, _ = env.reset()

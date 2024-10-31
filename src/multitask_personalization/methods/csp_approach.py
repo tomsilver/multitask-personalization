@@ -51,10 +51,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 assert isinstance(task_spec, PyBulletTaskSpec)
                 sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=False)
                 rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
-                preferred_books = ["book2"]  # coming soon: learning this
-                self._csp_generator = PyBulletCSPGenerator(
-                    sim, rom_model, preferred_books, self._seed
-                )
+                self._csp_generator = PyBulletCSPGenerator(sim, rom_model, self._seed)
             else:
                 raise NotImplementedError()
         explore = self._rng.uniform() < self._explore_epsilon

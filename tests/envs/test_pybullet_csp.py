@@ -22,9 +22,9 @@ def test_pybullet_csp():
     seed = 123
     rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec()
-    preferred_books = ["book2"]
+    book_preferences = "I like pretty much anything"
     rom_model = SphericalROMModel(task_spec.human_spec)
-    hidden_spec = HiddenTaskSpec(book_preferences=preferred_books, rom_model=rom_model)
+    hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)
 
     # Create a real environment.
     env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
@@ -44,7 +44,6 @@ def test_pybullet_csp():
     csp_generator = PyBulletCSPGenerator(
         sim,
         rom_model,
-        preferred_books,
         seed,
     )
     csp, samplers, policy, initialization = csp_generator.generate(obs)
