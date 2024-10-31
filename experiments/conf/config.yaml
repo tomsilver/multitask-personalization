@@ -8,10 +8,10 @@ hydra:
 video_dir: ${hydra:runtime.output_dir}/videos
 results_file: ${hydra:runtime.output_dir}/results.csv
 seed: 0
-num_episodes: 1000
-max_episode_length: 100
+num_episodes: 25
+max_episode_length: 1000
 record_videos: False
 defaults:
   - _self_
   - approach: random
-  - env: tiny
+  - env: pybullet

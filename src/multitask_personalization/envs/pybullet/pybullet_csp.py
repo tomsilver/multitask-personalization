@@ -162,7 +162,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         initialization = {
             book: book_names[0],
-            book_grasp: np.zeros((1,)),
+            book_grasp: np.array([-np.pi / 2]),
             handover_position: np.zeros((3,)),
         }
 
