@@ -210,6 +210,10 @@ class TrainableROMModel(ROMModel):
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         """Update trainable parameters given a dataset of (position, label)."""
 
+    def get_metrics(self) -> dict[str, float]:
+        """Optionally report metrics, e.g., learned parameters."""
+        return {}
+
 
 class SphericalROMModel(TrainableROMModel):
     """ROM model with spherical reachability."""
@@ -268,6 +272,9 @@ class SphericalROMModel(TrainableROMModel):
         else:
             new_params = (max_positive + min_negative) / 2
         self.set_trainable_parameters(new_params)
+
+    def get_metrics(self) -> dict[str, float]:
+        return {"spherical_rom_radius": self._radius}
 
 
 class LearnedROMModel(TrainableROMModel):

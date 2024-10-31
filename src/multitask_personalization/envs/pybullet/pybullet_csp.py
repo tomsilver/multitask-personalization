@@ -293,3 +293,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._rom_model_training_data.append((np.array(pose.position), label))
         # Retrain the ROM model.
         self._rom_model.train(self._rom_model_training_data)
+
+    def get_metrics(self) -> dict[str, float]:
+        metrics: dict[str, float] = {}
+        if isinstance(self._rom_model, TrainableROMModel):
+            metrics.update(self._rom_model.get_metrics())
+        return metrics
