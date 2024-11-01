@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -424,6 +425,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     enjoyed=False,
                     seed=self._seed,
                 )
+                logging.info(f"Human says: {self.current_human_text}")
                 return -1.0, True
             # Holding a preferred book, so check if it's being held at a
             # position that is reachable by the person.
@@ -443,6 +445,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 enjoyed=True,
                 seed=self._seed,
             )
+            logging.info(f"Human says: {self.current_human_text}")
             return 1.0, True
         raise NotImplementedError
 
