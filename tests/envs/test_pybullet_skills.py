@@ -34,12 +34,20 @@ def test_pybullet_skills():
     """Tests for pybullet_skills.py."""
     seed = 123
     task_spec = PyBulletTaskSpec(side_table_pose=Pose(position=(1.45, 0.0, -0.1)))
-    book_preferences = "I like pretty much anything"
+    book_preferences = (
+        "I enjoy fiction, especially science fiction, but I hate nonfiction"
+    )
     rom_model = SphericalROMModel(task_spec.human_spec)
     hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)
 
     # Create a real environment.
-    env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
+    env = PyBulletEnv(
+        task_spec,
+        hidden_spec=hidden_spec,
+        use_gui=False,
+        seed=seed,
+        llm_use_cache_only=True,
+    )
 
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo
@@ -51,7 +59,7 @@ def test_pybullet_skills():
 
     # Create a simulator.
     sim = PyBulletEnv(task_spec, use_gui=False, seed=seed)
-    book0, book1 = sim.book_descriptions[:2]
+    book0, book1 = obs.book_descriptions[:2]
 
     # Test pick book.
     grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))

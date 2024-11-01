@@ -14,10 +14,18 @@ def test_pybullet():
     seed = 123
 
     task_spec = PyBulletTaskSpec()
-    book_preferences = "I like pretty much anything"
+    book_preferences = (
+        "I enjoy fiction, especially science fiction, but I hate nonfiction"
+    )
     rom_model = SphericalROMModel(task_spec.human_spec)
     hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)
-    env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
+    env = PyBulletEnv(
+        task_spec,
+        hidden_spec=hidden_spec,
+        use_gui=False,
+        seed=seed,
+        llm_use_cache_only=True,
+    )
     env.action_space.seed(seed)
     obs, _ = env.reset()
     assert isinstance(obs, PyBulletState)

@@ -1,4 +1,4 @@
 _target_: "multitask_personalization.envs.pybullet.pybullet_task_spec.HiddenTaskSpec"
-book_preferences: "I like pretty much anything"
+book_preferences: "I enjoy fiction, especially science fiction, but I hate nonfiction"
 defaults:
   - /rom_model: spherical

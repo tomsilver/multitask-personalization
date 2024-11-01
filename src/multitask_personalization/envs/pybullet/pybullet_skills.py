@@ -51,7 +51,7 @@ def get_kinematic_state_from_pybullet_state(
         assert pybullet_state.grasp_transform is not None
         attachments[sim.cup_id] = pybullet_state.grasp_transform
     for book_id, book_description in zip(
-        sim.book_ids, sim.book_descriptions, strict=True
+        sim.book_ids, pybullet_state.book_descriptions, strict=True
     ):
         if pybullet_state.held_object == book_description:
             assert pybullet_state.grasp_transform is not None
