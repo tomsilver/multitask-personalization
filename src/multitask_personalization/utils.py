@@ -81,7 +81,7 @@ def solve_csp(
     initialization: dict[CSPVariable, Any],
     samplers: list[CSPSampler],
     rng: np.random.Generator,
-    max_iters: int = 1_000_000,
+    max_iters: int = 100_000,
 ) -> dict[CSPVariable, Any] | None:
     """A very naive solver for CSPs."""
     sol = initialization.copy()
