@@ -408,6 +408,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 return -1.0, True
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_description = self.book_descriptions[book_idx]
+            # Check if the book is reachable.
+            end_effector_position = self.robot.get_end_effector_pose().position
+            reachable = self._hidden_spec.rom_model.check_position_reachable(
+                np.array(end_effector_position)
+            )
+            if not reachable:
+                return -1.0, True
             # Should be holding a preferred book.
             if not user_would_enjoy_book(
                 book_description,
@@ -427,15 +434,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 )
                 logging.info(f"Human says: {self.current_human_text}")
                 return -1.0, True
-            # Holding a preferred book, so check if it's being held at a
-            # position that is reachable by the person.
-            end_effector_position = self.robot.get_end_effector_pose().position
-            reachable = self._hidden_spec.rom_model.check_position_reachable(
-                np.array(end_effector_position)
-            )
-            if not reachable:
-                return -1.0, True
-            # Success!
             # The robot is successful in handing over the book. Have the user
             # elaborate on why they like this book.
             self.current_human_text = _explain_user_book_preference(
