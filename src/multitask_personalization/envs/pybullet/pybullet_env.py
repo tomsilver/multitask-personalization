@@ -136,6 +136,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create books.
         self.book_ids: list[int] = []
+        self.book_descriptions: list[str] = []  # created in reset()
         for book_rgba, book_half_extents in zip(
             self.task_spec.book_rgbas,
             self.task_spec.book_half_extents,
@@ -194,8 +195,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             None: None,
             self.cup_id: "cup",
         }
-        for i, book_id in enumerate(self.book_ids):
-            obj_to_obj_name[book_id] = f"book{i}"
+        for book_id, book_description in zip(
+            self.book_ids, self.book_descriptions, strict=True
+        ):
+            obj_to_obj_name[book_id] = book_description
 
         held_object = obj_to_obj_name[self.current_held_object_id]
         return PyBulletState(
@@ -205,6 +208,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             human_joints,
             cup_pose,
             book_poses,
+            self.book_descriptions,
             self.current_grasp_transform,
             held_object,
         )
@@ -223,13 +227,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         set_pose(self.cup_id, state.cup_pose, self.physics_client_id)
         for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
             set_pose(book_id, book_pose, self.physics_client_id)
+        self.book_descriptions = state.book_descriptions
         self.current_grasp_transform = state.grasp_transform
         obj_name_to_obj = {
             None: None,
             "cup": self.cup_id,
         }
-        for i, book_id in enumerate(self.book_ids):
-            obj_name_to_obj[f"book{i}"] = book_id
+        for book_id, book_description in zip(
+            self.book_ids, self.book_descriptions, strict=True
+        ):
+            obj_name_to_obj[book_description] = book_id
         self.current_held_object_id = obj_name_to_obj[state.held_object]
 
     def reset(
@@ -268,11 +275,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
         # Reset books.
+        self.book_descriptions = []
         for book_pose, book_id in zip(
             self.task_spec.book_poses,
             self.book_ids,
             strict=True,
         ):
+            book_description = f"Title: 'Book {book_id}.' Author: 'Me.'"
+            self.book_descriptions.append(book_description)
             set_pose(book_id, book_pose, self.physics_client_id)
 
         # Reset side table.
@@ -368,9 +378,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if self.current_held_object_id not in self.book_ids:
                 return -1.0, True
             book_idx = self.book_ids.index(self.current_held_object_id)
-            book_name = f"book{book_idx}"
+            book_description = self.book_descriptions[book_idx]
             # Should be holding a preferred book.
-            if book_name not in self._hidden_spec.book_preferences:
+            if not self._hidden_spec.user_enjoys_book(book_description):
                 return -1.0, True
             # Holding a preferred book, so check if it's being held at a
             # position that is reachable by the person.
@@ -401,8 +411,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def get_object_id_from_name(self, object_name: str) -> int:
         """Get the PyBullet object ID given a name."""
-        if object_name.startswith("book"):
-            idx = int(object_name[len("book") :])
+        if object_name in self.book_descriptions:
+            idx = self.book_descriptions.index(object_name)
             return self.book_ids[idx]
         return {
             "cup": self.cup_id,

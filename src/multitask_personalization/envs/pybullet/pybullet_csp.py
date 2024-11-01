@@ -61,22 +61,22 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
     def _get_pick_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out empty-handed and near the books."""
-        book_name = self._get_value("book")
+        book_description = self._get_value("book")
         book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
         return get_plan_to_pick_object(
             obs,
-            book_name,
+            book_description,
             book_grasp,
             self._sim,
         )
 
     def _get_handover_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out holding book and near person."""
-        book_name = self._get_value("book")
+        book_description = self._get_value("book")
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
         handover_plan = get_plan_to_handover_object(
             obs,
-            book_name,
+            book_description,
             handover_pose,
             self._sim,
             self._seed,
@@ -122,13 +122,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         sim: PyBulletEnv,
         rom_model: ROMModel,
-        preferred_books: list[str],
         seed: int = 0,
     ) -> None:
         super().__init__(seed=seed)
         self._sim = sim
         self._rom_model = rom_model
-        self._preferred_books = preferred_books
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
 
     def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
@@ -145,9 +143,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         ################################ Variables ################################
 
         # Choose a book to fetch.
-        book_names = [f"book{i}" for i in range(len(self._sim.book_ids))]
-        assert set(self._preferred_books).issubset(book_names)
-        book = CSPVariable("book", EnumSpace(book_names))
+        book = CSPVariable("book", EnumSpace(self._sim.book_descriptions))
 
         # Choose a grasp on the book. Only the grasp yaw is unknown.
         book_grasp = CSPVariable("book_grasp", Box(-np.pi, np.pi, dtype=np.float_))
@@ -162,7 +158,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         ############################## Initialization #############################
 
         initialization = {
-            book: book_names[0],
+            book: self._sim.book_descriptions[0],
             book_grasp: np.array([-np.pi / 2]),
             handover_position: np.zeros((3,)),
         }
@@ -173,8 +169,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if not explore:
             # Create a user preference constraint for the book.
-            def _book_is_preferred(book_name: str) -> bool:
-                return book_name in self._preferred_books
+            def _book_is_preferred(book_description: str) -> bool:
+                del book_description
+                return True  # coming soon!
 
             book_preference_constraint = CSPConstraint(
                 "book_preference",
@@ -220,9 +217,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         # Create collision constraints.
         def _handover_position_is_collision_free(
-            position: NDArray, book_name: str, yaw: NDArray
+            position: NDArray, book_description: str, yaw: NDArray
         ) -> bool:
-            book_id = self._sim.get_object_id_from_name(book_name)
+            book_id = self._sim.get_object_id_from_name(book_description)
             end_effector_pose = _handover_position_to_pose(position)
             grasp_pose = _book_grasp_to_pose(yaw)
             collision_bodies = self._sim.get_collision_ids() - {book_id}
@@ -256,10 +253,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         def _sample_book_fn(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            preferred_book = self._preferred_books[
-                rng.choice(len(self._preferred_books))
+            book_description = self._sim.book_descriptions[
+                rng.choice(len(self._sim.book_descriptions))
             ]
-            return {book: preferred_book}
+            return {book: book_description}
 
         book_sampler = FunctionalCSPSampler(_sample_book_fn, csp, {book})
 

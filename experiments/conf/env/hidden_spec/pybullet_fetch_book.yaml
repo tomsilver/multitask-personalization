@@ -1,5 +1,4 @@
 _target_: "multitask_personalization.envs.pybullet.pybullet_task_spec.HiddenTaskSpec"
-book_preferences:
-  - "book2"
+book_preferences: "I like pretty much anything"
 defaults:
   - /rom_model: spherical

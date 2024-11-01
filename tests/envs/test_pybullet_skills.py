@@ -34,9 +34,9 @@ def test_pybullet_skills():
     """Tests for pybullet_skills.py."""
     seed = 123
     task_spec = PyBulletTaskSpec(side_table_pose=Pose(position=(1.45, 0.0, -0.1)))
-    preferred_books = ["book2"]
+    book_preferences = "I like pretty much anything"
     rom_model = SphericalROMModel(task_spec.human_spec)
-    hidden_spec = HiddenTaskSpec(book_preferences=preferred_books, rom_model=rom_model)
+    hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)
 
     # Create a real environment.
     env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
@@ -51,17 +51,18 @@ def test_pybullet_skills():
 
     # Create a simulator.
     sim = PyBulletEnv(task_spec, use_gui=False, seed=seed)
+    book0, book1 = sim.book_descriptions[:2]
 
     # Test pick book.
     grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
     pick_book_plan = get_plan_to_pick_object(
         obs,
-        "book1",
+        book1,
         grasp_pose,
         sim,
     )
     obs = _run_plan(pick_book_plan, env)
-    assert obs.held_object == "book1"
+    assert obs.held_object == book1
 
     # Test move to tray.
     move_to_tray_plan = get_plan_to_move_next_to_object(obs, "tray", sim, seed=seed)
@@ -79,7 +80,7 @@ def test_pybullet_skills():
     )
     place_book_on_tray_plan = get_plan_to_place_object(
         obs,
-        "book1",
+        book1,
         "tray",
         placement_pose,
         sim,
@@ -95,11 +96,11 @@ def test_pybullet_skills():
     grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
     pick_book_plan = get_plan_to_pick_object(
         obs,
-        "book0",
+        book0,
         grasp_pose,
         sim,
     )
     obs = _run_plan(pick_book_plan, env)
-    assert obs.held_object == "book0"
+    assert obs.held_object == book0
 
     env.close()
