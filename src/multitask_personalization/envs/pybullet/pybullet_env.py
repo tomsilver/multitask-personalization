@@ -307,12 +307,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_grasp_transform = None
         self.current_held_object_id = None
 
-<<<<<<< HEAD
         # Reset human text.
         self.current_human_text = None
 
-=======
->>>>>>> c82f63844a111f6be834d21719db6197586089f6
     def reset(
         self,
         *,
@@ -689,7 +686,6 @@ Return yes or no and nothing else. Do not explain anything."""
         if response.lower() == "no":
             return False
     raise RuntimeError("LLM user enjoy constraint failed to parse")
-<<<<<<< HEAD
 
 
 def _explain_user_book_preference(
@@ -724,5 +720,3 @@ Return short dialogue as if you were the human user. Return only this. Do not ex
         seed=seed,
     )[0]
     return response
-=======
->>>>>>> c82f63844a111f6be834d21719db6197586089f6
