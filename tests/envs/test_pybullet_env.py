@@ -1,5 +1,7 @@
 """Tests for pybullet_env.py."""
 
+import os
+
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_structs import PyBulletState
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
@@ -11,6 +13,7 @@ from multitask_personalization.rom.models import SphericalROMModel
 
 def test_pybullet():
     """Tests for pybullet.py."""
+    os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
 
     task_spec = PyBulletTaskSpec()

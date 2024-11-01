@@ -1,5 +1,7 @@
 """Tests for pybullet_skills.py."""
 
+import os
+
 import numpy as np
 from pybullet_helpers.geometry import Pose
 
@@ -32,6 +34,8 @@ def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
 
 def test_pybullet_skills():
     """Tests for pybullet_skills.py."""
+    os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
+
     seed = 123
     task_spec = PyBulletTaskSpec(side_table_pose=Pose(position=(1.45, 0.0, -0.1)))
     book_preferences = (

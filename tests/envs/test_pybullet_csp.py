@@ -1,5 +1,7 @@
 """Tests for pybullet_csp.py."""
 
+import os
+
 import numpy as np
 
 from multitask_personalization.envs.pybullet.pybullet_csp import (
@@ -19,6 +21,7 @@ from multitask_personalization.utils import solve_csp
 
 def test_pybullet_csp():
     """Tests for pybullet_csp.py."""
+    os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
     rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec()
