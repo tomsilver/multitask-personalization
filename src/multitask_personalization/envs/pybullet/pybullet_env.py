@@ -21,6 +21,7 @@ from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
+from tomsutils.llm import OpenAILLM
 from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
@@ -48,12 +49,25 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         hidden_spec: HiddenTaskSpec | None = None,
         use_gui: bool = False,
         seed: int = 0,
+        llm_model_name: str = "gpt-4",
+        llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
+        llm_max_tokens: int = 700,
+        llm_use_cache_only: bool = False,
+        llm_temperature: float = 0.9,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
+        self._seed = seed
         self.task_spec = task_spec
         self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
+        self._llm = OpenAILLM(
+            llm_model_name,
+            llm_cache_dir,
+            max_tokens=llm_max_tokens,
+            use_cache_only=llm_use_cache_only,
+        )
+        self._llm_temperature = llm_temperature
 
         # Create action space.
         self.action_space = gym.spaces.OneOf(
@@ -168,7 +182,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_held_object_id: int | None = None
 
         # Reset all states.
-        self.reset()
+        self._reset_from_task_spec()
 
         # Save the transform between the base and stand.
         world_to_base = self.robot.get_base_pose()
@@ -239,14 +253,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             obj_name_to_obj[book_description] = book_id
         self.current_held_object_id = obj_name_to_obj[state.held_object]
 
-    def reset(
-        self,
-        *,
-        seed: int | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> tuple[PyBulletState, dict[str, Any]]:
-        # Add randomization in future PR.
-        super().reset(seed=seed, options=options)
+    def _reset_from_task_spec(self) -> None:
 
         # Reset robot.
         self.robot.set_base(self.task_spec.robot_base_pose)
@@ -275,14 +282,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
 
         # Reset books.
-        self.book_descriptions = []
         for book_pose, book_id in zip(
             self.task_spec.book_poses,
             self.book_ids,
             strict=True,
         ):
-            book_description = f"Title: 'Book {book_id}.' Author: 'Me.'"
-            self.book_descriptions.append(book_description)
             set_pose(book_id, book_pose, self.physics_client_id)
 
         # Reset side table.
@@ -296,6 +300,21 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Reset held object statuses.
         self.current_grasp_transform = None
         self.current_held_object_id = None
+
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[PyBulletState, dict[str, Any]]:
+        # Add more randomization in future PR.
+        super().reset(seed=seed, options=options)
+        self._reset_from_task_spec()
+
+        # Randomize book descriptions.
+        self.book_descriptions = self._generate_book_descriptions(
+            num_books=len(self.book_ids), seed=int(self._rng.integers(0, 2**31 - 1))
+        )
 
         return self.get_state(), self._get_info()
 
@@ -380,7 +399,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_description = self.book_descriptions[book_idx]
             # Should be holding a preferred book.
-            if not self._hidden_spec.user_enjoys_book(book_description):
+            if not user_would_enjoy_book(
+                book_description,
+                self._hidden_spec.book_preferences,
+                self._llm,
+                seed=self._seed,
+            ):
                 return -1.0, True
             # Holding a preferred book, so check if it's being held at a
             # position that is reachable by the person.
@@ -467,6 +491,39 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             object_id, -1, self.physics_client_id
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
+
+    def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
+        assert self._hidden_spec is not None
+        user_preferences = self._hidden_spec.book_preferences
+        # pylint: disable=line-too-long
+        prompt = f"""Generate a list of {num_books} real English-language book titles and authors. Be creative.
+
+Include some books according to the following preferences, but others that are the opposite of the preferences: "{user_preferences}"
+        
+Return the list in the following format:
+        
+1. Title: <title>. Author: <author>.
+2. Title: <title>. Author: <author>.
+etc.
+
+Return that list and nothing else. Do not explain anything."""
+        for _ in range(100):  # retry until parsing works
+            response = self._llm.sample_completions(
+                prompt,
+                imgs=None,
+                temperature=self._llm_temperature,
+                seed=seed,
+            )[0]
+            book_descriptions: list[str] = []
+            for i, line in enumerate(response.split("\n")):
+                prefix = f"{i+1}. "
+                if not line.startswith(prefix):
+                    break
+                book_description = line[len(prefix) :]
+                book_descriptions.append(book_description)
+            if len(book_descriptions) == num_books:  # success
+                return book_descriptions
+        raise RuntimeError("LLM book description generation failed")
 
 
 def _create_shelf(
@@ -569,3 +626,34 @@ def _create_shelf(
     )
 
     return shelf_id
+
+
+def user_would_enjoy_book(
+    book_description: str,
+    user_preferences: str,
+    llm: OpenAILLM,
+    llm_temperature: float = 0.0,
+    seed: int = 0,
+) -> bool:
+    """Use an LLM to determine whether the user would enjoy the book."""
+    # pylint: disable=line-too-long
+    prompt = f"""Based on the following book description and user preferences, determine whether the user would enjoy the book.
+    
+Book description: {book_description}
+
+User preferences: {user_preferences}
+
+Return yes or no and nothing else. Do not explain anything."""
+
+    for _ in range(100):  # retry until parsing works
+        response = llm.sample_completions(
+            prompt,
+            imgs=None,
+            temperature=llm_temperature,
+            seed=seed,
+        )[0]
+        if response.lower() == "yes":
+            return True
+        if response.lower() == "no":
+            return False
+    raise RuntimeError("LLM user enjoy constraint failed to parse")

@@ -1,5 +1,8 @@
 """Tests for pybullet_env.py."""
 
+import os
+from pathlib import Path
+
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_structs import PyBulletState
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
@@ -11,13 +14,23 @@ from multitask_personalization.rom.models import SphericalROMModel
 
 def test_pybullet():
     """Tests for pybullet.py."""
+    os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
 
     task_spec = PyBulletTaskSpec()
-    book_preferences = "I like pretty much anything"
+    book_preferences = (
+        "I enjoy fiction, especially science fiction, but I hate nonfiction"
+    )
     rom_model = SphericalROMModel(task_spec.human_spec)
     hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)
-    env = PyBulletEnv(task_spec, hidden_spec=hidden_spec, use_gui=False, seed=seed)
+    env = PyBulletEnv(
+        task_spec,
+        hidden_spec=hidden_spec,
+        use_gui=False,
+        seed=seed,
+        llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
+        llm_use_cache_only=True,
+    )
     env.action_space.seed(seed)
     obs, _ = env.reset()
     assert isinstance(obs, PyBulletState)
