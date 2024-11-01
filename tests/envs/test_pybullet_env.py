@@ -1,6 +1,7 @@
 """Tests for pybullet_env.py."""
 
 import os
+from pathlib import Path
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_structs import PyBulletState
@@ -27,6 +28,7 @@ def test_pybullet():
         hidden_spec=hidden_spec,
         use_gui=False,
         seed=seed,
+        llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
         llm_use_cache_only=True,
     )
     env.action_space.seed(seed)

@@ -50,7 +50,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         use_gui: bool = False,
         seed: int = 0,
         llm_model_name: str = "gpt-4",
-        llm_cache_dir: Path = Path(__file__).parent / "llm_cache",
+        llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
         llm_temperature: float = 0.9,
