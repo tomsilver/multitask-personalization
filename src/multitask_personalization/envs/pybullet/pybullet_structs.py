@@ -23,6 +23,7 @@ class PyBulletState:
     book_descriptions: list[str]
     grasp_transform: Pose | None
     held_object: str | None = None
+    human_text: str | None = None
 
 
 class GripperAction(Enum):

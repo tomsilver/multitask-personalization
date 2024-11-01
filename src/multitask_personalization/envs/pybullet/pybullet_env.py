@@ -181,6 +181,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
 
+        # Track the thing that the human is saying right now.
+        self.current_human_text: str | None = None
+
         # Reset all states.
         self._reset_from_task_spec()
 
@@ -225,6 +228,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.book_descriptions,
             self.current_grasp_transform,
             held_object,
+            self.current_human_text,
         )
 
     def set_state(self, state: PyBulletState) -> None:
@@ -243,6 +247,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             set_pose(book_id, book_pose, self.physics_client_id)
         self.book_descriptions = state.book_descriptions
         self.current_grasp_transform = state.grasp_transform
+        self.current_human_text = state.human_text
         obj_name_to_obj = {
             None: None,
             "cup": self.cup_id,
@@ -301,6 +306,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_grasp_transform = None
         self.current_held_object_id = None
 
+        # Reset human text.
+        self.current_human_text = None
+
     def reset(
         self,
         *,
@@ -322,6 +330,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self, action: PyBulletAction
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
         """Advance the simulator given an action."""
+        self.current_human_text = None
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
@@ -405,6 +414,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._llm,
                 seed=self._seed,
             ):
+                # The robot is attempting to hand over a book, but the user
+                # doesn't actually like that book. Have the user explain in
+                # natural language why they don't like the book.
+                self.current_human_text = _explain_user_book_preference(
+                    book_description,
+                    self._hidden_spec.book_preferences,
+                    self._llm,
+                    enjoyed=False,
+                    seed=self._seed,
+                )
                 return -1.0, True
             # Holding a preferred book, so check if it's being held at a
             # position that is reachable by the person.
@@ -415,6 +434,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if not reachable:
                 return -1.0, True
             # Success!
+            # The robot is successful in handing over the book. Have the user
+            # elaborate on why they like this book.
+            self.current_human_text = _explain_user_book_preference(
+                book_description,
+                self._hidden_spec.book_preferences,
+                self._llm,
+                enjoyed=True,
+                seed=self._seed,
+            )
             return 1.0, True
         raise NotImplementedError
 
@@ -657,3 +685,37 @@ Return yes or no and nothing else. Do not explain anything."""
         if response.lower() == "no":
             return False
     raise RuntimeError("LLM user enjoy constraint failed to parse")
+
+
+def _explain_user_book_preference(
+    book_description: str,
+    user_preferences: str,
+    llm: OpenAILLM,
+    llm_temperature: float = 0.0,
+    enjoyed: bool = False,
+    seed: int = 0,
+) -> str:
+    """Have the user explain why they do or do not like the book."""
+    # pylint: disable=line-too-long
+    do_or_do_not_enjoy = "DO" if enjoyed else "DO NOT"
+    prompt = f"""Pretend you are a human user with the following preferences about books:
+    
+User preferences: {user_preferences}
+
+A robot is handing you the following book:
+
+Book description: {book_description}
+
+You want to explain to the robot why you {do_or_do_not_enjoy} enjoy this book.
+
+Do not directly reveal the user preferences.
+
+Return short dialogue as if you were the human user. Return only this. Do not explain anything."""
+
+    response = llm.sample_completions(
+        prompt,
+        imgs=None,
+        temperature=llm_temperature,
+        seed=seed,
+    )[0]
+    return response
