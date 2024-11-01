@@ -11,6 +11,7 @@
 
 1. Recommended: create and source a virtualenv.
 2. `pip install -e ".[develop]"`
+3. Create an OpenAI API key for using LLMs and `export OPENAI_API_KEY=<key>`
 
 ## Check Installation
 
