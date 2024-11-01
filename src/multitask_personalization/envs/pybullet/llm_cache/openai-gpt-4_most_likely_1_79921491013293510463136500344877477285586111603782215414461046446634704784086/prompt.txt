@@ -1,0 +1,9 @@
+Based on the following book description and user preferences, determine whether the user would enjoy the book.
+    
+Book description: Title: Journey Beyond the Stars. Author: Helen Clark.
+
+User preferences: I enjoy fiction, especially science fiction, but I hate nonfiction
+
+Return yes or no and nothing else. Do not explain anything.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+Yes

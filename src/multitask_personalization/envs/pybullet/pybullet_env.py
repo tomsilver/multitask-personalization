@@ -57,6 +57,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
+        self._seed = seed
         self.task_spec = task_spec
         self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
@@ -398,7 +399,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_description = self.book_descriptions[book_idx]
             # Should be holding a preferred book.
-            if not self._hidden_spec.user_enjoys_book(book_description):
+            if not user_would_enjoy_book(
+                book_description,
+                self._hidden_spec.book_preferences,
+                self._llm,
+                seed=self._seed,
+            ):
                 return -1.0, True
             # Holding a preferred book, so check if it's being held at a
             # position that is reachable by the person.
@@ -492,16 +498,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # pylint: disable=line-too-long
         prompt = f"""Generate a list of {num_books} real English-language book titles and authors. Be creative.
 
-        Include some books according to the following preferences, but others that are the opposite of the preferences: "{user_preferences}"
+Include some books according to the following preferences, but others that are the opposite of the preferences: "{user_preferences}"
         
-        Return the list in the following format:
+Return the list in the following format:
         
-        1. Title: <title>. Author: <author>.
-        2. Title: <title>. Author: <author>.
-        etc.
+1. Title: <title>. Author: <author>.
+2. Title: <title>. Author: <author>.
+etc.
 
-        Return that list and nothing else. Do not explain anything.
-        """
+Return that list and nothing else. Do not explain anything."""
         for _ in range(100):  # retry until parsing works
             response = self._llm.sample_completions(
                 prompt,
@@ -621,3 +626,34 @@ def _create_shelf(
     )
 
     return shelf_id
+
+
+def user_would_enjoy_book(
+    book_description: str,
+    user_preferences: str,
+    llm: OpenAILLM,
+    llm_temperature: float = 0.0,
+    seed: int = 0,
+) -> bool:
+    """Use an LLM to determine whether the user would enjoy the book."""
+    # pylint: disable=line-too-long
+    prompt = f"""Based on the following book description and user preferences, determine whether the user would enjoy the book.
+    
+Book description: {book_description}
+
+User preferences: {user_preferences}
+
+Return yes or no and nothing else. Do not explain anything."""
+
+    for _ in range(100):  # retry until parsing works
+        response = llm.sample_completions(
+            prompt,
+            imgs=None,
+            temperature=llm_temperature,
+            seed=seed,
+        )[0]
+        if response.lower() == "yes":
+            return True
+        if response.lower() == "no":
+            return False
+    raise RuntimeError("LLM user enjoy constraint failed to parse")
