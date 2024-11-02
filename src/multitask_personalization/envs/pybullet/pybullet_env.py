@@ -58,6 +58,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
+        # Keep a separate rng for LLM seed generation so that things don't change
+        # if we make modifications to the rest of the environment that affect when
+        # self._rng is used. Important because of LLM prompt caching.
+        self._llm_rng = np.random.default_rng(seed)
         self._seed = seed
         self.task_spec = task_spec
         self._hidden_spec = hidden_spec
@@ -321,7 +325,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Randomize book descriptions.
         self.book_descriptions = self._generate_book_descriptions(
-            num_books=len(self.book_ids), seed=int(self._rng.integers(0, 2**31 - 1))
+            num_books=len(self.book_ids), seed=int(self._llm_rng.integers(0, 2**31 - 1))
         )
 
         return self.get_state(), self._get_info()

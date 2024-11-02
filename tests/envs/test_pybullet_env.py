@@ -18,9 +18,7 @@ def test_pybullet():
     seed = 123
 
     task_spec = PyBulletTaskSpec()
-    book_preferences = (
-        "I enjoy fiction, especially science fiction, but I hate nonfiction"
-    )
+    book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(task_spec.human_spec)
     hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)
     env = PyBulletEnv(
