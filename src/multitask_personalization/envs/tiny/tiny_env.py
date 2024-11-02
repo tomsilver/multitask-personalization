@@ -42,10 +42,12 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         self,
         hidden_spec: TinyHiddenSpec | None = None,
         seed: int = 0,
+        explore_epsilon: float = 0.5,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
         self._hidden_spec = hidden_spec
+        self._explore_epsilon = explore_epsilon
 
         self.action_space = gym.spaces.OneOf(
             (
@@ -57,6 +59,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         # Reset in reset().
         self._robot_position = -1.0
         self._human_position = 1.0
+        self._robot_should_explore = False
 
     def reset(
         self,
@@ -79,7 +82,8 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
                 break
         self._robot_position = robot_position
         self._human_position = human_position
-        return self._get_state(), {}
+        self._robot_should_explore = self._rng.uniform() < self._explore_epsilon
+        return self._get_state(), self._get_info()
 
     def step(
         self, action: TinyAction
@@ -87,7 +91,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         assert self.action_space.contains(action)
         if np.isclose(action[0], 1):
             reward, done = self._get_reward_and_done(robot_indicated_done=True)
-            return self._get_state(), reward, done, False, {}
+            return self._get_state(), reward, done, False, self._get_info()
 
         assert np.isclose(action[0], 0)
         delta_action = action[1]
@@ -95,7 +99,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         self._robot_position += float(delta_action)
 
         reward, done = self._get_reward_and_done(robot_indicated_done=False)
-        return self._get_state(), reward, done, False, {}
+        return self._get_state(), reward, done, False, self._get_info()
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         raise NotImplementedError
@@ -118,3 +122,8 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
             return 1.0, True
         # Penalize if not close enough to human.
         return -1.0, True
+
+    def _get_info(self) -> dict[str, Any]:
+        return {
+            "explore": self._robot_should_explore,
+        }

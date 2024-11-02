@@ -54,6 +54,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
         llm_temperature: float = 0.9,
+        explore_epsilon: float = 0.5,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
@@ -68,6 +69,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             use_cache_only=llm_use_cache_only,
         )
         self._llm_temperature = llm_temperature
+        self._explore_epsilon = explore_epsilon
 
         # Create action space.
         self.action_space = gym.spaces.OneOf(
@@ -180,6 +182,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
+
+        # The user decides when the robot should explore.
+        self._robot_should_explore = False
 
         # Reset all states.
         self._reset_from_task_spec()
@@ -311,6 +316,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         super().reset(seed=seed, options=options)
         self._reset_from_task_spec()
 
+        # Randomize whether the robot should explore on this episode.
+        self._robot_should_explore = self._rng.uniform() < self._explore_epsilon
+
         # Randomize book descriptions.
         self.book_descriptions = self._generate_book_descriptions(
             num_books=len(self.book_ids), seed=int(self._rng.integers(0, 2**31 - 1))
@@ -419,7 +427,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         raise NotImplementedError
 
     def _get_info(self) -> dict[str, Any]:
-        return {"task_spec": self.task_spec}
+        return {
+            "task_spec": self.task_spec,
+            "explore": self._robot_should_explore,
+        }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         target = get_link_pose(

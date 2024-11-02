@@ -44,6 +44,10 @@ def _main(cfg: DictConfig) -> None:
     for episode in range(cfg.num_episodes):
         logging.info(f"Starting episode {episode}")
         obs, info = env.reset()
+        assert "explore" in info, (
+            "Environments are required to report at reset whether the robot should "
+            "explore or not. The user decides."
+        )
         approach.reset(obs, info)
         episode_returns = 0.0
         episode_steps = 0
@@ -60,6 +64,7 @@ def _main(cfg: DictConfig) -> None:
         episode_duration = time.perf_counter() - episode_start_time
         episode_metrics = {
             "episode": episode,
+            "explore": info["explore"],
             "returns": episode_returns,
             "steps": episode_steps,
             "duration": episode_duration,
