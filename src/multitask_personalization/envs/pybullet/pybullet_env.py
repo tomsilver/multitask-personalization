@@ -24,6 +24,7 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import OpenAILLM
 from tomsutils.spaces import EnumSpace
+from tomsutils.utils import render_textbox_on_image
 
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
@@ -467,6 +468,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # and manually swap in black.
         background_mask = (img == [255, 255, 255]).all(axis=2)
         img[background_mask] = 0
+        # If the human has just said something, render it in the image.
+        if self.current_human_text is not None:
+            img = render_textbox_on_image(
+                img,
+                self.current_human_text,
+                textbox_color=(125, 0, 125, 125),
+                max_chars_per_line=100,
+            )
         return img  # type: ignore
 
     def get_object_id_from_name(self, object_name: str) -> int:
