@@ -65,6 +65,23 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             samplers,
             self._rng,
         )
+        if sol is None:
+            # For now we assume that exploration fails only due to pessimistic
+            # learned constraints. So we just rerun with explore=True.
+            # In the future, implement some fallback behavior in case this just
+            # straight-up fails.
+            assert not explore
+            explore = True
+            csp, samplers, policy, initialization = self._csp_generator.generate(
+                obs, explore=explore
+            )
+            sol = solve_csp(
+                csp,
+                initialization,
+                samplers,
+                self._rng,
+            )
+            assert sol is not None
         self._current_policy = policy
         self._current_policy.reset(sol)
 

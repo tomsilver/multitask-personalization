@@ -58,11 +58,14 @@ def test_pybullet_csp():
         sim,
         rom_model,
         seed,
+        llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
+        llm_use_cache_only=True,
     )
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
     sol = solve_csp(csp, initialization, samplers, rng)
+    assert sol is not None
     policy.reset(sol)
 
     # Run the policy.

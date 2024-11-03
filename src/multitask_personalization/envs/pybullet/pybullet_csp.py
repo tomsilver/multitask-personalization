@@ -1,5 +1,7 @@
 """CSP elements for the PyBullet environment."""
 
+import logging
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -12,9 +14,13 @@ from pybullet_helpers.inverse_kinematics import (
     sample_collision_free_inverse_kinematics,
 )
 from pybullet_helpers.math_utils import get_poses_facing_line
+from tomsutils.llm import OpenAILLM
 from tomsutils.spaces import EnumSpace
 
-from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
+from multitask_personalization.envs.pybullet.pybullet_env import (
+    PyBulletEnv,
+    user_would_enjoy_book,
+)
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_handover_object,
     get_plan_to_pick_object,
@@ -123,11 +129,26 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         rom_model: ROMModel,
         seed: int = 0,
+        book_preference_initialization: str = "I like everything!",
+        llm_model_name: str = "gpt-4",
+        llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
+        llm_max_tokens: int = 700,
+        llm_use_cache_only: bool = False,
+        llm_temperature: float = 0.0,
     ) -> None:
         super().__init__(seed=seed)
         self._sim = sim
         self._rom_model = rom_model
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
+        self._current_book_preference = book_preference_initialization
+        self._all_user_feedback: list[str] = []
+        self._llm = OpenAILLM(
+            llm_model_name,
+            llm_cache_dir,
+            max_tokens=llm_max_tokens,
+            use_cache_only=llm_use_cache_only,
+        )
+        self._llm_temperature = llm_temperature
 
     def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
         CSP,
@@ -170,8 +191,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if not explore:
             # Create a user preference constraint for the book.
             def _book_is_preferred(book_description: str) -> bool:
-                del book_description
-                return True  # coming soon!
+                return user_would_enjoy_book(
+                    book_description,
+                    self._current_book_preference,
+                    self._llm,
+                    self._llm_temperature,
+                    seed=self._seed,
+                )
 
             book_preference_constraint = CSPConstraint(
                 "book_preference",
@@ -300,6 +326,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
+        self._update_rom_model(obs, act, reward)
+        self._update_book_preferences(act, next_obs, reward)
+
+    def _update_rom_model(
+        self, obs: PyBulletState, act: PyBulletAction, reward: float
+    ) -> None:
         # Only train trainable ROM models.
         if not isinstance(self._rom_model, TrainableROMModel):
             return
@@ -316,6 +348,40 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._rom_model_training_data.append((np.array(pose.position), label))
         # Retrain the ROM model.
         self._rom_model.train(self._rom_model_training_data)
+
+    def _update_book_preferences(
+        self, act: PyBulletAction, next_obs: PyBulletState, reward: float
+    ) -> None:
+        # Only learn when the user had something to say.
+        if next_obs.human_text is None:
+            return
+        # For now, only learn when the robot triggered "done".
+        if not np.isclose(act[0], 2):
+            return
+        assert act[1] is None
+        assert next_obs.held_object is not None
+        # Update the history of things the user has told the robot.
+        result = "accepted" if reward > 0 else "rejected"
+        new_feedback = f'When I gave the user the book: "{next_obs.held_object}", they {result} it and said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
+        self._all_user_feedback.append(new_feedback)
+        # Learn from the history of all feedback.
+        # For now, just do this once; in the future, get a distribution of
+        # possibilities.
+        all_feedback_str = "\n".join(self._all_user_feedback)
+        # pylint: disable=line-too-long
+        prompt = f"""Below is a first-person history of interactions between you, a robot, and a single human user:
+
+{all_feedback_str}
+
+Based on this history, concisely describe the user's taste in books. Return this description and nothing else. Do not explain anything."""
+        response = self._llm.sample_completions(
+            prompt,
+            imgs=None,
+            temperature=self._llm_temperature,
+            seed=self._seed,
+        )[0]
+        self._current_book_preference = response
+        logging.info(f"Updated learned user book preferences: {response}")
 
     def get_metrics(self) -> dict[str, float]:
         metrics: dict[str, float] = {}
