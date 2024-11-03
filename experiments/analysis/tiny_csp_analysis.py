@@ -19,6 +19,9 @@ def _main(results_dir: Path, outfile: Path) -> None:
 
     df = combine_results_csvs(results_dir)
 
+    # Subselect non-explore episodes.
+    df = df[~df.explore]
+
     fig, axes = plt.subplots(1, 2, figsize=(10, 7))
     ax0, ax1 = axes  # type: ignore
     fig.suptitle("CSP Approach in Tiny Env")

@@ -1,0 +1,15 @@
+Generate a list of 3 real English-language book titles and authors. Be creative.
+
+Include some books according to the following preferences, but others that are the opposite of the preferences: "I like pretty much anything!"
+        
+Return the list in the following format:
+        
+1. Title: <title>. Author: <author>.
+2. Title: <title>. Author: <author>.
+etc.
+
+Return that list and nothing else. Do not explain anything.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+1. Title: "Blossoms in Gloom". Author: Helena Hartley.
+2. Title: "The Astronaut's Shadow". Author: Richard Solaris.
+3. Title: "The Antagonist's Woe". Author: Rhys McKinnon.

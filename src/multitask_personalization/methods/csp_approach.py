@@ -28,10 +28,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self,
         action_space: gym.spaces.Space[_ActType],
         seed: int,
-        explore_epsilon: float = 0.1,
     ):
         super().__init__(action_space, seed)
-        self._explore_epsilon = explore_epsilon
         self._current_policy: CSPPolicy | None = None
         self._csp_generator: CSPGenerator | None = None
 
@@ -54,7 +52,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 self._csp_generator = PyBulletCSPGenerator(sim, rom_model, self._seed)
             else:
                 raise NotImplementedError()
-        explore = self._rng.uniform() < self._explore_epsilon
+        explore = info["explore"]
         assert isinstance(self._csp_generator, CSPGenerator)
         csp, samplers, policy, initialization = self._csp_generator.generate(
             obs, explore=explore

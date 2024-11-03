@@ -1,6 +1,6 @@
 Based on the following book description and user preferences, determine whether the user would enjoy the book.
     
-Book description: Title: Journey Beyond the Stars. Author: Helen Clark.
+Book description: Title: "The Antagonist's Woe". Author: Rhys McKinnon.
 
 User preferences: I like everything!
 
