@@ -191,7 +191,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # The user decides when the robot should explore.
         self._robot_should_explore = False
-   
+
         # Track the thing that the human is saying right now.
         self.current_human_text: str | None = None
 
