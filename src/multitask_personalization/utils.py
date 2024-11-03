@@ -81,12 +81,14 @@ def solve_csp(
     initialization: dict[CSPVariable, Any],
     samplers: list[CSPSampler],
     rng: np.random.Generator,
-) -> dict[CSPVariable, Any]:
+    max_iters: int = 100_000,
+) -> dict[CSPVariable, Any] | None:
     """A very naive solver for CSPs."""
     sol = initialization.copy()
-    while True:
+    for _ in range(max_iters):
         if csp.check_solution(sol):
             return sol
         sampler = samplers[rng.choice(len(samplers))]
         partial_sol = sampler.sample(sol, rng)
         sol.update(partial_sol)
+    return None

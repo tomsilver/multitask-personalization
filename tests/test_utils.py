@@ -36,5 +36,6 @@ def test_solve_csp():
     initialization = {x: 0.0, y: 0.0, z: 0}
     rng = np.random.default_rng(123)
     sol = solve_csp(csp, initialization, samplers, rng)
+    assert sol is not None
     assert sol[x] < sol[y]
     assert sol[y] < sol[z] / 5

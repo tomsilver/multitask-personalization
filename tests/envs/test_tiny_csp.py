@@ -36,6 +36,7 @@ def test_tiny_csp():
 
     # Solve the CSP.
     sol = solve_csp(csp, initialization, samplers, rng)
+    assert sol is not None
     policy.reset(sol)
 
     # Run the policy.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import OpenAILLM
 from tomsutils.spaces import EnumSpace
+from tomsutils.utils import render_textbox_on_image
 
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
@@ -189,6 +191,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # The user decides when the robot should explore.
         self._robot_should_explore = False
+   
+        # Track the thing that the human is saying right now.
+        self.current_human_text: str | None = None
 
         # Reset all states.
         self._reset_from_task_spec()
@@ -234,6 +239,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.book_descriptions,
             self.current_grasp_transform,
             held_object,
+            self.current_human_text,
         )
 
     def set_state(self, state: PyBulletState) -> None:
@@ -252,6 +258,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             set_pose(book_id, book_pose, self.physics_client_id)
         self.book_descriptions = state.book_descriptions
         self.current_grasp_transform = state.grasp_transform
+        self.current_human_text = state.human_text
         obj_name_to_obj = {
             None: None,
             "cup": self.cup_id,
@@ -310,6 +317,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_grasp_transform = None
         self.current_held_object_id = None
 
+        # Reset human text.
+        self.current_human_text = None
+
     def reset(
         self,
         *,
@@ -334,6 +344,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self, action: PyBulletAction
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
         """Advance the simulator given an action."""
+        self.current_human_text = None
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
@@ -410,6 +421,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 return -1.0, True
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_description = self.book_descriptions[book_idx]
+            # Check if the book is reachable.
+            end_effector_position = self.robot.get_end_effector_pose().position
+            reachable = self._hidden_spec.rom_model.check_position_reachable(
+                np.array(end_effector_position)
+            )
+            if not reachable:
+                return -1.0, True
             # Should be holding a preferred book.
             if not user_would_enjoy_book(
                 book_description,
@@ -417,16 +435,28 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._llm,
                 seed=self._seed,
             ):
+                # The robot is attempting to hand over a book, but the user
+                # doesn't actually like that book. Have the user explain in
+                # natural language why they don't like the book.
+                self.current_human_text = _explain_user_book_preference(
+                    book_description,
+                    self._hidden_spec.book_preferences,
+                    self._llm,
+                    enjoyed=False,
+                    seed=self._seed,
+                )
+                logging.info(f"Human says: {self.current_human_text}")
                 return -1.0, True
-            # Holding a preferred book, so check if it's being held at a
-            # position that is reachable by the person.
-            end_effector_position = self.robot.get_end_effector_pose().position
-            reachable = self._hidden_spec.rom_model.check_position_reachable(
-                np.array(end_effector_position)
+            # The robot is successful in handing over the book. Have the user
+            # elaborate on why they like this book.
+            self.current_human_text = _explain_user_book_preference(
+                book_description,
+                self._hidden_spec.book_preferences,
+                self._llm,
+                enjoyed=True,
+                seed=self._seed,
             )
-            if not reachable:
-                return -1.0, True
-            # Success!
+            logging.info(f"Human says: {self.current_human_text}")
             return 1.0, True
         raise NotImplementedError
 
@@ -442,11 +472,26 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.human.right_wrist,
             self.physics_client_id,
         ).position
-        return capture_image(  # type: ignore
+        img = capture_image(
             self.physics_client_id,
             camera_target=target,
             camera_distance=self.task_spec.camera_distance,
         )
+        # In non-render mode, PyBullet does not render background correctly.
+        # We want the background to be black instead of white. Here, make the
+        # assumption that all perfectly white pixels belong to the background
+        # and manually swap in black.
+        background_mask = (img == [255, 255, 255]).all(axis=2)
+        img[background_mask] = 0
+        # If the human has just said something, render it in the image.
+        if self.current_human_text is not None:
+            img = render_textbox_on_image(
+                img,
+                self.current_human_text,
+                textbox_color=(125, 0, 125, 125),
+                max_chars_per_line=100,
+            )
+        return img  # type: ignore
 
     def get_object_id_from_name(self, object_name: str) -> int:
         """Get the PyBullet object ID given a name."""
@@ -672,3 +717,37 @@ Return yes or no and nothing else. Do not explain anything."""
         if response.lower() == "no":
             return False
     raise RuntimeError("LLM user enjoy constraint failed to parse")
+
+
+def _explain_user_book_preference(
+    book_description: str,
+    user_preferences: str,
+    llm: OpenAILLM,
+    llm_temperature: float = 0.0,
+    enjoyed: bool = False,
+    seed: int = 0,
+) -> str:
+    """Have the user explain why they do or do not like the book."""
+    # pylint: disable=line-too-long
+    do_or_do_not_enjoy = "DO" if enjoyed else "DO NOT"
+    prompt = f"""Pretend you are a human user with the following preferences about books:
+    
+User preferences: {user_preferences}
+
+A robot is handing you the following book:
+
+Book description: {book_description}
+
+You want to explain to the robot why you {do_or_do_not_enjoy} enjoy this book.
+
+Do not directly reveal the user preferences.
+
+Return short dialogue as if you were the human user. Return only this. Do not explain anything."""
+
+    response = llm.sample_completions(
+        prompt,
+        imgs=None,
+        temperature=llm_temperature,
+        seed=seed,
+    )[0]
+    return response
