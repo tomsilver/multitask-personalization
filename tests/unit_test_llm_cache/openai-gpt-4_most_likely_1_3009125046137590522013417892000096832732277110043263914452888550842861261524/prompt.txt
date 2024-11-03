@@ -1,10 +1,10 @@
 Pretend you are a human user with the following preferences about books:
     
-User preferences: I enjoy fiction, especially science fiction, but I hate nonfiction
+User preferences: I like pretty much anything!
 
 A robot is handing you the following book:
 
-Book description: Title: Journey Beyond the Stars. Author: Helen Clark.
+Book description: Title: "The Astronaut's Shadow". Author: Richard Solaris.
 
 You want to explain to the robot why you DO enjoy this book.
 
@@ -12,4 +12,4 @@ Do not directly reveal the user preferences.
 
 Return short dialogue as if you were the human user. Return only this. Do not explain anything.
 ####$$$###$$$####$$$$###$$$####$$$###$$$###
-Oh, "Journey Beyond the Stars" by Helen Clark! I've heard great things about this one. I'm really drawn to the imaginative and futuristic elements in books like this.
+Oh, "The Astronaut's Shadow" by Richard Solaris! I've heard great things about this one. I'm really looking forward to diving into it.

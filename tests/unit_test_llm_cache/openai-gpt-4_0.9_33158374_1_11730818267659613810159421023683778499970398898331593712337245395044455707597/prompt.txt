@@ -10,6 +10,6 @@ etc.
 
 Return that list and nothing else. Do not explain anything.
 ####$$$###$$$####$$$$###$$$####$$$###$$$###
-1. Title: "Blossoms in Gloom". Author: Emily Hartley.
-2. Title: "The Astronaut's Palette". Author: Richard Solaris.
-3. Title: "Dancing with Shadows". Author: Jeffrey B. Rhymes.
+1. Title: "Blossoms in Gloom". Author: Helena Hartley.
+2. Title: "The Astronaut's Shadow". Author: Richard Solaris.
+3. Title: "The Antagonist's Woe". Author: Rhys McKinnon.
