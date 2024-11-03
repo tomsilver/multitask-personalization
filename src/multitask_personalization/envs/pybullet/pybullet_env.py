@@ -456,11 +456,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.human.right_wrist,
             self.physics_client_id,
         ).position
-        return capture_image(  # type: ignore
+        img = capture_image(
             self.physics_client_id,
             camera_target=target,
             camera_distance=self.task_spec.camera_distance,
         )
+        # In non-render mode, PyBullet does not render background correctly.
+        # We want the background to be black instead of white. Here, make the
+        # assumption that all perfectly white pixels belong to the background
+        # and manually swap in black.
+        background_mask = (img == [255, 255, 255]).all(axis=2)
+        img[background_mask] = 0
+        return img  # type: ignore
 
     def get_object_id_from_name(self, object_name: str) -> int:
         """Get the PyBullet object ID given a name."""
