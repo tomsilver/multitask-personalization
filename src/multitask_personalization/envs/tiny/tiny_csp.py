@@ -134,7 +134,8 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         explore_method: str = "nothing-personal",
         ensemble_explore_threshold: float = 1e-1,
         ensemble_explore_members: int = 5,
-        neighborhood_explore_radius: float = 1.0,
+        neighborhood_explore_max_radius: float = 10.0,
+        neighborhood_explore_radius_decay: float = 0.9,
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
     ) -> None:
@@ -143,9 +144,11 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
             explore_method=explore_method,
             ensemble_explore_threshold=ensemble_explore_threshold,
             ensemble_explore_members=ensemble_explore_members,
-            neighborhood_explore_radius=neighborhood_explore_radius,
+            neighborhood_explore_max_radius=neighborhood_explore_max_radius,
+            neighborhood_explore_radius_decay=neighborhood_explore_radius_decay,
         )
         self._distance_threshold = distance_threshold
+        self._num_generations = 0
         if explore_method == "ensemble":
             members: list[CSPConstraintGenerator] = []
             for idx in range(self._ensemble_explore_members):
@@ -211,11 +214,14 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
             )
             constraints.append(user_preference_constraint)
         elif self._explore_method == "neighborhood":
+            radius = self._neighborhood_explore_max_radius * (
+                self._neighborhood_explore_radius_decay**self._num_generations
+            )
             user_preference_constraint = self._distance_constraint_generator.generate(
                 obs,
                 [position],
                 "user_preference",
-                neighborhood=self._neighborhood_explore_radius,
+                neighborhood=radius,
             )
             constraints.append(user_preference_constraint)
         else:
@@ -242,6 +248,8 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         policy: CSPPolicy = _TinyCSPPolicy(
             csp, seed=self._seed, distance_threshold=self._distance_threshold
         )
+
+        self._num_generations += 1
 
         return csp, samplers, policy, initialization
 

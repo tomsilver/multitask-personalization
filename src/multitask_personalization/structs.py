@@ -126,14 +126,16 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         explore_method: str = "nothing-personal",
         ensemble_explore_threshold: float = 1e-1,
         ensemble_explore_members: int = 5,
-        neighborhood_explore_radius: float = 1.0,
+        neighborhood_explore_max_radius: float = 10.0,
+        neighborhood_explore_radius_decay: float = 0.9,
     ) -> None:
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._explore_method = explore_method
         self._ensemble_explore_threshold = ensemble_explore_threshold
         self._ensemble_explore_members = ensemble_explore_members
-        self._neighborhood_explore_radius = neighborhood_explore_radius
+        self._neighborhood_explore_max_radius = neighborhood_explore_max_radius
+        self._neighborhood_explore_radius_decay = neighborhood_explore_radius_decay
 
     @abc.abstractmethod
     def generate(
