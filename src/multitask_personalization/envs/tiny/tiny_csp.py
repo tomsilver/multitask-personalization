@@ -45,10 +45,11 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
     def __init__(
         self,
         seed: int = 0,
+        explore_method: str = "nothing-personal",
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
     ) -> None:
-        super().__init__(seed=seed)
+        super().__init__(seed=seed, explore_method=explore_method)
         self._distance_threshold = distance_threshold
         # Updated through learning.
         self._desired_distance = init_desired_distance
@@ -98,6 +99,8 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
             )
 
             constraints.append(user_preference_constraint)
+        else:
+            assert self._explore_method == "nothing-personal"
 
         ################################### CSP ###################################
 
