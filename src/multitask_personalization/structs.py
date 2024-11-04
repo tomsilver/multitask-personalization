@@ -224,7 +224,7 @@ class EnsembleCSPConstraintGenerator(CSPConstraintGenerator[ObsType, ActType]):
             for constraint in member_constraints:
                 total_pos += constraint.constraint_fn(*args)
             frac = total_pos / len(member_constraints)
-            return frac > member_classification_threshold
+            return frac >= member_classification_threshold
 
         constraint = CSPConstraint(constraint_name, csp_vars, _constraint_fn)
 
