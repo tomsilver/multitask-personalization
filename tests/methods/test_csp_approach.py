@@ -1,5 +1,7 @@
 """Tests for csp_approach.py."""
 
+import pytest
+
 from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
@@ -10,13 +12,14 @@ from multitask_personalization.methods.csp_approach import (
 )
 
 
-def test_csp_approach():
+@pytest.mark.parametrize("explore_method", ["nothing-personal", "ensemble"])
+def test_csp_approach(explore_method):
     """Tests for csp_approach.py."""
     seed = 123
 
     hidden_spec = TinyHiddenSpec(1.0, 0.5)
     env = TinyEnv(hidden_spec=hidden_spec, seed=seed)
-    approach = CSPApproach(env.action_space, seed=seed)
+    approach = CSPApproach(env.action_space, seed=seed, explore_method=explore_method)
     approach.train()
     env.action_space.seed(seed)
 
