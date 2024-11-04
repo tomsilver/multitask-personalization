@@ -28,8 +28,10 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self,
         action_space: gym.spaces.Space[_ActType],
         seed: int,
+        explore_method: str = "nothing-personal",
     ):
         super().__init__(action_space, seed)
+        self._explore_method = explore_method
         self._current_policy: CSPPolicy | None = None
         self._csp_generator: CSPGenerator | None = None
 
@@ -43,13 +45,17 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             # At the moment, this part is extremely environment-specific.
             # We will refactor this in a future PR.
             if isinstance(obs, TinyState):
-                self._csp_generator = TinyCSPGenerator(self._seed)
+                self._csp_generator = TinyCSPGenerator(
+                    seed=self._seed, explore_method=self._explore_method
+                )
             elif isinstance(obs, PyBulletState):
                 task_spec = info["task_spec"]
                 assert isinstance(task_spec, PyBulletTaskSpec)
                 sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=False)
                 rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
-                self._csp_generator = PyBulletCSPGenerator(sim, rom_model, self._seed)
+                self._csp_generator = PyBulletCSPGenerator(
+                    sim, rom_model, seed=self._seed, explore_method=self._explore_method
+                )
             else:
                 raise NotImplementedError()
         explore = info["explore"]
