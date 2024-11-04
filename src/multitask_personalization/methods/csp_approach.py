@@ -30,12 +30,14 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         seed: int,
         explore_method: str = "nothing-personal",
         ensemble_explore_threshold: float = 0.1,
+        max_motion_planning_candidates: int = 1,
     ):
         super().__init__(action_space, seed)
         self._explore_method = explore_method
         self._ensemble_explore_threshold = ensemble_explore_threshold
         self._current_policy: CSPPolicy | None = None
         self._csp_generator: CSPGenerator | None = None
+        self._max_motion_planning_candidates = max_motion_planning_candidates
 
     def reset(
         self,
@@ -63,6 +65,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                     seed=self._seed,
                     explore_method=self._explore_method,
                     ensemble_explore_threshold=self._ensemble_explore_threshold,
+                    max_motion_planning_candidates=self._max_motion_planning_candidates,
                 )
             else:
                 raise NotImplementedError()
