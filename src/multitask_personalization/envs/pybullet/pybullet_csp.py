@@ -48,10 +48,12 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         csp: CSP,
         seed: int = 0,
+        max_motion_planning_candidates: int = 1,
     ) -> None:
         super().__init__(csp, seed)
         self._sim = sim
         self._current_plan: list[PyBulletAction] = []
+        self._max_motion_planning_candidates = max_motion_planning_candidates
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
@@ -74,6 +76,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             book_description,
             book_grasp,
             self._sim,
+            max_motion_planning_candidates=self._max_motion_planning_candidates,
         )
 
     def _get_handover_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
@@ -86,6 +89,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             handover_pose,
             self._sim,
             self._seed,
+            max_motion_planning_candidates=self._max_motion_planning_candidates,
         )
         # Finish the plan by indicating done.
         handover_plan.append((2, None))
@@ -135,6 +139,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
         llm_temperature: float = 0.0,
+        max_motion_planning_candidates: int = 1,
     ) -> None:
         super().__init__(seed=seed)
         self._sim = sim
@@ -149,6 +154,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             use_cache_only=llm_use_cache_only,
         )
         self._llm_temperature = llm_temperature
+        self._max_motion_planning_candidates = max_motion_planning_candidates
 
     def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
         CSP,
@@ -313,6 +319,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             self._sim,
             csp,
             seed=self._seed,
+            max_motion_planning_candidates=self._max_motion_planning_candidates,
         )
 
         return csp, samplers, policy, initialization

@@ -106,6 +106,7 @@ def get_plan_to_pick_object(
         grasp_generator=grasp_generator,
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
+        max_smoothing_iters_per_step=max_motion_planning_candidates,
     )
     assert kinematic_plan is not None
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
@@ -242,6 +243,7 @@ def get_plan_to_place_object(
         preplace_translation_magnitude=object_extents[2],
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
+        max_smoothing_iters_per_step=max_motion_planning_candidates,
     )
     assert kinematic_plan is not None
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)

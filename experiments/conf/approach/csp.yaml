@@ -1,1 +1,2 @@
 _target_: "multitask_personalization.methods.csp_approach.CSPApproach"
+max_motion_planning_candidates: 1
