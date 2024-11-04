@@ -49,7 +49,7 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         seed: int = 0,
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
-        learning_rate: float = 1e-2,
+        learning_rate: float = 1e-1,
     ) -> None:
         super().__init__(seed=seed)
         self._learning_rate = learning_rate
@@ -143,7 +143,7 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         if explore_method == "ensemble":
             members: list[CSPConstraintGenerator] = []
             for idx in range(self._ensemble_explore_members):
-                init = max(0, init_desired_distance + self._rng.normal(0, 0.1))
+                init = max(0, init_desired_distance + self._rng.normal(0, 10))
                 member = _TinyDistanceConstraintGenerator(
                     seed=(seed + idx),
                     distance_threshold=distance_threshold,
