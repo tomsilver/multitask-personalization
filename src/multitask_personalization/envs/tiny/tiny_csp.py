@@ -134,7 +134,7 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         explore_method: str = "nothing-personal",
         ensemble_explore_threshold: float = 1e-1,
         ensemble_explore_members: int = 5,
-        neighborhood_explore_radius: float = 1e-1,
+        neighborhood_explore_radius: float = 1.0,
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
     ) -> None:
