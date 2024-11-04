@@ -135,7 +135,7 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         ensemble_explore_threshold: float = 1e-1,
         ensemble_explore_members: int = 5,
         neighborhood_explore_max_radius: float = 10.0,
-        neighborhood_explore_radius_decay: float = 0.9,
+        neighborhood_explore_radius_decay: float = 0.99,
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
     ) -> None:

@@ -2,7 +2,7 @@
 
 ```
 python experiments/run_single_experiment.py -m +experiment=tiny_csp \
-    approach.explore_method=nothing-personal,ensemble \
+    approach.explore_method=neighborhood,nothing-personal,ensemble \
     seed="range(1, 11)"
 ```
 """
@@ -19,6 +19,10 @@ def _main(results_dir: Path, outfile: Path) -> None:
     plt.rcParams.update({"font.size": 12})
 
     explore_method_to_dfs = {
+        "neighborhood": combine_results_csvs(
+            results_dir,
+            config_fn=lambda c: c.approach.explore_method == "neighborhood",
+        ),
         "nothing-personal": combine_results_csvs(
             results_dir,
             config_fn=lambda c: c.approach.explore_method == "nothing-personal",
