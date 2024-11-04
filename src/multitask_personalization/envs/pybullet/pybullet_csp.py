@@ -130,6 +130,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         rom_model: ROMModel,
         seed: int = 0,
         explore_method: str = "nothing-personal",
+        ensemble_explore_threshold: float = 0.1,
+        ensemble_explore_members: int = 5,
         book_preference_initialization: str = "I like everything!",
         llm_model_name: str = "gpt-4",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
@@ -137,7 +139,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm_use_cache_only: bool = False,
         llm_temperature: float = 0.0,
     ) -> None:
-        super().__init__(seed=seed, explore_method=explore_method)
+        super().__init__(
+            seed=seed,
+            explore_method=explore_method,
+            ensemble_explore_threshold=ensemble_explore_threshold,
+            ensemble_explore_members=ensemble_explore_members,
+        )
         self._sim = sim
         self._rom_model = rom_model
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []

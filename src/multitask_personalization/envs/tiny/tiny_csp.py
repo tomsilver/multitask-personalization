@@ -1,6 +1,6 @@
 """CSP elements for the tiny environment."""
 
-from typing import Any, Collection
+from typing import Any
 
 import numpy as np
 from gymnasium.spaces import Box
@@ -14,6 +14,7 @@ from multitask_personalization.structs import (
     CSPPolicy,
     CSPSampler,
     CSPVariable,
+    EnsembleCSPConstraintGenerator,
     FunctionalCSPSampler,
 )
 
@@ -60,7 +61,7 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
     def generate(
         self,
         obs: TinyState,
-        csp_vars: Collection[CSPVariable],
+        csp_vars: list[CSPVariable],
         constraint_name: str,
     ) -> CSPConstraint:
 
@@ -123,16 +124,37 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         self,
         seed: int = 0,
         explore_method: str = "nothing-personal",
+        ensemble_explore_threshold: float = 0.1,
+        ensemble_explore_members: int = 5,
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
     ) -> None:
-        super().__init__(seed=seed, explore_method=explore_method)
-        self._distance_threshold = distance_threshold
-        self._distance_constraint_generator = _TinyDistanceConstraintGenerator(
+        super().__init__(
             seed=seed,
-            distance_threshold=distance_threshold,
-            init_desired_distance=init_desired_distance,
+            explore_method=explore_method,
+            ensemble_explore_threshold=ensemble_explore_threshold,
+            ensemble_explore_members=ensemble_explore_members,
         )
+        self._distance_threshold = distance_threshold
+        if explore_method == "ensemble":
+            members: list[CSPConstraintGenerator] = []
+            init_desired_distance = max(0, init_desired_distance + self._rng.normal())
+            for _ in range(self._ensemble_explore_members):
+                member = _TinyDistanceConstraintGenerator(
+                    seed=seed,
+                    distance_threshold=distance_threshold,
+                    init_desired_distance=init_desired_distance,
+                )
+                members.append(member)
+            self._distance_constraint_generator: CSPConstraintGenerator = (
+                EnsembleCSPConstraintGenerator(members)
+            )
+        else:
+            self._distance_constraint_generator = _TinyDistanceConstraintGenerator(
+                seed=seed,
+                distance_threshold=distance_threshold,
+                init_desired_distance=init_desired_distance,
+            )
 
     def generate(
         self,
@@ -165,6 +187,17 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         if not explore:
             user_preference_constraint = self._distance_constraint_generator.generate(
                 obs, [position], "user_preference"
+            )
+            constraints.append(user_preference_constraint)
+        elif self._explore_method == "ensemble":
+            assert isinstance(
+                self._distance_constraint_generator, EnsembleCSPConstraintGenerator
+            )
+            user_preference_constraint = self._distance_constraint_generator.generate(
+                obs,
+                [position],
+                "user_preference",
+                member_classification_threshold=self._ensemble_explore_threshold,
             )
             constraints.append(user_preference_constraint)
         else:
