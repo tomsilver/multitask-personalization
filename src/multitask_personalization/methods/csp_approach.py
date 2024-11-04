@@ -28,10 +28,12 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self,
         action_space: gym.spaces.Space[_ActType],
         seed: int,
+        max_motion_planning_candidates: int = 1,
     ):
         super().__init__(action_space, seed)
         self._current_policy: CSPPolicy | None = None
         self._csp_generator: CSPGenerator | None = None
+        self._max_motion_planning_candidates = max_motion_planning_candidates
 
     def reset(
         self,
@@ -49,7 +51,12 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 assert isinstance(task_spec, PyBulletTaskSpec)
                 sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=False)
                 rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
-                self._csp_generator = PyBulletCSPGenerator(sim, rom_model, self._seed)
+                self._csp_generator = PyBulletCSPGenerator(
+                    sim,
+                    rom_model,
+                    self._seed,
+                    max_motion_planning_candidates=self._max_motion_planning_candidates,
+                )
             else:
                 raise NotImplementedError()
         explore = info["explore"]
