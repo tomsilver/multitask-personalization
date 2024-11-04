@@ -15,7 +15,7 @@ from multitask_personalization.structs import EnsembleCSPConstraintGenerator
 
 @pytest.mark.parametrize(
     "explore_method,num_episodes,episode_len",
-    [("nothing-personal", 500, 100), ("ensemble", 1, 10)],
+    [("nothing-personal", 500, 100), ("ensemble", 1, 10), ("neighborhood", 500, 100)],
 )
 def test_csp_approach(explore_method, num_episodes, episode_len):
     """Tests for csp_approach.py."""
@@ -42,7 +42,7 @@ def test_csp_approach(explore_method, num_episodes, episode_len):
     # pylint: disable=protected-access
     csp_generator = approach._csp_generator
     assert isinstance(csp_generator, TinyCSPGenerator)
-    if explore_method == "nothing-personal":
+    if explore_method in ("nothing-personal", "neighborhood"):
         learned_dist = csp_generator._distance_constraint_generator._desired_distance
         assert learned_dist <= 1.5
     else:
