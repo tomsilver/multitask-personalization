@@ -34,7 +34,9 @@ def test_csp_approach():
 
     csp_generator = approach._csp_generator  # pylint: disable=protected-access
     assert isinstance(csp_generator, TinyCSPGenerator)
-    learned_dist = csp_generator._desired_distance  # pylint: disable=protected-access
+    learned_dist = (
+        csp_generator._distance_constraint_generator._desired_distance  # pylint: disable=protected-access
+    )
     assert learned_dist <= 1.1
 
     env.close()

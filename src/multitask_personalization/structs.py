@@ -2,7 +2,7 @@
 
 import abc
 from dataclasses import dataclass
-from typing import Any, Callable, Generic
+from typing import Any, Callable, Collection, Generic
 
 import gymnasium as gym
 import numpy as np
@@ -134,6 +134,39 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
     ]:
         """Generate a CSP, samplers, policy, and initialization."""
+
+    @abc.abstractmethod
+    def learn_from_transition(
+        self,
+        obs: ObsType,
+        act: ActType,
+        next_obs: ObsType,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        """Update the generator given the new data point."""
+
+    def get_metrics(self) -> dict[str, float]:
+        """Report any metrics, e.g., about learned constraint parameters."""
+        return {}
+
+
+class CSPConstraintGenerator(abc.ABC, Generic[ObsType, ActType]):
+    """Generates constraints for a CSP and learns over time."""
+
+    def __init__(self, seed: int = 0) -> None:
+        self._seed = seed
+        self._rng = np.random.default_rng(seed)
+
+    @abc.abstractmethod
+    def generate(
+        self,
+        obs: ObsType,
+        csp_vars: Collection[CSPVariable],
+        constraint_name: str,
+    ) -> CSPConstraint:
+        """Generate a constraint."""
 
     @abc.abstractmethod
     def learn_from_transition(

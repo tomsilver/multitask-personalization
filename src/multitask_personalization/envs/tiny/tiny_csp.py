@@ -1,6 +1,6 @@
 """CSP elements for the tiny environment."""
 
-from typing import Any
+from typing import Any, Collection
 
 import numpy as np
 from gymnasium.spaces import Box
@@ -9,6 +9,7 @@ from multitask_personalization.envs.tiny.tiny_env import TinyAction, TinyState
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
+    CSPConstraintGenerator,
     CSPGenerator,
     CSPPolicy,
     CSPSampler,
@@ -39,6 +40,82 @@ class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
         return (0, delta)
 
 
+class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAction]):
+    """Generates distance constraints for the TinyEnv."""
+
+    def __init__(
+        self,
+        seed: int = 0,
+        distance_threshold: float = 1e-1,
+        init_desired_distance: float = 1.0,
+    ) -> None:
+        super().__init__(seed=seed)
+        self._distance_threshold = distance_threshold
+        # Updated through learning.
+        self._desired_distance = init_desired_distance
+        # Training data for learning.
+        self._training_inputs: list[float] = []
+        self._training_outputs: list[bool] = []
+
+    def generate(
+        self,
+        obs: TinyState,
+        csp_vars: Collection[CSPVariable],
+        constraint_name: str,
+    ) -> CSPConstraint:
+
+        assert len(csp_vars) == 1
+        position_var = next(iter(csp_vars))
+
+        def _position_close_enough(position: np.float_) -> bool:
+            dist = abs(obs.human - position)
+            return bool(abs(dist - self._desired_distance) < self._distance_threshold)
+
+        user_preference_constraint = CSPConstraint(
+            constraint_name, [position_var], _position_close_enough
+        )
+        return user_preference_constraint
+
+    def learn_from_transition(
+        self,
+        obs: TinyState,
+        act: TinyAction,
+        next_obs: TinyState,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        # Only learn from cases where the robot triggered "done".
+        if not np.isclose(act[0], 1):
+            return
+        assert act[1] is None
+        # Check if the trigger was successful.
+        label = reward > 0
+        # Get the current distance.
+        dist = abs(obs.robot - obs.human)
+        # Update the training data.
+        self._training_inputs.append(dist)
+        self._training_outputs.append(label)
+        # Update the constraint parameters.
+        self._update_constraint_parameters()
+
+    def get_metrics(self) -> dict[str, float]:
+        return {
+            "tiny_user_proximity_learned_distance": self._desired_distance,
+        }
+
+    def _update_constraint_parameters(self) -> None:
+        positive_dists: set[float] = set()
+        for d, l in zip(self._training_inputs, self._training_outputs, strict=True):
+            if l:
+                positive_dists.add(d)
+        if not positive_dists:
+            return  # need to wait for data
+        min_positive_dist = min(positive_dists)
+        max_positive_dist = max(positive_dists)
+        self._desired_distance = (min_positive_dist + max_positive_dist) / 2
+
+
 class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
     """Create a CSP for the tiny environment."""
 
@@ -51,12 +128,11 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
     ) -> None:
         super().__init__(seed=seed, explore_method=explore_method)
         self._distance_threshold = distance_threshold
-        # Updated through learning.
-        self._desired_distance = init_desired_distance
-        self._distance_threshold = distance_threshold
-        # Training data for learning.
-        self._training_inputs: list[float] = []
-        self._training_outputs: list[bool] = []
+        self._distance_constraint_generator = _TinyDistanceConstraintGenerator(
+            seed=seed,
+            distance_threshold=distance_threshold,
+            init_desired_distance=init_desired_distance,
+        )
 
     def generate(
         self,
@@ -87,17 +163,9 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         constraints: list[CSPConstraint] = []
 
         if not explore:
-            # Create a user preference constraint.
-            def _position_close_enough(position: np.float_) -> bool:
-                dist = abs(human_position - position)
-                return bool(
-                    abs(dist - self._desired_distance) < self._distance_threshold
-                )
-
-            user_preference_constraint = CSPConstraint(
-                "user_preference", [position], _position_close_enough
+            user_preference_constraint = self._distance_constraint_generator.generate(
+                obs, [position], "user_preference"
             )
-
             constraints.append(user_preference_constraint)
         else:
             assert self._explore_method == "nothing-personal"
@@ -135,32 +203,9 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        # Only learn from cases where the robot triggered "done".
-        if not np.isclose(act[0], 1):
-            return
-        assert act[1] is None
-        # Check if the trigger was successful.
-        label = reward > 0
-        # Get the current distance.
-        dist = abs(obs.robot - obs.human)
-        # Update the training data.
-        self._training_inputs.append(dist)
-        self._training_outputs.append(label)
-        # Update the constraint parameters.
-        self._update_constraint_parameters()
-
-    def _update_constraint_parameters(self) -> None:
-        positive_dists: set[float] = set()
-        for d, l in zip(self._training_inputs, self._training_outputs, strict=True):
-            if l:
-                positive_dists.add(d)
-        if not positive_dists:
-            return  # need to wait for data
-        min_positive_dist = min(positive_dists)
-        max_positive_dist = max(positive_dists)
-        self._desired_distance = (min_positive_dist + max_positive_dist) / 2
+        self._distance_constraint_generator.learn_from_transition(
+            obs, act, next_obs, reward, done, info
+        )
 
     def get_metrics(self) -> dict[str, float]:
-        return {
-            "tiny_user_proximity_learned_distance": self._desired_distance,
-        }
+        return self._distance_constraint_generator.get_metrics()
