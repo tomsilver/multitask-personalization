@@ -124,14 +124,16 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         self,
         seed: int = 0,
         explore_method: str = "nothing-personal",
-        ensemble_explore_threshold: float = 0.1,
+        ensemble_explore_threshold: float = 1e-1,
         ensemble_explore_members: int = 5,
+        neighborhood_explore_radius: float = 1e-1,
     ) -> None:
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._explore_method = explore_method
         self._ensemble_explore_threshold = ensemble_explore_threshold
         self._ensemble_explore_members = ensemble_explore_members
+        self._neighborhood_explore_radius = neighborhood_explore_radius
 
     @abc.abstractmethod
     def generate(
@@ -173,6 +175,7 @@ class CSPConstraintGenerator(abc.ABC, Generic[ObsType, ActType]):
         obs: ObsType,
         csp_vars: list[CSPVariable],
         constraint_name: str,
+        neighborhood: float = 0.0,
     ) -> CSPConstraint:
         """Generate a constraint."""
 
@@ -212,11 +215,13 @@ class EnsembleCSPConstraintGenerator(CSPConstraintGenerator[ObsType, ActType]):
         obs: ObsType,
         csp_vars: list[CSPVariable],
         constraint_name: str,
+        neighborhood: float = 0.0,
         member_classification_threshold: float = 0.5,
     ) -> CSPConstraint:
 
         member_constraints = [
-            m.generate(obs, csp_vars, constraint_name) for m in self._members
+            m.generate(obs, csp_vars, constraint_name, neighborhood=neighborhood)
+            for m in self._members
         ]
 
         def _constraint_fn(*args) -> bool:

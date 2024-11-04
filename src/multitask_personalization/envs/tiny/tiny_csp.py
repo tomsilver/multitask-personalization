@@ -65,6 +65,7 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         obs: TinyState,
         csp_vars: list[CSPVariable],
         constraint_name: str,
+        neighborhood: float = 0.0,
     ) -> CSPConstraint:
 
         assert len(csp_vars) == 1
@@ -72,7 +73,10 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
 
         def _position_close_enough(position: np.float_) -> bool:
             dist = abs(obs.human - position)
-            return bool(abs(dist - self._desired_distance) < self._distance_threshold)
+            return bool(
+                abs(dist - self._desired_distance)
+                < self._distance_threshold + neighborhood
+            )
 
         user_preference_constraint = CSPConstraint(
             constraint_name, [position_var], _position_close_enough
@@ -128,8 +132,9 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         self,
         seed: int = 0,
         explore_method: str = "nothing-personal",
-        ensemble_explore_threshold: float = 0.1,
+        ensemble_explore_threshold: float = 1e-1,
         ensemble_explore_members: int = 5,
+        neighborhood_explore_radius: float = 1e-1,
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
     ) -> None:
@@ -138,6 +143,7 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
             explore_method=explore_method,
             ensemble_explore_threshold=ensemble_explore_threshold,
             ensemble_explore_members=ensemble_explore_members,
+            neighborhood_explore_radius=neighborhood_explore_radius,
         )
         self._distance_threshold = distance_threshold
         if explore_method == "ensemble":
@@ -202,6 +208,14 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
                 [position],
                 "user_preference",
                 member_classification_threshold=self._ensemble_explore_threshold,
+            )
+            constraints.append(user_preference_constraint)
+        elif self._explore_method == "neighborhood":
+            user_preference_constraint = self._distance_constraint_generator.generate(
+                obs,
+                [position],
+                "user_preference",
+                neighborhood=self._neighborhood_explore_radius,
             )
             constraints.append(user_preference_constraint)
         else:
