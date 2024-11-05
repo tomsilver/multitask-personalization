@@ -121,7 +121,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
             # Success!
             return 1.0, True
         # Penalize if not close enough to human.
-        return -1.0, True
+        return -1.0, False
 
     def _get_info(self) -> dict[str, Any]:
         return {
