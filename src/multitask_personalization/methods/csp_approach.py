@@ -1,5 +1,6 @@
 """An approach that generates and solves a CSP to make decisions."""
 
+import logging
 from typing import Any
 
 import gymnasium as gym
@@ -17,6 +18,7 @@ from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import (
     CSPGenerator,
     CSPPolicy,
+    CSPVariable,
 )
 from multitask_personalization.utils import solve_csp
 
@@ -36,6 +38,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._explore_method = explore_method
         self._ensemble_explore_threshold = ensemble_explore_threshold
         self._current_policy: CSPPolicy | None = None
+        self._current_sol: dict[CSPVariable, Any] | None = None
+        self._currently_exploring = False
         self._csp_generator: CSPGenerator | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
 
@@ -69,39 +73,50 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 )
             else:
                 raise NotImplementedError()
-        explore = info["explore"]
+        self._recompute_policy(obs, explore=info["explore"])
+
+    def _recompute_policy(self, obs: _ObsType, explore: bool = False) -> None:
         assert isinstance(self._csp_generator, CSPGenerator)
         csp, samplers, policy, initialization = self._csp_generator.generate(
-            obs, explore=explore
+            obs,
+            explore=explore,
         )
-        sol = solve_csp(
+        self._current_sol = solve_csp(
             csp,
             initialization,
             samplers,
             self._rng,
         )
-        if sol is None:
+        if self._current_sol is None:
             # For now we assume that exploration fails only due to pessimistic
             # learned constraints. So we just rerun with explore=True.
             # In the future, implement some fallback behavior in case this just
             # straight-up fails.
             assert not explore
-            explore = True
-            csp, samplers, policy, initialization = self._csp_generator.generate(
-                obs, explore=explore
-            )
-            sol = solve_csp(
-                csp,
-                initialization,
-                samplers,
-                self._rng,
-            )
-            assert sol is not None
-        self._current_policy = policy
-        self._current_policy.reset(sol)
+            self._recompute_policy(obs, explore=True)
+        else:
+            self._current_policy = policy
+            self._current_policy.reset(self._current_sol)
+            self._currently_exploring = explore
 
     def _get_action(self) -> _ActType:
         assert self._current_policy is not None
+        assert self._current_sol is not None
+        assert self._last_observation is not None
+        assert self._csp_generator is not None
+        # Check if the current solution to the CSP is still valid--it may not be
+        # because the CSP constraints may have changed as a result of learning.
+        # In this case, we trigger replanning by calling reset(). Note also we
+        # need to regenerate the CSP because CSPs are not stateful.
+        csp, _, _, _ = self._csp_generator.generate(
+            self._last_observation,
+            explore=self._currently_exploring,
+        )
+        if not csp.check_solution(self._current_sol):
+            logging.info("Recomputing policy because CSP violated online")
+            self._recompute_policy(
+                self._last_observation, explore=self._currently_exploring
+            )
         return self._current_policy.step(self._last_observation)
 
     def _learn_from_transition(
