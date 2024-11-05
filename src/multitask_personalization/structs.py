@@ -120,9 +120,18 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     """Generates CSPs, samplers, policies, and initializations; and learns from
     environment transitions."""
 
-    def __init__(self, seed: int = 0) -> None:
+    def __init__(
+        self,
+        seed: int = 0,
+        explore_method: str = "nothing-personal",
+        ensemble_explore_threshold: float = 0.1,
+        ensemble_explore_members: int = 5,
+    ) -> None:
         self._seed = seed
         self._rng = np.random.default_rng(seed)
+        self._explore_method = explore_method
+        self._ensemble_explore_threshold = ensemble_explore_threshold
+        self._ensemble_explore_members = ensemble_explore_members
 
     @abc.abstractmethod
     def generate(
@@ -149,3 +158,94 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     def get_metrics(self) -> dict[str, float]:
         """Report any metrics, e.g., about learned constraint parameters."""
         return {}
+
+
+class CSPConstraintGenerator(abc.ABC, Generic[ObsType, ActType]):
+    """Generates constraints for a CSP and learns over time."""
+
+    def __init__(self, seed: int = 0) -> None:
+        self._seed = seed
+        self._rng = np.random.default_rng(seed)
+
+    @abc.abstractmethod
+    def generate(
+        self,
+        obs: ObsType,
+        csp_vars: list[CSPVariable],
+        constraint_name: str,
+    ) -> CSPConstraint:
+        """Generate a constraint."""
+
+    @abc.abstractmethod
+    def learn_from_transition(
+        self,
+        obs: ObsType,
+        act: ActType,
+        next_obs: ObsType,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        """Update the generator given the new data point."""
+
+    def get_metrics(self) -> dict[str, float]:
+        """Report any metrics, e.g., about learned constraint parameters."""
+        return {}
+
+
+class EnsembleCSPConstraintGenerator(CSPConstraintGenerator[ObsType, ActType]):
+    """A constraint generator implemented as an ensemble of constraint
+    generators.
+
+    This is useful for exploration. For example, to explore
+    optimistically, you can use generate() with a small threshold.
+    """
+
+    def __init__(
+        self, members: list[CSPConstraintGenerator[ObsType, ActType]], seed: int = 0
+    ) -> None:
+        super().__init__(seed)
+        self._members = members
+
+    def generate(
+        self,
+        obs: ObsType,
+        csp_vars: list[CSPVariable],
+        constraint_name: str,
+        member_classification_threshold: float = 0.5,
+    ) -> CSPConstraint:
+
+        member_constraints = [
+            m.generate(obs, csp_vars, constraint_name) for m in self._members
+        ]
+
+        def _constraint_fn(*args) -> bool:
+            total_pos = 0
+            for constraint in member_constraints:
+                total_pos += constraint.constraint_fn(*args)
+            frac = total_pos / len(member_constraints)
+            return frac >= member_classification_threshold
+
+        constraint = CSPConstraint(constraint_name, csp_vars, _constraint_fn)
+
+        return constraint
+
+    def learn_from_transition(
+        self,
+        obs: ObsType,
+        act: ActType,
+        next_obs: ObsType,
+        reward: float,
+        done: bool,
+        info: dict[str, Any],
+    ) -> None:
+        for member in self._members:
+            member.learn_from_transition(obs, act, next_obs, reward, done, info)
+
+    def get_metrics(self) -> dict[str, float]:
+        metrics: dict[str, float] = {}
+        for member_idx, member in enumerate(self._members):
+            member_metrics = member.get_metrics()
+            for metric_name, val in member_metrics.items():
+                metrics[f"ensemble-{member_idx}-{metric_name}"] = val
+        return metrics

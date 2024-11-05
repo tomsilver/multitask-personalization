@@ -24,6 +24,8 @@ def _main(cfg: DictConfig) -> None:
     logging.info(f"Running seed={cfg.seed}, env={cfg.env}, approach={cfg.approach}")
     logging.info("Full config:")
     logging.info(OmegaConf.to_yaml(cfg))
+    OmegaConf.save(cfg, cfg.config_file)
+    logging.info(f"Saved config to to {cfg.results_file}")
 
     # Initialize.
     env = hydra.utils.instantiate(cfg.env, seed=cfg.seed)
