@@ -30,9 +30,13 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self,
         action_space: gym.spaces.Space[_ActType],
         seed: int,
+        explore_method: str = "nothing-personal",
+        ensemble_explore_threshold: float = 0.1,
         max_motion_planning_candidates: int = 1,
     ):
         super().__init__(action_space, seed)
+        self._explore_method = explore_method
+        self._ensemble_explore_threshold = ensemble_explore_threshold
         self._current_policy: CSPPolicy | None = None
         self._current_sol: dict[CSPVariable, Any] | None = None
         self._currently_exploring = False
@@ -49,7 +53,11 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             # At the moment, this part is extremely environment-specific.
             # We will refactor this in a future PR.
             if isinstance(obs, TinyState):
-                self._csp_generator = TinyCSPGenerator(self._seed)
+                self._csp_generator = TinyCSPGenerator(
+                    seed=self._seed,
+                    explore_method=self._explore_method,
+                    ensemble_explore_threshold=self._ensemble_explore_threshold,
+                )
             elif isinstance(obs, PyBulletState):
                 task_spec = info["task_spec"]
                 assert isinstance(task_spec, PyBulletTaskSpec)
@@ -58,7 +66,9 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 self._csp_generator = PyBulletCSPGenerator(
                     sim,
                     rom_model,
-                    self._seed,
+                    seed=self._seed,
+                    explore_method=self._explore_method,
+                    ensemble_explore_threshold=self._ensemble_explore_threshold,
                     max_motion_planning_candidates=self._max_motion_planning_candidates,
                 )
             else:
