@@ -6,7 +6,7 @@ jobs:
   autoformat:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Run black to test code linting
         uses: psf/black@stable
         with:
@@ -20,16 +20,13 @@ jobs:
       matrix:
         python-version: ["3.10"]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: '**/pyproject.toml'
+      run: uv python install ${{ matrix.python-version }}    
     - name: Install dependencies
-      run: |
-        pip install -e ".[develop]"
+      run: uv pip install -e ".[develop]"
     - name: Lint
       run: |
         pytest . --pylint -m pylint --pylint-rcfile=.multitask_personalization_pylintrc
@@ -39,16 +36,13 @@ jobs:
       matrix:
         python-version: ["3.10"]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: '**/pyproject.toml'
+      run: uv python install ${{ matrix.python-version }}    
     - name: Install dependencies
-      run: |
-        pip install -e ".[develop]"
+      run: uv pip install -e ".[develop]"
     - name: Mypy
       run: |
         mypy .
@@ -58,16 +52,13 @@ jobs:
       matrix:
         python-version: ["3.10"]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: '**/pyproject.toml'
+      run: uv python install ${{ matrix.python-version }}    
     - name: Install dependencies
-      run: |
-        pip install -e ".[develop]"
+      run: uv pip install -e ".[develop]"
     - name: Pytest
       run: |
         pytest tests/
