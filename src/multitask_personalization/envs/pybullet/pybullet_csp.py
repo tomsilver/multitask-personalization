@@ -7,11 +7,12 @@ from typing import Any
 import numpy as np
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, set_pose, get_pose, multiply_poses
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
+    check_body_collisions,
 )
 from pybullet_helpers.math_utils import get_poses_facing_line
 from tomsutils.llm import OpenAILLM
@@ -24,6 +25,7 @@ from multitask_personalization.envs.pybullet.pybullet_env import (
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_handover_object,
     get_plan_to_pick_object,
+    get_plan_to_place_object,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -63,12 +65,15 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         if not self._current_plan:
             if obs.held_object is None:
                 self._current_plan = self._get_pick_plan(obs)
-            else:
+            elif obs.held_object == self._get_value("book"):
                 self._current_plan = self._get_handover_plan(obs)
+            else:
+                self._current_plan = self._get_place_plan(obs)
         return self._current_plan.pop(0)
 
     def _get_pick_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out empty-handed and near the books."""
+        self._sim.set_state(obs)
         book_description = self._get_value("book")
         book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
         return get_plan_to_pick_object(
@@ -81,6 +86,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
     def _get_handover_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out holding book and near person."""
+        self._sim.set_state(obs)
         book_description = self._get_value("book")
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
         handover_plan = get_plan_to_handover_object(
@@ -94,6 +100,61 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         # Finish the plan by indicating done.
         handover_plan.append((2, None))
         return handover_plan
+    
+    def _get_place_plan(self, obs: PyBulletState) -> list[PyBulletState]:
+        """The robot is holding the wrong thing; place it in the shelf."""
+        self._sim.set_state(obs)
+        held_obj = obs.held_object
+        assert held_obj is not None
+        surface_name = "shelf"
+        surface_id = self._sim.get_object_id_from_name(surface_name)
+        surface_extents = self._sim.get_aabb_dimensions(surface_id)
+        held_obj_id = self._sim.get_object_id_from_name(held_obj)
+        object_extents = self._sim.get_aabb_dimensions(held_obj_id)
+        # In the near future, we will figure out how best to add placement pose
+        # as another variable in the CSP, but only when the user is holding a
+        # book that is not the one that was asked for. This is part of a bigger
+        # thing which is figuring out how to make CSP generation conditional on
+        # the current state (in a nice implementation kind of way).
+        placement_lb = (
+                -surface_extents[0] / 2 + object_extents[0] / 2,
+                -surface_extents[1] / 2 + object_extents[1] / 2,
+                surface_extents[2] / 2 + object_extents[2] / 2,
+            )
+        placement_ub = (
+                surface_extents[0] / 2 - object_extents[0] / 2,
+                surface_extents[1] / 2 - object_extents[1] / 2,
+                surface_extents[2] / 2 + object_extents[2] / 2,
+        )
+        surface_pose = get_pose(surface_id, self._sim.physics_client_id)
+        collision_ids = self._sim.get_collision_ids() - {surface_id, held_obj_id}
+        selected_placement: Pose | None = None
+        for _ in range(100000):
+            placement_position = self._rng.uniform(placement_lb, placement_ub)
+            relative_placement_pose = Pose(tuple(placement_position))
+            placement_pose = multiply_poses(surface_pose, relative_placement_pose)
+            set_pose(held_obj_id, placement_pose, self._sim.physics_client_id)
+            has_collision = False
+            for collision_id in collision_ids:
+                if check_body_collisions(collision_id, held_obj_id, self._sim.physics_client_id):
+                    has_collision = True
+                    break
+            if not has_collision:
+                selected_placement = relative_placement_pose
+                break
+        assert selected_placement is not None
+        import pybullet as p
+        while True:
+            p.stepSimulation(self._sim.physics_client_id)
+        self._sim.set_state(obs)
+        return get_plan_to_place_object(
+            obs,
+            held_obj,
+            surface_name,
+            selected_placement,
+            self._sim,
+            max_motion_planning_candidates=self._max_motion_planning_candidates,
+        )
 
 
 def _book_grasp_to_pose(yaw: NDArray) -> Pose:
