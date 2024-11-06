@@ -74,7 +74,8 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
 
         def _position_score_fn(position: np.float_) -> bool:
             dist = abs(obs.human - position)
-            return bool(abs(dist - self._desired_distance))
+            err = float(abs(dist - self._desired_distance))
+            return np.clip(err, 0, 1)
 
         user_preference_constraint = LevelSetCSPConstraint(
             constraint_name,
