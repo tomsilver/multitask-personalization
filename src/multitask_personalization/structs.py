@@ -24,18 +24,62 @@ class CSPVariable:
         return self.name == other.name
 
 
-@dataclass(frozen=True)
-class CSPConstraint:
+class CSPConstraint(abc.ABC):
     """Constraint satisfaction problem constraint."""
 
-    name: str
-    variables: list[CSPVariable]
-    constraint_fn: Callable[..., bool]  # inputs are CSPVariable values
+    def __init__(self, name: str, variables: list[CSPVariable]) -> None:
+        self.name = name
+        self.variables = variables
+
+    @abc.abstractmethod
+    def constraint_fn(self, *args) -> bool:
+        """The arguments are values of self.variables."""
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether the constraint holds given values of the variables."""
         vals = [sol[v] for v in self.variables]
         return self.constraint_fn(*vals)
+
+
+class FunctionalCSPConstraint(CSPConstraint):
+    """A constraint defined by a given function."""
+
+    def __init__(
+        self,
+        name: str,
+        variables: list[CSPVariable],
+        constraint_fn: Callable[..., bool],
+    ) -> None:
+        super().__init__(name, variables)
+        self._constraint_fn = constraint_fn
+
+    def constraint_fn(self, *args) -> bool:
+        return self._constraint_fn(*args)
+
+
+class LevelSetCSPConstraint(CSPConstraint):
+    """Constraint defined as the zero-level-set of a score function.
+
+    The score function should output values between 0 and 1.
+
+    This type of constraint is useful for exploration.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        variables: list[CSPVariable],
+        score_fn: Callable[..., float],
+        padding: float = 1e-4,
+    ) -> None:
+        super().__init__(name, variables)
+        self.score_fn = score_fn
+        self._padding = padding  # for numerical stability
+
+    def constraint_fn(self, *args) -> bool:
+        score = self.score_fn(*args)
+        assert 0.0 <= score <= 1.0
+        return score < self._padding
 
 
 @dataclass(frozen=True)
@@ -237,7 +281,7 @@ class EnsembleCSPConstraintGenerator(CSPConstraintGenerator[ObsType, ActType]):
             frac = total_pos / len(member_constraints)
             return frac >= member_classification_threshold
 
-        constraint = CSPConstraint(constraint_name, csp_vars, _constraint_fn)
+        constraint = FunctionalCSPConstraint(constraint_name, csp_vars, _constraint_fn)
 
         return constraint
 

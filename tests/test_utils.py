@@ -5,8 +5,8 @@ import numpy as np
 
 from multitask_personalization.structs import (
     CSP,
-    CSPConstraint,
     CSPVariable,
+    FunctionalCSPConstraint,
     FunctionalCSPSampler,
 )
 from multitask_personalization.utils import solve_csp
@@ -18,8 +18,8 @@ def test_solve_csp():
     y = CSPVariable("y", gym.spaces.Box(0, 1, dtype=np.float_))
     z = CSPVariable("z", gym.spaces.Discrete(5))
 
-    c1 = CSPConstraint("c1", [x, y], lambda x, y: x < y)
-    c2 = CSPConstraint("c2", [y, z], lambda y, z: y < z / 5)
+    c1 = FunctionalCSPConstraint("c1", [x, y], lambda x, y: x < y)
+    c2 = FunctionalCSPConstraint("c2", [y, z], lambda y, z: y < z / 5)
 
     csp = CSP([x, y, z], [c1, c2])
 

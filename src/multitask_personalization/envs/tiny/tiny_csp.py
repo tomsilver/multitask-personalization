@@ -15,6 +15,7 @@ from multitask_personalization.structs import (
     CSPSampler,
     CSPVariable,
     EnsembleCSPConstraintGenerator,
+    FunctionalCSPConstraint,
     FunctionalCSPSampler,
 )
 
@@ -78,7 +79,7 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
                 < self._distance_threshold + neighborhood
             )
 
-        user_preference_constraint = CSPConstraint(
+        user_preference_constraint = FunctionalCSPConstraint(
             constraint_name, [position_var], _position_close_enough
         )
         return user_preference_constraint
