@@ -61,7 +61,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             elif isinstance(obs, PyBulletState):
                 task_spec = info["task_spec"]
                 assert isinstance(task_spec, PyBulletTaskSpec)
-                sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=True)
+                sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=False)
                 rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
                 self._csp_generator = PyBulletCSPGenerator(
                     sim,

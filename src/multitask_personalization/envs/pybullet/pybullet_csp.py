@@ -7,12 +7,12 @@ from typing import Any
 import numpy as np
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, set_pose, get_pose, multiply_poses
+from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
+    check_body_collisions,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
-    check_body_collisions,
 )
 from pybullet_helpers.math_utils import get_poses_facing_line
 from tomsutils.llm import OpenAILLM
@@ -100,8 +100,8 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         # Finish the plan by indicating done.
         handover_plan.append((2, None))
         return handover_plan
-    
-    def _get_place_plan(self, obs: PyBulletState) -> list[PyBulletState]:
+
+    def _get_place_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """The robot is holding the wrong thing; place it in the shelf."""
         self._sim.set_state(obs)
         held_obj = obs.held_object
@@ -117,26 +117,30 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         # thing which is figuring out how to make CSP generation conditional on
         # the current state (in a nice implementation kind of way).
         placement_lb = (
-                -surface_extents[0] / 2 + object_extents[0] / 2,
-                -surface_extents[1] / 2 + object_extents[1] / 2,
-                surface_extents[2] / 2 + object_extents[2] / 2,
-            )
+            -surface_extents[0] / 2 + object_extents[0] / 2,
+            -surface_extents[1] / 2 + object_extents[1] / 2,
+            surface_extents[2] / 2 + object_extents[2] / 2,
+        )
         placement_ub = (
-                surface_extents[0] / 2 - object_extents[0] / 2,
-                surface_extents[1] / 2 - object_extents[1] / 2,
-                surface_extents[2] / 2 + object_extents[2] / 2,
+            surface_extents[0] / 2 - object_extents[0] / 2,
+            surface_extents[1] / 2 - object_extents[1] / 2,
+            surface_extents[2] / 2 + object_extents[2] / 2,
         )
         surface_pose = get_pose(surface_id, self._sim.physics_client_id)
         collision_ids = self._sim.get_collision_ids() - {surface_id, held_obj_id}
         selected_placement: Pose | None = None
         for _ in range(100000):
             placement_position = self._rng.uniform(placement_lb, placement_ub)
-            relative_placement_pose = Pose.from_rpy(tuple(placement_position), (0, 0, np.pi / 2))
+            relative_placement_pose = Pose.from_rpy(
+                tuple(placement_position), (0, 0, np.pi / 2)
+            )
             placement_pose = multiply_poses(surface_pose, relative_placement_pose)
             set_pose(held_obj_id, placement_pose, self._sim.physics_client_id)
             has_collision = False
             for collision_id in collision_ids:
-                if check_body_collisions(collision_id, held_obj_id, self._sim.physics_client_id):
+                if check_body_collisions(
+                    collision_id, held_obj_id, self._sim.physics_client_id
+                ):
                     has_collision = True
                     break
             if not has_collision:
@@ -436,7 +440,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._update_book_preferences(act, next_obs, reward)
 
     def _update_rom_model(
-        self, obs: PyBulletState, act: PyBulletAction, next_obs: PyBulletState, reward: float
+        self,
+        obs: PyBulletState,
+        act: PyBulletAction,
+        next_obs: PyBulletState,
+        reward: float,
     ) -> None:
         # Only train trainable ROM models.
         if not isinstance(self._rom_model, TrainableROMModel):

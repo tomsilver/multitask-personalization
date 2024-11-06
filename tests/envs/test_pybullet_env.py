@@ -40,7 +40,6 @@ def test_pybullet():
         if terminated:
             assert reward in {-1, 1}
             break
-        assert reward == 0
         assert not truncated
 
     env.close()

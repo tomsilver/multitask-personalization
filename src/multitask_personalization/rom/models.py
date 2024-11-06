@@ -283,7 +283,10 @@ class SphericalROMModel(TrainableROMModel):
             new_params = min_negative * self._no_positive_data_scale_factor
         else:
             new_params = (max_positive + min_negative) / 2
-        logging.info(f"Updating SphericalROMModel params to {new_params} ({min_negative=}, {max_positive=})")
+        logging.info(
+            f"Updating SphericalROMModel params to {new_params} "
+            f"({min_negative=}, {max_positive=})"
+        )
         self.set_trainable_parameters(new_params)
 
     def get_metrics(self) -> dict[str, float]:
