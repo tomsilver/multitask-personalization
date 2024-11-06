@@ -106,7 +106,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         self._sim.set_state(obs)
         held_obj = obs.held_object
         assert held_obj is not None
-        surface_name = "shelf"
+        surface_name = "table"  # NOTE: placing back into the shelf not yet done
         surface_id = self._sim.get_object_id_from_name(surface_name)
         surface_extents = self._sim.get_aabb_dimensions(surface_id)
         held_obj_id = self._sim.get_object_id_from_name(held_obj)
@@ -131,7 +131,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         selected_placement: Pose | None = None
         for _ in range(100000):
             placement_position = self._rng.uniform(placement_lb, placement_ub)
-            relative_placement_pose = Pose(tuple(placement_position))
+            relative_placement_pose = Pose.from_rpy(tuple(placement_position), (0, 0, np.pi / 2))
             placement_pose = multiply_poses(surface_pose, relative_placement_pose)
             set_pose(held_obj_id, placement_pose, self._sim.physics_client_id)
             has_collision = False
@@ -143,9 +143,6 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
                 selected_placement = relative_placement_pose
                 break
         assert selected_placement is not None
-        import pybullet as p
-        while True:
-            p.stepSimulation(self._sim.physics_client_id)
         self._sim.set_state(obs)
         return get_plan_to_place_object(
             obs,
@@ -258,8 +255,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         ############################## Initialization #############################
 
+        books = self._sim.book_descriptions
+        init_book = books[self._rng.choice(len(books))]
         initialization = {
-            book: self._sim.book_descriptions[0],
+            book: init_book,
             book_grasp: np.array([-np.pi / 2]),
             handover_position: np.zeros((3,)),
         }
@@ -433,17 +432,21 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        self._update_rom_model(obs, act, reward)
+        self._update_rom_model(obs, act, next_obs, reward)
         self._update_book_preferences(act, next_obs, reward)
 
     def _update_rom_model(
-        self, obs: PyBulletState, act: PyBulletAction, reward: float
+        self, obs: PyBulletState, act: PyBulletAction, next_obs: PyBulletState, reward: float
     ) -> None:
         # Only train trainable ROM models.
         if not isinstance(self._rom_model, TrainableROMModel):
             return
         # Only learn from cases where the robot triggered "done".
         if not np.isclose(act[0], 2):
+            return
+        # If the user said something and the reward was negative, the failure
+        # was due to book preferences, not handover failure.
+        if reward < 0 and next_obs.human_text is not None:
             return
         assert act[1] is None
         # Check if the trigger was successful.

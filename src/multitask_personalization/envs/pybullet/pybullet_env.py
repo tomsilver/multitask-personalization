@@ -547,10 +547,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def get_aabb_dimensions(self, object_id: int) -> tuple[float, float, float]:
         """Get the 3D bounding box dimensions of an object."""
-        # TODO fix...
-        link_id = 0 if object_id == self.shelf_id else -1
         (min_x, min_y, min_z), (max_x, max_y, max_z) = p.getAABB(
-            object_id, link_id, self.physics_client_id
+            object_id, -1, self.physics_client_id
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
 
