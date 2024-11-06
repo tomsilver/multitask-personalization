@@ -136,6 +136,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         explore_method: str = "nothing-personal",
         ensemble_explore_threshold: float = 0.1,
         ensemble_explore_members: int = 5,
+        neighborhood_explore_max_radius: float = 10.0,
+        neighborhood_explore_radius_decay: float = 0.99,
         book_preference_initialization: str = "I like everything!",
         llm_model_name: str = "gpt-4",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
@@ -149,6 +151,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             explore_method=explore_method,
             ensemble_explore_threshold=ensemble_explore_threshold,
             ensemble_explore_members=ensemble_explore_members,
+            neighborhood_explore_max_radius=neighborhood_explore_max_radius,
+            neighborhood_explore_radius_decay=neighborhood_explore_radius_decay,
         )
         self._sim = sim
         self._rom_model = rom_model
@@ -163,6 +167,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
         self._llm_temperature = llm_temperature
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._num_generations = 0
 
     def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
         CSP,
@@ -223,6 +228,27 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             # Create a handover constraint given the user ROM.
             def _handover_position_is_in_rom(position: NDArray) -> bool:
                 return self._rom_model.check_position_reachable(position)
+
+            handover_rom_constraint = CSPConstraint(
+                "handover_rom_constraint",
+                [handover_position],
+                _handover_position_is_in_rom,
+            )
+            constraints.append(handover_rom_constraint)
+
+        elif self._explore_method == "neighborhood":
+            radius = self._neighborhood_explore_max_radius * (
+                self._neighborhood_explore_radius_decay**self._num_generations
+            )
+
+            # NOTE: to avoid the complexity of considering distance in text
+            # space, we are for now considering all book descriptions to be
+            # within a neighborhood of each other, so, not adding a constraint.
+
+            def _handover_position_is_in_rom(position: NDArray) -> bool:
+                return self._rom_model.check_position_reachable(
+                    position, neighborhood=radius
+                )
 
             handover_rom_constraint = CSPConstraint(
                 "handover_rom_constraint",
@@ -332,6 +358,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             seed=self._seed,
             max_motion_planning_candidates=self._max_motion_planning_candidates,
         )
+
+        self._num_generations += 1
 
         return csp, samplers, policy, initialization
 
