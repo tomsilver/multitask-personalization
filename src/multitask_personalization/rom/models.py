@@ -223,11 +223,11 @@ class SphericalROMModel(TrainableROMModel):
         human_spec: HumanSpec,
         seed: int = 0,
         radius: float = 0.5,
-        max_possible_radius: float = 1.5,
+        no_positive_data_scale_factor: float = 0.99,
     ) -> None:
         super().__init__(human_spec, seed=seed)
         self._radius = radius
-        self._max_possible_radius = max_possible_radius
+        self._no_positive_data_scale_factor = no_positive_data_scale_factor
         origin, _ = self._human.get_pos_orient(self._human.right_wrist)
         self._sphere_center = origin
 
@@ -272,7 +272,8 @@ class SphericalROMModel(TrainableROMModel):
                 if min_negative is None or dist < min_negative:
                     min_negative = dist
         if max_positive is None or min_negative is None:
-            new_params = self._max_possible_radius
+            current_params = self.get_trainable_parameters()
+            new_params = current_params * self._no_positive_data_scale_factor
         else:
             new_params = (max_positive + min_negative) / 2
         logging.info(f"Updating SphericalROMModel params to {new_params}")

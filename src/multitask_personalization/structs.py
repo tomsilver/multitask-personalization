@@ -19,6 +19,10 @@ class CSPVariable:
     def __hash__(self) -> int:
         return hash(self.name)
 
+    def __eq__(self, other: Any) -> bool:
+        assert isinstance(other, CSPVariable)
+        return self.name == other.name
+
 
 @dataclass(frozen=True)
 class CSPConstraint:
