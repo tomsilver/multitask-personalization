@@ -102,7 +102,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         return handover_plan
 
     def _get_place_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
-        """The robot is holding the wrong thing; place it in the shelf."""
+        """The robot is holding the wrong thing; place it somewhere."""
         self._sim.set_state(obs)
         held_obj = obs.held_object
         assert held_obj is not None
