@@ -136,7 +136,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         explore_method: str = "nothing-personal",
         ensemble_explore_threshold: float = 0.1,
         ensemble_explore_members: int = 5,
-        neighborhood_explore_max_radius: float = 10.0,
+        neighborhood_explore_max_radius: float = 1.0,
         neighborhood_explore_radius_decay: float = 0.99,
         book_preference_initialization: str = "I like everything!",
         llm_model_name: str = "gpt-4",
