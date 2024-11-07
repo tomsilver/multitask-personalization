@@ -5,6 +5,7 @@ from typing import Any
 
 import gymnasium as gym
 
+from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_csp import PyBulletCSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import (
     PyBulletEnv,
@@ -21,7 +22,6 @@ from multitask_personalization.methods.approach import (
 )
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import (
-    CSPGenerator,
     CSPPolicy,
     CSPVariable,
 )

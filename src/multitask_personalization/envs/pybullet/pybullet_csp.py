@@ -17,6 +17,7 @@ from pybullet_helpers.math_utils import get_poses_facing_line
 from tomsutils.llm import OpenAILLM
 from tomsutils.spaces import EnumSpace
 
+from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import (
     PyBulletEnv,
     user_would_enjoy_book,
@@ -34,7 +35,6 @@ from multitask_personalization.rom.models import ROMModel, TrainableROMModel
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
-    CSPGenerator,
     CSPPolicy,
     CSPSampler,
     CSPVariable,
@@ -211,7 +211,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
         self._llm_temperature = llm_temperature
         self._max_motion_planning_candidates = max_motion_planning_candidates
-        self._num_generations = 0
 
     def _generate(self, obs: PyBulletState, do_explore: bool = False) -> tuple[
         CSP,
@@ -382,8 +381,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             seed=self._seed,
             max_motion_planning_candidates=self._max_motion_planning_candidates,
         )
-
-        self._num_generations += 1
 
         return csp, samplers, policy, initialization
 

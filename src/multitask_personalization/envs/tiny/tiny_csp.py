@@ -6,13 +6,15 @@ import numpy as np
 import scipy.stats
 from gymnasium.spaces import Box
 
+from multitask_personalization.csp_generation import (
+    CSPConstraintGenerator,
+    CSPGenerator,
+)
 from multitask_personalization.envs.tiny.tiny_env import TinyAction, TinyState
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
-    CSPConstraintGenerator,
     CSPCost,
-    CSPGenerator,
     CSPPolicy,
     CSPSampler,
     CSPVariable,
@@ -137,90 +139,74 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
 
     def __init__(
         self,
-        seed: int = 0,
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
-        explore_epsilon: float = 1.0,
-        explore_method: str = "nothing-personal",
+        **kwargs,
     ) -> None:
-        super().__init__(
-            seed=seed, explore_epsilon=explore_epsilon, explore_method=explore_method
-        )
+        super().__init__(**kwargs)
         self._distance_threshold = distance_threshold
-        self._num_generations = 0
         self._distance_constraint_generator = _TinyDistanceConstraintGenerator(
-            seed=seed,
+            seed=self._seed,
             distance_threshold=distance_threshold,
             init_desired_distance=init_desired_distance,
         )
 
-    def _generate(
+    def _generate_variables(
         self,
         obs: TinyState,
-        do_explore: bool = False,
-    ) -> tuple[
-        CSP, list[CSPSampler], CSPPolicy[TinyState, TinyAction], dict[CSPVariable, Any]
-    ]:
-
-        human_position = obs.human
-
-        ################################ Variables ################################
-
+    ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
         # Choose a position to target and a speed to move.
         position = CSPVariable(
             "position", Box(-np.inf, np.inf, shape=(), dtype=np.float_)
         )
         speed = CSPVariable("speed", Box(0, 1, shape=(), dtype=np.float_))
         variables = [position, speed]
-
-        ############################## Initialization #############################
-
         initialization = {
             position: self._rng.uniform(-10, 10),
             speed: self._rng.uniform(0, 1),
         }
+        return variables, initialization
 
-        ############################### Constraints ###############################
+    def _generate_personal_constraints(
+        self,
+        obs: TinyState,
+        variables: list[CSPVariable],
+    ) -> list[CSPConstraint]:
+        position, _ = variables
+        user_preference_constraint = self._distance_constraint_generator.generate(
+            obs, [position], "user_preference"
+        )
+        return [user_preference_constraint]
 
-        constraints: list[CSPConstraint] = []
+    def _generate_nonpersonal_constraints(
+        self,
+        obs: TinyState,
+        variables: list[CSPVariable],
+    ) -> list[CSPConstraint]:
+        return []
 
-        if not do_explore:
-            user_preference_constraint = self._distance_constraint_generator.generate(
-                obs, [position], "user_preference"
-            )
-            constraints.append(user_preference_constraint)
+    def _generate_exploit_cost(
+        self,
+        obs: TinyState,
+        variables: list[CSPVariable],
+    ) -> CSPCost | None:
 
-        ################################### Cost ##################################
+        _, speed = variables
 
-        if do_explore and self._explore_method == "max-entropy":
+        def _speed_cost_fn(x: np.float_) -> float:
+            """Move as fast as possible."""
+            return 1.0 - float(x)
 
-            user_preference_constraint = self._distance_constraint_generator.generate(
-                obs, [position], "user_preference"
-            )
-            assert isinstance(user_preference_constraint, LogProbCSPConstraint)
+        return CSPCost("maximize-speed", [speed], _speed_cost_fn)
 
-            def _max_entropy_fn(x: np.float_, s: np.float_) -> float:
-                logprob = user_preference_constraint.get_logprob(
-                    {position: x, speed: s}
-                )
-                entropy = bernoulli_entropy(logprob)
-                return 1.0 - entropy
+    def _generate_samplers(
+        self,
+        obs: TinyState,
+        csp: CSP,
+    ) -> list[CSPSampler]:
 
-            cost = CSPCost("maximize-entropy", variables, _max_entropy_fn)
-
-        else:
-
-            def _speed_cost_fn(x: np.float_) -> float:
-                """Move as fast as possible."""
-                return 1.0 - float(x)
-
-            cost = CSPCost("maximize-speed", [speed], _speed_cost_fn)
-
-        ################################### CSP ###################################
-
-        csp = CSP(variables, constraints, cost)
-
-        ################################# Samplers ################################
+        position, speed = csp.variables
+        human_position = obs.human
 
         def _sample_position_fn(
             _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -237,17 +223,16 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         position_sampler = FunctionalCSPSampler(_sample_position_fn, csp, {position})
         speed_sampler = FunctionalCSPSampler(_sample_speed_fn, csp, {speed})
 
-        samplers: list[CSPSampler] = [position_sampler, speed_sampler]
+        return [position_sampler, speed_sampler]
 
-        ################################# Policy ##################################
-
-        policy: CSPPolicy = _TinyCSPPolicy(
+    def _generate_policy(
+        self,
+        obs: TinyState,
+        csp: CSP,
+    ) -> CSPPolicy:
+        return _TinyCSPPolicy(
             csp, seed=self._seed, distance_threshold=self._distance_threshold
         )
-
-        self._num_generations += 1
-
-        return csp, samplers, policy, initialization
 
     def learn_from_transition(
         self,
