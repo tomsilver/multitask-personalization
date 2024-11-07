@@ -18,8 +18,8 @@ def test_solve_csp():
     y = CSPVariable("y", gym.spaces.Box(0, 1, dtype=np.float_))
     z = CSPVariable("z", gym.spaces.Discrete(5))
 
-    c1 = CSPConstraint("c1", [x, y], lambda x, y: x < y)
-    c2 = CSPConstraint("c2", [y, z], lambda y, z: y < z / 5)
+    c1 = CSPConstraint("c1", [x, y], lambda x, y: np.log(x < y))
+    c2 = CSPConstraint("c2", [y, z], lambda y, z: np.log(y < z / 5))
 
     csp = CSP([x, y, z], [c1, c2])
 

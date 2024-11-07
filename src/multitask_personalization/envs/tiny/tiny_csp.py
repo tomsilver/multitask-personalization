@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 from gymnasium.spaces import Box
+import scipy.stats
 
 from multitask_personalization.envs.tiny.tiny_env import TinyAction, TinyState
 from multitask_personalization.structs import (
@@ -74,12 +75,16 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         assert len(csp_vars) == 1
         position_var = next(iter(csp_vars))
 
-        def _position_close_enough(position: np.float_) -> bool:
+        def _position_logprob(position: np.float_) -> float:
             dist = abs(obs.human - position)
-            return bool(abs(dist - self._desired_distance) < self._distance_threshold)
+            return scipy.stats.norm.logpdf(dist, loc=self._desired_distance)
 
+        threshold = scipy.stats.norm.logpdf(self._distance_threshold)
         user_preference_constraint = CSPConstraint(
-            constraint_name, [position_var], _position_close_enough
+            constraint_name,
+            [position_var],
+            _position_logprob,
+            threshold=threshold,
         )
         return user_preference_constraint
 

@@ -26,16 +26,26 @@ class CSPVariable:
 
 @dataclass(frozen=True)
 class CSPConstraint:
-    """Constraint satisfaction problem constraint."""
+    """Constraint satisfaction problem constraint.
+
+    The constraint_logprob_fn is a function mapping variable assignments
+    to a log probability that the constraint holds. The constraint is
+    defined by this value being greater than a threshold.
+    """
 
     name: str
     variables: list[CSPVariable]
-    constraint_fn: Callable[..., bool]  # inputs are CSPVariable values
+    constraint_logprob_fn: Callable[..., float]
+    threshold: float = np.log(0.95)
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether the constraint holds given values of the variables."""
+        return self.get_logprob(sol) >= self.threshold
+
+    def get_logprob(self, sol: dict[CSPVariable, Any]) -> bool:
+        """Get the log probability of the constraint holding."""
         vals = [sol[v] for v in self.variables]
-        return self.constraint_fn(*vals)
+        return self.constraint_logprob_fn(*vals)
 
 
 @dataclass(frozen=True)
