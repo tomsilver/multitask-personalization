@@ -7,10 +7,9 @@ from typing import Any
 import numpy as np
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
+from pybullet_helpers.geometry import Pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
-    check_body_collisions,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
 )
@@ -128,36 +127,24 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             surface_extents[1] / 2 - object_extents[1] / 2,
             surface_extents[2] / 2 + object_extents[2] / 2,
         )
-        surface_pose = get_pose(surface_id, self._sim.physics_client_id)
-        collision_ids = self._sim.get_collision_ids() - {surface_id, held_obj_id}
-        selected_placement: Pose | None = None
         for _ in range(100000):
             placement_position = self._rng.uniform(placement_lb, placement_ub)
             relative_placement_pose = Pose.from_rpy(
                 tuple(placement_position), (0, 0, np.pi / 2)
             )
-            placement_pose = multiply_poses(surface_pose, relative_placement_pose)
-            set_pose(held_obj_id, placement_pose, self._sim.physics_client_id)
-            has_collision = False
-            for collision_id in collision_ids:
-                if check_body_collisions(
-                    collision_id, held_obj_id, self._sim.physics_client_id
-                ):
-                    has_collision = True
-                    break
-            if not has_collision:
-                selected_placement = relative_placement_pose
-                break
-        assert selected_placement is not None
-        self._sim.set_state(obs)
-        return get_plan_to_place_object(
-            obs,
-            held_obj,
-            surface_name,
-            selected_placement,
-            self._sim,
-            max_motion_planning_candidates=self._max_motion_planning_candidates,
-        )
+            self._sim.set_state(obs)
+            plan = get_plan_to_place_object(
+                obs,
+                held_obj,
+                surface_name,
+                relative_placement_pose,
+                self._sim,
+                max_motion_planning_time=1.0,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+            )
+            if plan is not None:
+                return plan
+        raise RuntimeError("Could not find placement plan")
 
 
 def _book_grasp_to_pose(yaw: NDArray) -> Pose:

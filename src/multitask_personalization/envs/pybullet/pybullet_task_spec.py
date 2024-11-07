@@ -56,7 +56,7 @@ class PyBulletTaskSpec:
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.2)
 
-    object_pose: Pose = Pose(position=(-0.5, 0.0, 0.05))
+    object_pose: Pose = Pose(position=(-1000, -1000, 0.05))
     object_rgba: tuple[float, float, float, float] = (0.9, 0.6, 0.3, 1.0)
     object_radius: float = 0.025
     object_length: float = 0.1

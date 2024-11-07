@@ -26,7 +26,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
     ax0, ax1 = axes  # type: ignore
     fig.suptitle("CSP Approach in Tiny Env")
 
-    # Make a plot showing returns over time.
+    # Make a plot showing rewards over time.
     ax0.set_title("Rewards")
     sns.regplot(
         df,
