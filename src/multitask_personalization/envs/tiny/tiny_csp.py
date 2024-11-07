@@ -21,7 +21,6 @@ from multitask_personalization.structs import (
     FunctionalCSPSampler,
     LogProbCSPConstraint,
 )
-from multitask_personalization.utils import bernoulli_entropy
 
 
 class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
