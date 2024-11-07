@@ -117,14 +117,14 @@ class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
 
     @abc.abstractmethod
     def step(self, obs: ObsType) -> tuple[ActType, bool]:
-        """Return an action and terminal bit.
+        """Return an action and a termination bit.
 
         Note that the policy may have internal memory; this advances it.
         """
 
 
 class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
-    """Generates CSPs, samplers, policies, initializations; and learns from
+    """Generates CSPs, samplers, policies, and initializations; and learns from
     environment transitions."""
 
     def __init__(
