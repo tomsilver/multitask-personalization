@@ -107,8 +107,9 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
 
             def _max_entropy_fn(*args) -> float:
                 total_log_prob = 0.0
+                sol = dict(zip(variables, args))
                 for constraint in personal_lp_constraints:
-                    total_log_prob += constraint.constraint_logprob_fn(*args)
+                    total_log_prob += constraint.get_logprob(sol)
                 entropy = bernoulli_entropy(total_log_prob)
                 return 1.0 - entropy
 
