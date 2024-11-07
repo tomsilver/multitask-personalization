@@ -44,9 +44,9 @@ class CSPCost:
 
     name: str
     variables: list[CSPVariable]
-    cost_fn: Callable[..., bool]  # inputs are CSPVariable values
+    cost_fn: Callable[..., float]  # inputs are CSPVariable values
 
-    def get_cost(self, sol: dict[CSPVariable, Any]) -> bool:
+    def get_cost(self, sol: dict[CSPVariable, Any]) -> float:
         """Evaluate the cost function."""
         vals = [sol[v] for v in self.variables]
         return self.cost_fn(*vals)
@@ -67,11 +67,10 @@ class CSP:
                 return False
         return True
 
-    def get_cost(self, sol: dict[CSPVariable, Any]) -> bool:
+    def get_cost(self, sol: dict[CSPVariable, Any]) -> float:
         """Evaluate the cost function."""
         assert self.cost is not None
-        vals = [sol[v] for v in self.variables]
-        return self.cost.get_cost(*vals)
+        return self.cost.get_cost(sol)
 
 
 class CSPSampler(abc.ABC):

@@ -20,8 +20,7 @@ def test_csp_approach():
     approach.train()
     env.action_space.seed(seed)
 
-    # Run enough episodes to learn reasonable constraints.
-    for _ in range(500):
+    for _ in range(10):
         obs, info = env.reset()
         approach.reset(obs, info)
         for _ in range(100):

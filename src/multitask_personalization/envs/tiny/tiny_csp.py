@@ -10,6 +10,7 @@ from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
     CSPConstraintGenerator,
+    CSPCost,
     CSPGenerator,
     CSPPolicy,
     CSPSampler,
@@ -25,16 +26,20 @@ class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
     ) -> None:
         super().__init__(csp, seed)
         self._target_position: float | None = None
+        self._speed: float | None = None
         self._distance_threshold = distance_threshold
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
         self._target_position = self._get_value("position")
+        self._speed = self._get_value("speed")
 
     def step(self, obs: TinyState) -> tuple[TinyAction, bool]:
         assert self._target_position is not None
+        assert self._speed is not None
         robot_position = obs.robot
         delta = np.clip(self._target_position - robot_position, -1, 1)
+        delta = self._speed * delta
         if abs(delta) < 1e-6:
             return (1, None), True
         return (0, delta), False
@@ -150,16 +155,18 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
 
         ################################ Variables ################################
 
-        # Choose a position to target.
+        # Choose a position to target and a speed to move.
         position = CSPVariable(
             "position", Box(-np.inf, np.inf, shape=(), dtype=np.float_)
         )
-        variables = [position]
+        speed = CSPVariable("speed", Box(0, 1, shape=(), dtype=np.float_))
+        variables = [position, speed]
 
         ############################## Initialization #############################
 
         initialization = {
             position: self._rng.uniform(-10, 10),
+            speed: self._rng.uniform(0, 1),
         }
 
         ############################### Constraints ###############################
@@ -172,9 +179,17 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
             )
             constraints.append(user_preference_constraint)
 
+        ################################### Cost ##################################
+
+        def _cost_fn(speed: np.float_) -> float:
+            """Move as fast as possible."""
+            return 1.0 - float(speed)
+
+        cost = CSPCost("maximize-speed", [speed], _cost_fn)
+
         ################################### CSP ###################################
 
-        csp = CSP(variables, constraints)
+        csp = CSP(variables, constraints, cost)
 
         ################################# Samplers ################################
 
@@ -184,9 +199,16 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
             sample = rng.normal(loc=human_position, scale=10.0)
             return {position: sample}
 
-        position_sampler = FunctionalCSPSampler(_sample_position_fn, csp, {position})
+        def _sample_speed_fn(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            sample = rng.uniform(0, 1)
+            return {speed: sample}
 
-        samplers: list[CSPSampler] = [position_sampler]
+        position_sampler = FunctionalCSPSampler(_sample_position_fn, csp, {position})
+        speed_sampler = FunctionalCSPSampler(_sample_speed_fn, csp, {speed})
+
+        samplers: list[CSPSampler] = [position_sampler, speed_sampler]
 
         ################################# Policy ##################################
 
