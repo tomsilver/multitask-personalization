@@ -367,11 +367,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
-            reward, done = self._get_reward_and_done(robot_indicated_done=False)
-            return self.get_state(), reward, done, False, self._get_info()
+            reward = self._get_reward(robot_indicated_done=False)
+            return self.get_state(), reward, False, False, self._get_info()
         if np.isclose(action[0], 2):
-            reward, done = self._get_reward_and_done(robot_indicated_done=True)
-            return self.get_state(), reward, done, False, self._get_info()
+            reward = self._get_reward(robot_indicated_done=True)
+            return self.get_state(), reward, False, False, self._get_info()
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
@@ -407,21 +407,19 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
 
-        reward, done = self._get_reward_and_done(robot_indicated_done=False)
-        return self.get_state(), reward, done, False, self._get_info()
+        reward = self._get_reward(robot_indicated_done=False)
+        return self.get_state(), reward, False, False, self._get_info()
 
-    def _get_reward_and_done(
-        self, robot_indicated_done: bool = False
-    ) -> tuple[float, bool]:
+    def _get_reward(self, robot_indicated_done: bool = False) -> float:
         if self._hidden_spec is None:
             raise NotImplementedError("Should not call step() in sim")
         if self.task_spec.task_objective == "hand over book":
             # Robot needs to indicate done for the handover task.
             if not robot_indicated_done:
-                return 0.0, False
+                return 0.0
             # Must be holding a book.
             if self.current_held_object_id not in self.book_ids:
-                return -1.0, False
+                return -1.0
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_description = self.book_descriptions[book_idx]
             # Check if the book is reachable.
@@ -430,7 +428,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 np.array(end_effector_position)
             )
             if not reachable:
-                return -1.0, False
+                return -1.0
             # Should be holding a preferred book.
             if not user_would_enjoy_book(
                 book_description,
@@ -449,7 +447,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     seed=self._seed,
                 )
                 logging.info(f"Human says: {self.current_human_text}")
-                return -1.0, False
+                return -1.0
             # The robot is successful in handing over the book. Have the user
             # elaborate on why they like this book.
             self.current_human_text = _explain_user_book_preference(
@@ -460,7 +458,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 seed=self._seed,
             )
             logging.info(f"Human says: {self.current_human_text}")
-            return 1.0, True
+            return 1.0
         raise NotImplementedError
 
     def _get_info(self) -> dict[str, Any]:
