@@ -59,7 +59,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         # Reset in reset().
         self._robot_position = -1.0
         self._human_position = 1.0
-        self._robot_should_explore = False
+        self._user_allows_explore = False
 
     def reset(
         self,
@@ -82,7 +82,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
                 break
         self._robot_position = robot_position
         self._human_position = human_position
-        self._robot_should_explore = self._rng.uniform() < self._explore_epsilon
+        self._user_allows_explore = self._rng.uniform() < self._explore_epsilon
         return self._get_state(), self._get_info()
 
     def step(
@@ -125,5 +125,5 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
 
     def _get_info(self) -> dict[str, Any]:
         return {
-            "explore": self._robot_should_explore,
+            "user_allows_explore": self._user_allows_explore,
         }

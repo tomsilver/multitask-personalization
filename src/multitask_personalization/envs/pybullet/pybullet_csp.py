@@ -197,11 +197,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         rom_model: ROMModel,
         seed: int = 0,
-        explore_method: str = "nothing-personal",
-        ensemble_explore_threshold: float = 0.1,
-        ensemble_explore_members: int = 5,
-        neighborhood_explore_max_radius: float = 1.0,
-        neighborhood_explore_radius_decay: float = 0.99,
         book_preference_initialization: str = "I like everything!",
         llm_model_name: str = "gpt-4",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
@@ -210,14 +205,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm_temperature: float = 0.0,
         max_motion_planning_candidates: int = 1,
     ) -> None:
-        super().__init__(
-            seed=seed,
-            explore_method=explore_method,
-            ensemble_explore_threshold=ensemble_explore_threshold,
-            ensemble_explore_members=ensemble_explore_members,
-            neighborhood_explore_max_radius=neighborhood_explore_max_radius,
-            neighborhood_explore_radius_decay=neighborhood_explore_radius_decay,
-        )
+        super().__init__(seed=seed)
         self._sim = sim
         self._rom_model = rom_model
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
@@ -233,7 +221,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._num_generations = 0
 
-    def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
+    def _generate(self, obs: PyBulletState, do_explore: bool = False) -> tuple[
         CSP,
         list[CSPSampler],
         CSPPolicy[PyBulletState, PyBulletAction],
@@ -273,7 +261,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         constraints: list[CSPConstraint] = []
 
-        if not explore:
+        if not do_explore:
             # Create a user preference constraint for the book.
             def _book_is_preferred(book_description: str) -> bool:
                 return user_would_enjoy_book(
@@ -301,30 +289,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _handover_position_is_in_rom,
             )
             constraints.append(handover_rom_constraint)
-
-        elif self._explore_method == "neighborhood":
-            radius = self._neighborhood_explore_max_radius * (
-                self._neighborhood_explore_radius_decay**self._num_generations
-            )
-
-            # NOTE: to avoid the complexity of considering distance in text
-            # space, we are for now considering all book descriptions to be
-            # within a neighborhood of each other, so, not adding a constraint.
-
-            def _handover_position_is_in_rom(position: NDArray) -> bool:
-                return self._rom_model.check_position_reachable(
-                    position, neighborhood=radius
-                )
-
-            handover_rom_constraint = CSPConstraint(
-                "handover_rom_constraint",
-                [handover_position],
-                _handover_position_is_in_rom,
-            )
-            constraints.append(handover_rom_constraint)
-
-        else:
-            assert self._explore_method == "nothing-personal"
 
         # Create reaching constraints.
         def _book_grasp_is_reachable(yaw: NDArray) -> bool:

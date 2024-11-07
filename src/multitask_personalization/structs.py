@@ -130,29 +130,37 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     def __init__(
         self,
         seed: int = 0,
-        explore_method: str = "nothing-personal",
-        ensemble_explore_threshold: float = 1e-1,
-        ensemble_explore_members: int = 5,
-        neighborhood_explore_max_radius: float = 1.0,
-        neighborhood_explore_radius_decay: float = 0.99,
+        explore_epsilon: float = 0.5,
     ) -> None:
         self._seed = seed
         self._rng = np.random.default_rng(seed)
-        self._explore_method = explore_method
-        self._ensemble_explore_threshold = ensemble_explore_threshold
-        self._ensemble_explore_members = ensemble_explore_members
-        self._neighborhood_explore_max_radius = neighborhood_explore_max_radius
-        self._neighborhood_explore_radius_decay = neighborhood_explore_radius_decay
+        self._explore_epsilon = explore_epsilon
 
-    @abc.abstractmethod
     def generate(
         self,
         obs: ObsType,
-        explore: bool = False,
+        user_allows_explore: bool = False,
     ) -> tuple[
         CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
     ]:
-        """Generate a CSP, samplers, policy, and initialization."""
+        """Generate a CSP, samplers, policy, and initialization.
+
+        If user_allows_explore is False, then the generator should
+        "exploit", taking the best actions possible under its current
+        models. Otherwise it is free to "explore".
+        """
+        do_explore = user_allows_explore and self._rng.uniform() < self._explore_epsilon
+        return self._generate(obs, do_explore=do_explore)
+
+    @abc.abstractmethod
+    def _generate(
+        self,
+        obs: ObsType,
+        do_explore: bool = False,
+    ) -> tuple[
+        CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
+    ]:
+        """The actual generation method that subclasses should implement."""
 
     @abc.abstractmethod
     def learn_from_transition(
@@ -184,7 +192,6 @@ class CSPConstraintGenerator(abc.ABC, Generic[ObsType, ActType]):
         obs: ObsType,
         csp_vars: list[CSPVariable],
         constraint_name: str,
-        neighborhood: float = 0.0,
     ) -> CSPConstraint:
         """Generate a constraint."""
 
@@ -203,63 +210,3 @@ class CSPConstraintGenerator(abc.ABC, Generic[ObsType, ActType]):
     def get_metrics(self) -> dict[str, float]:
         """Report any metrics, e.g., about learned constraint parameters."""
         return {}
-
-
-class EnsembleCSPConstraintGenerator(CSPConstraintGenerator[ObsType, ActType]):
-    """A constraint generator implemented as an ensemble of constraint
-    generators.
-
-    This is useful for exploration. For example, to explore
-    optimistically, you can use generate() with a small threshold.
-    """
-
-    def __init__(
-        self, members: list[CSPConstraintGenerator[ObsType, ActType]], seed: int = 0
-    ) -> None:
-        super().__init__(seed)
-        self._members = members
-
-    def generate(
-        self,
-        obs: ObsType,
-        csp_vars: list[CSPVariable],
-        constraint_name: str,
-        neighborhood: float = 0.0,
-        member_classification_threshold: float = 0.5,
-    ) -> CSPConstraint:
-
-        member_constraints = [
-            m.generate(obs, csp_vars, constraint_name, neighborhood=neighborhood)
-            for m in self._members
-        ]
-
-        def _constraint_fn(*args) -> bool:
-            total_pos = 0
-            for constraint in member_constraints:
-                total_pos += constraint.constraint_fn(*args)
-            frac = total_pos / len(member_constraints)
-            return frac >= member_classification_threshold
-
-        constraint = CSPConstraint(constraint_name, csp_vars, _constraint_fn)
-
-        return constraint
-
-    def learn_from_transition(
-        self,
-        obs: ObsType,
-        act: ActType,
-        next_obs: ObsType,
-        reward: float,
-        done: bool,
-        info: dict[str, Any],
-    ) -> None:
-        for member in self._members:
-            member.learn_from_transition(obs, act, next_obs, reward, done, info)
-
-    def get_metrics(self) -> dict[str, float]:
-        metrics: dict[str, float] = {}
-        for member_idx, member in enumerate(self._members):
-            member_metrics = member.get_metrics()
-            for metric_name, val in member_metrics.items():
-                metrics[f"ensemble-{member_idx}-{metric_name}"] = val
-        return metrics

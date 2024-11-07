@@ -51,7 +51,8 @@ class ROMModel(abc.ABC):
 
     @abc.abstractmethod
     def check_position_reachable(
-        self, position: NDArray, neighborhood: float = 1e-4
+        self,
+        position: NDArray,
     ) -> bool:
         """Check if a position is reachable."""
 
@@ -190,10 +191,11 @@ class GroundTruthROMModel(ROMModel):
         # self._visualize_reachable_points()
 
     def check_position_reachable(
-        self, position: NDArray, neighborhood: float = 1e-4
+        self,
+        position: NDArray,
     ) -> bool:
         distance, _ = self._reachable_kd_tree.query(position)
-        return distance < self._ik_distance_threshold + neighborhood
+        return distance < self._ik_distance_threshold
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return rng.choice(self._reachable_points)
@@ -249,10 +251,9 @@ class SphericalROMModel(TrainableROMModel):
     def check_position_reachable(
         self,
         position: NDArray,
-        neighborhood: float = 1e-4,
     ) -> bool:
         distance = float(np.linalg.norm(position - self._sphere_center))
-        reachable = distance < self._radius + neighborhood
+        reachable = distance < self._radius
         return reachable
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
@@ -343,10 +344,11 @@ class LearnedROMModel(TrainableROMModel):
         # self._visualize_reachable_points()
 
     def check_position_reachable(
-        self, position: NDArray, neighborhood: float = 1e-4
+        self,
+        position: NDArray,
     ) -> bool:
         distance, _ = self._reachable_kd_tree.query(position)
-        return distance < self._ik_distance_threshold + neighborhood
+        return distance < self._ik_distance_threshold
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return rng.choice(self._reachable_points)

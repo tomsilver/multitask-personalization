@@ -21,3 +21,7 @@ class BaseApproach(Agent[_ObsType, _ActType]):
     def get_episode_metrics(self) -> dict[str, float]:
         """Return any approach-specific metrics for the present episode."""
         return {}
+
+
+class ApproachFailure(Exception):
+    """Raised when an approach fails."""

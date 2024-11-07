@@ -15,7 +15,7 @@ import hydra
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
-from multitask_personalization.methods.approach import BaseApproach
+from multitask_personalization.methods.approach import ApproachFailure, BaseApproach
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf/")
@@ -46,27 +46,30 @@ def _main(cfg: DictConfig) -> None:
     for episode in range(cfg.num_episodes):
         logging.info(f"Starting episode {episode}")
         obs, info = env.reset()
-        assert "explore" in info, (
+        assert "user_allows_explore" in info, (
             "Environments are required to report at reset whether the robot should "
             "explore or not. The user decides."
         )
-        approach.reset(obs, info)
         episode_returns = 0.0
         episode_steps = 0
         episode_start_time = time.perf_counter()
-        for _ in range(cfg.max_episode_length):
-            act = approach.step()
-            obs, rew, terminated, truncated, info = env.step(act)
-            reward = float(rew)  # gym env rewards are SupportsFloat
-            approach.update(obs, reward, terminated, info)
-            episode_returns += reward
-            episode_steps += 1
-            if terminated or truncated:
-                break
+        try:
+            approach.reset(obs, info)
+            for _ in range(cfg.max_episode_length):
+                act = approach.step()
+                obs, rew, terminated, truncated, info = env.step(act)
+                reward = float(rew)  # gym env rewards are SupportsFloat
+                approach.update(obs, reward, terminated, info)
+                episode_returns += reward
+                episode_steps += 1
+                if terminated or truncated:
+                    break
+        except ApproachFailure as e:
+            logging.info(e)
         episode_duration = time.perf_counter() - episode_start_time
         episode_metrics = {
             "episode": episode,
-            "explore": info["explore"],
+            "user_allows_explore": info["user_allows_explore"],
             "returns": episode_returns,
             "steps": episode_steps,
             "duration": episode_duration,

@@ -190,7 +190,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_held_object_id: int | None = None
 
         # The user decides when the robot should explore.
-        self._robot_should_explore = False
+        self._user_allows_explore = False
 
         # Track the thing that the human is saying right now.
         self.current_human_text: str | None = None
@@ -331,7 +331,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._reset_from_task_spec()
 
         # Randomize whether the robot should explore on this episode.
-        self._robot_should_explore = self._rng.uniform() < self._explore_epsilon
+        self._user_allows_explore = self._rng.uniform() < self._explore_epsilon
 
         # Randomize book descriptions.
         self.book_descriptions = self._generate_book_descriptions(
@@ -463,7 +463,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     def _get_info(self) -> dict[str, Any]:
         return {
             "task_spec": self.task_spec,
-            "explore": self._robot_should_explore,
+            "user_allows_explore": self._user_allows_explore,
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
