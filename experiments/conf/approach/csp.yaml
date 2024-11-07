@@ -1,3 +1,2 @@
 _target_: "multitask_personalization.methods.csp_approach.CSPApproach"
-explore_method: nothing-personal
 max_motion_planning_candidates: 1
