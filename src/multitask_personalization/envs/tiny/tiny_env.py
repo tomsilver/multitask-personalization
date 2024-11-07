@@ -75,17 +75,16 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         return self._get_state(), self._get_info()
 
     def _reset_human(self) -> None:
+        assert self._hidden_spec is not None
         desired_distance = self._hidden_spec.desired_distance
         threshold = self._hidden_spec.distance_threshold
         while True:
-            human_position = self._rng.uniform(-10.0 + (desired_distance + threshold), 10.0 - (desired_distance + threshold))
+            human_position = self._rng.uniform(
+                -10.0 + (desired_distance + threshold),
+                10.0 - (desired_distance + threshold),
+            )
             dist = abs(self._robot_position - human_position)
-            assert self._hidden_spec is not None
-            if (
-                dist
-                >= desired_distance
-                + threshold
-            ):
+            if dist >= desired_distance + threshold:
                 break
         self._human_position = human_position
 
