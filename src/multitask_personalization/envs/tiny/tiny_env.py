@@ -42,12 +42,12 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         self,
         hidden_spec: TinyHiddenSpec | None = None,
         seed: int = 0,
-        explore_epsilon: float = 0.5,
+        allow_explore_switch_prob: float = 5e-2,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
         self._hidden_spec = hidden_spec
-        self._explore_epsilon = explore_epsilon
+        self._allow_explore_switch_prob = allow_explore_switch_prob
 
         self.action_space = gym.spaces.OneOf(
             (
@@ -59,7 +59,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         # Reset in reset().
         self._robot_position = -1.0
         self._human_position = 1.0
-        self._user_allows_explore = False
+        self._user_allows_explore = True
 
     def reset(
         self,
@@ -82,12 +82,15 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
                 break
         self._robot_position = robot_position
         self._human_position = human_position
-        self._user_allows_explore = self._rng.uniform() < self._explore_epsilon
+        self._user_allows_explore = True
         return self._get_state(), self._get_info()
 
     def step(
         self, action: TinyAction
     ) -> tuple[TinyState, float, bool, bool, dict[str, Any]]:
+        if self._rng.uniform() < self._allow_explore_switch_prob:
+            self._user_allows_explore = not self._user_allows_explore
+
         assert self.action_space.contains(action)
         if np.isclose(action[0], 1):
             reward, done = self._get_reward_and_done(robot_indicated_done=True)
