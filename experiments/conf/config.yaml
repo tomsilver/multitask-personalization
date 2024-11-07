@@ -9,8 +9,6 @@ video_dir: ${hydra:runtime.output_dir}/videos
 results_file: ${hydra:runtime.output_dir}/results.csv
 config_file: ${hydra:runtime.output_dir}/config.yaml
 seed: 0
-max_environment_steps: 10000
-record_videos: False
 defaults:
   - _self_
   - approach: random

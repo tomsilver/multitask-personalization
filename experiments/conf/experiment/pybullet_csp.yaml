@@ -2,4 +2,5 @@
 defaults:
   - override /approach: csp
   - override /env: pybullet
+max_environment_steps: 100
 record_videos: False

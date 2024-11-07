@@ -2,4 +2,5 @@
 defaults:
   - override /approach: csp
   - override /env: tiny
+max_environment_steps: 10000
 record_videos: False
