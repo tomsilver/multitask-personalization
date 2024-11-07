@@ -8,7 +8,6 @@ Examples:
 """
 
 import logging
-import time
 
 import gymnasium as gym
 import hydra
@@ -43,40 +42,29 @@ def _main(cfg: DictConfig) -> None:
 
     # Run a certain number of episodes and log metrics along the way.
     metrics: list[dict[str, float]] = []
-    for episode in range(cfg.num_episodes):
-        logging.info(f"Starting episode {episode}")
-        obs, info = env.reset()
-        assert "user_allows_explore" in info, (
-            "Environments are required to report at reset whether the robot should "
-            "explore or not. The user decides."
-        )
-        episode_returns = 0.0
-        episode_steps = 0
-        episode_start_time = time.perf_counter()
+    obs, info = env.reset()
+    assert "user_allows_explore" in info, (
+        "Environments are required to report at reset whether the robot should "
+        "explore or not. The user decides."
+    )
+    approach.reset(obs, info)
+    for t in range(cfg.max_environment_steps):
         try:
-            approach.reset(obs, info)
-            for _ in range(cfg.max_episode_length):
-                act = approach.step()
-                obs, rew, terminated, truncated, info = env.step(act)
-                reward = float(rew)  # gym env rewards are SupportsFloat
-                approach.update(obs, reward, terminated, info)
-                episode_returns += reward
-                episode_steps += 1
-                if terminated or truncated:
-                    break
+            act = approach.step()
         except ApproachFailure as e:
             logging.info(e)
-        episode_duration = time.perf_counter() - episode_start_time
-        episode_metrics = {
-            "episode": episode,
+        obs, rew, terminated, truncated, info = env.step(act)
+        assert not (terminated or truncated)
+        reward = float(rew)  # gym env rewards are SupportsFloat
+        approach.update(obs, reward, terminated, info)
+        step_metrics = {
+            "step": t,
             "user_allows_explore": info["user_allows_explore"],
-            "returns": episode_returns,
-            "steps": episode_steps,
-            "duration": episode_duration,
-            **approach.get_episode_metrics(),
+            "reward": rew,
+            **approach.get_step_metrics(),
         }
-        logging.info(f"Finished episode with returns {episode_returns}")
-        metrics.append(episode_metrics)
+        logging.info(f"Step {t} reward: {reward}")
+        metrics.append(step_metrics)
     env.close()
 
     # Aggregate and save results.
