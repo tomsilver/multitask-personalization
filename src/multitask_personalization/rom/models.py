@@ -50,7 +50,9 @@ class ROMModel(abc.ABC):
         self._reachable_kd_tree: KDTree = KDTree(np.array([[0, 0]]))
 
     @abc.abstractmethod
-    def check_position_reachable(self, position: NDArray) -> bool:
+    def check_position_reachable(
+        self, position: NDArray, neighborhood: float = 1e-4
+    ) -> bool:
         """Check if a position is reachable."""
 
     @abc.abstractmethod
@@ -187,9 +189,11 @@ class GroundTruthROMModel(ROMModel):
         # Uncomment for debugging.
         # self._visualize_reachable_points()
 
-    def check_position_reachable(self, position: NDArray) -> bool:
+    def check_position_reachable(
+        self, position: NDArray, neighborhood: float = 1e-4
+    ) -> bool:
         distance, _ = self._reachable_kd_tree.query(position)
-        return distance < self._ik_distance_threshold
+        return distance < self._ik_distance_threshold + neighborhood
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return rng.choice(self._reachable_points)
@@ -223,11 +227,11 @@ class SphericalROMModel(TrainableROMModel):
         human_spec: HumanSpec,
         seed: int = 0,
         radius: float = 0.5,
-        max_possible_radius: float = 1.5,
+        no_positive_data_scale_factor: float = 0.9,
     ) -> None:
         super().__init__(human_spec, seed=seed)
         self._radius = radius
-        self._max_possible_radius = max_possible_radius
+        self._no_positive_data_scale_factor = no_positive_data_scale_factor
         origin, _ = self._human.get_pos_orient(self._human.right_wrist)
         self._sphere_center = origin
 
@@ -243,10 +247,12 @@ class SphericalROMModel(TrainableROMModel):
         self._radius = params
 
     def check_position_reachable(
-        self, position: NDArray, padding: float = 1e-4
+        self,
+        position: NDArray,
+        neighborhood: float = 1e-4,
     ) -> bool:
         distance = float(np.linalg.norm(position - self._sphere_center))
-        reachable = distance < self._radius + padding
+        reachable = distance < self._radius + neighborhood
         return reachable
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
@@ -271,11 +277,16 @@ class SphericalROMModel(TrainableROMModel):
             else:
                 if min_negative is None or dist < min_negative:
                     min_negative = dist
-        if max_positive is None or min_negative is None:
-            new_params = self._max_possible_radius
+        if min_negative is None:
+            return
+        if max_positive is None:
+            new_params = min_negative * self._no_positive_data_scale_factor
         else:
             new_params = (max_positive + min_negative) / 2
-        logging.info(f"Updating SphericalROMModel params to {new_params}")
+        logging.info(
+            f"Updating SphericalROMModel params to {new_params} "
+            f"({min_negative=}, {max_positive=})"
+        )
         self.set_trainable_parameters(new_params)
 
     def get_metrics(self) -> dict[str, float]:
@@ -331,9 +342,11 @@ class LearnedROMModel(TrainableROMModel):
         # Uncomment for debugging.
         # self._visualize_reachable_points()
 
-    def check_position_reachable(self, position: NDArray) -> bool:
+    def check_position_reachable(
+        self, position: NDArray, neighborhood: float = 1e-4
+    ) -> bool:
         distance, _ = self._reachable_kd_tree.query(position)
-        return distance < self._ik_distance_threshold
+        return distance < self._ik_distance_threshold + neighborhood
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return rng.choice(self._reachable_points)

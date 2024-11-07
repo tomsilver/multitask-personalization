@@ -418,7 +418,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 return 0.0, False
             # Must be holding a book.
             if self.current_held_object_id not in self.book_ids:
-                return -1.0, True
+                return -1.0, False
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_description = self.book_descriptions[book_idx]
             # Check if the book is reachable.
@@ -427,7 +427,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 np.array(end_effector_position)
             )
             if not reachable:
-                return -1.0, True
+                return -1.0, False
             # Should be holding a preferred book.
             if not user_would_enjoy_book(
                 book_description,
@@ -446,7 +446,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     seed=self._seed,
                 )
                 logging.info(f"Human says: {self.current_human_text}")
-                return -1.0, True
+                return -1.0, False
             # The robot is successful in handing over the book. Have the user
             # elaborate on why they like this book.
             self.current_human_text = _explain_user_book_preference(

@@ -19,6 +19,10 @@ class CSPVariable:
     def __hash__(self) -> int:
         return hash(self.name)
 
+    def __eq__(self, other: Any) -> bool:
+        assert isinstance(other, CSPVariable)
+        return self.name == other.name
+
 
 @dataclass(frozen=True)
 class CSPConstraint:
@@ -126,7 +130,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         explore_method: str = "nothing-personal",
         ensemble_explore_threshold: float = 1e-1,
         ensemble_explore_members: int = 5,
-        neighborhood_explore_max_radius: float = 10.0,
+        neighborhood_explore_max_radius: float = 1.0,
         neighborhood_explore_radius_decay: float = 0.99,
     ) -> None:
         self._seed = seed
