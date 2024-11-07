@@ -185,6 +185,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         rom_model: ROMModel,
         seed: int = 0,
+        explore_method: str = "nothing-personal",
+        explore_epsilon: float = 1.0,
         book_preference_initialization: str = "I like everything!",
         llm_model_name: str = "gpt-4",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
@@ -193,7 +195,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm_temperature: float = 0.0,
         max_motion_planning_candidates: int = 1,
     ) -> None:
-        super().__init__(seed=seed)
+        super().__init__(
+            seed=seed, explore_method=explore_method, explore_epsilon=explore_epsilon
+        )
         self._sim = sim
         self._rom_model = rom_model
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
@@ -277,6 +281,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _handover_position_is_in_rom,
             )
             constraints.append(handover_rom_constraint)
+        else:
+            assert self._explore_method == "nothing-personal"
 
         # Create reaching constraints.
         def _book_grasp_is_reachable(yaw: NDArray) -> bool:

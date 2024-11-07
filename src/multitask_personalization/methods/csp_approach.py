@@ -35,12 +35,14 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self,
         action_space: gym.spaces.Space[_ActType],
         seed: int,
+        explore_method: str = "nothing-personal",
         max_motion_planning_candidates: int = 1,
     ):
         super().__init__(action_space, seed)
         self._current_policy: CSPPolicy | None = None
         self._current_sol: dict[CSPVariable, Any] | None = None
         self._csp_generator: CSPGenerator | None = None
+        self._explore_method = explore_method
         self._max_motion_planning_candidates = max_motion_planning_candidates
 
     def reset(
@@ -53,7 +55,9 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             # At the moment, this part is extremely environment-specific.
             # We will refactor this in a future PR.
             if isinstance(obs, TinyState):
-                self._csp_generator = TinyCSPGenerator(seed=self._seed)
+                self._csp_generator = TinyCSPGenerator(
+                    seed=self._seed, explore_method=self._explore_method
+                )
             elif isinstance(obs, PyBulletState):
                 task_spec = info["task_spec"]
                 assert isinstance(task_spec, PyBulletTaskSpec)
@@ -63,6 +67,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                     sim,
                     rom_model,
                     seed=self._seed,
+                    explore_method=self._explore_method,
                     max_motion_planning_candidates=self._max_motion_planning_candidates,
                 )
             else:

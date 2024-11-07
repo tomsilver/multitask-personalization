@@ -193,11 +193,13 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     def __init__(
         self,
         seed: int = 0,
-        explore_epsilon: float = 0.5,
+        explore_epsilon: float = 1.0,
+        explore_method: str = "nothing-personal",
     ) -> None:
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._explore_epsilon = explore_epsilon
+        self._explore_method = explore_method
 
     def generate(
         self,

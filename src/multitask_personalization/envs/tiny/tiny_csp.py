@@ -19,6 +19,7 @@ from multitask_personalization.structs import (
     FunctionalCSPSampler,
     LogProbCSPConstraint,
 )
+from multitask_personalization.utils import bernoulli_entropy
 
 
 class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
@@ -139,8 +140,12 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         seed: int = 0,
         distance_threshold: float = 1e-1,
         init_desired_distance: float = 1.0,
+        explore_epsilon: float = 1.0,
+        explore_method: str = "nothing-personal",
     ) -> None:
-        super().__init__(seed=seed)
+        super().__init__(
+            seed=seed, explore_epsilon=explore_epsilon, explore_method=explore_method
+        )
         self._distance_threshold = distance_threshold
         self._num_generations = 0
         self._distance_constraint_generator = _TinyDistanceConstraintGenerator(
@@ -187,11 +192,29 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
 
         ################################### Cost ##################################
 
-        def _cost_fn(speed: np.float_) -> float:
-            """Move as fast as possible."""
-            return 1.0 - float(speed)
+        if do_explore and self._explore_method == "max-entropy":
 
-        cost = CSPCost("maximize-speed", [speed], _cost_fn)
+            user_preference_constraint = self._distance_constraint_generator.generate(
+                obs, [position], "user_preference"
+            )
+            assert isinstance(user_preference_constraint, LogProbCSPConstraint)
+
+            def _max_entropy_fn(x: np.float_, s: np.float_) -> float:
+                logprob = user_preference_constraint.get_logprob(
+                    {position: x, speed: s}
+                )
+                entropy = bernoulli_entropy(logprob)
+                return 1.0 - entropy
+
+            cost = CSPCost("maximize-entropy", variables, _max_entropy_fn)
+
+        else:
+
+            def _speed_cost_fn(x: np.float_) -> float:
+                """Move as fast as possible."""
+                return 1.0 - float(x)
+
+            cost = CSPCost("maximize-speed", [speed], _speed_cost_fn)
 
         ################################### CSP ###################################
 
