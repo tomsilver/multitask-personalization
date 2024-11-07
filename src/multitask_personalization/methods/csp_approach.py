@@ -100,24 +100,34 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             self._currently_exploring = explore
 
     def _get_action(self) -> _ActType:
-        assert self._current_policy is not None
-        assert self._current_sol is not None
         assert self._last_observation is not None
         assert self._csp_generator is not None
+        need_to_recompute_policy = False
+        if self._current_policy is None:
+            logging.info("Recomputing policy because of termination")
+            need_to_recompute_policy = True
         # Check if the current solution to the CSP is still valid--it may not be
         # because the CSP constraints may have changed as a result of learning.
         # In this case, we trigger replanning by calling reset(). Note also we
         # need to regenerate the CSP because CSPs are not stateful.
-        csp, _, _, _ = self._csp_generator.generate(
-            self._last_observation,
-            explore=self._currently_exploring,
-        )
-        if not csp.check_solution(self._current_sol):
-            logging.info("Recomputing policy because CSP violated online")
+        else:
+            assert self._current_sol is not None
+            csp, _, _, _ = self._csp_generator.generate(
+                self._last_observation,
+                explore=self._currently_exploring,
+            )
+            if not csp.check_solution(self._current_sol):
+                logging.info("Recomputing policy because CSP violated online")
+                need_to_recompute_policy = True
+        if need_to_recompute_policy:
             self._recompute_policy(
                 self._last_observation, explore=self._currently_exploring
             )
-        return self._current_policy.step(self._last_observation)
+        assert self._current_policy is not None
+        action, done = self._current_policy.step(self._last_observation)
+        if done:
+            self._current_policy = None
+        return action
 
     def _learn_from_transition(
         self,
