@@ -213,6 +213,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         obs: PyBulletState,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
+        # Sync the simulator.
+        self._sim.set_state(obs)
+
         # Choose a book to fetch.
         book = CSPVariable("book", EnumSpace(self._sim.book_descriptions))
 

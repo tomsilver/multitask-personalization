@@ -28,7 +28,7 @@ def test_tiny_csp():
 
     # Create the CSP.
     csp_generator = TinyCSPGenerator(
-        seed,
+        seed=seed,
         distance_threshold=distance_threshold,
         init_desired_distance=desired_distance,
     )
