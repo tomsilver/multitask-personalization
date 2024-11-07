@@ -38,6 +38,7 @@ from multitask_personalization.structs import (
     CSPPolicy,
     CSPSampler,
     CSPVariable,
+    FunctionalCSPConstraint,
     FunctionalCSPSampler,
 )
 
@@ -259,7 +260,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     seed=self._seed,
                 )
 
-            book_preference_constraint = CSPConstraint(
+            book_preference_constraint = FunctionalCSPConstraint(
                 "book_preference",
                 [book],
                 _book_is_preferred,
@@ -270,7 +271,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             def _handover_position_is_in_rom(position: NDArray) -> bool:
                 return self._rom_model.check_position_reachable(position)
 
-            handover_rom_constraint = CSPConstraint(
+            handover_rom_constraint = FunctionalCSPConstraint(
                 "handover_rom_constraint",
                 [handover_position],
                 _handover_position_is_in_rom,
@@ -282,7 +283,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             pose = _book_grasp_to_pose(yaw)
             return _pose_is_reachable(pose, self._sim)
 
-        book_grasp_reachable_constraint = CSPConstraint(
+        book_grasp_reachable_constraint = FunctionalCSPConstraint(
             "book_reachable",
             [book_grasp],
             _book_grasp_is_reachable,
@@ -294,7 +295,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             handover_reachable = _pose_is_reachable(pose, self._sim)
             return handover_reachable
 
-        handover_reachable_constraint = CSPConstraint(
+        handover_reachable_constraint = FunctionalCSPConstraint(
             "handover_reachable",
             [handover_position],
             _handover_position_is_reachable,
@@ -323,7 +324,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             assert len(samples) <= 1
             return len(samples) == 1
 
-        handover_collision_free_constraint = CSPConstraint(
+        handover_collision_free_constraint = FunctionalCSPConstraint(
             "handover_collision_free",
             [handover_position, book, book_grasp],
             _handover_position_is_collision_free,

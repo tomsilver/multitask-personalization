@@ -24,25 +24,58 @@ class CSPVariable:
         return self.name == other.name
 
 
-@dataclass(frozen=True)
-class CSPConstraint:
-    """Constraint satisfaction problem constraint.
+class CSPConstraint(abc.ABC):
+    """Constraint satisfaction problem constraint."""
+
+    def __init__(self, name: str, variables: list[CSPVariable]):
+        self.name = name
+        self.variables = variables
+
+    @abc.abstractmethod
+    def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
+        """Check whether the constraint holds given values of the variables."""
+
+
+class FunctionalCSPConstraint(CSPConstraint):
+    """A constraint defined by a function that outputs bools."""
+
+    def __init__(
+        self,
+        name: str,
+        variables: list[CSPVariable],
+        constraint_fn: Callable[..., bool],
+    ):
+        super().__init__(name, variables)
+        self.constraint_fn = constraint_fn
+
+    def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
+        vals = [sol[v] for v in self.variables]
+        return self.constraint_fn(*vals)
+
+
+class LogProbCSPConstraint(CSPConstraint):
+    """A constraint defined by a function that outputs log probabilities.
 
     The constraint_logprob_fn is a function mapping variable assignments
     to a log probability that the constraint holds. The constraint is
     defined by this value being greater than a threshold.
     """
 
-    name: str
-    variables: list[CSPVariable]
-    constraint_logprob_fn: Callable[..., float]
-    threshold: float = np.log(0.95)
+    def __init__(
+        self,
+        name: str,
+        variables: list[CSPVariable],
+        constraint_logprob_fn: Callable[..., float],
+        threshold: float = np.log(0.95),
+    ):
+        super().__init__(name, variables)
+        self.constraint_logprob_fn = constraint_logprob_fn
+        self.threshold = threshold
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
-        """Check whether the constraint holds given values of the variables."""
         return self.get_logprob(sol) >= self.threshold
 
-    def get_logprob(self, sol: dict[CSPVariable, Any]) -> bool:
+    def get_logprob(self, sol: dict[CSPVariable, Any]) -> float:
         """Get the log probability of the constraint holding."""
         vals = [sol[v] for v in self.variables]
         return self.constraint_logprob_fn(*vals)
