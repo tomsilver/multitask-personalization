@@ -75,14 +75,16 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         return self._get_state(), self._get_info()
 
     def _reset_human(self) -> None:
+        desired_distance = self._hidden_spec.desired_distance
+        threshold = self._hidden_spec.distance_threshold
         while True:
-            human_position = self._rng.uniform(-10.0, 10.0)
+            human_position = self._rng.uniform(-10.0 + (desired_distance + threshold), 10.0 - (desired_distance + threshold))
             dist = abs(self._robot_position - human_position)
             assert self._hidden_spec is not None
             if (
                 dist
-                >= self._hidden_spec.desired_distance
-                + self._hidden_spec.distance_threshold
+                >= desired_distance
+                + threshold
             ):
                 break
         self._human_position = human_position
@@ -96,15 +98,13 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         assert self.action_space.contains(action)
         if np.isclose(action[0], 1):
             reward = self._get_reward(robot_indicated_done=True)
-            return self._get_state(), reward, False, False, self._get_info()
-
-        assert np.isclose(action[0], 0)
-        delta_action = action[1]
-        assert delta_action is not None
-        self._robot_position += float(delta_action)
-
-        reward = self._get_reward(robot_indicated_done=False)
-        # Move the human if the robot is done.
+        else:
+            assert np.isclose(action[0], 0)
+            delta_action = action[1]
+            assert delta_action is not None
+            self._robot_position += float(delta_action)
+            reward = self._get_reward(robot_indicated_done=False)
+        # Move the human if the robot succeeded.
         if reward > 0:
             self._reset_human()
         return self._get_state(), reward, False, False, self._get_info()

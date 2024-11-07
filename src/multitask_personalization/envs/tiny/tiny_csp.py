@@ -159,7 +159,7 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         ############################## Initialization #############################
 
         initialization = {
-            position: 0.0,
+            position: self._rng.uniform(-10, 10),
         }
 
         ############################### Constraints ###############################
