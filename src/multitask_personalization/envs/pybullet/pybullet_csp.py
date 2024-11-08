@@ -193,6 +193,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm_use_cache_only: bool = False,
         llm_temperature: float = 1.0,
         max_motion_planning_candidates: int = 1,
+        num_llm_queries_per_book_check: int = 5,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -209,6 +210,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
         self._llm_temperature = llm_temperature
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._num_llm_queries_per_book_check = num_llm_queries_per_book_check
 
     def _generate_variables(
         self,
@@ -251,7 +253,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Create a user preference constraint for the book.
         def _book_is_preferred_logprob(book_description: str) -> float:
             probs = []
-            for idx in range(10):
+            for idx in range(self._num_llm_queries_per_book_check):
                 response = user_would_enjoy_book(
                     book_description,
                     self._current_book_preference,
@@ -266,10 +268,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     probs.append(1.0)
                 else:
                     probs.append(0.0)
+            # Use mean only so that we can expect a cost between 0 and 1.
             mean_prob = np.mean(probs)
-            print("book_description:", book_description)
-            print("PROBS:", probs)
-            with np.errstate(divide = 'ignore'):
+            # Silence divide-by-zero warning for np.log(0.0).
+            with np.errstate(divide="ignore"):
                 return np.log(mean_prob)
 
         book_preference_constraint = LogProbCSPConstraint(

@@ -287,12 +287,9 @@ class SphericalROMModel(TrainableROMModel):
     ) -> float:
         distance = self._distance_to_center(position)
         if distance <= self._min_possible_radius:
-            print("handover definitely reachable")
             return 0.0  # definitely reachable
         if distance >= self._max_possible_radius:
-            print("handover definitely unreachable")
             return -np.inf  # definitely not reachable
-        print("handover uncertain")
         return np.log(0.5)  # uncertain
 
     def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:

@@ -107,12 +107,10 @@ def solve_csp(
     for _ in (pbar := tqdm(range(max_iters))):
         pbar.set_description(f"Found {num_satisfying_solutions} solns")
         if csp.check_solution(sol):
-            print("book in candidate:", [v for k, v in sol.items() if k.name == "book"][0])
             num_satisfying_solutions += 1
             if csp.cost is None:
                 return sol
             cost = csp.get_cost(sol)
-            print("cost:", cost, "(compared to best: )", best_satisfying_cost)
             if cost < best_satisfying_cost:
                 best_satisfying_cost = cost
                 best_satisfying_sol = sol
