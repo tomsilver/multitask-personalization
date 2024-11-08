@@ -51,7 +51,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         hidden_spec: HiddenTaskSpec | None = None,
         use_gui: bool = False,
         seed: int = 0,
-        llm_model_name: str = "gpt-4",
+        llm_model_name: str = "gpt-4o-mini",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
@@ -559,12 +559,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # pylint: disable=line-too-long
         prompt = f"""Generate a list of {num_books} real English-language book titles and authors. Be creative.
 
-Include some books according to the following preferences, but others that are the opposite of the preferences: "{user_preferences}"
+Generate one book that the user would love and other books that the user would hate, based on the following user preferences: "{user_preferences}"
         
 Return the list in the following format:
-        
-1. Title: <title>. Author: <author>.
-2. Title: <title>. Author: <author>.
+
+1. [The user would love] Title: <title>. Author: <author>.
+2. [The user would hate] Title: <title>. Author: <author>.
+3. [The user would hate] Title: <title>. Author: <author>.
 etc.
 
 Return that list and nothing else. Do not explain anything."""
@@ -577,11 +578,15 @@ Return that list and nothing else. Do not explain anything."""
             )[0]
             book_descriptions: list[str] = []
             for i, line in enumerate(response.split("\n")):
-                prefix = f"{i+1}. "
-                if not line.startswith(prefix):
-                    break
-                book_description = line[len(prefix) :]
-                book_descriptions.append(book_description)
+                prefixes = (
+                    f"{i+1}. [The user would love] ",
+                    f"{i+1}. [The user would hate] ",
+                )
+                for prefix in prefixes:
+                    if line.startswith(prefix):
+                        book_description = line[len(prefix) :]
+                        book_descriptions.append(book_description)
+                        break
             if len(book_descriptions) == num_books:  # success
                 return book_descriptions
         raise RuntimeError("LLM book description generation failed")
@@ -717,9 +722,9 @@ Do these user preferences say anything directly about the book description? Say 
                 temperature=llm_temperature,
                 seed=seed,
             )[0]
-            if response.lower() == "yes":
+            if response.lower().startswith("yes"):
                 break  # continue onto next prompt
-            if response.lower() == "no":
+            if response.lower().startswith("no"):
                 return None  # return maybe
         else:
             raise RuntimeError("LLM user enjoy constraint failed to parse")
@@ -739,9 +744,9 @@ Return 'yes' or 'no' and nothing else. Do not explain anything."""
             temperature=llm_temperature,
             seed=seed,
         )[0]
-        if response.lower() == "yes":
+        if response.lower().startswith("yes"):
             return True
-        if response.lower() == "no":
+        if response.lower().startswith("no"):
             return False
     raise RuntimeError("LLM user enjoy constraint failed to parse")
 

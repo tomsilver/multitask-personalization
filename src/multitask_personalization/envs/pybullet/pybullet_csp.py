@@ -187,7 +187,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         rom_model: ROMModel,
         book_preference_initialization: str = "I like everything!",
-        llm_model_name: str = "gpt-4",
+        llm_model_name: str = "gpt-4o-mini",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
@@ -467,7 +467,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
 {all_feedback_str}
 
-Based on this history, concisely describe the user's taste in books. NOTE: you should list a few examples of books that the user likes. Return this description and nothing else. Do not explain anything."""
+Based on this history, concisely describe the user's taste in books.
+
+NOTE: you should list an example or two of books that the user loves and another example or two of books that the user hates.
+
+Return this description and nothing else. Do not explain anything."""
         response = self._llm.sample_completions(
             prompt,
             imgs=None,
