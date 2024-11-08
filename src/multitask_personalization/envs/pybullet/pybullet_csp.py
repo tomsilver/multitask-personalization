@@ -249,19 +249,25 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         book, _, handover_position = variables
 
         # Create a user preference constraint for the book.
-        def _book_is_preferred(book_description: str) -> bool:
-            return user_would_enjoy_book(
+        def _book_is_preferred_logprob(book_description: str) -> float:
+            response = user_would_enjoy_book(
                 book_description,
                 self._current_book_preference,
                 self._llm,
                 self._llm_temperature,
                 seed=self._seed,
+                allow_maybe=True,
             )
+            if response is None:
+                return np.log(0.5)
+            if response:
+                return 0.0
+            return -np.inf
 
-        book_preference_constraint = FunctionalCSPConstraint(
+        book_preference_constraint = LogProbCSPConstraint(
             "book_preference",
             [book],
-            _book_is_preferred,
+            _book_is_preferred_logprob,
         )
 
         # Create a handover constraint given the user ROM.

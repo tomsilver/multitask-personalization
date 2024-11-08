@@ -1,9 +1,9 @@
 Based on the following book description and user preferences, determine whether the user would enjoy the book.
     
-Book description: Title: "The Astronaut's Shadow". Author: Richard Solaris.
+Book description: Title: "The Astronaut's Palette". Author: Richard Solaris.
 
 User preferences: I like pretty much anything!
 
-Return yes or no and nothing else. Do not explain anything.
+Return 'yes' or 'no' and nothing else. Do not explain anything.
 ####$$$###$$$####$$$$###$$$####$$$###$$$###
 Yes

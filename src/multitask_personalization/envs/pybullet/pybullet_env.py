@@ -695,16 +695,26 @@ def user_would_enjoy_book(
     llm: OpenAILLM,
     llm_temperature: float = 0.0,
     seed: int = 0,
-) -> bool:
-    """Use an LLM to determine whether the user would enjoy the book."""
+    allow_maybe: bool = False,
+) -> bool | None:
+    """Use an LLM to determine whether the user would enjoy the book.
+
+    None means maybe. If allow_maybe is true, the prompt encourages
+    maybe if there is any doubt about whether the user would enjoy the
+    book.
+    """
     # pylint: disable=line-too-long
+    if allow_maybe:
+        return_instruction = "Return 'yes', 'no', or 'maybe', and nothing else. Return 'maybe' unless you are quite sure."
+    else:
+        return_instruction = "Return 'yes' or 'no' and nothing else."
     prompt = f"""Based on the following book description and user preferences, determine whether the user would enjoy the book.
     
 Book description: {book_description}
 
 User preferences: {user_preferences}
 
-Return yes or no and nothing else. Do not explain anything."""
+{return_instruction} Do not explain anything."""
 
     for _ in range(100):  # retry until parsing works
         response = llm.sample_completions(
@@ -717,6 +727,8 @@ Return yes or no and nothing else. Do not explain anything."""
             return True
         if response.lower() == "no":
             return False
+        if response.lower() == "maybe":
+            return None
     raise RuntimeError("LLM user enjoy constraint failed to parse")
 
 
