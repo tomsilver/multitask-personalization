@@ -41,6 +41,7 @@ from multitask_personalization.structs import (
     CSPVariable,
     FunctionalCSPConstraint,
     FunctionalCSPSampler,
+    LogProbCSPConstraint,
 )
 
 
@@ -264,13 +265,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
 
         # Create a handover constraint given the user ROM.
-        def _handover_position_is_in_rom(position: NDArray) -> bool:
-            return self._rom_model.check_position_reachable(position)
+        def _handover_position_is_in_rom_logprob(position: NDArray) -> float:
+            return self._rom_model.get_position_reachable_logprob(position)
 
-        handover_rom_constraint = FunctionalCSPConstraint(
+        handover_rom_constraint = LogProbCSPConstraint(
             "handover_rom_constraint",
             [handover_position],
-            _handover_position_is_in_rom,
+            _handover_position_is_in_rom_logprob,
         )
 
         return [book_preference_constraint, handover_rom_constraint]

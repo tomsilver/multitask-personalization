@@ -27,7 +27,9 @@ def test_pybullet_csp():
     rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec()
     book_preferences = "I like pretty much anything!"
-    rom_model = SphericalROMModel(task_spec.human_spec)
+    rom_model = SphericalROMModel(
+        task_spec.human_spec, min_possible_radius=0.49, max_possible_radius=0.51
+    )
     hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)
 
     # Create a real environment.
@@ -62,7 +64,7 @@ def test_pybullet_csp():
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
-    sol = solve_csp(csp, initialization, samplers, rng)
+    sol = solve_csp(csp, initialization, samplers, rng, min_num_satisfying_solutions=1)
     assert sol is not None
     policy.reset(sol)
 

@@ -60,6 +60,13 @@ class ROMModel(abc.ABC):
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         """Sample a reachable position."""
 
+    @abc.abstractmethod
+    def get_position_reachable_logprob(
+        self,
+        position: NDArray,
+    ) -> float:
+        """Get the log probability that the position is reachable."""
+
     def _run_human_fk(self, joint_positions: NDArray) -> NDArray:
         """Run forward kinematics for the human given joint positions."""
 
@@ -197,6 +204,12 @@ class GroundTruthROMModel(ROMModel):
         distance, _ = self._reachable_kd_tree.query(position)
         return distance < self._ik_distance_threshold
 
+    def get_position_reachable_logprob(
+        self,
+        position: NDArray,
+    ) -> float:
+        raise NotImplementedError
+
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return rng.choice(self._reachable_points)
 
@@ -228,12 +241,12 @@ class SphericalROMModel(TrainableROMModel):
         self,
         human_spec: HumanSpec,
         seed: int = 0,
-        radius: float = 0.5,
-        no_positive_data_scale_factor: float = 0.9,
+        min_possible_radius: float = 0.0,
+        max_possible_radius: float = 1.0,
     ) -> None:
         super().__init__(human_spec, seed=seed)
-        self._radius = radius
-        self._no_positive_data_scale_factor = no_positive_data_scale_factor
+        self._min_possible_radius = min_possible_radius
+        self._max_possible_radius = max_possible_radius
         origin, _ = self._human.get_pos_orient(self._human.right_wrist)
         self._sphere_center = origin
 
@@ -241,23 +254,43 @@ class SphericalROMModel(TrainableROMModel):
         # self._reachable_points = self._sample_spherical_points(n=500)
         # self._visualize_reachable_points()
 
+    @property
+    def _radius(self) -> float:
+        return (self._max_possible_radius + self._min_possible_radius) / 2
+
+    def _distance_to_center(
+        self,
+        position: NDArray,
+    ) -> float:
+        return float(np.linalg.norm(np.subtract(position, self._sphere_center)))
+
     def get_trainable_parameters(self) -> Any:
-        return self._radius
+        return (self._min_possible_radius, self._max_possible_radius)
 
     def set_trainable_parameters(self, params: Any) -> None:
-        assert isinstance(params, float)
-        self._radius = params
+        min_radius, max_radius = params
+        self._min_possible_radius = min_radius
+        self._max_possible_radius = max_radius
 
     def check_position_reachable(
         self,
         position: NDArray,
     ) -> bool:
-        distance = float(np.linalg.norm(position - self._sphere_center))
-        reachable = distance < self._radius
-        return reachable
+        return self._distance_to_center(position) < self._radius
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return np.array(sample_within_sphere(self._sphere_center, self._radius, rng))
+
+    def get_position_reachable_logprob(
+        self,
+        position: NDArray,
+    ) -> float:
+        distance = self._distance_to_center(position)
+        if distance <= self._min_possible_radius:
+            return 0.0  # definitely reachable
+        if distance >= self._max_possible_radius:
+            return -np.inf  # definitely not reachable
+        return np.log(0.5)  # uncertain
 
     def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:
         return [
@@ -268,27 +301,20 @@ class SphericalROMModel(TrainableROMModel):
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         # Find decision boundary between maximal positive and minimal negative.
         logging.info(f"Training SphericalROMModel with {len(data)} data")
-        max_positive: float | None = None
-        min_negative: float | None = None
         for position, label in data:
-            dist = float(np.linalg.norm(np.subtract(position, self._sphere_center)))
+            dist = self._distance_to_center(position)
             if label:
-                if max_positive is None or dist > max_positive:
-                    max_positive = dist
+                # We've found a positive data point that is farther than what
+                # we've previously seen, so increase the min possible radius.
+                self._min_possible_radius = max(dist, self._min_possible_radius)
             else:
-                if min_negative is None or dist < min_negative:
-                    min_negative = dist
-        if min_negative is None:
-            return
-        if max_positive is None:
-            new_params = min_negative * self._no_positive_data_scale_factor
-        else:
-            new_params = (max_positive + min_negative) / 2
+                # We've found a negative data point that is closer than what
+                # we've previously seen, so decrease the max possible radius.
+                self._max_possible_radius = min(dist, self._max_possible_radius)
         logging.info(
-            f"Updating SphericalROMModel params to {new_params} "
-            f"({min_negative=}, {max_positive=})"
+            f"Updating SphericalROMModel: min={self._min_possible_radius}, "
+            f"max={self._max_possible_radius}"
         )
-        self.set_trainable_parameters(new_params)
 
     def get_metrics(self) -> dict[str, float]:
         return {"spherical_rom_radius": self._radius}
@@ -352,6 +378,12 @@ class LearnedROMModel(TrainableROMModel):
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return rng.choice(self._reachable_points)
+
+    def get_position_reachable_logprob(
+        self,
+        position: NDArray,
+    ) -> float:
+        raise NotImplementedError
 
     def get_trainable_parameters(self) -> Any:
         return self._rom_model_context_parameters.copy()
