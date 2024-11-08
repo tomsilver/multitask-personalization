@@ -317,7 +317,10 @@ class SphericalROMModel(TrainableROMModel):
         )
 
     def get_metrics(self) -> dict[str, float]:
-        return {"spherical_rom_radius": self._radius}
+        return {
+            "spherical_rom_min_radius": self._min_possible_radius,
+            "spherical_rom_max_radius": self._max_possible_radius,
+        }
 
 
 class LearnedROMModel(TrainableROMModel):

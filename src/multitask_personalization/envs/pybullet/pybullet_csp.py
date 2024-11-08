@@ -43,6 +43,7 @@ from multitask_personalization.structs import (
     FunctionalCSPSampler,
     LogProbCSPConstraint,
 )
+from multitask_personalization.utils import bernoulli_entropy
 
 
 class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
@@ -250,34 +251,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         book, _, handover_position = variables
 
-        # Create a user preference constraint for the book.
-        def _book_is_preferred_logprob(book_description: str) -> float:
-            probs = []
-            for idx in range(self._num_llm_queries_per_book_check):
-                response = user_would_enjoy_book(
-                    book_description,
-                    self._current_book_preference,
-                    self._llm,
-                    llm_temperature=self._llm_temperature,
-                    seed=(self._seed + idx),
-                    allow_maybe=True,
-                )
-                if response is None:
-                    probs.append(0.5)
-                elif response:
-                    probs.append(1.0)
-                else:
-                    probs.append(0.0)
-            # Use mean only so that we can expect a cost between 0 and 1.
-            mean_prob = np.mean(probs)
-            # Silence divide-by-zero warning for np.log(0.0).
-            with np.errstate(divide="ignore"):
-                return np.log(mean_prob)
-
         book_preference_constraint = LogProbCSPConstraint(
             "book_preference",
             [book],
-            _book_is_preferred_logprob,
+            self._book_is_preferred_logprob,
             threshold=np.log(0.5) - 1e-3,
         )
 
@@ -427,6 +404,29 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._update_rom_model(obs, act, next_obs, reward)
         self._update_book_preferences(act, next_obs, reward)
 
+    def _book_is_preferred_logprob(self, book_description: str) -> float:
+        probs = []
+        for idx in range(self._num_llm_queries_per_book_check):
+            response = user_would_enjoy_book(
+                book_description,
+                self._current_book_preference,
+                self._llm,
+                llm_temperature=self._llm_temperature,
+                seed=(self._seed + idx),
+                allow_maybe=True,
+            )
+            if response is None:
+                probs.append(0.5)
+            elif response:
+                probs.append(1.0)
+            else:
+                probs.append(0.0)
+        # Use mean only so that we can expect a cost between 0 and 1.
+        mean_prob = np.mean(probs)
+        # Silence divide-by-zero warning for np.log(0.0).
+        with np.errstate(divide="ignore"):
+            return np.log(mean_prob)
+
     def _update_rom_model(
         self,
         obs: PyBulletState,
@@ -497,4 +497,8 @@ Return this description and nothing else. Do not explain anything."""
         metrics: dict[str, float] = {}
         if isinstance(self._rom_model, TrainableROMModel):
             metrics.update(self._rom_model.get_metrics())
+        for book_description in self._sim.book_descriptions:
+            metrics[f"entropy-{book_description}"] = bernoulli_entropy(
+                self._book_is_preferred_logprob(book_description)
+            )
         return metrics
