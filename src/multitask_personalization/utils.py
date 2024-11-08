@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose3D
 from scipy.spatial.transform import Rotation as R
+from tqdm import tqdm
 
 from multitask_personalization.structs import CSP, CSPSampler, CSPVariable
 
@@ -94,14 +95,15 @@ def solve_csp(
     samplers: list[CSPSampler],
     rng: np.random.Generator,
     max_iters: int = 100_000,
-    min_num_satisfying_solutions: int = 100,
+    min_num_satisfying_solutions: int = 25,
 ) -> dict[CSPVariable, Any] | None:
     """A very naive solver for CSPs."""
     sol = initialization.copy()
     best_satisfying_sol: dict[CSPVariable, Any] | None = None
     best_satisfying_cost: float = np.inf
     num_satisfying_solutions = 0
-    for _ in range(max_iters):
+    for _ in (pbar := tqdm(range(max_iters))):
+        pbar.set_description(f"Found {num_satisfying_solutions} solns")
         if csp.check_solution(sol):
             num_satisfying_solutions += 1
             if csp.cost is None:

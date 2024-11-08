@@ -20,6 +20,8 @@ dependencies = [
    "hydra-core",
    "omegaconf",
    "moviepy",
+   "tqdm",
+   "types-tqdm",
    "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
    "gymnasium==1.0.0",
    "tomsutils@git+https://github.com/tomsilver/toms-utils.git",

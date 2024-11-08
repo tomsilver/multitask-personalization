@@ -191,7 +191,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
-        llm_temperature: float = 0.0,
+        llm_temperature: float = 1.0,
         max_motion_planning_candidates: int = 1,
         **kwargs,
     ) -> None:
@@ -468,7 +468,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
 {all_feedback_str}
 
-Based on this history, concisely describe the user's taste in books. Return this description and nothing else. Do not explain anything."""
+Based on this history, concisely describe the user's taste in books. NOTE: you should list a few examples of books that the user likes. Return this description and nothing else. Do not explain anything."""
         response = self._llm.sample_completions(
             prompt,
             imgs=None,

@@ -55,7 +55,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
-        llm_temperature: float = 0.9,
+        llm_temperature: float = 1.0,
         allow_explore_switch_prob: float = 5e-2,
     ) -> None:
 
@@ -705,16 +705,32 @@ def user_would_enjoy_book(
     """
     # pylint: disable=line-too-long
     if allow_maybe:
-        return_instruction = "Return 'yes', 'no', or 'maybe', and nothing else. Return 'maybe' unless you are quite sure."
-    else:
-        return_instruction = "Return 'yes' or 'no' and nothing else."
+        prompt = f"""Book description: {book_description}
+
+User preferences: {user_preferences}
+
+Do these user preferences say anything directly about the book description? Say 'yes' or 'no' and nothing else. Do not explain anything."""
+        for _ in range(100):  # retry until parsing works
+            response = llm.sample_completions(
+                prompt,
+                imgs=None,
+                temperature=llm_temperature,
+                seed=seed,
+            )[0]
+            if response.lower() == "yes":
+                break  # continue onto next prompt
+            if response.lower() == "no":
+                return None  # return maybe
+        else:
+            raise RuntimeError("LLM user enjoy constraint failed to parse")
+
     prompt = f"""Based on the following book description and user preferences, determine whether the user would enjoy the book.
     
 Book description: {book_description}
 
 User preferences: {user_preferences}
 
-{return_instruction} Do not explain anything."""
+Return 'yes' or 'no' and nothing else. Do not explain anything."""
 
     for _ in range(100):  # retry until parsing works
         response = llm.sample_completions(
@@ -727,8 +743,6 @@ User preferences: {user_preferences}
             return True
         if response.lower() == "no":
             return False
-        if response.lower() == "maybe":
-            return None
     raise RuntimeError("LLM user enjoy constraint failed to parse")
 
 
