@@ -254,7 +254,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 book_description,
                 self._current_book_preference,
                 self._llm,
-                self._llm_temperature,
                 seed=self._seed,
                 allow_maybe=True,
             )
