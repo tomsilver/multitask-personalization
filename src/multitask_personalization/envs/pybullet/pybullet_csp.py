@@ -498,7 +498,8 @@ Return this description and nothing else. Do not explain anything."""
         if isinstance(self._rom_model, TrainableROMModel):
             metrics.update(self._rom_model.get_metrics())
         for book_description in self._sim.book_descriptions:
-            metrics[f"entropy-{book_description}"] = bernoulli_entropy(
-                self._book_is_preferred_logprob(book_description)
-            )
+            lp = self._book_is_preferred_logprob(book_description)
+            entropy = bernoulli_entropy(lp)
+            import ipdb; ipdb.set_trace()
+            metrics[f"entropy-{book_description}"] = entropy
         return metrics
