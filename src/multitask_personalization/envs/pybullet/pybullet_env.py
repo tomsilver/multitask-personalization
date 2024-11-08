@@ -704,9 +704,9 @@ def user_would_enjoy_book(
 ) -> bool | None:
     """Use an LLM to determine whether the user would enjoy the book.
 
-    None means maybe. If allow_maybe is true, the prompt encourages
-    maybe if there is any doubt about whether the user would enjoy the
-    book.
+    None means maybe. If allow_maybe is true, we first check whether the
+    user preferences have anything to do with the book and return None
+    if not.
     """
     # pylint: disable=line-too-long
     if allow_maybe:

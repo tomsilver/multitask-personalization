@@ -37,6 +37,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         seed: int,
         explore_method: str = "nothing-personal",
         max_motion_planning_candidates: int = 1,
+        show_csp_progress_bar: bool = True,
     ):
         super().__init__(action_space, seed)
         self._current_policy: CSPPolicy | None = None
@@ -44,6 +45,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._csp_generator: CSPGenerator | None = None
         self._explore_method = explore_method
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._show_csp_progress_bar = show_csp_progress_bar
 
     def reset(
         self,
@@ -87,6 +89,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             initialization,
             samplers,
             self._rng,
+            show_progress_bar=self._show_csp_progress_bar,
         )
         if self._current_sol is None:
             raise ApproachFailure("No solution found for generated CSP")

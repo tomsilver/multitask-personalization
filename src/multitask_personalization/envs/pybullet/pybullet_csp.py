@@ -278,6 +278,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             "book_preference",
             [book],
             _book_is_preferred_logprob,
+            threshold=np.log(0.5) - 1e-3,
         )
 
         # Create a handover constraint given the user ROM.

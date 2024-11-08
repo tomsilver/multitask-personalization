@@ -98,13 +98,14 @@ def solve_csp(
     rng: np.random.Generator,
     max_iters: int = 100_000,
     min_num_satisfying_solutions: int = 50,
+    show_progress_bar: bool = True,
 ) -> dict[CSPVariable, Any] | None:
     """A very naive solver for CSPs."""
     sol = initialization.copy()
     best_satisfying_sol: dict[CSPVariable, Any] | None = None
     best_satisfying_cost: float = np.inf
     num_satisfying_solutions = 0
-    for _ in (pbar := tqdm(range(max_iters))):
+    for _ in (pbar := tqdm(range(max_iters), disable=not show_progress_bar)):
         pbar.set_description(f"Found {num_satisfying_solutions} solns")
         if csp.check_solution(sol):
             num_satisfying_solutions += 1

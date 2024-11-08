@@ -64,7 +64,14 @@ def test_pybullet_csp():
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
-    sol = solve_csp(csp, initialization, samplers, rng, min_num_satisfying_solutions=1)
+    sol = solve_csp(
+        csp,
+        initialization,
+        samplers,
+        rng,
+        min_num_satisfying_solutions=1,
+        show_progress_bar=False,
+    )
     assert sol is not None
     policy.reset(sol)
 

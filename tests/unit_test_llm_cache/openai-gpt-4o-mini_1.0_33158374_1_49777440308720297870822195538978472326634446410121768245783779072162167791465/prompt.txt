@@ -1,0 +1,16 @@
+Generate a list of 3 real English-language book titles and authors. Be creative.
+
+Generate one book that the user would love and other books that the user would hate, based on the following user preferences: "I like pretty much anything!"
+        
+Return the list in the following format:
+
+1. [The user would love] Title: <title>. Author: <author>.
+2. [The user would hate] Title: <title>. Author: <author>.
+3. [The user would hate] Title: <title>. Author: <author>.
+etc.
+
+Return that list and nothing else. Do not explain anything.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+1. [The user would love] Title: "Whispers of the Willow." Author: Lila Hart.
+2. [The user would hate] Title: "The Endless Clutter of Obscurity." Author: Reginald Muddle.
+3. [The user would hate] Title: "Chronicles of the Forgotten Void." Author: Thelonious Gloom.
