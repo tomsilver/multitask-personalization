@@ -104,14 +104,19 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
                 for c in self._generate_personal_constraints(obs, variables)
                 if isinstance(c, LogProbCSPConstraint)
             ]
+            num_personal_lp_constraints = len(personal_lp_constraints)
+            if num_personal_lp_constraints == 0:
+                return None
 
             def _max_entropy_fn(*args) -> float:
-                total_log_prob = 0.0
+                total_entropy = 0.0
                 sol = dict(zip(variables, args))
                 for constraint in personal_lp_constraints:
-                    total_log_prob += constraint.get_logprob(sol)
-                entropy = bernoulli_entropy(total_log_prob)
-                return 1.0 - entropy
+                    lp = constraint.get_logprob(sol)
+                    entropy = bernoulli_entropy(lp)
+                    total_entropy += entropy
+                mean_entropy = total_entropy / num_personal_lp_constraints
+                return 1.0 - mean_entropy
 
             return CSPCost("maximize-entropy", variables, _max_entropy_fn)
         return self._generate_exploit_cost(obs, variables)
