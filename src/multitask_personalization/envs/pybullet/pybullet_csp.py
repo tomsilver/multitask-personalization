@@ -187,7 +187,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         sim: PyBulletEnv,
         rom_model: ROMModel,
-        book_preference_initialization: str = "I like everything!",
+        book_preference_initialization: str = "Unknown",
         llm_model_name: str = "gpt-4o-mini",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
