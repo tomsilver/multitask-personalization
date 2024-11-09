@@ -124,5 +124,6 @@ def solve_csp(
                 return best_satisfying_sol
         sampler = samplers[rng.choice(len(samplers))]
         partial_sol = sampler.sample(sol, rng)
+        sol = sol.copy()
         sol.update(partial_sol)
     return best_satisfying_sol
