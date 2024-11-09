@@ -14,7 +14,8 @@ from multitask_personalization.rom.models import SphericalROMModel
 
 def test_pybullet():
     """Tests for pybullet.py."""
-    os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
+    if "OPENAI_API_KEY" not in os.environ:
+        os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
 
     task_spec = PyBulletTaskSpec()
