@@ -710,19 +710,29 @@ def get_user_book_enjoyment_logprob(
     user_preferences: str,
     llm: OpenAILLM,
     seed: int = 0,
+    num_bins: int = 7,
 ) -> float:
     """Return a logprob that the user would enjoy the book."""
 
     prompt = f"""Book description: {book_description}
 
-User description: {user_preferences}. The user may also have other likes and dislikes not mentioned here.
+User description: {user_preferences}.
 
-Would the user enjoy the book?
+How much would the user enjoy the book on a scale from 1 to {num_bins}, where 1 means hate and {num_bins} means love?
 """
-
-    choices = ["yes", "no"]
+    choices = [str(i) for i in range(1, num_bins + 1)]
     logprobs = llm.get_multiple_choice_logprobs(prompt, choices, seed)
-    return logprobs["yes"]
+    expectation = 0.0
+    for i in range(1, num_bins + 1):
+        if i == (num_bins + 1) / 2:
+            value = 0.5
+        elif i > (num_bins + 1) / 2:
+            value = 1.0
+        else:
+            value = 0.0
+        logprob = logprobs[str(i)]
+        expectation += value * np.exp(logprob)
+    return np.log(expectation)
 
 
 def _explain_user_book_preference(
