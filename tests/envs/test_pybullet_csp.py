@@ -61,6 +61,7 @@ def test_pybullet_csp():
         seed=seed,
         llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
         llm_use_cache_only=True,
+        book_preference_initialization="I like everything!",
     )
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
