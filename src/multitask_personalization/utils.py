@@ -82,8 +82,9 @@ def sample_on_sphere(center: Pose3D, radius: float, rng: np.random.Generator) ->
 
 def bernoulli_entropy(log_p_true: float) -> float:
     """Compute entropy of a bernoulli RV given log prob.
-    
-    The input is in natural log units but the output entropy is in base 2.
+
+    The input is in natural log units but the output entropy is in base
+    2.
     """
     if np.isclose(log_p_true, 0) or np.isneginf(log_p_true):
         return 0.0
