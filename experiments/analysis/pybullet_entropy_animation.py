@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
+from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
 
 
 def _main(csv_file: Path, outfile: Path, fps: int=30, ground_truth_radius: float = 0.3) -> None:
@@ -22,7 +23,6 @@ def _main(csv_file: Path, outfile: Path, fps: int=30, ground_truth_radius: float
     ax.set_xlim((x_min, x_max))
     ax.set_ylim((-0.1, max(df['spherical_rom_max_radius'])+0.1))
     ax.plot([x_min, x_max], [ground_truth_radius, ground_truth_radius], color="red", linestyle="dashed", label="Ground Truth")
-    plt.legend()
     
     # Initialize an empty line plot.
     min_line, = ax.plot([], [], 'b-')
@@ -62,6 +62,9 @@ def _main2(csv_file: Path, outfile: Path, fps: int=30) -> None:
     prefix = "entropy-"
     keys = [k for k in df.keys() if k.startswith(prefix)]
     books = [k[len(prefix):] for k in keys]
+    task_spec = PyBulletTaskSpec()
+    book_colors = task_spec.book_rgbas
+    assert len(books) == len(book_colors)
     
     # Set up the figure and axis.
     fig, ax = plt.subplots()
@@ -75,10 +78,10 @@ def _main2(csv_file: Path, outfile: Path, fps: int=30) -> None:
     
     # Initialize an empty line plot.
     lines = []
-    for book in books:
-        line, = ax.plot([], [], label=book)
+    for book, color in zip(books, book_colors, strict=True):
+        line, = ax.plot([], [], label=book, color=color)
         lines.append(line)
-    plt.legend()
+    plt.legend(fontsize=8)
 
     # Define the initialization function.
     def init():
@@ -108,5 +111,5 @@ if __name__ == "__main__":
     parser.add_argument("csv_file", type=Path)
     parser.add_argument("outfile", type=Path)
     args = parser.parse_args()
-    # _main(args.csv_file, args.outfile)
-    _main2(args.csv_file, args.outfile)
+    _main(args.csv_file, args.outfile)
+    # _main2(args.csv_file, args.outfile)

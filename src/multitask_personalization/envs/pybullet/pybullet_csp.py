@@ -500,6 +500,5 @@ Return this description and nothing else. Do not explain anything."""
         for book_description in self._sim.book_descriptions:
             lp = self._book_is_preferred_logprob(book_description)
             entropy = bernoulli_entropy(lp)
-            import ipdb; ipdb.set_trace()
             metrics[f"entropy-{book_description}"] = entropy
         return metrics
