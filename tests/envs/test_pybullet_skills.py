@@ -39,7 +39,13 @@ def test_pybullet_skills():
         os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
 
     seed = 123
-    task_spec = PyBulletTaskSpec(side_table_pose=Pose(position=(1.45, 0.0, -0.1)))
+    default_task_spec = PyBulletTaskSpec()
+    task_spec = PyBulletTaskSpec(
+        side_table_pose=Pose(position=(1.45, 0.0, -0.1)),
+        book_half_extents=default_task_spec.book_half_extents[:3],
+        book_poses=default_task_spec.book_poses[:3],
+        book_rgbas=default_task_spec.book_rgbas[:3],
+    )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(task_spec.human_spec)
     hidden_spec = HiddenTaskSpec(book_preferences=book_preferences, rom_model=rom_model)

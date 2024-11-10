@@ -26,7 +26,12 @@ def test_pybullet_csp():
         os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
     rng = np.random.default_rng(seed)
-    task_spec = PyBulletTaskSpec()
+    default_task_spec = PyBulletTaskSpec()
+    task_spec = PyBulletTaskSpec(
+        book_half_extents=default_task_spec.book_half_extents[:3],
+        book_poses=default_task_spec.book_poses[:3],
+        book_rgbas=default_task_spec.book_rgbas[:3],
+    )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
         task_spec.human_spec, min_possible_radius=0.49, max_possible_radius=0.51
