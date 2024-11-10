@@ -224,12 +224,13 @@ def get_plan_to_place_object(
     sim: PyBulletEnv,
     max_motion_planning_candidates: int = 1,
     max_motion_planning_time: float = np.inf,
+    surface_link_id: int = -1,
 ) -> list[PyBulletAction] | None:
     """Get a plan to place a held object on a given surface."""
     sim.set_state(state)
     object_id = sim.get_object_id_from_name(object_name)
     surface_id = sim.get_object_id_from_name(surface_name)
-    collision_ids = sim.get_collision_ids() - {object_id, surface_id}
+    collision_ids = sim.get_collision_ids()
     placement_generator = iter([placement_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     object_extents = sim.get_aabb_dimensions(object_id)
@@ -240,6 +241,7 @@ def get_plan_to_place_object(
         surface_id,
         collision_ids,
         placement_generator,
+        surface_link_id=surface_link_id,
         preplace_translation_magnitude=object_extents[2],
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
