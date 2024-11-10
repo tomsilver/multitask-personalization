@@ -126,5 +126,5 @@ if __name__ == "__main__":
     parser.add_argument("csv_file", type=Path)
     parser.add_argument("outfile", type=Path)
     args = parser.parse_args()
-    _create_spherical_radius_animation(args.csv_file, args.outfile)
+    # _create_spherical_radius_animation(args.csv_file, args.outfile)
     _create_book_entropy_animation(args.csv_file, args.outfile)
