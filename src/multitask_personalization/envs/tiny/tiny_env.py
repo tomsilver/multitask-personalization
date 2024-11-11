@@ -105,7 +105,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
             self._robot_position += float(delta_action)
         info = self._get_info(robot_indicated_done)
         # Move the human if the robot succeeded.
-        if info["user_satisfaction"]:
+        if info["user_satisfaction"] > 0:
             self._reset_human()
         return self._get_state(), 0.0, False, False, info
 

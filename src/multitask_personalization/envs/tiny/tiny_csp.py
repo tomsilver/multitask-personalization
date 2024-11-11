@@ -104,7 +104,7 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
             return
         assert act[1] is None
         # Check if the trigger was successful.
-        label = info["user_satisfaction"]
+        label = info["user_satisfaction"] > 0
         # Get the current distance.
         dist = abs(obs.robot - obs.human)
         # Update the training data.
