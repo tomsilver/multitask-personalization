@@ -1,5 +1,6 @@
 """Tests for csp_approach.py."""
 
+import numpy as np
 import pytest
 
 from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
@@ -34,6 +35,7 @@ def test_csp_approach(explore_method):
         for _ in range(100):
             act = approach.step()
             obs, reward, terminated, truncated, info = env.step(act)
+            assert np.isclose(reward, 0.0)
             approach.update(obs, reward, terminated, info)
             assert not truncated
             if terminated:

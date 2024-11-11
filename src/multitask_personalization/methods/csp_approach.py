@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 import gymnasium as gym
+import numpy as np
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_csp import PyBulletCSPGenerator
@@ -125,9 +126,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         info: dict[str, Any],
     ) -> None:
         assert self._csp_generator is not None
-        self._csp_generator.learn_from_transition(
-            obs, act, next_obs, reward, done, info
-        )
+        assert np.isclose(reward, 0.0), "Rewards not used in this project!"
+        self._csp_generator.learn_from_transition(obs, act, next_obs, done, info)
 
     def get_step_metrics(self) -> dict[str, float]:
         episode_metrics = super().get_step_metrics()

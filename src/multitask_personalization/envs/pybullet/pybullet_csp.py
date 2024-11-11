@@ -395,12 +395,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         obs: PyBulletState,
         act: PyBulletAction,
         next_obs: PyBulletState,
-        reward: float,
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        self._update_rom_model(obs, act, next_obs, reward)
-        self._update_book_preferences(act, next_obs, reward)
+        self._update_rom_model(obs, act, next_obs)
+        self._update_book_preferences(act, next_obs)
 
     def _book_is_preferred_logprob(self, book_description: str) -> float:
         return get_user_book_enjoyment_logprob(
@@ -412,7 +411,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         obs: PyBulletState,
         act: PyBulletAction,
         next_obs: PyBulletState,
-        reward: float,
     ) -> None:
         # Only train trainable ROM models.
         if not isinstance(self._rom_model, TrainableROMModel):
@@ -420,13 +418,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Only learn from cases where the robot triggered "done".
         if not np.isclose(act[0], 2):
             return
-        # If the user said something and the reward was negative, the failure
-        # was due to book preferences, not handover failure.
-        if reward < 0 and next_obs.human_text is not None:
-            return
         assert act[1] is None
         # Check if the trigger was successful.
-        label = reward > 0
+        label = next_obs.human_text != "I can't reach there"
         # Get the current position.
         self._sim.set_state(obs)
         pose = self._sim.robot.forward_kinematics(obs.robot_joints)
@@ -436,10 +430,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._rom_model.train(self._rom_model_training_data)
 
     def _update_book_preferences(
-        self, act: PyBulletAction, next_obs: PyBulletState, reward: float
+        self,
+        act: PyBulletAction,
+        next_obs: PyBulletState,
     ) -> None:
         # Only learn when the user had something to say.
         if next_obs.human_text is None:
+            return
+        # Ignore failures due to ROM.
+        if next_obs.human_text == "I can't reach there":
             return
         # For now, only learn when the robot triggered "done".
         if not np.isclose(act[0], 2):
@@ -447,8 +446,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         assert act[1] is None
         assert next_obs.held_object is not None
         # Update the history of things the user has told the robot.
-        result = "accepted" if reward > 0 else "rejected"
-        new_feedback = f'When I gave the user the book: "{next_obs.held_object}", they {result} it and said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
+        new_feedback = f'When I gave the user the book: "{next_obs.held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
         self._all_user_feedback.append(new_feedback)
         # Learn from the history of all feedback.
         # For now, just do this once; in the future, get a distribution of

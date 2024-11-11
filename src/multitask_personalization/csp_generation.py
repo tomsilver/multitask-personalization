@@ -151,7 +151,6 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         obs: ObsType,
         act: ActType,
         next_obs: ObsType,
-        reward: float,
         done: bool,
         info: dict[str, Any],
     ) -> None:
@@ -184,7 +183,6 @@ class CSPConstraintGenerator(abc.ABC, Generic[ObsType, ActType]):
         obs: ObsType,
         act: ActType,
         next_obs: ObsType,
-        reward: float,
         done: bool,
         info: dict[str, Any],
     ) -> None:

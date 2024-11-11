@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+import numpy as np
+
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_structs import PyBulletState
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
@@ -42,9 +44,9 @@ def test_pybullet():
     for _ in range(10):
         act = env.action_space.sample()
         obs, reward, terminated, truncated, _ = env.step(act)
+        assert np.isclose(reward, 0.0)
         assert isinstance(obs, PyBulletState)
         if terminated:
-            assert reward in {-1, 1}
             break
         assert not truncated
 
