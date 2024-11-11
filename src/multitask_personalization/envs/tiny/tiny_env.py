@@ -123,11 +123,12 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         return abs(dist - desired_dist) < self._hidden_spec.distance_threshold
 
     def _get_info(self, robot_indicated_done: bool = False) -> dict[str, Any]:
-        success = False
         if robot_indicated_done:
-            success = self._check_success()
+            user_satisfaction = 1.0 if self._check_success() else -1.0
+        else:
+            user_satisfaction = 0.0
         return {
             "robot_indicated_done": robot_indicated_done,
-            "user_satisfaction": success,
+            "user_satisfaction": user_satisfaction,
             "user_allows_explore": self._user_allows_explore,
         }
