@@ -1,22 +1,30 @@
 """Specific missions for the robot in the PyBullet environment."""
 
-from multitask_personalization.envs.pybullet.pybullet_structs import PyBulletMission, PyBulletState, PyBulletAction
-from multitask_personalization.envs.pybullet.pybullet_utils import user_would_enjoy_book
-from tomsutils.llm import OpenAILLM
 import numpy as np
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
+from tomsutils.llm import OpenAILLM
+
+from multitask_personalization.envs.pybullet.pybullet_structs import (
+    PyBulletAction,
+    PyBulletMission,
+    PyBulletState,
+)
+from multitask_personalization.envs.pybullet.pybullet_utils import user_would_enjoy_book
 from multitask_personalization.rom.models import ROMModel
 
 
 class HandOverBookMission(PyBulletMission):
     """Hand over a book that the user enjoys."""
 
-    def __init__(self, book_descriptions: list[str],
-                 robot: FingeredSingleArmPyBulletRobot,
-                 rom_model: ROMModel,
-                 hidden_book_preferences: str,
-                 llm: OpenAILLM,
-                 seed: int) -> None:
+    def __init__(
+        self,
+        book_descriptions: list[str],
+        robot: FingeredSingleArmPyBulletRobot,
+        rom_model: ROMModel,
+        hidden_book_preferences: str,
+        llm: OpenAILLM,
+        seed: int,
+    ) -> None:
         super().__init__()
         self._book_descriptions = book_descriptions
         self._robot = robot
@@ -27,15 +35,21 @@ class HandOverBookMission(PyBulletMission):
 
     def get_id(self) -> str:
         return "book handover"
-    
+
+    def get_mission_command(self, state: PyBulletState) -> str:
+        # Could add some variation with an LLM later.
+        return "Please bring me a book to read"
+
     def check_initiable(self, state: PyBulletState) -> bool:
         return state.held_object is None
 
-    def check_complete(self, state: PyBulletState, action: PyBulletAction, next_state: PyBulletState) -> bool:
+    def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
         robot_indicated_done = np.isclose(action[0], 2)
-        return robot_indicated_done
+        return bool(robot_indicated_done)
 
-    def step(self, state: PyBulletState, action: PyBulletAction, next_state: PyBulletState) -> float:
+    def step(
+        self, state: PyBulletState, action: PyBulletAction
+    ) -> tuple[str | None, float]:
         robot_indicated_done = np.isclose(action[0], 2)
         # Robot needs to indicate done for the handover task.
         if not robot_indicated_done:
@@ -113,4 +127,3 @@ Return short dialogue as if you were the human user. Return only this. Do not ex
         seed=seed,
     )[0]
     return response
-

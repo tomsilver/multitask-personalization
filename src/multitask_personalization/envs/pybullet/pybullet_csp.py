@@ -31,7 +31,9 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
-from multitask_personalization.envs.pybullet.pybullet_utils import get_user_book_enjoyment_logprob
+from multitask_personalization.envs.pybullet.pybullet_utils import (
+    get_user_book_enjoyment_logprob,
+)
 from multitask_personalization.rom.models import ROMModel, TrainableROMModel
 from multitask_personalization.structs import (
     CSP,

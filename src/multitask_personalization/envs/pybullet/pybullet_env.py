@@ -29,16 +29,19 @@ from tomsutils.utils import render_textbox_on_image
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
 )
+from multitask_personalization.envs.pybullet.pybullet_missions import (
+    HandOverBookMission,
+)
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     GripperAction,
     PyBulletAction,
+    PyBulletMission,
     PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     HiddenTaskSpec,
     PyBulletTaskSpec,
 )
-from multitask_personalization.envs.pybullet.pybullet_utils import user_would_enjoy_book
 
 
 class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
@@ -64,8 +67,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Keep a separate rng for LLM seed generation so that things don't change
         # if we make modifications to the rest of the environment that affect when
         # self._rng is used. Important because of LLM prompt caching.
-        self._mission_llm_rng = np.random.default_rng(seed)
         self._book_llm_rng = np.random.default_rng(seed)
+        self._mission_rng = np.random.default_rng(seed)
         self._seed = seed
         self.task_spec = task_spec
         self._hidden_spec = hidden_spec
@@ -191,9 +194,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
 
-        # Track the current mission for the robot.
-        self._current_mission: str | None = None
-
         # The user decides when the robot should explore.
         self._user_allows_explore = True
 
@@ -202,6 +202,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Track the thing that the human is saying right now.
         self.current_human_text: str | None = None
+
+        # Track the current mission for the robot.
+        self._current_mission: PyBulletMission | None = None
 
         # Reset all states.
         self._reset_from_task_spec()
@@ -344,24 +347,22 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Reset user satisfaction.
         self._user_satisfaction = 0.0
 
+        # Randomize book descriptions.
+        self.book_descriptions = self._generate_book_descriptions(
+            num_books=len(self.book_ids),
+            seed=int(self._book_llm_rng.integers(0, 2**31 - 1)),
+        )
+
         # Randomize robot mission.
         self._current_mission = self._generate_mission()
 
-        # Randomize book descriptions.
-        self.book_descriptions = self._generate_book_descriptions(
-            num_books=len(self.book_ids), seed=int(self._book_llm_rng.integers(0, 2**31 - 1))
-        )
-
         return self.get_state(), self._get_info()
 
-    def step(
-        self, action: PyBulletAction
-    ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
-        """Advance the simulator given an action."""
+    def _step_simulator(self, action: PyBulletAction) -> None:
         # Toggle whether exploration is allowed.
         if self._rng.uniform() < self._allow_explore_switch_prob:
             self._user_allows_explore = not self._user_allows_explore
-        self.current_human_text = None
+        # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
@@ -381,11 +382,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
-            self._update_human(robot_indicated_done=False)
-            return self.get_state(), 0.0, False, False, self._get_info()
+            return
+        # Robot indicating done.
         if np.isclose(action[0], 2):
-            self._update_human(robot_indicated_done=True)
-            return self.get_state(), 0.0, False, False, self._get_info()
+            return
+        # Moving the robot.
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
@@ -420,70 +421,32 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             set_pose(
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
+        return
 
-        self._update_human(robot_indicated_done=False)
-        return self.get_state(), 0.0, False, False, self._get_info()
+    def step(
+        self, action: PyBulletAction
+    ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
+        # Advance the simulator.
+        state = self.get_state()
+        self._step_simulator(action)
 
-    def _update_human(self, robot_indicated_done: bool = False) -> None:
-        self.current_human_text, self._user_satisfaction = (
-            self._get_human_text_and_satisfaction(robot_indicated_done)
+        # Advance the mission.
+        assert self._current_mission is not None
+        self.current_human_text, self._user_satisfaction = self._current_mission.step(
+            state, action
         )
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
 
-    # def _get_human_text_and_satisfaction(
-    #     self, robot_indicated_done: bool = False
-    # ) -> tuple[str | None, float]:
-    #     if self._hidden_spec is None:
-    #         raise NotImplementedError("Should not call step() in sim")
-    #     if self.task_spec.task_objective == "hand over book":
-    #         # Robot needs to indicate done for the handover task.
-    #         if not robot_indicated_done:
-    #             return None, 0.0
-    #         # Must be holding a book.
-    #         if self.current_held_object_id not in self.book_ids:
-    #             return None, -1.0
-    #         book_idx = self.book_ids.index(self.current_held_object_id)
-    #         book_description = self.book_descriptions[book_idx]
-    #         # Check if the book is reachable.
-    #         end_effector_position = self.robot.get_end_effector_pose().position
-    #         reachable = self._hidden_spec.rom_model.check_position_reachable(
-    #             np.array(end_effector_position)
-    #         )
-    #         if not reachable:
-    #             return "I can't reach there", -1.0
-    #         # Should be holding a preferred book.
-    #         if not user_would_enjoy_book(
-    #             book_description,
-    #             self._hidden_spec.book_preferences,
-    #             self._llm,
-    #             seed=self._seed,
-    #         ):
-    #             # The robot is attempting to hand over a book, but the user
-    #             # doesn't actually like that book. Have the user explain in
-    #             # natural language why they don't like the book.
-    #             text = _explain_user_book_preference(
-    #                 book_description,
-    #                 self._hidden_spec.book_preferences,
-    #                 self._llm,
-    #                 enjoyed=False,
-    #                 seed=self._seed,
-    #             )
-    #             return text, -1.0
-    #         # The robot is successful in handing over the book. Have the user
-    #         # elaborate on why they like this book.
-    #         text = _explain_user_book_preference(
-    #             book_description,
-    #             self._hidden_spec.book_preferences,
-    #             self._llm,
-    #             enjoyed=True,
-    #             seed=self._seed,
-    #         )
-    #         return text, 1.0
-    #     raise NotImplementedError
+        # TODO handle mission.check_complete()
+
+        # Return the next state and default gym API stuff.
+        return self.get_state(), 0.0, False, False, self._get_info()
 
     def _get_info(self) -> dict[str, Any]:
+        assert self._current_mission is not None
         return {
+            "mission": self._current_mission.get_id(),
             "task_spec": self.task_spec,
             "user_satisfaction": self._user_satisfaction,
             "user_allows_explore": self._user_allows_explore,
@@ -584,9 +547,22 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             object_id, -1, self.physics_client_id
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
-    
-    def _generate_mission(self) -> str:
-        import ipdb; ipdb.set_trace()
+
+    def _generate_mission(self) -> PyBulletMission:
+        state = self.get_state()
+        seed = int(self._mission_rng.integers(0, 2**31 - 1))
+        assert self._hidden_spec is not None
+        mission = HandOverBookMission(
+            self.book_descriptions,
+            self.robot,
+            self._hidden_spec.rom_model,
+            self._hidden_spec.book_preferences,
+            self._llm,
+            seed=seed,
+        )
+        assert mission.check_initiable(state)
+        # TODO handle get_mission_command
+        return mission
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
         assert self._hidden_spec is not None
