@@ -21,7 +21,6 @@ from tomsutils.spaces import EnumSpace
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import (
     PyBulletEnv,
-    get_user_book_enjoyment_logprob,
 )
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_handover_object,
@@ -32,6 +31,7 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
 )
+from multitask_personalization.envs.pybullet.pybullet_utils import get_user_book_enjoyment_logprob
 from multitask_personalization.rom.models import ROMModel, TrainableROMModel
 from multitask_personalization.structs import (
     CSP,
