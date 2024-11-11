@@ -438,7 +438,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
 
-        # TODO handle mission.check_complete()
+        if self._current_mission.check_complete(state, action):
+            # TODO: re-generate mission and append description to current human
+            # text if it exists...
+            import ipdb; ipdb.set_trace()
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, False, False, self._get_info()
