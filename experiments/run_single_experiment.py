@@ -11,6 +11,7 @@ import logging
 
 import gymnasium as gym
 import hydra
+import numpy as np
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
@@ -54,16 +55,17 @@ def _main(cfg: DictConfig) -> None:
         except ApproachFailure as e:
             logging.info(e)
         obs, rew, terminated, truncated, info = env.step(act)
+        assert np.isclose(rew, 0.0)
         assert not (terminated or truncated)
-        reward = float(rew)  # gym env rewards are SupportsFloat
-        approach.update(obs, reward, terminated, info)
+        approach.update(obs, float(rew), terminated, info)
+        user_satisfaction = info.get("user_satisfaction", np.nan)
         step_metrics = {
             "step": t,
             "user_allows_explore": info["user_allows_explore"],
-            "reward": rew,
+            "user_satisfaction": user_satisfaction,
             **approach.get_step_metrics(),
         }
-        logging.info(f"Step {t} reward: {reward}")
+        logging.info(f"Step {t} satisfaction: {user_satisfaction}")
         metrics.append(step_metrics)
     env.close()
 
