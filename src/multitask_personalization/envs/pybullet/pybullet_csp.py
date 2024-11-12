@@ -60,31 +60,43 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
     ) -> None:
         super().__init__(csp, seed)
         self._sim = sim
+        self._current_mission: str | None = None
         self._current_plan: list[PyBulletAction] = []
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._terminated = False
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
+        self._current_mission = None
         self._current_plan = []
         self._terminated = False
 
     def step(self, obs: PyBulletState) -> PyBulletAction:
-        # TODO change API of CSPPolicy to check termination after step,
-        # conditioned on next observation. Remove done check here.
+        if self._current_mission is None:
+            mission = self._get_mission_from_obs(obs)
+            assert mission is not None
+            self._current_mission = mission
         if not self._current_plan:
-            if obs.held_object is None:
-                self._current_plan = self._get_pick_plan(obs)
-            elif obs.held_object == self._get_value("book"):
-                self._current_plan = self._get_handover_plan(obs)
-            else:
+            if self._current_mission == "hand over book":
+                if obs.held_object is None:
+                    self._current_plan = self._get_pick_plan(obs)
+                elif obs.held_object == self._get_value("book"):
+                    self._current_plan = self._get_handover_plan(obs)
+                else:
+                    self._current_plan = self._get_place_plan(obs)
+            elif self._current_mission == "put away held object":
                 self._current_plan = self._get_place_plan(obs)
         action = self._current_plan.pop(0)
         self._terminated = action[1] is None
         return action
 
     def check_termination(self, obs: PyBulletState) -> bool:
-        return self._terminated
+        if self._terminated:
+            return True
+        mission = self._get_mission_from_obs(obs)
+        if mission is None:
+            return False
+        return self._current_mission is not None and mission != self._current_mission
 
     def _get_pick_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out empty-handed and near the books."""
@@ -158,6 +170,16 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             if plan is not None:
                 return plan
         raise RuntimeError("Could not find placement plan")
+
+    def _get_mission_from_obs(self, obs: PyBulletState) -> str | None:
+        if obs.human_text is None:
+            return None
+        # Hardcode rules to save some LLM costs for now.
+        if "Please bring me a book to read" in obs.human_text:
+            return "hand over book"
+        if "Put away the thing you're holding" in obs.human_text:
+            return "put away held object"
+        return None
 
 
 def _book_grasp_to_pose(yaw: NDArray) -> Pose:
