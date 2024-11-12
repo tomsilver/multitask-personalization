@@ -36,7 +36,7 @@ class HandOverBookMission(PyBulletMission):
     def get_id(self) -> str:
         return "book handover"
 
-    def get_mission_command(self, state: PyBulletState) -> str:
+    def get_mission_command(self) -> str:
         # Could add some variation with an LLM later.
         return "Please bring me a book to read"
 

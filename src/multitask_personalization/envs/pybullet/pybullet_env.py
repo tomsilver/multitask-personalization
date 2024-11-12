@@ -356,6 +356,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Randomize robot mission.
         self._current_mission = self._generate_mission()
 
+        # Tell the robot its mission.
+        self.current_human_text = self._current_mission.get_mission_command()
+
         return self.get_state(), self._get_info()
 
     def _step_simulator(self, action: PyBulletAction) -> None:
@@ -435,13 +438,17 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_human_text, self._user_satisfaction = self._current_mission.step(
             state, action
         )
+
+        # Start a new mission if the current one is complete.
+        if self._current_mission.check_complete(state, action):
+            self._current_mission = self._generate_mission()
+            # Tell the robot its new mission.
+            mission_description = self._current_mission.get_mission_command()
+            assert self.current_human_text is not None
+            self.current_human_text += "\n" + mission_description
+
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
-
-        if self._current_mission.check_complete(state, action):
-            # TODO: re-generate mission and append description to current human
-            # text if it exists...
-            import ipdb; ipdb.set_trace()
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, False, False, self._get_info()
@@ -564,7 +571,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             seed=seed,
         )
         assert mission.check_initiable(state)
-        # TODO handle get_mission_command
         return mission
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:

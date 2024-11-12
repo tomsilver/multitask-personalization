@@ -45,7 +45,7 @@ class PyBulletMission(abc.ABC):
         """Get a unique identifier for the mission."""
 
     @abc.abstractmethod
-    def get_mission_command(self, state: PyBulletState) -> str:
+    def get_mission_command(self) -> str:
         """Return a natural language description of the mission."""
 
     @abc.abstractmethod
