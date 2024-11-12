@@ -100,6 +100,9 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
     def _get_pick_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out empty-handed and near the books."""
+        # NOTE: need to separate out "retract" from get_plan_to_pick() and add
+        # it here. This is because the mission will finish as soon as the object
+        # is on the table and the robot will still be near grasping it.
         self._sim.set_state(obs)
         book_description = self._get_value("book")
         book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
@@ -130,6 +133,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
     def _get_place_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """The robot is holding the wrong thing; place it somewhere."""
+        # NOTE: separate out "retract" here; see note in _get_pick_plan().
         self._sim.set_state(obs)
         held_obj = obs.held_object
         assert held_obj is not None
@@ -246,6 +250,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         obs: PyBulletState,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
+
+        # TODO: make the CSP generation itself conditioned on the mission.
+        # Maybe do this in separate PR...
+
         # Sync the simulator.
         self._sim.set_state(obs)
 
