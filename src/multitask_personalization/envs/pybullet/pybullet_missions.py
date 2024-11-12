@@ -95,6 +95,28 @@ class HandOverBookMission(PyBulletMission):
         return text, 1.0
 
 
+class StoreHeldObjectMission(PyBulletMission):
+    """Put away the thing the robot is holding."""
+
+    def get_id(self) -> str:
+        return "store held object"
+
+    def get_mission_command(self) -> str:
+        # Could add some variation with an LLM later.
+        return "Put away the thing you're holding"
+
+    def check_initiable(self, state: PyBulletState) -> bool:
+        return state.held_object is not None
+
+    def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
+        return state.held_object is None
+
+    def step(
+        self, state: PyBulletState, action: PyBulletAction
+    ) -> tuple[str | None, float]:
+        return None, 0.0
+
+
 def _explain_user_book_preference(
     book_description: str,
     user_preferences: str,

@@ -31,6 +31,7 @@ from multitask_personalization.envs.pybullet.pybullet_human_spec import (
 )
 from multitask_personalization.envs.pybullet.pybullet_missions import (
     HandOverBookMission,
+    StoreHeldObjectMission,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     GripperAction,
@@ -444,8 +445,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self._current_mission = self._generate_mission()
             # Tell the robot its new mission.
             mission_description = self._current_mission.get_mission_command()
-            assert self.current_human_text is not None
-            self.current_human_text += "\n" + mission_description
+            if self.current_human_text is None:
+                self.current_human_text = mission_description
+            else:
+                self.current_human_text += "\n" + mission_description
 
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
@@ -562,16 +565,21 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         state = self.get_state()
         seed = int(self._mission_rng.integers(0, 2**31 - 1))
         assert self._hidden_spec is not None
-        mission = HandOverBookMission(
-            self.book_descriptions,
-            self.robot,
-            self._hidden_spec.rom_model,
-            self._hidden_spec.book_preferences,
-            self._llm,
-            seed=seed,
-        )
-        assert mission.check_initiable(state)
-        return mission
+        possible_missions: list[PyBulletMission] = [
+            HandOverBookMission(
+                self.book_descriptions,
+                self.robot,
+                self._hidden_spec.rom_model,
+                self._hidden_spec.book_preferences,
+                self._llm,
+                seed=seed,
+            ),
+            StoreHeldObjectMission(),
+        ]
+        for mission in possible_missions:
+            if mission.check_initiable(state):
+                return mission
+        raise NotImplementedError
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
         assert self._hidden_spec is not None
