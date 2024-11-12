@@ -251,8 +251,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         obs: PyBulletState,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
 
-        # TODO: make the CSP generation itself conditioned on the mission.
-        # Maybe do this in separate PR...
+        # NOTE: in the near future, make the CSP generation itself conditioned
+        # on the (inferred) mission.
 
         # Sync the simulator.
         self._sim.set_state(obs)
