@@ -32,21 +32,27 @@ class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
         self._target_position: float | None = None
         self._speed: float | None = None
         self._distance_threshold = distance_threshold
+        self._terminated = False
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
         self._target_position = self._get_value("position")
         self._speed = self._get_value("speed")
+        self._terminated = False
 
-    def step(self, obs: TinyState) -> tuple[TinyAction, bool]:
+    def step(self, obs: TinyState) -> TinyAction:
         assert self._target_position is not None
         assert self._speed is not None
         robot_position = obs.robot
         delta = np.clip(self._target_position - robot_position, -1, 1)
         delta = self._speed * delta
         if abs(delta) < 1e-6:
-            return (1, None), True
-        return (0, delta), False
+            self._terminated = True
+            return (1, None)
+        return (0, delta)
+
+    def check_termination(self, obs: TinyState) -> bool:
+        return self._terminated
 
 
 class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAction]):

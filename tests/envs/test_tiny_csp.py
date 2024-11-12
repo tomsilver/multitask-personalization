@@ -48,10 +48,10 @@ def test_tiny_csp():
 
     # Run the policy.
     for _ in range(100):
-        act, policy_terminated = policy.step(obs)
+        act = policy.step(obs)
         obs, reward, env_terminated, truncated, _ = env.step(act)
         assert isinstance(obs, TinyState)
-        if policy_terminated:
+        if policy.check_termination(obs):
             assert np.isclose(reward, 0.0)
             break
         assert not env_terminated

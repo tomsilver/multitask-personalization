@@ -62,12 +62,16 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         self._sim = sim
         self._current_plan: list[PyBulletAction] = []
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._terminated = False
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
         self._current_plan = []
+        self._terminated = False
 
-    def step(self, obs: PyBulletState) -> tuple[PyBulletAction, bool]:
+    def step(self, obs: PyBulletState) -> PyBulletAction:
+        # TODO change API of CSPPolicy to check termination after step,
+        # conditioned on next observation. Remove done check here.
         if not self._current_plan:
             if obs.held_object is None:
                 self._current_plan = self._get_pick_plan(obs)
@@ -76,8 +80,11 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             else:
                 self._current_plan = self._get_place_plan(obs)
         action = self._current_plan.pop(0)
-        done = action[1] is None
-        return action, done
+        self._terminated = action[1] is None
+        return action
+
+    def check_termination(self, obs: PyBulletState) -> bool:
+        return self._terminated
 
     def _get_pick_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out empty-handed and near the books."""
