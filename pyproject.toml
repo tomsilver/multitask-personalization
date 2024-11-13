@@ -72,5 +72,6 @@ module = [
     "assistive_gym.*",
     "pybullet.*",
     "seaborn.*",
+    "moviepy.*",
 ]
 ignore_missing_imports = true
