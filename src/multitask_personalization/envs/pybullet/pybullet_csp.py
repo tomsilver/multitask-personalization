@@ -7,10 +7,9 @@ from typing import Any
 import numpy as np
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
+from pybullet_helpers.geometry import Pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
-    check_body_collisions,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
 )
@@ -128,36 +127,24 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             surface_extents[1] / 2 - object_extents[1] / 2,
             surface_extents[2] / 2 + object_extents[2] / 2,
         )
-        surface_pose = get_pose(surface_id, self._sim.physics_client_id)
-        collision_ids = self._sim.get_collision_ids() - {surface_id, held_obj_id}
-        selected_placement: Pose | None = None
         for _ in range(100000):
             placement_position = self._rng.uniform(placement_lb, placement_ub)
             relative_placement_pose = Pose.from_rpy(
                 tuple(placement_position), (0, 0, np.pi / 2)
             )
-            placement_pose = multiply_poses(surface_pose, relative_placement_pose)
-            set_pose(held_obj_id, placement_pose, self._sim.physics_client_id)
-            has_collision = False
-            for collision_id in collision_ids:
-                if check_body_collisions(
-                    collision_id, held_obj_id, self._sim.physics_client_id
-                ):
-                    has_collision = True
-                    break
-            if not has_collision:
-                selected_placement = relative_placement_pose
-                break
-        assert selected_placement is not None
-        self._sim.set_state(obs)
-        return get_plan_to_place_object(
-            obs,
-            held_obj,
-            surface_name,
-            selected_placement,
-            self._sim,
-            max_motion_planning_candidates=self._max_motion_planning_candidates,
-        )
+            self._sim.set_state(obs)
+            plan = get_plan_to_place_object(
+                obs,
+                held_obj,
+                surface_name,
+                relative_placement_pose,
+                self._sim,
+                max_motion_planning_time=1.0,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+            )
+            if plan is not None:
+                return plan
+        raise RuntimeError("Could not find placement plan")
 
 
 def _book_grasp_to_pose(yaw: NDArray) -> Pose:
@@ -197,11 +184,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         rom_model: ROMModel,
         seed: int = 0,
-        explore_method: str = "nothing-personal",
-        ensemble_explore_threshold: float = 0.1,
-        ensemble_explore_members: int = 5,
-        neighborhood_explore_max_radius: float = 1.0,
-        neighborhood_explore_radius_decay: float = 0.99,
         book_preference_initialization: str = "I like everything!",
         llm_model_name: str = "gpt-4",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
@@ -210,14 +192,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm_temperature: float = 0.0,
         max_motion_planning_candidates: int = 1,
     ) -> None:
-        super().__init__(
-            seed=seed,
-            explore_method=explore_method,
-            ensemble_explore_threshold=ensemble_explore_threshold,
-            ensemble_explore_members=ensemble_explore_members,
-            neighborhood_explore_max_radius=neighborhood_explore_max_radius,
-            neighborhood_explore_radius_decay=neighborhood_explore_radius_decay,
-        )
+        super().__init__(seed=seed)
         self._sim = sim
         self._rom_model = rom_model
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
@@ -233,7 +208,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._num_generations = 0
 
-    def generate(self, obs: PyBulletState, explore: bool = False) -> tuple[
+    def _generate(self, obs: PyBulletState, do_explore: bool = False) -> tuple[
         CSP,
         list[CSPSampler],
         CSPPolicy[PyBulletState, PyBulletAction],
@@ -273,7 +248,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         constraints: list[CSPConstraint] = []
 
-        if not explore:
+        if not do_explore:
             # Create a user preference constraint for the book.
             def _book_is_preferred(book_description: str) -> bool:
                 return user_would_enjoy_book(
@@ -301,30 +276,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _handover_position_is_in_rom,
             )
             constraints.append(handover_rom_constraint)
-
-        elif self._explore_method == "neighborhood":
-            radius = self._neighborhood_explore_max_radius * (
-                self._neighborhood_explore_radius_decay**self._num_generations
-            )
-
-            # NOTE: to avoid the complexity of considering distance in text
-            # space, we are for now considering all book descriptions to be
-            # within a neighborhood of each other, so, not adding a constraint.
-
-            def _handover_position_is_in_rom(position: NDArray) -> bool:
-                return self._rom_model.check_position_reachable(
-                    position, neighborhood=radius
-                )
-
-            handover_rom_constraint = CSPConstraint(
-                "handover_rom_constraint",
-                [handover_position],
-                _handover_position_is_in_rom,
-            )
-            constraints.append(handover_rom_constraint)
-
-        else:
-            assert self._explore_method == "nothing-personal"
 
         # Create reaching constraints.
         def _book_grasp_is_reachable(yaw: NDArray) -> bool:

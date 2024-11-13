@@ -56,7 +56,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
         llm_temperature: float = 0.9,
-        explore_epsilon: float = 0.5,
+        allow_explore_switch_prob: float = 5e-2,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
@@ -75,7 +75,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             use_cache_only=llm_use_cache_only,
         )
         self._llm_temperature = llm_temperature
-        self._explore_epsilon = explore_epsilon
+        self._allow_explore_switch_prob = allow_explore_switch_prob
 
         # Create action space.
         self.action_space = gym.spaces.OneOf(
@@ -190,7 +190,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_held_object_id: int | None = None
 
         # The user decides when the robot should explore.
-        self._robot_should_explore = False
+        self._user_allows_explore = True
 
         # Track the thing that the human is saying right now.
         self.current_human_text: str | None = None
@@ -330,8 +330,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         super().reset(seed=seed, options=options)
         self._reset_from_task_spec()
 
-        # Randomize whether the robot should explore on this episode.
-        self._robot_should_explore = self._rng.uniform() < self._explore_epsilon
+        # Always allow exploration in the beginning.
+        self._user_allows_explore = True
 
         # Randomize book descriptions.
         self.book_descriptions = self._generate_book_descriptions(
@@ -344,6 +344,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self, action: PyBulletAction
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
         """Advance the simulator given an action."""
+        # Toggle whether exploration is allowed.
+        if self._rng.uniform() < self._allow_explore_switch_prob:
+            self._user_allows_explore = not self._user_allows_explore
         self.current_human_text = None
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
@@ -364,11 +367,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
-            reward, done = self._get_reward_and_done(robot_indicated_done=False)
-            return self.get_state(), reward, done, False, self._get_info()
+            reward = self._get_reward(robot_indicated_done=False)
+            return self.get_state(), reward, False, False, self._get_info()
         if np.isclose(action[0], 2):
-            reward, done = self._get_reward_and_done(robot_indicated_done=True)
-            return self.get_state(), reward, done, False, self._get_info()
+            reward = self._get_reward(robot_indicated_done=True)
+            return self.get_state(), reward, False, False, self._get_info()
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
@@ -404,21 +407,19 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
 
-        reward, done = self._get_reward_and_done(robot_indicated_done=False)
-        return self.get_state(), reward, done, False, self._get_info()
+        reward = self._get_reward(robot_indicated_done=False)
+        return self.get_state(), reward, False, False, self._get_info()
 
-    def _get_reward_and_done(
-        self, robot_indicated_done: bool = False
-    ) -> tuple[float, bool]:
+    def _get_reward(self, robot_indicated_done: bool = False) -> float:
         if self._hidden_spec is None:
             raise NotImplementedError("Should not call step() in sim")
         if self.task_spec.task_objective == "hand over book":
             # Robot needs to indicate done for the handover task.
             if not robot_indicated_done:
-                return 0.0, False
+                return 0.0
             # Must be holding a book.
             if self.current_held_object_id not in self.book_ids:
-                return -1.0, False
+                return -1.0
             book_idx = self.book_ids.index(self.current_held_object_id)
             book_description = self.book_descriptions[book_idx]
             # Check if the book is reachable.
@@ -427,7 +428,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 np.array(end_effector_position)
             )
             if not reachable:
-                return -1.0, False
+                return -1.0
             # Should be holding a preferred book.
             if not user_would_enjoy_book(
                 book_description,
@@ -446,7 +447,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     seed=self._seed,
                 )
                 logging.info(f"Human says: {self.current_human_text}")
-                return -1.0, False
+                return -1.0
             # The robot is successful in handing over the book. Have the user
             # elaborate on why they like this book.
             self.current_human_text = _explain_user_book_preference(
@@ -457,13 +458,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 seed=self._seed,
             )
             logging.info(f"Human says: {self.current_human_text}")
-            return 1.0, True
+            return 1.0
         raise NotImplementedError
 
     def _get_info(self) -> dict[str, Any]:
         return {
             "task_spec": self.task_spec,
-            "explore": self._robot_should_explore,
+            "user_allows_explore": self._user_allows_explore,
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
