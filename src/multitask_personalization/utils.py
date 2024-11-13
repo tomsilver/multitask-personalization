@@ -81,18 +81,13 @@ def sample_on_sphere(center: Pose3D, radius: float, rng: np.random.Generator) ->
 
 
 def bernoulli_entropy(log_p_true: float) -> float:
-    """Compute entropy of a bernoulli RV given log prob.
-
-    The input is in natural log units but the output entropy is in base
-    2.
-    """
+    """Compute entropy of a bernoulli RV given log prob."""
     if np.isclose(log_p_true, 0) or np.isneginf(log_p_true):
         return 0.0
     p_true = np.exp(log_p_true)
     p_false = 1 - p_true
     log_p_false = np.log1p(-p_true)
-    entropy_nats = -p_true * log_p_true - p_false * log_p_false
-    entropy = entropy_nats / np.log(2)  # convert to base 2 for convention
+    entropy = -p_true * log_p_true - p_false * log_p_false
     return entropy
 
 
@@ -124,5 +119,6 @@ def solve_csp(
                 return best_satisfying_sol
         sampler = samplers[rng.choice(len(samplers))]
         partial_sol = sampler.sample(sol, rng)
+        sol = sol.copy()
         sol.update(partial_sol)
     return best_satisfying_sol
