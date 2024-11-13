@@ -1,6 +1,7 @@
 """An approach that generates and solves a CSP to make decisions."""
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import gymnasium as gym
@@ -23,7 +24,6 @@ from multitask_personalization.methods.approach import (
     _ActType,
     _ObsType,
 )
-from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import (
     CSPPolicy,
     CSPVariable,
@@ -38,16 +38,15 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self,
         action_space: gym.spaces.Space[_ActType],
         seed: int,
-        explore_method: str = "nothing-personal",
+        csp_generator: CSPGenerator,
         max_motion_planning_candidates: int = 1,
         csp_min_num_satisfying_solutions: int = 50,
         show_csp_progress_bar: bool = True,
     ):
         super().__init__(action_space, seed)
+        self._csp_generator = csp_generator
         self._current_policy: CSPPolicy | None = None
         self._current_sol: dict[CSPVariable, Any] | None = None
-        self._csp_generator: CSPGenerator | None = None
-        self._explore_method = explore_method
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._csp_min_num_satisfying_solutions = csp_min_num_satisfying_solutions
         self._show_csp_progress_bar = show_csp_progress_bar
@@ -58,36 +57,35 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         info: dict[str, Any],
     ) -> None:
         super().reset(obs, info)
-        if self._csp_generator is None:
-            # At the moment, this part is extremely environment-specific.
-            # We will refactor this in a future PR.
-            if isinstance(obs, TinyState):
-                self._csp_generator = TinyCSPGenerator(
-                    seed=self._seed, explore_method=self._explore_method
-                )
-            elif isinstance(obs, PyBulletState):
-                scene_spec = info["scene_spec"]
-                assert isinstance(scene_spec, PyBulletSceneSpec)
-                sim = PyBulletEnv(scene_spec, seed=self._seed, use_gui=False)
-                rom_model = SphericalROMModel(scene_spec.human_spec, self._seed)
-                self._csp_generator = PyBulletCSPGenerator(
-                    sim,
-                    rom_model,
-                    seed=self._seed,
-                    explore_method=self._explore_method,
-                    max_motion_planning_candidates=self._max_motion_planning_candidates,
-                )
-            else:
-                raise NotImplementedError()
-        self._recompute_policy(obs, user_allows_explore=info["user_allows_explore"])
+        # TODO remove!!!!
+        # if self._csp_generator is None:
+        #     # At the moment, this part is extremely environment-specific.
+        #     # We will refactor this in a future PR.
+        #     if isinstance(obs, TinyState):
+        #         self._csp_generator = TinyCSPGenerator(
+        #             seed=self._seed, explore_method=self._explore_method
+        #         )
+        #     elif isinstance(obs, PyBulletState):
+        #         task_spec = info["task_spec"]
+        #         assert isinstance(task_spec, PyBulletTaskSpec)
+        #         sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=False)
+        #         rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
+        #         self._csp_generator = PyBulletCSPGenerator(
+        #             sim,
+        #             rom_model,
+        #             seed=self._seed,
+        #             explore_method=self._explore_method,
+        #             max_motion_planning_candidates=self._max_motion_planning_candidates,
+        #         )
+        #     else:
+        #         raise NotImplementedError()
+        self._sync_csp_generator_train_eval()
+        self._recompute_policy(obs)
 
-    def _recompute_policy(
-        self, obs: _ObsType, user_allows_explore: bool = False
-    ) -> None:
+    def _recompute_policy(self, obs: _ObsType) -> None:
         assert isinstance(self._csp_generator, CSPGenerator)
         csp, samplers, policy, initialization = self._csp_generator.generate(
             obs,
-            user_allows_explore=user_allows_explore,
         )
         self._current_sol = solve_csp(
             csp,
@@ -105,14 +103,12 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
     def _get_action(self) -> _ActType:
         assert self._last_observation is not None
         assert self._last_info is not None
-        assert self._csp_generator is not None
         if self._current_policy is None or self._current_policy.check_termination(
             self._last_observation
         ):
             logging.info("Recomputing policy because of termination")
             self._recompute_policy(
                 self._last_observation,
-                user_allows_explore=self._last_info["user_allows_explore"],
             )
         assert self._current_policy is not None
         return self._current_policy.step(self._last_observation)
@@ -126,14 +122,33 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        assert self._csp_generator is not None
         assert np.isclose(reward, 0.0), "Rewards not used in this project!"
         self._csp_generator.learn_from_transition(obs, act, next_obs, done, info)
 
     def get_step_metrics(self) -> dict[str, float]:
         step_metrics = super().get_step_metrics()
-        assert self._csp_generator is not None
         csp_metrics = self._csp_generator.get_metrics()
         assert not set(csp_metrics) & set(step_metrics), "Metric name conflict"
         step_metrics.update(csp_metrics)
         return step_metrics
+
+    def save(self, model_dir: Path) -> None:
+        self._csp_generator.save(model_dir)
+
+    def load(self, model_dir: Path) -> None:
+        self._csp_generator.load(model_dir)
+
+    def train(self) -> None:
+        super().train()
+        self._sync_csp_generator_train_eval()
+
+    def eval(self) -> None:
+        super().eval()
+        self._sync_csp_generator_train_eval()
+
+    def _sync_csp_generator_train_eval(self) -> None:
+        if self._train_or_eval == "train":
+            self._csp_generator.train()
+        else:
+            assert self._train_or_eval == "eval"
+            self._csp_generator.eval()

@@ -3,4 +3,7 @@ defaults:
   - override /approach: csp
   - override /env: pybullet
 max_environment_steps: 1000
-record_videos: False
+eval_frequency: 100
+max_eval_episode_length: 250
+record_train_videos: False
+record_eval_videos: False

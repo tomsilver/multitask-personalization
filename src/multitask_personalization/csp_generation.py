@@ -1,6 +1,7 @@
 """CSP generators."""
 
 import abc
+from pathlib import Path
 from typing import Any, Generic
 
 import numpy as np
@@ -30,23 +31,34 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._explore_method = explore_method
+        self._train_or_eval = "eval"
+
+    def train(self) -> None:
+        """Switch to train mode."""
+        self._train_or_eval = "train"
+
+    def eval(self) -> None:
+        """Switch to eval mode."""
+        self._train_or_eval = "eval"
+
+    @abc.abstractmethod
+    def save(self, model_dir: Path) -> None:
+        """Save sufficient information for fully loading the generator."""
+
+    @abc.abstractmethod
+    def load(self, model_dir: Path) -> None:
+        """Load from a saved model directory."""
 
     def generate(
         self,
         obs: ObsType,
-        user_allows_explore: bool = False,
     ) -> tuple[
         CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
     ]:
-        """Generate a CSP, samplers, policy, and initialization.
-
-        If user_allows_explore is False, then the generator should
-        "exploit", taking the best actions possible under its current
-        models. Otherwise it is free to "explore".
-        """
+        """Generate a CSP, samplers, policy, and initialization."""
         variables, initialization = self._generate_variables(obs)
-        constraints = self._generate_constraints(obs, variables, user_allows_explore)
-        cost = self._generate_cost(obs, variables, user_allows_explore)
+        constraints = self._generate_constraints(obs, variables)
+        cost = self._generate_cost(obs, variables)
         csp = CSP(variables, constraints, cost)
         samplers = self._generate_samplers(obs, csp)
         policy = self._generate_policy(obs, csp)
@@ -63,11 +75,10 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         self,
         obs: ObsType,
         variables: list[CSPVariable],
-        user_allows_explore: bool = False,
     ) -> list[CSPConstraint]:
         """Generate CSP constraints."""
         nonpersonal_constraints = self._generate_nonpersonal_constraints(obs, variables)
-        if user_allows_explore and self._explore_method in (
+        if self._train_or_eval == "train" and self._explore_method in (
             "nothing-personal",
             "max-entropy",
         ):
@@ -95,10 +106,9 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         self,
         obs: ObsType,
         variables: list[CSPVariable],
-        user_allows_explore: bool = False,
     ) -> CSPCost | None:
         """Generate CSP costs."""
-        if user_allows_explore and self._explore_method == "max-entropy":
+        if self._train_or_eval == "train" and self._explore_method == "max-entropy":
             personal_lp_constraints = [
                 c
                 for c in self._generate_personal_constraints(obs, variables)

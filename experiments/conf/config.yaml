@@ -6,9 +6,12 @@ hydra:
     subdir: ${hydra.job.num}
 
 video_dir: ${hydra:runtime.output_dir}/videos
-results_file: ${hydra:runtime.output_dir}/results.csv
+model_dir: ${hydra:runtime.output_dir}/models
+train_results_file: ${hydra:runtime.output_dir}/train_results.csv
+eval_results_file: ${hydra:runtime.output_dir}/eval_results.csv
 config_file: ${hydra:runtime.output_dir}/config.yaml
 seed: 0
+eval_seed_offset: 100000
 defaults:
   - _self_
   - approach: random

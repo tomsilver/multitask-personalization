@@ -1,5 +1,6 @@
 """CSP elements for the PyBullet environment."""
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -245,6 +246,34 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
         self._llm_temperature = llm_temperature
         self._max_motion_planning_candidates = max_motion_planning_candidates
+
+    def save(self, model_dir: Path) -> None:
+        # Save ROM model.
+        self._rom_model.save(model_dir)
+        # Save book preferences.
+        book_preference_outfile = model_dir / "learned_book_preferences.txt"
+        with open(book_preference_outfile, "w", encoding="utf-8") as f:
+            f.write(self._current_book_preference)
+        # Save all user feedback.
+        user_feedback_dict = dict(enumerate(self._all_user_feedback))
+        user_feedback_file = model_dir / "user_feedback_history.json"
+        with open(user_feedback_file, "w", encoding="utf-8") as f:
+            json.dump(user_feedback_dict, f)
+
+    def load(self, model_dir: Path) -> None:
+        # Load ROM model.
+        self._rom_model.load(model_dir)
+        # Load book preferences.
+        book_preference_outfile = model_dir / "learned_book_preferences.txt"
+        with open(book_preference_outfile, "r", encoding="utf-8") as f:
+            self._current_book_preference = f.read()
+        # Load all user feedback.
+        user_feedback_file = model_dir / "user_feedback_history.json"
+        with open(user_feedback_file, "r", encoding="utf-8") as f:
+            user_feedback_dict = json.load(f)
+        self._all_user_feedback = [
+            user_feedback_dict[i] for i in range(len(user_feedback_dict))
+        ]
 
     def _generate_variables(
         self,

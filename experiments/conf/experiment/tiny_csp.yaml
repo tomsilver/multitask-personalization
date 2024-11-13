@@ -3,4 +3,8 @@ defaults:
   - override /approach: csp
   - override /env: tiny
 max_environment_steps: 10000
-record_videos: False
+eval_frequency: 1000
+max_eval_episode_length: 100
+record_train_videos: False
+record_eval_videos: False
+
