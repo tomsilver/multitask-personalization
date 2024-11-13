@@ -2,11 +2,10 @@
 defaults:
   - override /approach: csp
   - override /env: tiny
-max_environment_steps: 10000
-eval_frequency: 1000
-max_eval_episode_length: 50
+max_environment_steps: 50000
+eval_frequency: 5000
+max_eval_episode_length: 100
 terminate_eval_episode_on_nonzero: True
 num_eval_trials: 5
 record_train_videos: False
 record_eval_videos: False
-
