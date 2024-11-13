@@ -1,5 +1,6 @@
 """CSP elements for the PyBullet environment."""
 
+import abc
 import json
 import logging
 from pathlib import Path
@@ -229,7 +230,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     def generate(
         self,
         obs: PyBulletState,
-        user_allows_explore: bool = False,
     ) -> tuple[
         CSP,
         list[CSPSampler],
@@ -238,7 +238,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     ]:
         # Important for the initial time step.
         self._update_current_mission(obs)
-        return super().generate(obs, user_allows_explore=user_allows_explore)
+        return super().generate(obs)
 
     def save(self, model_dir: Path) -> None:
         # Save ROM model.
