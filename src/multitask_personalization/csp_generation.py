@@ -156,7 +156,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         """Generate a policy conditioned on a CSP solution."""
 
     @abc.abstractmethod
-    def learn_from_transition(
+    def observe_transition(
         self,
         obs: ObsType,
         act: ActType,

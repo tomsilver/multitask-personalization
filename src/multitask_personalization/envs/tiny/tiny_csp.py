@@ -261,7 +261,7 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
             csp, seed=self._seed, distance_threshold=self._distance_threshold
         )
 
-    def learn_from_transition(
+    def observe_transition(
         self,
         obs: TinyState,
         act: TinyAction,
