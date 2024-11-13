@@ -20,15 +20,16 @@ def test_csp_approach():
     approach.train()
     env.action_space.seed(seed)
 
-    # Run enough time steps to learn reasonable constraints.
-    obs, info = env.reset()
-    approach.reset(obs, info)
-    for _ in range(10000):
-        act = approach.step()
-        obs, reward, terminated, truncated, info = env.step(act)
-        approach.update(obs, reward, terminated, info)
-        assert not truncated
-        assert not terminated
+    for _ in range(10):
+        obs, info = env.reset()
+        approach.reset(obs, info)
+        for _ in range(100):
+            act = approach.step()
+            obs, reward, terminated, truncated, info = env.step(act)
+            approach.update(obs, reward, terminated, info)
+            assert not truncated
+            if terminated:
+                break
 
     # pylint: disable=protected-access
     csp_generator = approach._csp_generator

@@ -119,7 +119,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
             raise NotImplementedError("Should not call step() in sim")
         # Robot needs to indicate done.
         if not robot_indicated_done:
-            return 0.0
+            return -1e-2
         dist = abs(self._robot_position - self._human_position)
         desired_dist = self._hidden_spec.desired_distance
         if abs(dist - desired_dist) < self._hidden_spec.distance_threshold:
