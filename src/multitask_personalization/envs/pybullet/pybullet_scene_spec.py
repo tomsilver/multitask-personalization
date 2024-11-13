@@ -12,10 +12,10 @@ from multitask_personalization.rom.models import ROMModel
 
 
 @dataclass(frozen=True)
-class PyBulletTaskSpec:
-    """Defines the specification of tasks in the pybullet environment."""
+class PyBulletSceneSpec:
+    """Defines the specification of scenes in the pybullet environment."""
 
-    task_name: str = "default"
+    scene_name: str = "default"
 
     world_lower_bounds: tuple[float, float, float] = (-0.5, -0.5, 0.0)
     world_upper_bounds: tuple[float, float, float] = (0.5, 0.5, 0.0)
@@ -141,7 +141,7 @@ class PyBulletTaskSpec:
 
 
 @dataclass(frozen=True)
-class HiddenTaskSpec:
+class HiddenSceneSpec:
     """Defines hidden parameters for a pybullet environment."""
 
     book_preferences: str  # a natural language description
