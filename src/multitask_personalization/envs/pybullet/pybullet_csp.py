@@ -251,34 +251,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         book, _, handover_position = variables
 
-        # Create a user preference constraint for the book.
-        def _book_is_preferred_logprob(book_description: str) -> float:
-            probs = []
-            for idx in range(self._num_llm_queries_per_book_check):
-                response = user_would_enjoy_book(
-                    book_description,
-                    self._current_book_preference,
-                    self._llm,
-                    llm_temperature=self._llm_temperature,
-                    seed=(self._seed + idx),
-                    allow_maybe=True,
-                )
-                if response is None:
-                    probs.append(0.5)
-                elif response:
-                    probs.append(1.0)
-                else:
-                    probs.append(0.0)
-            # Use mean only so that we can expect a cost between 0 and 1.
-            mean_prob = np.mean(probs)
-            # Silence divide-by-zero warning for np.log(0.0).
-            with np.errstate(divide="ignore"):
-                return np.log(mean_prob)
-
         book_preference_constraint = LogProbCSPConstraint(
             "book_preference",
             [book],
-            _book_is_preferred_logprob,
+            self._book_is_preferred_logprob,
             threshold=np.log(0.5) - 1e-3,
         )
 
