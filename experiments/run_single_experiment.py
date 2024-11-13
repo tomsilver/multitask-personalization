@@ -144,6 +144,8 @@ def _evaluate_approach(
             eval_approach.update(obs, float(rew), terminated, info)
             user_satisfaction = info.get("user_satisfaction", 0.0)
             cumulative_user_satisfaction += user_satisfaction
+            if cfg.terminate_eval_episode_on_nonzero and user_satisfaction != 0:
+                break
         cumulative_user_satisfactions.append(cumulative_user_satisfaction)
     step_eval_metrics: dict[str, float] = {"training_step": training_step}
     for idx, cus in enumerate(cumulative_user_satisfactions):
