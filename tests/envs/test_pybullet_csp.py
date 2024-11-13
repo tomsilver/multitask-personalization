@@ -84,11 +84,11 @@ def test_pybullet_csp():
 
     # Run the policy.
     for _ in range(1000):
-        act = policy.step(obs)
+        act, policy_terminated = policy.step(obs)
         obs, reward, terminated, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
         assert np.isclose(reward, 0.0)
-        if policy.check_termination(obs):
+        if policy_terminated:
             break
         assert not terminated
         assert not truncated
