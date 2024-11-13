@@ -130,9 +130,9 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         )
 
     def get_step_metrics(self) -> dict[str, float]:
-        episode_metrics = super().get_step_metrics()
+        step_metrics = super().get_step_metrics()
         assert self._csp_generator is not None
         csp_metrics = self._csp_generator.get_metrics()
-        assert not set(csp_metrics) & set(episode_metrics), "Metric name conflict"
-        episode_metrics.update(csp_metrics)
-        return episode_metrics
+        assert not set(csp_metrics) & set(step_metrics), "Metric name conflict"
+        step_metrics.update(csp_metrics)
+        return step_metrics
