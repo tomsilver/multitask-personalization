@@ -40,7 +40,7 @@ def _main(cfg: DictConfig) -> None:
     assert isinstance(approach, BaseApproach)
     approach.train()
 
-    # Run a certain number of episodes and log metrics along the way.
+    # Run a certain number of time steps and log metrics along the way.
     metrics: list[dict[str, float]] = []
     obs, info = env.reset()
     assert "user_allows_explore" in info, (
