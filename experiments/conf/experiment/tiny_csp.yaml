@@ -2,6 +2,5 @@
 defaults:
   - override /approach: csp
   - override /env: tiny
-num_episodes: 1000
-max_episode_length: 100
+max_environment_steps: 10000
 record_videos: False

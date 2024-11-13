@@ -19,19 +19,19 @@ def _main(results_dir: Path, outfile: Path) -> None:
 
     df = combine_results_csvs(results_dir)
 
-    # Subselect non-explore episodes.
-    df = df[~df.explore]
+    # Subselect non-explore steps.
+    df = df[~df.user_allows_explore]
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 7))
     ax0, ax1 = axes  # type: ignore
     fig.suptitle("CSP Approach in Tiny Env")
 
-    # Make a plot showing returns over time.
-    ax0.set_title("Returns")
+    # Make a plot showing rewards over time.
+    ax0.set_title("Rewards")
     sns.regplot(
         df,
-        x="episode",
-        y="returns",
+        x="step",
+        y="reward",
         order=15,
         scatter_kws={
             "s": 2,
@@ -48,7 +48,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
     ax1.set_title("Learned Proximity")
     sns.regplot(
         df,
-        x="episode",
+        x="step",
         y="tiny_user_proximity_learned_distance",
         order=15,
         scatter_kws={

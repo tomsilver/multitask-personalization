@@ -42,12 +42,12 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         self,
         hidden_spec: TinyHiddenSpec | None = None,
         seed: int = 0,
-        explore_epsilon: float = 0.5,
+        allow_explore_switch_prob: float = 5e-2,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
         self._hidden_spec = hidden_spec
-        self._explore_epsilon = explore_epsilon
+        self._allow_explore_switch_prob = allow_explore_switch_prob
 
         self.action_space = gym.spaces.OneOf(
             (
@@ -59,7 +59,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         # Reset in reset().
         self._robot_position = -1.0
         self._human_position = 1.0
-        self._robot_should_explore = False
+        self._user_allows_explore = True
 
     def reset(
         self,
@@ -69,37 +69,44 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
     ) -> tuple[TinyState, dict[str, Any]]:
         super().reset(seed=seed, options=options)
         # Randomly reset the positions of the human and robot.
-        robot_position = self._rng.uniform(-10.0, 10.0)
-        while True:
-            human_position = self._rng.uniform(-10.0, 10.0)
-            dist = abs(robot_position - human_position)
-            assert self._hidden_spec is not None
-            if (
-                dist
-                >= self._hidden_spec.desired_distance
-                + self._hidden_spec.distance_threshold
-            ):
-                break
-        self._robot_position = robot_position
-        self._human_position = human_position
-        self._robot_should_explore = self._rng.uniform() < self._explore_epsilon
+        self._robot_position = self._rng.uniform(-10.0, 10.0)
+        self._reset_human()
+        self._user_allows_explore = True
         return self._get_state(), self._get_info()
+
+    def _reset_human(self) -> None:
+        assert self._hidden_spec is not None
+        desired_distance = self._hidden_spec.desired_distance
+        threshold = self._hidden_spec.distance_threshold
+        while True:
+            human_position = self._rng.uniform(
+                -10.0 + (desired_distance + threshold),
+                10.0 - (desired_distance + threshold),
+            )
+            dist = abs(self._robot_position - human_position)
+            if dist >= desired_distance + threshold:
+                break
+        self._human_position = human_position
 
     def step(
         self, action: TinyAction
     ) -> tuple[TinyState, float, bool, bool, dict[str, Any]]:
+        if self._rng.uniform() < self._allow_explore_switch_prob:
+            self._user_allows_explore = not self._user_allows_explore
+
         assert self.action_space.contains(action)
         if np.isclose(action[0], 1):
-            reward, done = self._get_reward_and_done(robot_indicated_done=True)
-            return self._get_state(), reward, done, False, self._get_info()
-
-        assert np.isclose(action[0], 0)
-        delta_action = action[1]
-        assert delta_action is not None
-        self._robot_position += float(delta_action)
-
-        reward, done = self._get_reward_and_done(robot_indicated_done=False)
-        return self._get_state(), reward, done, False, self._get_info()
+            reward = self._get_reward(robot_indicated_done=True)
+        else:
+            assert np.isclose(action[0], 0)
+            delta_action = action[1]
+            assert delta_action is not None
+            self._robot_position += float(delta_action)
+            reward = self._get_reward(robot_indicated_done=False)
+        # Move the human if the robot succeeded.
+        if reward > 0:
+            self._reset_human()
+        return self._get_state(), reward, False, False, self._get_info()
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         raise NotImplementedError
@@ -107,23 +114,21 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
     def _get_state(self) -> TinyState:
         return TinyState(self._robot_position, self._human_position)
 
-    def _get_reward_and_done(
-        self, robot_indicated_done: bool = False
-    ) -> tuple[float, bool]:
+    def _get_reward(self, robot_indicated_done: bool = False) -> float:
         if self._hidden_spec is None:
             raise NotImplementedError("Should not call step() in sim")
         # Robot needs to indicate done.
         if not robot_indicated_done:
-            return 0.0, False
+            return 0.0
         dist = abs(self._robot_position - self._human_position)
         desired_dist = self._hidden_spec.desired_distance
         if abs(dist - desired_dist) < self._hidden_spec.distance_threshold:
             # Success!
-            return 1.0, True
+            return 1.0
         # Penalize if not close enough to human.
-        return -1.0, False
+        return -1.0
 
     def _get_info(self) -> dict[str, Any]:
         return {
-            "explore": self._robot_should_explore,
+            "user_allows_explore": self._user_allows_explore,
         }
