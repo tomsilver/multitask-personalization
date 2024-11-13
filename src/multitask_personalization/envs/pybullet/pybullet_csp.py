@@ -406,6 +406,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             book_description, self._current_book_preference, self._llm, seed=self._seed
         )
 
+    def _book_is_preferred_logprob(self, book_description: str) -> float:
+        return get_user_book_enjoyment_logprob(
+            book_description, self._current_book_preference, self._llm, seed=self._seed
+        )
+
     def _update_rom_model(
         self,
         obs: PyBulletState,

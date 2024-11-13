@@ -19,7 +19,7 @@ class BaseApproach(Agent[_ObsType, _ActType]):
         """The main action selection method."""
 
     def get_step_metrics(self) -> dict[str, float]:
-        """Return any approach-specific metrics for the present episode."""
+        """Return any approach-specific metrics for the present step."""
         return {}
 
 

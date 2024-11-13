@@ -42,8 +42,7 @@ class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
         assert self._target_position is not None
         assert self._speed is not None
         robot_position = obs.robot
-        delta = np.clip(self._target_position - robot_position, -1, 1)
-        delta = self._speed * delta
+        delta = self._speed * np.clip(self._target_position - robot_position, -1, 1)
         if abs(delta) < 1e-6:
             return (1, None), True
         return (0, delta), False
