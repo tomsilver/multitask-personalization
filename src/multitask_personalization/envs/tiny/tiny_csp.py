@@ -40,7 +40,7 @@ class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
         self._speed = self._get_value("speed")
         self._terminated = False
 
-    def step(self, obs: TinyState) -> tuple[TinyAction, bool]:
+    def step(self, obs: TinyState) -> TinyAction:
         assert self._target_position is not None
         assert self._speed is not None
         robot_position = obs.robot
