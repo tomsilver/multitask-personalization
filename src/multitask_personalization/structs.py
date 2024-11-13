@@ -10,6 +10,11 @@ from gymnasium.core import ActType, ObsType
 
 
 @dataclass(frozen=True)
+class PublicSceneSpec:
+    """A specification of the environment that is known to methods."""
+
+
+@dataclass(frozen=True)
 class CSPVariable:
     """Constraint satisfaction problem variable."""
 

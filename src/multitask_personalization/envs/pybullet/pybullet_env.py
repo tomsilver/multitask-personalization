@@ -567,7 +567,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         possible_missions: list[PyBulletMission] = [
             HandOverBookMission(
                 self.book_descriptions,
-                self.robot,
+                sim_robot,
                 self._hidden_spec.rom_model,
                 self._hidden_spec.book_preferences,
                 self._llm,

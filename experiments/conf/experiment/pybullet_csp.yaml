@@ -5,5 +5,6 @@ defaults:
 max_environment_steps: 1000
 eval_frequency: 100
 max_eval_episode_length: 250
+num_eval_trials: 10
 record_train_videos: False
 record_eval_videos: False

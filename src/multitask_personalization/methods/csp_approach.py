@@ -9,24 +9,23 @@ import numpy as np
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_csp import PyBulletCSPGenerator
-from multitask_personalization.envs.pybullet.pybullet_env import (
-    PyBulletEnv,
-    PyBulletState,
-)
+from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     PyBulletSceneSpec,
 )
 from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
-from multitask_personalization.envs.tiny.tiny_env import TinyState
+from multitask_personalization.envs.tiny.tiny_env import TinySceneSpec
 from multitask_personalization.methods.approach import (
     ApproachFailure,
     BaseApproach,
     _ActType,
     _ObsType,
 )
+from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import (
     CSPPolicy,
     CSPVariable,
+    PublicSceneSpec,
 )
 from multitask_personalization.utils import solve_csp
 
@@ -36,20 +35,22 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
 
     def __init__(
         self,
+        scene_spec: PublicSceneSpec,
         action_space: gym.spaces.Space[_ActType],
         seed: int,
-        csp_generator: CSPGenerator,
         max_motion_planning_candidates: int = 1,
         csp_min_num_satisfying_solutions: int = 50,
+        explore_method: str = "nothing-personal",
         show_csp_progress_bar: bool = True,
     ):
-        super().__init__(action_space, seed)
-        self._csp_generator = csp_generator
+        super().__init__(scene_spec, action_space, seed)
         self._current_policy: CSPPolicy | None = None
         self._current_sol: dict[CSPVariable, Any] | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._csp_min_num_satisfying_solutions = csp_min_num_satisfying_solutions
+        self._explore_method = explore_method
         self._show_csp_progress_bar = show_csp_progress_bar
+        self._csp_generator = self._create_csp_generator()
 
     def reset(
         self,
@@ -57,28 +58,6 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         info: dict[str, Any],
     ) -> None:
         super().reset(obs, info)
-        # TODO remove!!!!
-        # if self._csp_generator is None:
-        #     # At the moment, this part is extremely environment-specific.
-        #     # We will refactor this in a future PR.
-        #     if isinstance(obs, TinyState):
-        #         self._csp_generator = TinyCSPGenerator(
-        #             seed=self._seed, explore_method=self._explore_method
-        #         )
-        #     elif isinstance(obs, PyBulletState):
-        #         task_spec = info["task_spec"]
-        #         assert isinstance(task_spec, PyBulletTaskSpec)
-        #         sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=False)
-        #         rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
-        #         self._csp_generator = PyBulletCSPGenerator(
-        #             sim,
-        #             rom_model,
-        #             seed=self._seed,
-        #             explore_method=self._explore_method,
-        #             max_motion_planning_candidates=self._max_motion_planning_candidates,
-        #         )
-        #     else:
-        #         raise NotImplementedError()
         self._sync_csp_generator_train_eval()
         self._recompute_policy(obs)
 
@@ -145,6 +124,25 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
     def eval(self) -> None:
         super().eval()
         self._sync_csp_generator_train_eval()
+
+    def _create_csp_generator(self) -> CSPGenerator:
+        # At the moment, this part is extremely environment-specific.
+        # We will refactor this in a future PR.
+        if isinstance(self._scene_spec, TinySceneSpec):
+            return TinyCSPGenerator(
+                seed=self._seed, explore_method=self._explore_method
+            )
+        if isinstance(self._scene_spec, PyBulletSceneSpec):
+            sim = PyBulletEnv(self._scene_spec, seed=self._seed, use_gui=False)
+            rom_model = SphericalROMModel(self._scene_spec.human_spec, self._seed)
+            return PyBulletCSPGenerator(
+                sim,
+                rom_model,
+                seed=self._seed,
+                explore_method=self._explore_method,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+            )
+        raise NotImplementedError()
 
     def _sync_csp_generator_train_eval(self) -> None:
         if self._train_or_eval == "train":

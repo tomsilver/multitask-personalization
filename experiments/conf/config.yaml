@@ -16,3 +16,4 @@ defaults:
   - _self_
   - approach: random
   - env: tiny
+  - scene_spec: tiny_scene

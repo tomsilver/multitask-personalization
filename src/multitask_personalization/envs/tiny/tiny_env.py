@@ -8,6 +8,13 @@ import numpy as np
 from gymnasium.core import RenderFrame
 from tomsutils.spaces import EnumSpace
 
+from multitask_personalization.structs import PublicSceneSpec
+
+
+@dataclass(frozen=True)
+class TinySceneSpec(PublicSceneSpec):
+    """At the moment, there is nothing to specify about the tiny env."""
+
 
 @dataclass(frozen=True)
 class TinyState:
@@ -40,11 +47,13 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
 
     def __init__(
         self,
+        scene_spec: TinySceneSpec,
         hidden_spec: TinyHiddenSpec | None = None,
         seed: int = 0,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
+        self._scene_spec = scene_spec
         self._hidden_spec = hidden_spec
 
         self.action_space = gym.spaces.OneOf(
