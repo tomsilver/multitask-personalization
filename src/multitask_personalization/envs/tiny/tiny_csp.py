@@ -32,13 +32,13 @@ class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
         super().reset(solution)
         self._target_position = self._get_value("position")
 
-    def step(self, obs: TinyState) -> TinyAction:
+    def step(self, obs: TinyState) -> tuple[TinyAction, bool]:
         assert self._target_position is not None
         robot_position = obs.robot
         delta = np.clip(self._target_position - robot_position, -1, 1)
         if abs(delta) < 1e-6:
-            return (1, None)
-        return (0, delta)
+            return (1, None), True
+        return (0, delta), False
 
 
 class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAction]):

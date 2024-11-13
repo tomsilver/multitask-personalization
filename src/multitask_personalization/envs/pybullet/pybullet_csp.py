@@ -61,7 +61,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         super().reset(solution)
         self._current_plan = []
 
-    def step(self, obs: PyBulletState) -> PyBulletAction:
+    def step(self, obs: PyBulletState) -> tuple[PyBulletAction, bool]:
         if not self._current_plan:
             if obs.held_object is None:
                 self._current_plan = self._get_pick_plan(obs)
@@ -69,7 +69,9 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
                 self._current_plan = self._get_handover_plan(obs)
             else:
                 self._current_plan = self._get_place_plan(obs)
-        return self._current_plan.pop(0)
+        action = self._current_plan.pop(0)
+        done = action[1] is None
+        return action, done
 
     def _get_pick_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out empty-handed and near the books."""
