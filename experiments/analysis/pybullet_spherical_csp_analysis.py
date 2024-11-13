@@ -20,7 +20,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
 
     df = combine_results_csvs(results_dir)
 
-    # Subselect non-explore steps.
+    # Subselect non-explore episodes.
     df = df[~df.user_allows_explore]
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 7))

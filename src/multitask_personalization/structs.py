@@ -39,11 +39,26 @@ class CSPConstraint:
 
 
 @dataclass(frozen=True)
+class CSPCost:
+    """A cost function to be minimized over certain CSP variables."""
+
+    name: str
+    variables: list[CSPVariable]
+    cost_fn: Callable[..., float]  # inputs are CSPVariable values
+
+    def get_cost(self, sol: dict[CSPVariable, Any]) -> float:
+        """Evaluate the cost function."""
+        vals = [sol[v] for v in self.variables]
+        return self.cost_fn(*vals)
+
+
+@dataclass(frozen=True)
 class CSP:
     """Constraint satisfaction problem."""
 
     variables: list[CSPVariable]
     constraints: list[CSPConstraint]
+    cost: CSPCost | None = None
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether all constraints hold given values of the variables."""
@@ -51,6 +66,11 @@ class CSP:
             if not constraint.check_solution(sol):
                 return False
         return True
+
+    def get_cost(self, sol: dict[CSPVariable, Any]) -> float:
+        """Evaluate the cost function."""
+        assert self.cost is not None
+        return self.cost.get_cost(sol)
 
 
 class CSPSampler(abc.ABC):
