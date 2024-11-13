@@ -40,9 +40,9 @@ def get_kinematic_state_from_pybullet_state(
     robot_joints = pybullet_state.robot_joints
     object_poses = {
         sim.cup_id: pybullet_state.cup_pose,
-        sim.table_id: sim.task_spec.table_pose,
-        sim.shelf_id: sim.task_spec.shelf_pose,
-        sim.tray_id: sim.task_spec.tray_pose,
+        sim.table_id: sim.scene_spec.table_pose,
+        sim.shelf_id: sim.scene_spec.shelf_pose,
+        sim.tray_id: sim.scene_spec.tray_pose,
     }
     for book_id, book_pose in zip(sim.book_ids, pybullet_state.book_poses, strict=True):
         object_poses[book_id] = book_pose
@@ -139,15 +139,15 @@ def get_plan_to_move_next_to_object(
             orientation=current_base_pose.orientation,
         )
     elif object_name == "shelf":
-        target_base_pose = sim.task_spec.robot_base_pose  # initial base pose
+        target_base_pose = sim.scene_spec.robot_base_pose  # initial base pose
     elif object_name == "table":
         target_base_pose = Pose(
             (
-                sim.task_spec.robot_base_pose.position[0],
-                sim.task_spec.robot_base_pose.position[1] - 0.1,
-                sim.task_spec.robot_base_pose.position[2],
+                sim.scene_spec.robot_base_pose.position[0],
+                sim.scene_spec.robot_base_pose.position[1] - 0.1,
+                sim.scene_spec.robot_base_pose.position[2],
             ),
-            sim.task_spec.robot_base_pose.orientation,
+            sim.scene_spec.robot_base_pose.orientation,
         )
     else:
         raise NotImplementedError
@@ -162,8 +162,8 @@ def get_plan_to_move_next_to_object(
         sim.robot,
         current_base_pose,
         target_base_pose,
-        position_lower_bounds=sim.task_spec.world_lower_bounds[:2],
-        position_upper_bounds=sim.task_spec.world_upper_bounds[:2],
+        position_lower_bounds=sim.scene_spec.world_lower_bounds[:2],
+        position_upper_bounds=sim.scene_spec.world_upper_bounds[:2],
         collision_bodies=collision_ids,
         seed=seed,
         physics_client_id=sim.physics_client_id,

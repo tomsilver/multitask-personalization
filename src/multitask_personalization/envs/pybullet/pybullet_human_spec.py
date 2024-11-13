@@ -70,7 +70,7 @@ def create_human_from_spec(
         for name, value in human_spec.setup_joints.items()
     ]
     human.setup_joints(joints_positions, use_static_joints=True, reactive_force=None)
-    # Now set arm joints using task spec.
+    # Now set arm joints using scene spec.
     human.set_joint_angles(
         human.right_arm_joints,
         human_spec.init_joints,

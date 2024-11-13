@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from multitask_personalization.envs.pybullet.pybullet_task_spec import (
-    PyBulletTaskSpec,
+from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
+    PyBulletSceneSpec,
 )
 from multitask_personalization.rom.models import LearnedROMModel
 
@@ -14,8 +14,8 @@ def test_learned_rom_model():
 
     rng = np.random.default_rng(seed)
 
-    task_spec = PyBulletTaskSpec()
-    learned_rom_model = LearnedROMModel(task_spec.human_spec)
+    scene_spec = PyBulletSceneSpec()
+    learned_rom_model = LearnedROMModel(scene_spec.human_spec)
 
     # Test LearnedROMModel
     parameters = learned_rom_model.get_trainable_parameters()
