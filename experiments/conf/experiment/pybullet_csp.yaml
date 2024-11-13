@@ -2,6 +2,7 @@
 defaults:
   - override /approach: csp
   - override /env: pybullet
+  - override /scene_spec: pybullet_book_scene
 max_environment_steps: 1000
 eval_frequency: 100
 max_eval_episode_length: 250

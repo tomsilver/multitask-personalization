@@ -2,6 +2,7 @@
 defaults:
   - override /approach: csp
   - override /env: tiny
+  - override /scene_spec: tiny_scene
 max_environment_steps: 50000
 eval_frequency: 5000
 max_eval_episode_length: 100
