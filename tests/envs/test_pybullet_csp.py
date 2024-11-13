@@ -55,7 +55,7 @@ def test_pybullet_csp():
     csp_generator = PyBulletCSPGenerator(
         sim,
         rom_model,
-        seed,
+        seed=seed,
         llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
         llm_use_cache_only=True,
     )
@@ -67,12 +67,12 @@ def test_pybullet_csp():
     policy.reset(sol)
 
     # Run the policy.
-    # For now, just inspecting this visually; assertions coming soon.
     for _ in range(1000):
-        act = policy.step(obs)
+        act, policy_terminated = policy.step(obs)
         obs, reward, terminated, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
-        if reward > 0:
+        if policy_terminated:
+            assert reward > 0
             break
         assert not terminated
         assert not truncated

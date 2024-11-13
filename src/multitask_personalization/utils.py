@@ -76,19 +76,40 @@ def sample_within_sphere(
     return vec.tolist()
 
 
+def bernoulli_entropy(log_p_true: float) -> float:
+    """Compute entropy of a bernoulli RV given log prob."""
+    p_true = np.exp(log_p_true)
+    p_false = 1 - p_true
+    log_p_false = np.log1p(-p_true)
+    entropy = -p_true * log_p_true - p_false * log_p_false
+    return entropy
+
+
 def solve_csp(
     csp: CSP,
     initialization: dict[CSPVariable, Any],
     samplers: list[CSPSampler],
     rng: np.random.Generator,
     max_iters: int = 100_000,
+    min_num_satisfying_solutions: int = 100,
 ) -> dict[CSPVariable, Any] | None:
     """A very naive solver for CSPs."""
     sol = initialization.copy()
+    best_satisfying_sol: dict[CSPVariable, Any] | None = None
+    best_satisfying_cost: float = np.inf
+    num_satisfying_solutions = 0
     for _ in range(max_iters):
         if csp.check_solution(sol):
-            return sol
+            num_satisfying_solutions += 1
+            if csp.cost is None:
+                return sol
+            cost = csp.get_cost(sol)
+            if cost < best_satisfying_cost:
+                best_satisfying_cost = cost
+                best_satisfying_sol = sol
+            if num_satisfying_solutions >= min_num_satisfying_solutions:
+                return best_satisfying_sol
         sampler = samplers[rng.choice(len(samplers))]
         partial_sol = sampler.sample(sol, rng)
         sol.update(partial_sol)
-    return None
+    return best_satisfying_sol

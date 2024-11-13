@@ -24,18 +24,75 @@ class CSPVariable:
         return self.name == other.name
 
 
-@dataclass(frozen=True)
-class CSPConstraint:
+class CSPConstraint(abc.ABC):
     """Constraint satisfaction problem constraint."""
+
+    def __init__(self, name: str, variables: list[CSPVariable]):
+        self.name = name
+        self.variables = variables
+
+    @abc.abstractmethod
+    def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
+        """Check whether the constraint holds given values of the variables."""
+
+
+class FunctionalCSPConstraint(CSPConstraint):
+    """A constraint defined by a function that outputs bools."""
+
+    def __init__(
+        self,
+        name: str,
+        variables: list[CSPVariable],
+        constraint_fn: Callable[..., bool],
+    ):
+        super().__init__(name, variables)
+        self.constraint_fn = constraint_fn
+
+    def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
+        vals = [sol[v] for v in self.variables]
+        return self.constraint_fn(*vals)
+
+
+class LogProbCSPConstraint(CSPConstraint):
+    """A constraint defined by a function that outputs log probabilities.
+
+    The constraint_logprob_fn is a function mapping variable assignments
+    to a log probability that the constraint holds. The constraint is
+    defined by this value being greater than a threshold.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        variables: list[CSPVariable],
+        constraint_logprob_fn: Callable[..., float],
+        threshold: float = np.log(0.95),
+    ):
+        super().__init__(name, variables)
+        self.constraint_logprob_fn = constraint_logprob_fn
+        self.threshold = threshold
+
+    def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
+        return self.get_logprob(sol) >= self.threshold
+
+    def get_logprob(self, sol: dict[CSPVariable, Any]) -> float:
+        """Get the log probability of the constraint holding."""
+        vals = [sol[v] for v in self.variables]
+        return self.constraint_logprob_fn(*vals)
+
+
+@dataclass(frozen=True)
+class CSPCost:
+    """A cost function to be minimized over certain CSP variables."""
 
     name: str
     variables: list[CSPVariable]
-    constraint_fn: Callable[..., bool]  # inputs are CSPVariable values
+    cost_fn: Callable[..., float]  # inputs are CSPVariable values
 
-    def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
-        """Check whether the constraint holds given values of the variables."""
+    def get_cost(self, sol: dict[CSPVariable, Any]) -> float:
+        """Evaluate the cost function."""
         vals = [sol[v] for v in self.variables]
-        return self.constraint_fn(*vals)
+        return self.cost_fn(*vals)
 
 
 @dataclass(frozen=True)
@@ -44,6 +101,7 @@ class CSP:
 
     variables: list[CSPVariable]
     constraints: list[CSPConstraint]
+    cost: CSPCost | None = None
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether all constraints hold given values of the variables."""
@@ -51,6 +109,11 @@ class CSP:
             if not constraint.check_solution(sol):
                 return False
         return True
+
+    def get_cost(self, sol: dict[CSPVariable, Any]) -> float:
+        """Evaluate the cost function."""
+        assert self.cost is not None
+        return self.cost.get_cost(sol)
 
 
 class CSPSampler(abc.ABC):
@@ -116,147 +179,8 @@ class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
         self._current_solution = solution
 
     @abc.abstractmethod
-    def step(self, obs: ObsType) -> ActType:
-        """Return an action and advance any memory assuming action executes."""
+    def step(self, obs: ObsType) -> tuple[ActType, bool]:
+        """Return an action and a termination bit.
 
-
-class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
-    """Generates CSPs, samplers, policies, and initializations; and learns from
-    environment transitions."""
-
-    def __init__(
-        self,
-        seed: int = 0,
-        explore_method: str = "nothing-personal",
-        ensemble_explore_threshold: float = 1e-1,
-        ensemble_explore_members: int = 5,
-        neighborhood_explore_max_radius: float = 1.0,
-        neighborhood_explore_radius_decay: float = 0.99,
-    ) -> None:
-        self._seed = seed
-        self._rng = np.random.default_rng(seed)
-        self._explore_method = explore_method
-        self._ensemble_explore_threshold = ensemble_explore_threshold
-        self._ensemble_explore_members = ensemble_explore_members
-        self._neighborhood_explore_max_radius = neighborhood_explore_max_radius
-        self._neighborhood_explore_radius_decay = neighborhood_explore_radius_decay
-
-    @abc.abstractmethod
-    def generate(
-        self,
-        obs: ObsType,
-        explore: bool = False,
-    ) -> tuple[
-        CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
-    ]:
-        """Generate a CSP, samplers, policy, and initialization."""
-
-    @abc.abstractmethod
-    def learn_from_transition(
-        self,
-        obs: ObsType,
-        act: ActType,
-        next_obs: ObsType,
-        reward: float,
-        done: bool,
-        info: dict[str, Any],
-    ) -> None:
-        """Update the generator given the new data point."""
-
-    def get_metrics(self) -> dict[str, float]:
-        """Report any metrics, e.g., about learned constraint parameters."""
-        return {}
-
-
-class CSPConstraintGenerator(abc.ABC, Generic[ObsType, ActType]):
-    """Generates constraints for a CSP and learns over time."""
-
-    def __init__(self, seed: int = 0) -> None:
-        self._seed = seed
-        self._rng = np.random.default_rng(seed)
-
-    @abc.abstractmethod
-    def generate(
-        self,
-        obs: ObsType,
-        csp_vars: list[CSPVariable],
-        constraint_name: str,
-        neighborhood: float = 0.0,
-    ) -> CSPConstraint:
-        """Generate a constraint."""
-
-    @abc.abstractmethod
-    def learn_from_transition(
-        self,
-        obs: ObsType,
-        act: ActType,
-        next_obs: ObsType,
-        reward: float,
-        done: bool,
-        info: dict[str, Any],
-    ) -> None:
-        """Update the generator given the new data point."""
-
-    def get_metrics(self) -> dict[str, float]:
-        """Report any metrics, e.g., about learned constraint parameters."""
-        return {}
-
-
-class EnsembleCSPConstraintGenerator(CSPConstraintGenerator[ObsType, ActType]):
-    """A constraint generator implemented as an ensemble of constraint
-    generators.
-
-    This is useful for exploration. For example, to explore
-    optimistically, you can use generate() with a small threshold.
-    """
-
-    def __init__(
-        self, members: list[CSPConstraintGenerator[ObsType, ActType]], seed: int = 0
-    ) -> None:
-        super().__init__(seed)
-        self._members = members
-
-    def generate(
-        self,
-        obs: ObsType,
-        csp_vars: list[CSPVariable],
-        constraint_name: str,
-        neighborhood: float = 0.0,
-        member_classification_threshold: float = 0.5,
-    ) -> CSPConstraint:
-
-        member_constraints = [
-            m.generate(obs, csp_vars, constraint_name, neighborhood=neighborhood)
-            for m in self._members
-        ]
-
-        def _constraint_fn(*args) -> bool:
-            total_pos = 0
-            for constraint in member_constraints:
-                total_pos += constraint.constraint_fn(*args)
-            frac = total_pos / len(member_constraints)
-            return frac >= member_classification_threshold
-
-        constraint = CSPConstraint(constraint_name, csp_vars, _constraint_fn)
-
-        return constraint
-
-    def learn_from_transition(
-        self,
-        obs: ObsType,
-        act: ActType,
-        next_obs: ObsType,
-        reward: float,
-        done: bool,
-        info: dict[str, Any],
-    ) -> None:
-        for member in self._members:
-            member.learn_from_transition(obs, act, next_obs, reward, done, info)
-
-    def get_metrics(self) -> dict[str, float]:
-        metrics: dict[str, float] = {}
-        for member_idx, member in enumerate(self._members):
-            member_metrics = member.get_metrics()
-            for metric_name, val in member_metrics.items():
-                metrics[f"ensemble-{member_idx}-{metric_name}"] = val
-        return metrics
+        Note that the policy may have internal memory; this advances it.
+        """
