@@ -5,6 +5,7 @@ from pybullet_helpers.geometry import Pose, get_pose
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
+    get_kinematic_plan_to_retract,
 )
 from pybullet_helpers.motion_planning import (
     run_base_motion_planning,
@@ -97,7 +98,21 @@ def get_plan_to_pick_object(
     collision_ids = sim.get_collision_ids() - {obj_id}
     grasp_generator = iter([grasp_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    kinematic_plan = get_kinematic_plan_to_pick_object(
+    kinematic_plan: list[KinematicState] = []
+    # Start by retracting in case we just placed a nearby object.
+    kinematic_retract_plan = get_kinematic_plan_to_retract(
+        kinematic_state,
+        sim.robot,
+        collision_ids=set(),
+        max_motion_planning_time=max_motion_planning_time,
+        max_smoothing_iters_per_step=max_motion_planning_candidates,
+    )
+    assert kinematic_retract_plan is not None
+    kinematic_plan.extend(kinematic_retract_plan)
+    kinematic_state = kinematic_retract_plan[-1]
+    kinematic_state.set_pybullet(sim.robot)
+    # Now to the pick.
+    kinematic_pick_plan = get_kinematic_plan_to_pick_object(
         kinematic_state,
         sim.robot,
         obj_id,
@@ -108,7 +123,8 @@ def get_plan_to_pick_object(
         max_motion_planning_candidates=max_motion_planning_candidates,
         max_smoothing_iters_per_step=max_motion_planning_candidates,
     )
-    assert kinematic_plan is not None
+    assert kinematic_pick_plan is not None
+    kinematic_plan.extend(kinematic_pick_plan)
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
