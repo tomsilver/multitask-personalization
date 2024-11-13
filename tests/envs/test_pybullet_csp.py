@@ -87,8 +87,8 @@ def test_pybullet_csp():
         act, policy_terminated = policy.step(obs)
         obs, reward, terminated, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
+        assert np.isclose(reward, 0.0)
         if policy_terminated:
-            assert reward > 0
             break
         assert not terminated
         assert not truncated

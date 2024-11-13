@@ -96,17 +96,18 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
 
         assert self.action_space.contains(action)
         if np.isclose(action[0], 1):
-            reward = self._get_reward(robot_indicated_done=True)
+            robot_indicated_done = True
         else:
             assert np.isclose(action[0], 0)
+            robot_indicated_done = False
             delta_action = action[1]
             assert delta_action is not None
             self._robot_position += float(delta_action)
-            reward = self._get_reward(robot_indicated_done=False)
+        info = self._get_info(robot_indicated_done)
         # Move the human if the robot succeeded.
-        if reward > 0:
+        if info["user_satisfaction"] > 0:
             self._reset_human()
-        return self._get_state(), reward, False, False, self._get_info()
+        return self._get_state(), 0.0, False, False, info
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         raise NotImplementedError
@@ -114,21 +115,20 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
     def _get_state(self) -> TinyState:
         return TinyState(self._robot_position, self._human_position)
 
-    def _get_reward(self, robot_indicated_done: bool = False) -> float:
+    def _check_success(self) -> bool:
         if self._hidden_spec is None:
             raise NotImplementedError("Should not call step() in sim")
-        # Robot needs to indicate done.
-        if not robot_indicated_done:
-            return -1e-2
         dist = abs(self._robot_position - self._human_position)
         desired_dist = self._hidden_spec.desired_distance
-        if abs(dist - desired_dist) < self._hidden_spec.distance_threshold:
-            # Success!
-            return 1.0
-        # Penalize if not close enough to human.
-        return -1.0
+        return abs(dist - desired_dist) < self._hidden_spec.distance_threshold
 
-    def _get_info(self) -> dict[str, Any]:
+    def _get_info(self, robot_indicated_done: bool = False) -> dict[str, Any]:
+        if robot_indicated_done:
+            user_satisfaction = 1.0 if self._check_success() else -1.0
+        else:
+            user_satisfaction = 0.0
         return {
+            "robot_indicated_done": robot_indicated_done,
+            "user_satisfaction": user_satisfaction,
             "user_allows_explore": self._user_allows_explore,
         }

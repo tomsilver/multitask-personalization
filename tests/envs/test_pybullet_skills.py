@@ -27,7 +27,7 @@ def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
     for act in plan:
         obs, reward, terminated, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
-        assert reward >= 0
+        assert np.isclose(reward, 0.0)
         assert not terminated
         assert not truncated
     return obs

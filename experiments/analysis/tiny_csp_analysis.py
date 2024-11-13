@@ -26,12 +26,12 @@ def _main(results_dir: Path, outfile: Path) -> None:
     ax0, ax1 = axes  # type: ignore
     fig.suptitle("CSP Approach in Tiny Env")
 
-    # Make a plot showing rewards over time.
-    ax0.set_title("Rewards")
+    # Make a plot showing user satisfaction over time.
+    ax0.set_title("User Satisfaction")
     sns.regplot(
         df,
         x="step",
-        y="reward",
+        y="user_satisfaction",
         order=15,
         scatter_kws={
             "s": 2,

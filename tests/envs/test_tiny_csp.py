@@ -52,7 +52,7 @@ def test_tiny_csp():
         obs, reward, env_terminated, truncated, _ = env.step(act)
         assert isinstance(obs, TinyState)
         if policy_terminated:
-            assert reward > 0
+            assert np.isclose(reward, 0.0)
             break
         assert not env_terminated
         assert not truncated

@@ -95,7 +95,6 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         obs: TinyState,
         act: TinyAction,
         next_obs: TinyState,
-        reward: float,
         done: bool,
         info: dict[str, Any],
     ) -> None:
@@ -104,7 +103,7 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
             return
         assert act[1] is None
         # Check if the trigger was successful.
-        label = reward > 0
+        label = info["user_satisfaction"] > 0
         # Get the current distance.
         dist = abs(obs.robot - obs.human)
         # Update the training data.
@@ -237,12 +236,11 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         obs: TinyState,
         act: TinyAction,
         next_obs: TinyState,
-        reward: float,
         done: bool,
         info: dict[str, Any],
     ) -> None:
         self._distance_constraint_generator.learn_from_transition(
-            obs, act, next_obs, reward, done, info
+            obs, act, next_obs, done, info
         )
 
     def get_metrics(self) -> dict[str, float]:
