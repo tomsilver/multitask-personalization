@@ -145,7 +145,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Create shelf.
-        self.shelf_id = _create_shelf(
+        self.shelf_id, self.shelf_link_ids = _create_shelf(
             self.task_spec.shelf_rgba,
             shelf_width=self.task_spec.shelf_width,
             shelf_depth=self.task_spec.shelf_depth,
@@ -506,9 +506,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "shelf": self.shelf_id,
         }[object_name]
 
+    def get_surface_names(self) -> set[str]:
+        """Get all possible surfaces in the environment."""
+        return {"table", "tray", "shelf"}
+
     def get_surface_ids(self) -> set[int]:
         """Get all possible surfaces in the environment."""
-        surface_names = ["table", "tray", "shelf"]
+        surface_names = self.get_surface_names()
         return {self.get_object_id_from_name(n) for n in surface_names}
 
     def get_surface_that_object_is_on(
@@ -545,6 +549,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.tray_id,
             self.side_table_id,
         }
+
+    def get_surface_link_ids(self, object_id: int) -> set[int]:
+        """Get all link IDs for surfaces for a given object."""
+        if object_id == self.shelf_id:
+            return self.shelf_link_ids
+        return {-1}
 
     def get_aabb_dimensions(self, object_id: int) -> tuple[float, float, float]:
         """Get the 3D bounding box dimensions of an object."""
@@ -601,7 +611,8 @@ def _create_shelf(
     support_width: float,
     num_layers: int,
     physics_client_id: int,
-) -> int:
+) -> tuple[int, set[int]]:
+    """Returns the shelf ID and the link IDs of the individual shelves."""
 
     collision_shape_ids = []
     visual_shape_ids = []
@@ -636,6 +647,8 @@ def _create_shelf(
         link_parent_indices.append(0)
         link_joint_types.append(p.JOINT_FIXED)
         link_joint_axes.append([0, 0, 0])
+
+    shelf_link_ids = set(range(num_layers))
 
     # Add vertical side supports to the lists.
     support_height = (num_layers - 1) * spacing + (num_layers - 1) * shelf_height
@@ -691,7 +704,7 @@ def _create_shelf(
         physicsClientId=physics_client_id,
     )
 
-    return shelf_id
+    return shelf_id, shelf_link_ids
 
 
 def user_would_enjoy_book(

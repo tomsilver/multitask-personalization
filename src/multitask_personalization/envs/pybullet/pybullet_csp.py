@@ -13,6 +13,7 @@ from pybullet_helpers.inverse_kinematics import (
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
 )
+from pybullet_helpers.manipulation import generate_surface_placements
 from pybullet_helpers.math_utils import get_poses_facing_line
 from tomsutils.llm import OpenAILLM
 from tomsutils.spaces import EnumSpace
@@ -111,40 +112,39 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         self._sim.set_state(obs)
         held_obj = obs.held_object
         assert held_obj is not None
-        surface_name = "table"  # NOTE: placing back into the shelf not yet done
-        surface_id = self._sim.get_object_id_from_name(surface_name)
-        surface_extents = self._sim.get_aabb_dimensions(surface_id)
         held_obj_id = self._sim.get_object_id_from_name(held_obj)
-        object_extents = self._sim.get_aabb_dimensions(held_obj_id)
+        surface_names = sorted(self._sim.get_surface_names())
         # In the near future, we will figure out how best to add placement pose
         # as another variable in the CSP, but only when the user is holding a
         # book that is not the one that was asked for. This is part of a bigger
         # thing which is figuring out how to make CSP generation conditional on
         # the current state (in a nice implementation kind of way).
-        placement_lb = (
-            -surface_extents[0] / 2 + object_extents[0] / 2,
-            -surface_extents[1] / 2 + object_extents[1] / 2,
-            surface_extents[2] / 2 + object_extents[2] / 2,
-        )
-        placement_ub = (
-            surface_extents[0] / 2 - object_extents[0] / 2,
-            surface_extents[1] / 2 - object_extents[1] / 2,
-            surface_extents[2] / 2 + object_extents[2] / 2,
-        )
         for _ in range(100000):
-            placement_position = self._rng.uniform(placement_lb, placement_ub)
-            relative_placement_pose = Pose.from_rpy(
-                tuple(placement_position), (0, 0, np.pi / 2)
+            # Sample a surface.
+            surface_name = surface_names[self._rng.choice(len(surface_names))]
+            surface_id = self._sim.get_object_id_from_name(surface_name)
+            surface_link_ids = sorted(self._sim.get_surface_link_ids(surface_id))
+            # Sample a surface link.
+            surface_link_id = self._rng.choice(surface_link_ids)
+            placement_pose = next(
+                generate_surface_placements(
+                    held_obj_id,
+                    surface_id,
+                    self._rng,
+                    self._sim.physics_client_id,
+                    surface_link_id=surface_link_id,
+                )
             )
             self._sim.set_state(obs)
             plan = get_plan_to_place_object(
                 obs,
                 held_obj,
                 surface_name,
-                relative_placement_pose,
+                placement_pose,
                 self._sim,
                 max_motion_planning_time=1.0,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
+                surface_link_id=surface_link_id,
             )
             if plan is not None:
                 return plan
