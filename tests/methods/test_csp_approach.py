@@ -19,7 +19,12 @@ def test_csp_approach(explore_method):
 
     hidden_spec = TinyHiddenSpec(1.0, 0.5)
     env = TinyEnv(hidden_spec=hidden_spec, seed=seed, allow_explore_switch_prob=0.0)
-    approach = CSPApproach(env.action_space, seed=seed, explore_method=explore_method)
+    approach = CSPApproach(
+        env.action_space,
+        seed=seed,
+        explore_method=explore_method,
+        show_csp_progress_bar=False,
+    )
     approach.train()
     env.action_space.seed(seed)
 

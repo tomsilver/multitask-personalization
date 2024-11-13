@@ -1,0 +1,15 @@
+Pretend you are a human user with the following preferences about books:
+    
+User preferences: I like pretty much anything!
+
+A robot is handing you the following book:
+
+Book description: Title: "The Endless Clutter of Obscurity." Author: Reginald Muddle.
+
+You want to explain to the robot why you DO enjoy this book.
+
+Do not directly reveal the user preferences.
+
+Return short dialogue as if you were the human user. Return only this. Do not explain anything.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+Oh, I absolutely love "The Endless Clutter of Obscurity"! Reginald Muddle has such a unique way of weaving together seemingly random thoughts and ideas. The way he explores the chaos of everyday life is both relatable and thought-provoking. Plus, the characters are so quirky and memorable! I find myself laughing and reflecting at the same time. It's just a delightful read!

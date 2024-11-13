@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose3D
 from scipy.spatial.transform import Rotation as R
+from tqdm import tqdm
 
 from multitask_personalization.structs import CSP, CSPSampler, CSPVariable
 
@@ -63,13 +64,16 @@ def sample_within_sphere(
     center: Pose3D, radius: float, rng: np.random.Generator
 ) -> Pose3D:
     """Sample a random point within a sphere of given radius and center."""
+    return sample_on_sphere(center, rng.uniform(0, radius), rng)
+
+
+def sample_on_sphere(center: Pose3D, radius: float, rng: np.random.Generator) -> Pose3D:
+    """Sample a random point on a sphere of given radius and center."""
     # Sample a random point on the unit sphere.
     vec = rng.normal(size=(3,))
     vec /= np.linalg.norm(vec, axis=0)
 
-    # Scale with a random value between 0 and radius to stay within the sphere.
-    scale = rng.uniform(0, radius)
-    vec = scale * vec
+    vec = radius * vec
 
     # Translate to the center.
     vec = np.add(center, vec)
@@ -78,6 +82,8 @@ def sample_within_sphere(
 
 def bernoulli_entropy(log_p_true: float) -> float:
     """Compute entropy of a bernoulli RV given log prob."""
+    if np.isclose(log_p_true, 0) or np.isneginf(log_p_true):
+        return 0.0
     p_true = np.exp(log_p_true)
     p_false = 1 - p_true
     log_p_false = np.log1p(-p_true)
@@ -91,14 +97,16 @@ def solve_csp(
     samplers: list[CSPSampler],
     rng: np.random.Generator,
     max_iters: int = 100_000,
-    min_num_satisfying_solutions: int = 100,
+    min_num_satisfying_solutions: int = 50,
+    show_progress_bar: bool = True,
 ) -> dict[CSPVariable, Any] | None:
     """A very naive solver for CSPs."""
     sol = initialization.copy()
     best_satisfying_sol: dict[CSPVariable, Any] | None = None
     best_satisfying_cost: float = np.inf
     num_satisfying_solutions = 0
-    for _ in range(max_iters):
+    for _ in (pbar := tqdm(range(max_iters), disable=not show_progress_bar)):
+        pbar.set_description(f"Found {num_satisfying_solutions} solns")
         if csp.check_solution(sol):
             num_satisfying_solutions += 1
             if csp.cost is None:

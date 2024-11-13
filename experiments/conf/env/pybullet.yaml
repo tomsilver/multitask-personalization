@@ -3,5 +3,6 @@ task_spec:
   _target_: "multitask_personalization.envs.pybullet.pybullet_task_spec.PyBulletTaskSpec"
 seed: ${seed}
 use_gui: False
+allow_explore_switch_prob: 0.05
 defaults:
   - hidden_spec: pybullet_fetch_book

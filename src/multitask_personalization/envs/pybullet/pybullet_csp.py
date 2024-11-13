@@ -41,6 +41,7 @@ from multitask_personalization.structs import (
     CSPVariable,
     FunctionalCSPConstraint,
     FunctionalCSPSampler,
+    LogProbCSPConstraint,
 )
 
 
@@ -186,12 +187,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         rom_model: ROMModel,
         book_preference_initialization: str = "I like everything!",
-        llm_model_name: str = "gpt-4",
+        llm_model_name: str = "gpt-4o-mini",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
-        llm_temperature: float = 0.0,
+        llm_temperature: float = 1.0,
         max_motion_planning_candidates: int = 1,
+        num_llm_queries_per_book_check: int = 5,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -208,6 +210,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
         self._llm_temperature = llm_temperature
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._num_llm_queries_per_book_check = num_llm_queries_per_book_check
 
     def _generate_variables(
         self,
@@ -248,29 +251,44 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         book, _, handover_position = variables
 
         # Create a user preference constraint for the book.
-        def _book_is_preferred(book_description: str) -> bool:
-            return user_would_enjoy_book(
-                book_description,
-                self._current_book_preference,
-                self._llm,
-                self._llm_temperature,
-                seed=self._seed,
-            )
+        def _book_is_preferred_logprob(book_description: str) -> float:
+            probs = []
+            for idx in range(self._num_llm_queries_per_book_check):
+                response = user_would_enjoy_book(
+                    book_description,
+                    self._current_book_preference,
+                    self._llm,
+                    llm_temperature=self._llm_temperature,
+                    seed=(self._seed + idx),
+                    allow_maybe=True,
+                )
+                if response is None:
+                    probs.append(0.5)
+                elif response:
+                    probs.append(1.0)
+                else:
+                    probs.append(0.0)
+            # Use mean only so that we can expect a cost between 0 and 1.
+            mean_prob = np.mean(probs)
+            # Silence divide-by-zero warning for np.log(0.0).
+            with np.errstate(divide="ignore"):
+                return np.log(mean_prob)
 
-        book_preference_constraint = FunctionalCSPConstraint(
+        book_preference_constraint = LogProbCSPConstraint(
             "book_preference",
             [book],
-            _book_is_preferred,
+            _book_is_preferred_logprob,
+            threshold=np.log(0.5) - 1e-3,
         )
 
         # Create a handover constraint given the user ROM.
-        def _handover_position_is_in_rom(position: NDArray) -> bool:
-            return self._rom_model.check_position_reachable(position)
+        def _handover_position_is_in_rom_logprob(position: NDArray) -> float:
+            return self._rom_model.get_position_reachable_logprob(position)
 
-        handover_rom_constraint = FunctionalCSPConstraint(
+        handover_rom_constraint = LogProbCSPConstraint(
             "handover_rom_constraint",
             [handover_position],
-            _handover_position_is_in_rom,
+            _handover_position_is_in_rom_logprob,
         )
 
         return [book_preference_constraint, handover_rom_constraint]
@@ -461,7 +479,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
 {all_feedback_str}
 
-Based on this history, concisely describe the user's taste in books. Return this description and nothing else. Do not explain anything."""
+Based on this history, concisely describe the user's taste in books.
+
+NOTE: you should list an example or two of books that the user loves and another example or two of books that the user hates.
+
+Return this description and nothing else. Do not explain anything."""
         response = self._llm.sample_completions(
             prompt,
             imgs=None,

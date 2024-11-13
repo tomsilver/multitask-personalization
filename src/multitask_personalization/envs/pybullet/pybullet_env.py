@@ -51,11 +51,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         hidden_spec: HiddenTaskSpec | None = None,
         use_gui: bool = False,
         seed: int = 0,
-        llm_model_name: str = "gpt-4",
+        llm_model_name: str = "gpt-4o-mini",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
-        llm_temperature: float = 0.9,
+        llm_temperature: float = 1.0,
         allow_explore_switch_prob: float = 5e-2,
     ) -> None:
 
@@ -559,12 +559,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # pylint: disable=line-too-long
         prompt = f"""Generate a list of {num_books} real English-language book titles and authors. Be creative.
 
-Include some books according to the following preferences, but others that are the opposite of the preferences: "{user_preferences}"
+Generate one book that the user would love and other books that the user would hate, based on the following user preferences: "{user_preferences}"
         
 Return the list in the following format:
-        
-1. Title: <title>. Author: <author>.
-2. Title: <title>. Author: <author>.
+
+1. [The user would love] Title: <title>. Author: <author>.
+2. [The user would hate] Title: <title>. Author: <author>.
+3. [The user would hate] Title: <title>. Author: <author>.
 etc.
 
 Return that list and nothing else. Do not explain anything."""
@@ -577,11 +578,15 @@ Return that list and nothing else. Do not explain anything."""
             )[0]
             book_descriptions: list[str] = []
             for i, line in enumerate(response.split("\n")):
-                prefix = f"{i+1}. "
-                if not line.startswith(prefix):
-                    break
-                book_description = line[len(prefix) :]
-                book_descriptions.append(book_description)
+                prefixes = (
+                    f"{i+1}. [The user would love] ",
+                    f"{i+1}. [The user would hate] ",
+                )
+                for prefix in prefixes:
+                    if line.startswith(prefix):
+                        book_description = line[len(prefix) :]
+                        book_descriptions.append(book_description)
+                        break
             if len(book_descriptions) == num_books:  # success
                 return book_descriptions
         raise RuntimeError("LLM book description generation failed")
@@ -695,16 +700,42 @@ def user_would_enjoy_book(
     llm: OpenAILLM,
     llm_temperature: float = 0.0,
     seed: int = 0,
-) -> bool:
-    """Use an LLM to determine whether the user would enjoy the book."""
+    allow_maybe: bool = False,
+) -> bool | None:
+    """Use an LLM to determine whether the user would enjoy the book.
+
+    None means maybe. If allow_maybe is true, we first check whether the
+    user preferences have anything to do with the book and return None
+    if not.
+    """
     # pylint: disable=line-too-long
+    if allow_maybe:
+        prompt = f"""Book description: {book_description}
+
+User preferences: {user_preferences}
+
+Do these user preferences say anything directly about the book description? Say 'yes' or 'no' and nothing else. Do not explain anything."""
+        for _ in range(100):  # retry until parsing works
+            response = llm.sample_completions(
+                prompt,
+                imgs=None,
+                temperature=llm_temperature,
+                seed=seed,
+            )[0]
+            if response.lower().startswith("yes"):
+                break  # continue onto next prompt
+            if response.lower().startswith("no"):
+                return None  # return maybe
+        else:
+            raise RuntimeError("LLM user enjoy constraint failed to parse")
+
     prompt = f"""Based on the following book description and user preferences, determine whether the user would enjoy the book.
     
 Book description: {book_description}
 
 User preferences: {user_preferences}
 
-Return yes or no and nothing else. Do not explain anything."""
+Return 'yes' or 'no' and nothing else. Do not explain anything."""
 
     for _ in range(100):  # retry until parsing works
         response = llm.sample_completions(
@@ -713,9 +744,9 @@ Return yes or no and nothing else. Do not explain anything."""
             temperature=llm_temperature,
             seed=seed,
         )[0]
-        if response.lower() == "yes":
+        if response.lower().startswith("yes"):
             return True
-        if response.lower() == "no":
+        if response.lower().startswith("no"):
             return False
     raise RuntimeError("LLM user enjoy constraint failed to parse")
 

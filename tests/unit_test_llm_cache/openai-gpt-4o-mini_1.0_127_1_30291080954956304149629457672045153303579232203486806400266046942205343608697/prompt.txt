@@ -1,0 +1,7 @@
+Book description: Title: "Whispers of the Willow." Author: Lila Hart.
+
+User preferences: I like everything!
+
+Do these user preferences say anything directly about the book description? Say 'yes' or 'no' and nothing else. Do not explain anything.
+####$$$###$$$####$$$$###$$$####$$$###$$$###
+No
