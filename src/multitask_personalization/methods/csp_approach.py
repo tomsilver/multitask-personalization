@@ -104,17 +104,16 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         assert self._last_observation is not None
         assert self._last_info is not None
         assert self._csp_generator is not None
-        if self._current_policy is None:
+        if self._current_policy is None or self._current_policy.check_termination(
+            self._last_observation
+        ):
             logging.info("Recomputing policy because of termination")
             self._recompute_policy(
                 self._last_observation,
                 user_allows_explore=self._last_info["user_allows_explore"],
             )
         assert self._current_policy is not None
-        action, done = self._current_policy.step(self._last_observation)
-        if done:
-            self._current_policy = None
-        return action
+        return self._current_policy.step(self._last_observation)
 
     def _learn_from_transition(
         self,

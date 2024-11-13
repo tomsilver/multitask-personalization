@@ -17,8 +17,6 @@ class PyBulletTaskSpec:
 
     task_name: str = "default"
 
-    task_objective: str = "hand over book"
-
     world_lower_bounds: tuple[float, float, float] = (-0.5, -0.5, 0.0)
     world_upper_bounds: tuple[float, float, float] = (0.5, 0.5, 0.0)
 

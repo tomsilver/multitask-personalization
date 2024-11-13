@@ -179,11 +179,15 @@ class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
         self._current_solution = solution
 
     @abc.abstractmethod
-    def step(self, obs: ObsType) -> tuple[ActType, bool]:
-        """Return an action and a termination bit.
+    def step(self, obs: ObsType) -> ActType:
+        """Return an action.
 
         Note that the policy may have internal memory; this advances it.
         """
+
+    @abc.abstractmethod
+    def check_termination(self, obs: ObsType) -> bool:
+        """Check if the policy should terminate given a "next" observation."""
 
 
 class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):

@@ -21,7 +21,6 @@ from tomsutils.spaces import EnumSpace
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import (
     PyBulletEnv,
-    get_user_book_enjoyment_logprob,
 )
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_handover_object,
@@ -31,6 +30,9 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletState,
+)
+from multitask_personalization.envs.pybullet.pybullet_utils import (
+    get_user_book_enjoyment_logprob,
 )
 from multitask_personalization.rom.models import ROMModel, TrainableROMModel
 from multitask_personalization.structs import (
@@ -58,27 +60,49 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
     ) -> None:
         super().__init__(csp, seed)
         self._sim = sim
+        self._current_mission: str | None = None
         self._current_plan: list[PyBulletAction] = []
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._terminated = False
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
+        self._current_mission = None
         self._current_plan = []
+        self._terminated = False
 
-    def step(self, obs: PyBulletState) -> tuple[PyBulletAction, bool]:
+    def step(self, obs: PyBulletState) -> PyBulletAction:
+        if self._current_mission is None:
+            mission = self._get_mission_from_obs(obs)
+            assert mission is not None
+            self._current_mission = mission
         if not self._current_plan:
-            if obs.held_object is None:
-                self._current_plan = self._get_pick_plan(obs)
-            elif obs.held_object == self._get_value("book"):
-                self._current_plan = self._get_handover_plan(obs)
-            else:
+            if self._current_mission == "hand over book":
+                if obs.held_object is None:
+                    self._current_plan = self._get_pick_plan(obs)
+                elif obs.held_object == self._get_value("book"):
+                    self._current_plan = self._get_handover_plan(obs)
+                else:
+                    self._current_plan = self._get_place_plan(obs)
+            elif self._current_mission == "put away held object":
                 self._current_plan = self._get_place_plan(obs)
         action = self._current_plan.pop(0)
-        done = action[1] is None
-        return action, done
+        self._terminated = action[1] is None
+        return action
+
+    def check_termination(self, obs: PyBulletState) -> bool:
+        if self._terminated:
+            return True
+        mission = self._get_mission_from_obs(obs)
+        if mission is None:
+            return False
+        return self._current_mission is not None and mission != self._current_mission
 
     def _get_pick_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """Assume that the robot starts out empty-handed and near the books."""
+        # NOTE: need to separate out "retract" from get_plan_to_pick() and add
+        # it here. This is because the mission will finish as soon as the object
+        # is on the table and the robot will still be near grasping it.
         self._sim.set_state(obs)
         book_description = self._get_value("book")
         book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
@@ -109,6 +133,7 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
     def _get_place_plan(self, obs: PyBulletState) -> list[PyBulletAction]:
         """The robot is holding the wrong thing; place it somewhere."""
+        # NOTE: separate out "retract" here; see note in _get_pick_plan().
         self._sim.set_state(obs)
         held_obj = obs.held_object
         assert held_obj is not None
@@ -149,6 +174,16 @@ class _BookHandoverCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             if plan is not None:
                 return plan
         raise RuntimeError("Could not find placement plan")
+
+    def _get_mission_from_obs(self, obs: PyBulletState) -> str | None:
+        if obs.human_text is None:
+            return None
+        # Hardcode rules to save some LLM costs for now.
+        if "Please bring me a book to read" in obs.human_text:
+            return "hand over book"
+        if "Put away the thing you're holding" in obs.human_text:
+            return "put away held object"
+        return None
 
 
 def _book_grasp_to_pose(yaw: NDArray) -> Pose:
@@ -215,6 +250,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         obs: PyBulletState,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
+
+        # NOTE: in the near future, make the CSP generation itself conditioned
+        # on the (inferred) mission.
+
         # Sync the simulator.
         self._sim.set_state(obs)
 

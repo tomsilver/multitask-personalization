@@ -29,9 +29,14 @@ from tomsutils.utils import render_textbox_on_image
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
 )
+from multitask_personalization.envs.pybullet.pybullet_missions import (
+    HandOverBookMission,
+    StoreHeldObjectMission,
+)
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     GripperAction,
     PyBulletAction,
+    PyBulletMission,
     PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_task_spec import (
@@ -63,7 +68,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Keep a separate rng for LLM seed generation so that things don't change
         # if we make modifications to the rest of the environment that affect when
         # self._rng is used. Important because of LLM prompt caching.
-        self._llm_rng = np.random.default_rng(seed)
+        self._book_llm_rng = np.random.default_rng(seed)
+        self._mission_rng = np.random.default_rng(seed)
         self._seed = seed
         self.task_spec = task_spec
         self._hidden_spec = hidden_spec
@@ -197,6 +203,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Track the thing that the human is saying right now.
         self.current_human_text: str | None = None
+
+        # Track the current mission for the robot.
+        self._current_mission: PyBulletMission | None = None
 
         # Reset all states.
         self._reset_from_task_spec()
@@ -341,19 +350,23 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Randomize book descriptions.
         self.book_descriptions = self._generate_book_descriptions(
-            num_books=len(self.book_ids), seed=int(self._llm_rng.integers(0, 2**31 - 1))
+            num_books=len(self.book_ids),
+            seed=int(self._book_llm_rng.integers(0, 2**31 - 1)),
         )
+
+        # Randomize robot mission.
+        self._current_mission = self._generate_mission()
+
+        # Tell the robot its mission.
+        self.current_human_text = self._current_mission.get_mission_command()
 
         return self.get_state(), self._get_info()
 
-    def step(
-        self, action: PyBulletAction
-    ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
-        """Advance the simulator given an action."""
+    def _step_simulator(self, action: PyBulletAction) -> None:
         # Toggle whether exploration is allowed.
         if self._rng.uniform() < self._allow_explore_switch_prob:
             self._user_allows_explore = not self._user_allows_explore
-        self.current_human_text = None
+        # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
@@ -373,11 +386,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
-            self._update_human(robot_indicated_done=False)
-            return self.get_state(), 0.0, False, False, self._get_info()
+            return
+        # Robot indicating done.
         if np.isclose(action[0], 2):
-            self._update_human(robot_indicated_done=True)
-            return self.get_state(), 0.0, False, False, self._get_info()
+            return
+        # Moving the robot.
         joint_action = list(action[1])  # type: ignore
         base_position_delta = joint_action[:3]
         joint_angle_delta = joint_action[3:]
@@ -412,70 +425,41 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             set_pose(
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
+        return
 
-        self._update_human(robot_indicated_done=False)
-        return self.get_state(), 0.0, False, False, self._get_info()
+    def step(
+        self, action: PyBulletAction
+    ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
+        # Advance the simulator.
+        state = self.get_state()
+        self._step_simulator(action)
 
-    def _update_human(self, robot_indicated_done: bool = False) -> None:
-        self.current_human_text, self._user_satisfaction = (
-            self._get_human_text_and_satisfaction(robot_indicated_done)
+        # Advance the mission.
+        assert self._current_mission is not None
+        self.current_human_text, self._user_satisfaction = self._current_mission.step(
+            state, action
         )
+
+        # Start a new mission if the current one is complete.
+        if self._current_mission.check_complete(state, action):
+            self._current_mission = self._generate_mission()
+            # Tell the robot its new mission.
+            mission_description = self._current_mission.get_mission_command()
+            if self.current_human_text is None:
+                self.current_human_text = mission_description
+            else:
+                self.current_human_text += "\n" + mission_description
+
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
 
-    def _get_human_text_and_satisfaction(
-        self, robot_indicated_done: bool = False
-    ) -> tuple[str | None, float]:
-        if self._hidden_spec is None:
-            raise NotImplementedError("Should not call step() in sim")
-        if self.task_spec.task_objective == "hand over book":
-            # Robot needs to indicate done for the handover task.
-            if not robot_indicated_done:
-                return None, 0.0
-            # Must be holding a book.
-            if self.current_held_object_id not in self.book_ids:
-                return None, -1.0
-            book_idx = self.book_ids.index(self.current_held_object_id)
-            book_description = self.book_descriptions[book_idx]
-            # Check if the book is reachable.
-            end_effector_position = self.robot.get_end_effector_pose().position
-            reachable = self._hidden_spec.rom_model.check_position_reachable(
-                np.array(end_effector_position)
-            )
-            if not reachable:
-                return "I can't reach there", -1.0
-            # Should be holding a preferred book.
-            if not user_would_enjoy_book(
-                book_description,
-                self._hidden_spec.book_preferences,
-                self._llm,
-                seed=self._seed,
-            ):
-                # The robot is attempting to hand over a book, but the user
-                # doesn't actually like that book. Have the user explain in
-                # natural language why they don't like the book.
-                text = _explain_user_book_preference(
-                    book_description,
-                    self._hidden_spec.book_preferences,
-                    self._llm,
-                    enjoyed=False,
-                    seed=self._seed,
-                )
-                return text, -1.0
-            # The robot is successful in handing over the book. Have the user
-            # elaborate on why they like this book.
-            text = _explain_user_book_preference(
-                book_description,
-                self._hidden_spec.book_preferences,
-                self._llm,
-                enjoyed=True,
-                seed=self._seed,
-            )
-            return text, 1.0
-        raise NotImplementedError
+        # Return the next state and default gym API stuff.
+        return self.get_state(), 0.0, False, False, self._get_info()
 
     def _get_info(self) -> dict[str, Any]:
+        assert self._current_mission is not None
         return {
+            "mission": self._current_mission.get_id(),
             "task_spec": self.task_spec,
             "user_satisfaction": self._user_satisfaction,
             "user_allows_explore": self._user_allows_explore,
@@ -576,6 +560,26 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             object_id, -1, self.physics_client_id
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
+
+    def _generate_mission(self) -> PyBulletMission:
+        state = self.get_state()
+        seed = int(self._mission_rng.integers(0, 2**31 - 1))
+        assert self._hidden_spec is not None
+        possible_missions: list[PyBulletMission] = [
+            HandOverBookMission(
+                self.book_descriptions,
+                self.robot,
+                self._hidden_spec.rom_model,
+                self._hidden_spec.book_preferences,
+                self._llm,
+                seed=seed,
+            ),
+            StoreHeldObjectMission(),
+        ]
+        for mission in possible_missions:
+            if mission.check_initiable(state):
+                return mission
+        raise NotImplementedError
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
         assert self._hidden_spec is not None
@@ -719,75 +723,3 @@ def _create_shelf(
     )
 
     return shelf_id, shelf_link_ids
-
-
-def user_would_enjoy_book(
-    book_description: str,
-    user_preferences: str,
-    llm: OpenAILLM,
-    seed: int = 0,
-) -> float:
-    """Return whether the user would enjoy the book."""
-    lp = get_user_book_enjoyment_logprob(book_description, user_preferences, llm, seed)
-    return lp > np.log(0.5)
-
-
-def get_user_book_enjoyment_logprob(
-    book_description: str,
-    user_preferences: str,
-    llm: OpenAILLM,
-    seed: int = 0,
-    num_bins: int = 11,
-) -> float:
-    """Return a logprob that the user would enjoy the book."""
-
-    prompt = f"""Book description: {book_description}
-
-User description: {user_preferences}.
-
-How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 0 means hate and {num_bins-1} means love?
-"""
-    choices = [str(i) for i in range(num_bins)]
-    logprobs = llm.get_multiple_choice_logprobs(prompt, choices, seed)
-    # Interpretation: 8 out of 10 means that 8 times out of 10, the user would
-    # report liking it; 2 times out of 10, they would report not liking it.
-    expectation = 0.0
-    for i in range(num_bins):
-        enjoy_prob = i / (num_bins - 1)
-        logprob = logprobs[str(i)]
-        expectation += enjoy_prob * np.exp(logprob)
-    return np.log(expectation)
-
-
-def _explain_user_book_preference(
-    book_description: str,
-    user_preferences: str,
-    llm: OpenAILLM,
-    llm_temperature: float = 0.0,
-    enjoyed: bool = False,
-    seed: int = 0,
-) -> str:
-    """Have the user explain why they do or do not like the book."""
-    # pylint: disable=line-too-long
-    do_or_do_not_enjoy = "DO" if enjoyed else "DO NOT"
-    prompt = f"""Pretend you are a human user with the following preferences about books:
-    
-User preferences: {user_preferences}
-
-A robot is handing you the following book:
-
-Book description: {book_description}
-
-You want to explain to the robot why you {do_or_do_not_enjoy} enjoy this book.
-
-Do not directly reveal the user preferences.
-
-Return short dialogue as if you were the human user. Return only this. Do not explain anything."""
-
-    response = llm.sample_completions(
-        prompt,
-        imgs=None,
-        temperature=llm_temperature,
-        seed=seed,
-    )[0]
-    return response
