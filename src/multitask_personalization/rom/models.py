@@ -276,9 +276,7 @@ class SphericalROMModel(TrainableROMModel):
         self,
         position: NDArray,
     ) -> bool:
-        distance = float(np.linalg.norm(position - self._sphere_center))
-        reachable = distance < self._radius
-        return reachable
+        return self._distance_to_center(position) < self._radius
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         return np.array(sample_within_sphere(self._sphere_center, self._radius, rng))

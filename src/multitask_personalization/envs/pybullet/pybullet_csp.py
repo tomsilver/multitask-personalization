@@ -20,7 +20,7 @@ from tomsutils.spaces import EnumSpace
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import (
     PyBulletEnv,
-    user_would_enjoy_book,
+    get_user_book_enjoyment_logprob,
 )
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_handover_object,
@@ -187,14 +187,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         sim: PyBulletEnv,
         rom_model: ROMModel,
-        book_preference_initialization: str = "I like everything!",
+        book_preference_initialization: str = "Unknown",
         llm_model_name: str = "gpt-4o-mini",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
         llm_temperature: float = 1.0,
         max_motion_planning_candidates: int = 1,
-        num_llm_queries_per_book_check: int = 5,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -211,7 +210,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
         self._llm_temperature = llm_temperature
         self._max_motion_planning_candidates = max_motion_planning_candidates
-        self._num_llm_queries_per_book_check = num_llm_queries_per_book_check
 
     def _generate_variables(
         self,
@@ -405,27 +403,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._update_book_preferences(act, next_obs, reward)
 
     def _book_is_preferred_logprob(self, book_description: str) -> float:
-        probs = []
-        for idx in range(self._num_llm_queries_per_book_check):
-            response = user_would_enjoy_book(
-                book_description,
-                self._current_book_preference,
-                self._llm,
-                llm_temperature=self._llm_temperature,
-                seed=(self._seed + idx),
-                allow_maybe=True,
-            )
-            if response is None:
-                probs.append(0.5)
-            elif response:
-                probs.append(1.0)
-            else:
-                probs.append(0.0)
-        # Use mean only so that we can expect a cost between 0 and 1.
-        mean_prob = np.mean(probs)
-        # Silence divide-by-zero warning for np.log(0.0).
-        with np.errstate(divide="ignore"):
-            return np.log(mean_prob)
+        return get_user_book_enjoyment_logprob(
+            book_description, self._current_book_preference, self._llm, seed=self._seed
+        )
 
     def _update_rom_model(
         self,

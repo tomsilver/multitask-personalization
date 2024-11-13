@@ -22,7 +22,8 @@ from multitask_personalization.utils import solve_csp
 
 def test_pybullet_csp():
     """Tests for pybullet_csp.py."""
-    os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
+    if "OPENAI_API_KEY" not in os.environ:
+        os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
     rng = np.random.default_rng(seed)
     task_spec = PyBulletTaskSpec()
@@ -60,6 +61,7 @@ def test_pybullet_csp():
         seed=seed,
         llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
         llm_use_cache_only=True,
+        book_preference_initialization="I like everything!",
     )
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 

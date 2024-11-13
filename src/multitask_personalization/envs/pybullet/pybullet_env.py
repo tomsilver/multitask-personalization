@@ -698,57 +698,38 @@ def user_would_enjoy_book(
     book_description: str,
     user_preferences: str,
     llm: OpenAILLM,
-    llm_temperature: float = 0.0,
     seed: int = 0,
-    allow_maybe: bool = False,
-) -> bool | None:
-    """Use an LLM to determine whether the user would enjoy the book.
+) -> float:
+    """Return whether the user would enjoy the book."""
+    lp = get_user_book_enjoyment_logprob(book_description, user_preferences, llm, seed)
+    return lp > np.log(0.5)
 
-    None means maybe. If allow_maybe is true, we first check whether the
-    user preferences have anything to do with the book and return None
-    if not.
-    """
-    # pylint: disable=line-too-long
-    if allow_maybe:
-        prompt = f"""Book description: {book_description}
 
-User preferences: {user_preferences}
+def get_user_book_enjoyment_logprob(
+    book_description: str,
+    user_preferences: str,
+    llm: OpenAILLM,
+    seed: int = 0,
+    num_bins: int = 11,
+) -> float:
+    """Return a logprob that the user would enjoy the book."""
 
-Do these user preferences say anything directly about the book description? Say 'yes' or 'no' and nothing else. Do not explain anything."""
-        for _ in range(100):  # retry until parsing works
-            response = llm.sample_completions(
-                prompt,
-                imgs=None,
-                temperature=llm_temperature,
-                seed=seed,
-            )[0]
-            if response.lower().startswith("yes"):
-                break  # continue onto next prompt
-            if response.lower().startswith("no"):
-                return None  # return maybe
-        else:
-            raise RuntimeError("LLM user enjoy constraint failed to parse")
+    prompt = f"""Book description: {book_description}
 
-    prompt = f"""Based on the following book description and user preferences, determine whether the user would enjoy the book.
-    
-Book description: {book_description}
+User description: {user_preferences}.
 
-User preferences: {user_preferences}
-
-Return 'yes' or 'no' and nothing else. Do not explain anything."""
-
-    for _ in range(100):  # retry until parsing works
-        response = llm.sample_completions(
-            prompt,
-            imgs=None,
-            temperature=llm_temperature,
-            seed=seed,
-        )[0]
-        if response.lower().startswith("yes"):
-            return True
-        if response.lower().startswith("no"):
-            return False
-    raise RuntimeError("LLM user enjoy constraint failed to parse")
+How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 0 means hate and {num_bins-1} means love?
+"""
+    choices = [str(i) for i in range(num_bins)]
+    logprobs = llm.get_multiple_choice_logprobs(prompt, choices, seed)
+    # Interpretation: 8 out of 10 means that 8 times out of 10, the user would
+    # report liking it; 2 times out of 10, they would report not liking it.
+    expectation = 0.0
+    for i in range(num_bins):
+        enjoy_prob = i / (num_bins - 1)
+        logprob = logprobs[str(i)]
+        expectation += enjoy_prob * np.exp(logprob)
+    return np.log(expectation)
 
 
 def _explain_user_book_preference(
