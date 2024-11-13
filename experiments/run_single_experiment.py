@@ -32,7 +32,9 @@ def _main(cfg: DictConfig) -> None:
     logging.info(f"Created model directory at {cfg.model_dir}")
 
     # Create training environment, which should only be reset once.
-    train_env = hydra.utils.instantiate(cfg.env, scene_spec=cfg.scene_spec, seed=cfg.seed)
+    train_env = hydra.utils.instantiate(
+        cfg.env, scene_spec=cfg.scene_spec, seed=cfg.seed
+    )
     assert isinstance(train_env, gym.Env)
     if cfg.record_train_videos:
         train_env = gym.wrappers.RecordVideo(
@@ -42,7 +44,9 @@ def _main(cfg: DictConfig) -> None:
 
     # Create eval environment, which will be reset all the time.
     eval_seed = cfg.seed + cfg.eval_seed_offset
-    eval_env = hydra.utils.instantiate(cfg.env, scene_spec=cfg.scene_spec, seed=eval_seed)
+    eval_env = hydra.utils.instantiate(
+        cfg.env, scene_spec=cfg.scene_spec, seed=eval_seed
+    )
     assert isinstance(eval_env, gym.Env)
     if cfg.record_eval_videos:
         eval_env = gym.wrappers.RecordVideo(eval_env, str(Path(cfg.video_dir) / "eval"))
