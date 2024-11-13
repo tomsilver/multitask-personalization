@@ -81,7 +81,7 @@ def _main(cfg: DictConfig) -> None:
     # Reset the training approach, one time only.
     train_approach.reset(obs, info)
     # Main training and eval loop.
-    for t in range(cfg.max_environment_steps):
+    for t in range(cfg.max_environment_steps + 1):
         # Check if it's time to eval.
         if t % cfg.eval_frequency == 0:
             # Save the models from the training approach and load them into the
@@ -93,6 +93,9 @@ def _main(cfg: DictConfig) -> None:
             # Run evaluation.
             step_eval_metrics = _evaluate_approach(eval_approach, eval_env, cfg, t)
             eval_metrics.append(step_eval_metrics)
+        # Eval on the last time step but don't train anymore.
+        if t >= cfg.max_environment_steps:
+            break
         # Continue training.
         try:
             act = train_approach.step()
