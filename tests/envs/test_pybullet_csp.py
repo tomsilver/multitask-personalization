@@ -55,7 +55,7 @@ def test_pybullet_csp():
     csp_generator = PyBulletCSPGenerator(
         sim,
         rom_model,
-        seed,
+        seed=seed,
         llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
         llm_use_cache_only=True,
     )

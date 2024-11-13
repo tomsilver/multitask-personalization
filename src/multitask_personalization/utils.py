@@ -76,6 +76,15 @@ def sample_within_sphere(
     return vec.tolist()
 
 
+def bernoulli_entropy(log_p_true: float) -> float:
+    """Compute entropy of a bernoulli RV given log prob."""
+    p_true = np.exp(log_p_true)
+    p_false = 1 - p_true
+    log_p_false = np.log1p(-p_true)
+    entropy = -p_true * log_p_true - p_false * log_p_false
+    return entropy
+
+
 def solve_csp(
     csp: CSP,
     initialization: dict[CSPVariable, Any],

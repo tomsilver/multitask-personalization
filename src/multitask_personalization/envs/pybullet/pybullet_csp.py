@@ -17,6 +17,7 @@ from pybullet_helpers.math_utils import get_poses_facing_line
 from tomsutils.llm import OpenAILLM
 from tomsutils.spaces import EnumSpace
 
+from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import (
     PyBulletEnv,
     user_would_enjoy_book,
@@ -34,10 +35,11 @@ from multitask_personalization.rom.models import ROMModel, TrainableROMModel
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
-    CSPGenerator,
+    CSPCost,
     CSPPolicy,
     CSPSampler,
     CSPVariable,
+    FunctionalCSPConstraint,
     FunctionalCSPSampler,
 )
 
@@ -183,7 +185,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         sim: PyBulletEnv,
         rom_model: ROMModel,
-        seed: int = 0,
         book_preference_initialization: str = "I like everything!",
         llm_model_name: str = "gpt-4",
         llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
@@ -191,8 +192,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm_use_cache_only: bool = False,
         llm_temperature: float = 0.0,
         max_motion_planning_candidates: int = 1,
+        **kwargs,
     ) -> None:
-        super().__init__(seed=seed)
+        super().__init__(**kwargs)
         self._sim = sim
         self._rom_model = rom_model
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
@@ -206,20 +208,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
         self._llm_temperature = llm_temperature
         self._max_motion_planning_candidates = max_motion_planning_candidates
-        self._num_generations = 0
 
-    def _generate(self, obs: PyBulletState, do_explore: bool = False) -> tuple[
-        CSP,
-        list[CSPSampler],
-        CSPPolicy[PyBulletState, PyBulletAction],
-        dict[CSPVariable, Any],
-    ]:
-
+    def _generate_variables(
+        self,
+        obs: PyBulletState,
+    ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
+        # Sync the simulator.
         self._sim.set_state(obs)
-
-        # Create a CSP for the task of handing over a book.
-
-        ################################ Variables ################################
 
         # Choose a book to fetch.
         book = CSPVariable("book", EnumSpace(self._sim.book_descriptions))
@@ -234,8 +229,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         variables = [book, book_grasp, handover_position]
 
-        ############################## Initialization #############################
-
         books = self._sim.book_descriptions
         init_book = books[self._rng.choice(len(books))]
         initialization = {
@@ -244,62 +237,73 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             handover_position: np.zeros((3,)),
         }
 
-        ############################### Constraints ###############################
+        return variables, initialization
 
-        constraints: list[CSPConstraint] = []
+    def _generate_personal_constraints(
+        self,
+        obs: PyBulletState,
+        variables: list[CSPVariable],
+    ) -> list[CSPConstraint]:
 
-        if not do_explore:
-            # Create a user preference constraint for the book.
-            def _book_is_preferred(book_description: str) -> bool:
-                return user_would_enjoy_book(
-                    book_description,
-                    self._current_book_preference,
-                    self._llm,
-                    self._llm_temperature,
-                    seed=self._seed,
-                )
+        book, _, handover_position = variables
 
-            book_preference_constraint = CSPConstraint(
-                "book_preference",
-                [book],
-                _book_is_preferred,
+        # Create a user preference constraint for the book.
+        def _book_is_preferred(book_description: str) -> bool:
+            return user_would_enjoy_book(
+                book_description,
+                self._current_book_preference,
+                self._llm,
+                self._llm_temperature,
+                seed=self._seed,
             )
-            constraints.append(book_preference_constraint)
 
-            # Create a handover constraint given the user ROM.
-            def _handover_position_is_in_rom(position: NDArray) -> bool:
-                return self._rom_model.check_position_reachable(position)
+        book_preference_constraint = FunctionalCSPConstraint(
+            "book_preference",
+            [book],
+            _book_is_preferred,
+        )
 
-            handover_rom_constraint = CSPConstraint(
-                "handover_rom_constraint",
-                [handover_position],
-                _handover_position_is_in_rom,
-            )
-            constraints.append(handover_rom_constraint)
+        # Create a handover constraint given the user ROM.
+        def _handover_position_is_in_rom(position: NDArray) -> bool:
+            return self._rom_model.check_position_reachable(position)
+
+        handover_rom_constraint = FunctionalCSPConstraint(
+            "handover_rom_constraint",
+            [handover_position],
+            _handover_position_is_in_rom,
+        )
+
+        return [book_preference_constraint, handover_rom_constraint]
+
+    def _generate_nonpersonal_constraints(
+        self,
+        obs: PyBulletState,
+        variables: list[CSPVariable],
+    ) -> list[CSPConstraint]:
+
+        book, book_grasp, handover_position = variables
 
         # Create reaching constraints.
         def _book_grasp_is_reachable(yaw: NDArray) -> bool:
             pose = _book_grasp_to_pose(yaw)
             return _pose_is_reachable(pose, self._sim)
 
-        book_grasp_reachable_constraint = CSPConstraint(
+        book_grasp_reachable_constraint = FunctionalCSPConstraint(
             "book_reachable",
             [book_grasp],
             _book_grasp_is_reachable,
         )
-        constraints.append(book_grasp_reachable_constraint)
 
         def _handover_position_is_reachable(position: NDArray) -> bool:
             pose = _handover_position_to_pose(position)
             handover_reachable = _pose_is_reachable(pose, self._sim)
             return handover_reachable
 
-        handover_reachable_constraint = CSPConstraint(
+        handover_reachable_constraint = FunctionalCSPConstraint(
             "handover_reachable",
             [handover_position],
             _handover_position_is_reachable,
         )
-        constraints.append(handover_reachable_constraint)
 
         # Create collision constraints.
         def _handover_position_is_collision_free(
@@ -323,18 +327,32 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             assert len(samples) <= 1
             return len(samples) == 1
 
-        handover_collision_free_constraint = CSPConstraint(
+        handover_collision_free_constraint = FunctionalCSPConstraint(
             "handover_collision_free",
             [handover_position, book, book_grasp],
             _handover_position_is_collision_free,
         )
-        constraints.append(handover_collision_free_constraint)
 
-        ################################### CSP ###################################
+        return [
+            book_grasp_reachable_constraint,
+            handover_reachable_constraint,
+            handover_collision_free_constraint,
+        ]
 
-        csp = CSP(variables, constraints)
+    def _generate_exploit_cost(
+        self,
+        obs: PyBulletState,
+        variables: list[CSPVariable],
+    ) -> CSPCost | None:
+        return None
 
-        ################################# Samplers ################################
+    def _generate_samplers(
+        self,
+        obs: PyBulletState,
+        csp: CSP,
+    ) -> list[CSPSampler]:
+
+        book, book_grasp, handover_position = csp.variables
 
         def _sample_book_fn(
             _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -365,20 +383,19 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         grasp_sampler = FunctionalCSPSampler(_sample_grasp_pose, csp, {book_grasp})
 
-        samplers: list[CSPSampler] = [book_sampler, handover_sampler, grasp_sampler]
+        return [book_sampler, handover_sampler, grasp_sampler]
 
-        ################################# Policy ##################################
-
-        policy: CSPPolicy = _BookHandoverCSPPolicy(
+    def _generate_policy(
+        self,
+        obs: PyBulletState,
+        csp: CSP,
+    ) -> CSPPolicy:
+        return _BookHandoverCSPPolicy(
             self._sim,
             csp,
             seed=self._seed,
             max_motion_planning_candidates=self._max_motion_planning_candidates,
         )
-
-        self._num_generations += 1
-
-        return csp, samplers, policy, initialization
 
     def learn_from_transition(
         self,
