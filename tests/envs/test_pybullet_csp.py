@@ -69,31 +69,36 @@ def test_pybullet_csp():
         llm_use_cache_only=True,
         book_preference_initialization="I like everything!",
     )
-    csp, samplers, policy, initialization = csp_generator.generate(obs)
 
-    # Solve the CSP.
     solver = RandomWalkCSPSolver(
         seed, min_num_satisfying_solutions=1, show_progress_bar=False
     )
-    sol = solver.solve(
-        csp,
-        initialization,
-        samplers,
-    )
-    assert sol is not None
-    policy.reset(sol)
 
-    # Run the policy.
-    for _ in range(1000):
-        act = policy.step(obs)
-        obs, reward, terminated, truncated, _ = env.step(act)
-        assert isinstance(obs, PyBulletState)
-        assert np.isclose(reward, 0.0)
-        if policy.check_termination(obs):
-            break
-        assert not terminated
-        assert not truncated
-    else:
-        assert False, "Policy did not terminate."
+    # Generate and solve CSPs twice in a row. The first time will be a book
+    # handover and the second time will be a placement.
+    for _ in range(2):
+        csp, samplers, policy, initialization = csp_generator.generate(obs)
 
-    env.close()
+        # Solve the CSP.
+        sol = solver.solve(
+            csp,
+            initialization,
+            samplers,
+        )
+        assert sol is not None
+        policy.reset(sol)
+
+        # Run the policy.
+        for _ in range(1000):
+            act = policy.step(obs)
+            obs, reward, terminated, truncated, _ = env.step(act)
+            assert isinstance(obs, PyBulletState)
+            assert np.isclose(reward, 0.0)
+            if policy.check_termination(obs):
+                break
+            assert not terminated
+            assert not truncated
+        else:
+            assert False, "Policy did not terminate."
+
+        env.close()
