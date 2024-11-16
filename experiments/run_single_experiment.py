@@ -11,7 +11,7 @@ Examples:
 
     python experiments/run_single_experiment.py -m +experiment=tiny_csp \
         wandb.enable=True seed="range(1, 11)" wandb.group=tiny_csp_test \
-        wandb.entity=<username>
+        wandb.run_name="seed\${seed}" wandb.entity=<username>
 ```
 """
 
@@ -41,11 +41,14 @@ def _main(cfg: DictConfig) -> None:
     logging.info(f"Created model directory at {cfg.model_dir}")
 
     if cfg.wandb.enable:
-        wandb.config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+        wandb.config = OmegaConf.to_container(
+            cfg, resolve=True, throw_on_missing=True  # type: ignore
+        )
         wandb.init(
             project=cfg.wandb.project,
             entity=cfg.wandb.entity,
             group=cfg.wandb.group if cfg.wandb.group else None,
+            name=cfg.wandb.run_name if cfg.wandb.run_name else None,
         )
 
     # Create training environment, which should only be reset once.

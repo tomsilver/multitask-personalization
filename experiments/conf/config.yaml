@@ -10,6 +10,7 @@ wandb:
   project: "multitask_personalization"
   entity: ???
   group: null
+  run_name: null
 
 video_dir: ${hydra:runtime.output_dir}/videos
 model_dir: ${hydra:runtime.output_dir}/models
