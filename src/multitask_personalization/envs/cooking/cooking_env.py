@@ -251,9 +251,11 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 ingredient_quantity_in_pot=total_quantity,
                 ingredient_unused_quantity=unused_quantity,
             )
+
         elif isinstance(action, WaitCookingAction):
             # Do nothing else.
             pass
+
         elif isinstance(action, ServeMealCookingAction):
             # Serve the meal and compute user satisfaction.
             if self._hidden_spec is None:
