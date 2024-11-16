@@ -3,7 +3,11 @@
 Examples:
 ```
     python experiments/run_single_experiment.py +experiment=tiny_csp
+    
     python experiments/run_single_experiment.py +experiment=pybullet_csp
+   
+    python experiments/run_single_experiment.py +experiment=tiny_csp \
+        wandb.enable=True wand.entity=<username>
 ```
 """
 
@@ -15,6 +19,7 @@ import hydra
 import numpy as np
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
+import wandb
 
 from multitask_personalization.methods.approach import ApproachFailure, BaseApproach
 
@@ -30,6 +35,13 @@ def _main(cfg: DictConfig) -> None:
     model_dir = Path(cfg.model_dir)
     model_dir.mkdir(exist_ok=True)
     logging.info(f"Created model directory at {cfg.model_dir}")
+
+    if cfg.wandb.enable:
+        wandb.init(
+            project=cfg.wandb.project,
+            entity=cfg.wandb.entity,
+            name=cfg.wandb.run_name if cfg.wandb.run_name else None,
+        )
 
     # Create training environment, which should only be reset once.
     train_env = hydra.utils.instantiate(
@@ -111,6 +123,8 @@ def _main(cfg: DictConfig) -> None:
             "user_satisfaction": user_satisfaction,
             **train_approach.get_step_metrics(),
         }
+        if cfg.wandb.enable:
+            wandb.log(step_metrics)
         logging.info(f"Step {t} satisfaction: {user_satisfaction}")
         train_metrics.append(step_train_metrics)
     train_env.close()

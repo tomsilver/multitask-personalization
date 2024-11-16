@@ -22,6 +22,7 @@ dependencies = [
    "moviepy",
    "tqdm",
    "types-tqdm",
+   "wandb",
    "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
    "gymnasium==1.0.0",
    "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
