@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
@@ -20,11 +21,12 @@ def test_csp_approach(explore_method):
 
     hidden_spec = TinyHiddenSpec(1.0, 0.5)
     env = TinyEnv(hidden_spec=hidden_spec, seed=seed, allow_explore_switch_prob=0.0)
+    solver = RandomWalkCSPSolver(seed, show_progress_bar=False)
     approach = CSPApproach(
+        solver,
         env.action_space,
         seed=seed,
         explore_method=explore_method,
-        show_csp_progress_bar=False,
     )
     approach.train()
     env.action_space.seed(seed)

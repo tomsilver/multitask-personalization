@@ -1,14 +1,9 @@
 """General utility functions."""
 
-from typing import Any
-
 import numpy as np
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose3D
 from scipy.spatial.transform import Rotation as R
-from tqdm import tqdm
-
-from multitask_personalization.structs import CSP, CSPSampler, CSPVariable
 
 DIMENSION_NAMES = ("shoulder_aa", "shoulder_fe", "shoulder_rot", "elbow_flexion")
 DIMENSION_LIMITS = {
@@ -94,36 +89,3 @@ def bernoulli_entropy(log_p_true: float) -> float:
     entropy_nats = -p_true * log_p_true - p_false * log_p_false
     entropy = entropy_nats / np.log(2)  # convert to base 2 for convention
     return entropy
-
-
-def solve_csp(
-    csp: CSP,
-    initialization: dict[CSPVariable, Any],
-    samplers: list[CSPSampler],
-    rng: np.random.Generator,
-    max_iters: int = 100_000,
-    min_num_satisfying_solutions: int = 50,
-    show_progress_bar: bool = True,
-) -> dict[CSPVariable, Any] | None:
-    """A very naive solver for CSPs."""
-    sol = initialization.copy()
-    best_satisfying_sol: dict[CSPVariable, Any] | None = None
-    best_satisfying_cost: float = np.inf
-    num_satisfying_solutions = 0
-    for _ in (pbar := tqdm(range(max_iters), disable=not show_progress_bar)):
-        pbar.set_description(f"Found {num_satisfying_solutions} solns")
-        if csp.check_solution(sol):
-            num_satisfying_solutions += 1
-            if csp.cost is None:
-                return sol
-            cost = csp.get_cost(sol)
-            if cost < best_satisfying_cost:
-                best_satisfying_cost = cost
-                best_satisfying_sol = sol
-            if num_satisfying_solutions >= min_num_satisfying_solutions:
-                return best_satisfying_sol
-        sampler = samplers[rng.choice(len(samplers))]
-        partial_sol = sampler.sample(sol, rng)
-        sol = sol.copy()
-        sol.update(partial_sol)
-    return best_satisfying_sol

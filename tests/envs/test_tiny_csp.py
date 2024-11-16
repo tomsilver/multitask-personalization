@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.tiny.tiny_csp import (
     TinyCSPGenerator,
 )
@@ -10,13 +11,11 @@ from multitask_personalization.envs.tiny.tiny_env import (
     TinyHiddenSpec,
     TinyState,
 )
-from multitask_personalization.utils import solve_csp
 
 
 def test_tiny_csp():
     """Tests for tiny_csp.py."""
     seed = 123
-    rng = np.random.default_rng(seed)
     desired_distance = 0.1
     distance_threshold = 0.01
     hidden_spec = TinyHiddenSpec(
@@ -35,13 +34,13 @@ def test_tiny_csp():
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
-    sol = solve_csp(
+    solver = RandomWalkCSPSolver(
+        seed, min_num_satisfying_solutions=5, show_progress_bar=False
+    )
+    sol = solver.solve(
         csp,
         initialization,
         samplers,
-        rng,
-        min_num_satisfying_solutions=5,
-        show_progress_bar=False,
     )
     assert sol is not None
     policy.reset(sol)

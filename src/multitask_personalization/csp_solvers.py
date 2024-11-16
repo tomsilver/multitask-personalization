@@ -12,8 +12,9 @@ from multitask_personalization.structs import CSP, CSPSampler, CSPVariable
 class CSPSolver(abc.ABC):
     """A CSP solver."""
 
-    def __init__(self, rng: np.random.Generator) -> None:
-        self._rng = rng
+    def __init__(self, seed: int) -> None:
+        self._seed = seed
+        self._rng = np.random.default_rng(seed)
 
     @abc.abstractmethod
     def solve(
@@ -31,12 +32,12 @@ class RandomWalkCSPSolver(CSPSolver):
 
     def __init__(
         self,
-        rng: np.random.Generator,
+        seed: int,
         max_iters: int = 100_000,
         min_num_satisfying_solutions: int = 50,
         show_progress_bar: bool = True,
     ) -> None:
-        super().__init__(rng)
+        super().__init__(seed)
         self._max_iters = max_iters
         self._min_num_satisfying_solutions = min_num_satisfying_solutions
         self._show_progress_bar = show_progress_bar

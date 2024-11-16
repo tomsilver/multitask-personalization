@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
+from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.pybullet.pybullet_csp import (
     PyBulletCSPGenerator,
 )
@@ -17,7 +18,6 @@ from multitask_personalization.envs.pybullet.pybullet_task_spec import (
     PyBulletTaskSpec,
 )
 from multitask_personalization.rom.models import SphericalROMModel
-from multitask_personalization.utils import solve_csp
 
 
 def test_pybullet_csp():
@@ -25,7 +25,6 @@ def test_pybullet_csp():
     if "OPENAI_API_KEY" not in os.environ:
         os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
-    rng = np.random.default_rng(seed)
     default_task_spec = PyBulletTaskSpec()
     task_spec = PyBulletTaskSpec(
         book_half_extents=default_task_spec.book_half_extents[:3],
@@ -71,13 +70,13 @@ def test_pybullet_csp():
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
-    sol = solve_csp(
+    solver = RandomWalkCSPSolver(
+        seed, min_num_satisfying_solutions=1, show_progress_bar=False
+    )
+    sol = solver.solve(
         csp,
         initialization,
         samplers,
-        rng,
-        min_num_satisfying_solutions=1,
-        show_progress_bar=False,
     )
     assert sol is not None
     policy.reset(sol)
