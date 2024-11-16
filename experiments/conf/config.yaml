@@ -11,6 +11,7 @@ wandb:
   entity: ???
   group: null
   run_name: null
+  dir: ./logs/wandb
 
 video_dir: ${hydra:runtime.output_dir}/videos
 model_dir: ${hydra:runtime.output_dir}/models

@@ -22,9 +22,9 @@ import gymnasium as gym
 import hydra
 import numpy as np
 import pandas as pd
+import wandb
 from omegaconf import DictConfig, OmegaConf
 
-import wandb
 from multitask_personalization.methods.approach import ApproachFailure, BaseApproach
 
 
@@ -49,6 +49,7 @@ def _main(cfg: DictConfig) -> None:
             entity=cfg.wandb.entity,
             group=cfg.wandb.group if cfg.wandb.group else None,
             name=cfg.wandb.run_name if cfg.wandb.run_name else None,
+            dir=cfg.wandb.dir,
         )
 
     # Create training environment, which should only be reset once.
