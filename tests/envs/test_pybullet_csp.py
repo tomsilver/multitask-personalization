@@ -101,4 +101,4 @@ def test_pybullet_csp():
         else:
             assert False, "Policy did not terminate."
 
-        env.close()
+    env.close()
