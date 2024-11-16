@@ -6,8 +6,8 @@ import pybullet as p
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
 )
-from multitask_personalization.envs.pybullet.pybullet_task_spec import (
-    PyBulletTaskSpec,
+from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
+    PyBulletSceneSpec,
 )
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.utils import (
@@ -22,10 +22,10 @@ def test_spherical_rom_model():
 
     rng = np.random.default_rng(seed)
 
-    task_spec = PyBulletTaskSpec()
+    scene_spec = PyBulletSceneSpec()
     sphere_radius = 1.0
     spherical_rom_model = SphericalROMModel(
-        task_spec.human_spec,
+        scene_spec.human_spec,
         seed=seed,
         min_possible_radius=sphere_radius - 1e-1,
         max_possible_radius=sphere_radius + 1e-1,
@@ -33,7 +33,7 @@ def test_spherical_rom_model():
 
     # Create human.
     physics_client_id = p.connect(p.DIRECT)
-    human = create_human_from_spec(task_spec.human_spec, rng, physics_client_id)
+    human = create_human_from_spec(scene_spec.human_spec, rng, physics_client_id)
     sphere_center, _ = human.get_pos_orient(human.right_wrist)
 
     # Test SphereROMModel().

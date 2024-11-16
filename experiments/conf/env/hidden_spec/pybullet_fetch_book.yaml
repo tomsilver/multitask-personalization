@@ -1,4 +1,4 @@
-_target_: "multitask_personalization.envs.pybullet.pybullet_task_spec.HiddenTaskSpec"
+_target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
 book_preferences: "I enjoy some fiction, especially science fiction, but not historical fiction. I like certain nonfiction genres like true crime. But I find most biographies to be boring."
 defaults:
   - /rom_model: spherical

@@ -1,6 +1,6 @@
 _target_: "multitask_personalization.envs.pybullet.pybullet_env.PyBulletEnv"
-task_spec:
-  _target_: "multitask_personalization.envs.pybullet.pybullet_task_spec.PyBulletTaskSpec"
+scene_spec:
+  _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PyBulletSceneSpec"
 seed: ${seed}
 use_gui: False
 allow_explore_switch_prob: 0.05

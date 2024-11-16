@@ -33,15 +33,15 @@ from multitask_personalization.envs.pybullet.pybullet_missions import (
     HandOverBookMission,
     StoreHeldObjectMission,
 )
+from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
+    HiddenSceneSpec,
+    PyBulletSceneSpec,
+)
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     GripperAction,
     PyBulletAction,
     PyBulletMission,
     PyBulletState,
-)
-from multitask_personalization.envs.pybullet.pybullet_task_spec import (
-    HiddenTaskSpec,
-    PyBulletTaskSpec,
 )
 
 
@@ -52,8 +52,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def __init__(
         self,
-        task_spec: PyBulletTaskSpec,
-        hidden_spec: HiddenTaskSpec | None = None,
+        scene_spec: PyBulletSceneSpec,
+        hidden_spec: HiddenSceneSpec | None = None,
         use_gui: bool = False,
         seed: int = 0,
         llm_model_name: str = "gpt-4o-mini",
@@ -71,7 +71,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._book_llm_rng = np.random.default_rng(seed)
         self._mission_rng = np.random.default_rng(seed)
         self._seed = seed
-        self.task_spec = task_spec
+        self.scene_spec = scene_spec
         self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
         self._llm = OpenAILLM(
@@ -99,28 +99,19 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.physics_client_id = p.connect(p.DIRECT)
 
         # Create robot.
-        robot = create_pybullet_robot(
-            self.task_spec.robot_name,
-            self.physics_client_id,
-            base_pose=self.task_spec.robot_base_pose,
-            control_mode="reset",
-            home_joint_positions=self.task_spec.initial_joints,
-            fixed_base=False,
-        )
-        assert isinstance(robot, FingeredSingleArmPyBulletRobot)
-        self.robot = robot
+        self.robot = self._create_robot(self.scene_spec, self.physics_client_id)
 
         # Create robot stand.
         self.robot_stand_id = create_pybullet_cylinder(
-            self.task_spec.robot_stand_rgba,
-            radius=self.task_spec.robot_stand_radius,
-            length=self.task_spec.robot_stand_length,
+            self.scene_spec.robot_stand_rgba,
+            radius=self.scene_spec.robot_stand_radius,
+            length=self.scene_spec.robot_stand_length,
             physics_client_id=self.physics_client_id,
         )
 
         # Create human.
         self.human = create_human_from_spec(
-            self.task_spec.human_spec, self._rng, self.physics_client_id
+            self.scene_spec.human_spec, self._rng, self.physics_client_id
         )
 
         # Create wheelchair.
@@ -137,28 +128,28 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create table.
         self.table_id = create_pybullet_block(
-            self.task_spec.table_rgba,
-            half_extents=self.task_spec.table_half_extents,
+            self.scene_spec.table_rgba,
+            half_extents=self.scene_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
         )
 
         # Create cup.
         self.cup_id = create_pybullet_cylinder(
-            self.task_spec.object_rgba,
-            self.task_spec.object_radius,
-            self.task_spec.object_length,
+            self.scene_spec.object_rgba,
+            self.scene_spec.object_radius,
+            self.scene_spec.object_length,
             physics_client_id=self.physics_client_id,
         )
 
         # Create shelf.
         self.shelf_id, self.shelf_link_ids = _create_shelf(
-            self.task_spec.shelf_rgba,
-            shelf_width=self.task_spec.shelf_width,
-            shelf_depth=self.task_spec.shelf_depth,
-            shelf_height=self.task_spec.shelf_height,
-            spacing=self.task_spec.shelf_spacing,
-            support_width=self.task_spec.shelf_support_width,
-            num_layers=self.task_spec.shelf_num_layers,
+            self.scene_spec.shelf_rgba,
+            shelf_width=self.scene_spec.shelf_width,
+            shelf_depth=self.scene_spec.shelf_depth,
+            shelf_height=self.scene_spec.shelf_height,
+            spacing=self.scene_spec.shelf_spacing,
+            support_width=self.scene_spec.shelf_support_width,
+            num_layers=self.scene_spec.shelf_num_layers,
             physics_client_id=self.physics_client_id,
         )
 
@@ -166,8 +157,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.book_ids: list[int] = []
         self.book_descriptions: list[str] = []  # created in reset()
         for book_rgba, book_half_extents in zip(
-            self.task_spec.book_rgbas,
-            self.task_spec.book_half_extents,
+            self.scene_spec.book_rgbas,
+            self.scene_spec.book_half_extents,
             strict=True,
         ):
             book_id = create_pybullet_block(
@@ -179,15 +170,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create side table.
         self.side_table_id = create_pybullet_block(
-            self.task_spec.side_table_rgba,
-            half_extents=self.task_spec.side_table_half_extents,
+            self.scene_spec.side_table_rgba,
+            half_extents=self.scene_spec.side_table_half_extents,
             physics_client_id=self.physics_client_id,
         )
 
         # Create tray.
         self.tray_id = create_pybullet_block(
-            self.task_spec.tray_rgba,
-            half_extents=self.task_spec.tray_half_extents,
+            self.scene_spec.tray_rgba,
+            half_extents=self.scene_spec.tray_half_extents,
             physics_client_id=self.physics_client_id,
         )
 
@@ -208,7 +199,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._current_mission: PyBulletMission | None = None
 
         # Reset all states.
-        self._reset_from_task_spec()
+        self._reset_from_scene_spec()
 
         # Save the transform between the base and stand.
         world_to_base = self.robot.get_base_pose()
@@ -281,37 +272,39 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             obj_name_to_obj[book_description] = book_id
         self.current_held_object_id = obj_name_to_obj[state.held_object]
 
-    def _reset_from_task_spec(self) -> None:
+    def _reset_from_scene_spec(self) -> None:
 
         # Reset robot.
-        self.robot.set_base(self.task_spec.robot_base_pose)
-        self.robot.set_joints(self.task_spec.initial_joints)
+        self.robot.set_base(self.scene_spec.robot_base_pose)
+        self.robot.set_joints(self.scene_spec.initial_joints)
         self.robot.open_fingers()
 
         # Reset robot stand.
         set_pose(
-            self.robot_stand_id, self.task_spec.robot_stand_pose, self.physics_client_id
+            self.robot_stand_id,
+            self.scene_spec.robot_stand_pose,
+            self.physics_client_id,
         )
 
         # Reset wheelchair.
         set_pose(
             self.wheelchair.body,
-            self.task_spec.wheelchair_base_pose,
+            self.scene_spec.wheelchair_base_pose,
             self.physics_client_id,
         )
 
         # Reset table.
-        set_pose(self.table_id, self.task_spec.table_pose, self.physics_client_id)
+        set_pose(self.table_id, self.scene_spec.table_pose, self.physics_client_id)
 
         # Reset cup.
-        set_pose(self.cup_id, self.task_spec.object_pose, self.physics_client_id)
+        set_pose(self.cup_id, self.scene_spec.object_pose, self.physics_client_id)
 
         # Reset shelf.
-        set_pose(self.shelf_id, self.task_spec.shelf_pose, self.physics_client_id)
+        set_pose(self.shelf_id, self.scene_spec.shelf_pose, self.physics_client_id)
 
         # Reset books.
         for book_pose, book_id in zip(
-            self.task_spec.book_poses,
+            self.scene_spec.book_poses,
             self.book_ids,
             strict=True,
         ):
@@ -319,11 +312,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Reset side table.
         set_pose(
-            self.side_table_id, self.task_spec.side_table_pose, self.physics_client_id
+            self.side_table_id, self.scene_spec.side_table_pose, self.physics_client_id
         )
 
         # Reset tray.
-        set_pose(self.tray_id, self.task_spec.tray_pose, self.physics_client_id)
+        set_pose(self.tray_id, self.scene_spec.tray_pose, self.physics_client_id)
 
         # Reset held object statuses.
         self.current_grasp_transform = None
@@ -340,7 +333,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     ) -> tuple[PyBulletState, dict[str, Any]]:
         # Add more randomization in future PR.
         super().reset(seed=seed, options=options)
-        self._reset_from_task_spec()
+        self._reset_from_scene_spec()
 
         # Always allow exploration in the beginning.
         self._user_allows_explore = True
@@ -458,11 +451,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def _get_info(self) -> dict[str, Any]:
         assert self._current_mission is not None
+        env_video_should_pause = self.current_human_text is not None
         return {
             "mission": self._current_mission.get_id(),
-            "task_spec": self.task_spec,
+            "scene_spec": self.scene_spec,
             "user_satisfaction": self._user_satisfaction,
             "user_allows_explore": self._user_allows_explore,
+            "env_video_should_pause": env_video_should_pause,
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -474,7 +469,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         img = capture_image(
             self.physics_client_id,
             camera_target=target,
-            camera_distance=self.task_spec.camera_distance,
+            camera_distance=self.scene_spec.camera_distance,
         )
         # In non-render mode, PyBullet does not render background correctly.
         # We want the background to be black instead of white. Here, make the
@@ -561,14 +556,32 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
 
+    def _create_robot(
+        self, scene_spec: PyBulletSceneSpec, physics_client_id: int
+    ) -> FingeredSingleArmPyBulletRobot:
+        robot = create_pybullet_robot(
+            scene_spec.robot_name,
+            physics_client_id,
+            base_pose=scene_spec.robot_base_pose,
+            control_mode="reset",
+            home_joint_positions=scene_spec.initial_joints,
+            fixed_base=False,
+        )
+        assert isinstance(robot, FingeredSingleArmPyBulletRobot)
+        return robot
+
     def _generate_mission(self) -> PyBulletMission:
         state = self.get_state()
         seed = int(self._mission_rng.integers(0, 2**31 - 1))
         assert self._hidden_spec is not None
+        # NOTE: don't use the real robot / real environment inside the missions
+        # in case they want to do things like use robot FK.
+        physics_client_id = p.connect(p.DIRECT)
+        sim_robot = self._create_robot(self.scene_spec, physics_client_id)
         possible_missions: list[PyBulletMission] = [
             HandOverBookMission(
                 self.book_descriptions,
-                self.robot,
+                sim_robot,
                 self._hidden_spec.rom_model,
                 self._hidden_spec.book_preferences,
                 self._llm,

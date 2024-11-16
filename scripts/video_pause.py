@@ -1,4 +1,4 @@
-"""Create a new version of a video that pauses when there is some reward."""
+"""Create a new version of a video that pauses when the environment says so."""
 
 import argparse
 from pathlib import Path
@@ -16,7 +16,7 @@ def _main(infile: Path, results_file: Path, outfile: Path, pause_duration: float
     for step in range(1, max(df.step) + 1):
         row = df[df.step == step - 1]
         clip = video.subclip(step * dt, (step + 1) * dt)
-        if row.reward.item() != 0:
+        if row.env_video_should_pause.item():
             clip = freeze(clip, freeze_duration=pause_duration)
         clips.append(clip)
 

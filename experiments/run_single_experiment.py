@@ -59,10 +59,12 @@ def _main(cfg: DictConfig) -> None:
         assert not (terminated or truncated)
         approach.update(obs, float(rew), terminated, info)
         user_satisfaction = info.get("user_satisfaction", np.nan)
+        env_video_should_pause = info.get("env_video_should_pause", False)
         step_metrics = {
             "step": t,
             "user_allows_explore": info["user_allows_explore"],
             "user_satisfaction": user_satisfaction,
+            "env_video_should_pause": env_video_should_pause,
             **approach.get_step_metrics(),
         }
         logging.info(f"Step {t} satisfaction: {user_satisfaction}")
