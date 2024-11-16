@@ -7,7 +7,9 @@ import pandas as pd
 from matplotlib import animation
 from matplotlib import pyplot as plt
 
-from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
+from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
+    PyBulletSceneSpec,
+)
 
 
 def _create_spherical_radius_animation(
@@ -75,8 +77,8 @@ def _create_book_entropy_animation(
     prefix = "entropy-"
     keys = [k for k in df.keys() if k.startswith(prefix)]
     books = [k[len(prefix) :] for k in keys]
-    task_spec = PyBulletTaskSpec()
-    book_colors = task_spec.book_rgbas
+    scene_spec = PyBulletSceneSpec()
+    book_colors = scene_spec.book_rgbas
     assert len(books) == len(book_colors)
 
     # Set up the figure and axis.

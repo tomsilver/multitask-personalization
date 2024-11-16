@@ -12,7 +12,9 @@ from multitask_personalization.envs.pybullet.pybullet_env import (
     PyBulletEnv,
     PyBulletState,
 )
-from multitask_personalization.envs.pybullet.pybullet_task_spec import PyBulletTaskSpec
+from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
+    PyBulletSceneSpec,
+)
 from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import TinyState
 from multitask_personalization.methods.approach import (
@@ -64,10 +66,10 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                     seed=self._seed, explore_method=self._explore_method
                 )
             elif isinstance(obs, PyBulletState):
-                task_spec = info["task_spec"]
-                assert isinstance(task_spec, PyBulletTaskSpec)
-                sim = PyBulletEnv(task_spec, seed=self._seed, use_gui=False)
-                rom_model = SphericalROMModel(task_spec.human_spec, self._seed)
+                scene_spec = info["scene_spec"]
+                assert isinstance(scene_spec, PyBulletSceneSpec)
+                sim = PyBulletEnv(scene_spec, seed=self._seed, use_gui=False)
+                rom_model = SphericalROMModel(scene_spec.human_spec, self._seed)
                 self._csp_generator = PyBulletCSPGenerator(
                     sim,
                     rom_model,
