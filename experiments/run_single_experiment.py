@@ -3,11 +3,11 @@
 Examples:
 ```
     python experiments/run_single_experiment.py +experiment=tiny_csp
-    
+
     python experiments/run_single_experiment.py +experiment=pybullet_csp
-   
+
     python experiments/run_single_experiment.py +experiment=tiny_csp \
-        wandb.enable=True wand.entity=<username>
+        wandb.enable=True wandb.entity=<username>
 ```
 """
 
@@ -19,8 +19,8 @@ import hydra
 import numpy as np
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
-import wandb
 
+import wandb
 from multitask_personalization.methods.approach import ApproachFailure, BaseApproach
 
 
@@ -104,6 +104,8 @@ def _main(cfg: DictConfig) -> None:
             eval_approach.load(step_model_dir)
             # Run evaluation.
             step_eval_metrics = _evaluate_approach(eval_approach, eval_env, cfg, t)
+            if cfg.wandb.enable:
+                wandb.log({f"eval/{k}": v for k, v in step_eval_metrics.items()})
             eval_metrics.append(step_eval_metrics)
         # Eval on the last time step but don't train anymore.
         if t >= cfg.max_environment_steps:
@@ -124,7 +126,7 @@ def _main(cfg: DictConfig) -> None:
             **train_approach.get_step_metrics(),
         }
         if cfg.wandb.enable:
-            wandb.log(step_metrics)
+            wandb.log({f"train/{k}": v for k, v in step_train_metrics.items()})
         logging.info(f"Step {t} satisfaction: {user_satisfaction}")
         train_metrics.append(step_train_metrics)
     train_env.close()
