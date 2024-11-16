@@ -19,7 +19,7 @@ class HandOverBookMission(PyBulletMission):
     def __init__(
         self,
         book_descriptions: list[str],
-        robot: FingeredSingleArmPyBulletRobot,
+        sim_robot: FingeredSingleArmPyBulletRobot,
         rom_model: ROMModel,
         hidden_book_preferences: str,
         llm: OpenAILLM,
@@ -27,7 +27,7 @@ class HandOverBookMission(PyBulletMission):
     ) -> None:
         super().__init__()
         self._book_descriptions = book_descriptions
-        self._robot = robot
+        self._robot = sim_robot
         self._rom_model = rom_model
         self._hidden_book_preferences = hidden_book_preferences
         self._llm = llm
@@ -44,8 +44,9 @@ class HandOverBookMission(PyBulletMission):
         return state.held_object is None
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
-        robot_indicated_done = np.isclose(action[0], 2)
-        return bool(robot_indicated_done)
+        robot_indicated_done = bool(np.isclose(action[0], 2))
+        reachable = self._check_reachable(state)
+        return reachable and robot_indicated_done
 
     def step(
         self, state: PyBulletState, action: PyBulletAction
@@ -59,11 +60,7 @@ class HandOverBookMission(PyBulletMission):
             return None, -1.0
         book_description = state.held_object
         # Check if the book is reachable.
-        end_effector_position = self._robot.get_end_effector_pose().position
-        reachable = self._rom_model.check_position_reachable(
-            np.array(end_effector_position)
-        )
-        if not reachable:
+        if not self._check_reachable(state):
             return "I can't reach there", -1.0
         # Should be holding a preferred book.
         if not user_would_enjoy_book(
@@ -93,6 +90,12 @@ class HandOverBookMission(PyBulletMission):
             seed=self._seed,
         )
         return text, 1.0
+
+    def _check_reachable(self, state: PyBulletState) -> bool:
+        end_effector_pose = self._robot.forward_kinematics(state.robot_joints)
+        return self._rom_model.check_position_reachable(
+            np.array(end_effector_pose.position)
+        )
 
 
 class StoreHeldObjectMission(PyBulletMission):

@@ -99,16 +99,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.physics_client_id = p.connect(p.DIRECT)
 
         # Create robot.
-        robot = create_pybullet_robot(
-            self.task_spec.robot_name,
-            self.physics_client_id,
-            base_pose=self.task_spec.robot_base_pose,
-            control_mode="reset",
-            home_joint_positions=self.task_spec.initial_joints,
-            fixed_base=False,
-        )
-        assert isinstance(robot, FingeredSingleArmPyBulletRobot)
-        self.robot = robot
+        self.robot = self._create_robot(self.task_spec, self.physics_client_id)
 
         # Create robot stand.
         self.robot_stand_id = create_pybullet_cylinder(
@@ -561,14 +552,32 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
 
+    def _create_robot(
+        self, task_spec: PyBulletTaskSpec, physics_client_id: int
+    ) -> FingeredSingleArmPyBulletRobot:
+        robot = create_pybullet_robot(
+            task_spec.robot_name,
+            physics_client_id,
+            base_pose=task_spec.robot_base_pose,
+            control_mode="reset",
+            home_joint_positions=task_spec.initial_joints,
+            fixed_base=False,
+        )
+        assert isinstance(robot, FingeredSingleArmPyBulletRobot)
+        return robot
+
     def _generate_mission(self) -> PyBulletMission:
         state = self.get_state()
         seed = int(self._mission_rng.integers(0, 2**31 - 1))
         assert self._hidden_spec is not None
+        # NOTE: don't use the real robot / real environment inside the missions
+        # in case they want to do things like use robot FK.
+        physics_client_id = p.connect(p.DIRECT)
+        sim_robot = self._create_robot(self.task_spec, physics_client_id)
         possible_missions: list[PyBulletMission] = [
             HandOverBookMission(
                 self.book_descriptions,
-                self.robot,
+                sim_robot,
                 self._hidden_spec.rom_model,
                 self._hidden_spec.book_preferences,
                 self._llm,

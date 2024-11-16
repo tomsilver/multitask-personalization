@@ -126,7 +126,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
     ) -> None:
         assert self._csp_generator is not None
         assert np.isclose(reward, 0.0), "Rewards not used in this project!"
-        self._csp_generator.learn_from_transition(obs, act, next_obs, done, info)
+        self._csp_generator.observe_transition(obs, act, next_obs, done, info)
 
     def get_step_metrics(self) -> dict[str, float]:
         step_metrics = super().get_step_metrics()
