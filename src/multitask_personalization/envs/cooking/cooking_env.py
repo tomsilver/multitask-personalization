@@ -6,7 +6,12 @@ from typing import Any, TypeAlias, get_args
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import RenderFrame
+from matplotlib import pyplot as plt
+
+# NOTE: use intersection utilities in tomsgeoms2d once multiple pots are added.
+from tomsgeoms2d.structs import Circle
 from tomsutils.spaces import FunctionalSpace
+from tomsutils.utils import fig2data
 
 from multitask_personalization.structs import PublicSceneSpec
 
@@ -27,9 +32,14 @@ class CookingSceneSpec(PublicSceneSpec):
     # Characteristics of a single ingredient. In the near future, generalize
     # this to multiple ingredients.
     ingredient_name: str = "salt"
+    ingredient_color: tuple[float, float, float] = (0.5, 0.5, 0.5)  # rendering
     initial_ingredient_quantity: float = 1.0  # in terms of pot volume
     initial_ingredient_temperature: float = 0.0  # heats up during cooking
     ingredient_temperature_increase_rate: float = 0.1  # delta temperature
+
+    # Rendering.
+    render_figscale: float = 5
+    render_padding: float = 0.1
 
 
 @dataclass(frozen=True)
@@ -98,6 +108,8 @@ CookingAction: TypeAlias = (
 class CookingEnv(gym.Env[CookingState, CookingAction]):
     """A simple cooking environment."""
 
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 2}
+
     def __init__(
         self,
         scene_spec: CookingSceneSpec,
@@ -109,8 +121,18 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self._scene_spec = scene_spec
         self._hidden_spec = hidden_spec
 
+        self.render_mode = "rgb_array"
         self.action_space = FunctionalSpace(
-            contains_fn=lambda x: isinstance(x, get_args(CookingAction)), seed=seed
+            contains_fn=lambda x: isinstance(x, get_args(CookingAction)),
+        )
+
+        # Reset in reset().
+        self._current_state = CookingState(
+            pot_position=None,
+            ingredient_in_pot=None,
+            ingredient_quantity_in_pot=0.0,
+            ingredient_in_pot_temperature=0.0,
+            ingredient_unused_quantity=0.0,
         )
 
     def reset(
@@ -120,22 +142,51 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         options: dict[str, Any] | None = None,
     ) -> tuple[CookingState, dict[str, Any]]:
         super().reset(seed=seed, options=options)
-        import ipdb; ipdb.set_trace()
+        # Reset the current state based on the scene spec.
+        self._current_state = CookingState(
+            pot_position=None,
+            ingredient_in_pot=None,
+            ingredient_quantity_in_pot=0.0,
+            ingredient_in_pot_temperature=0.0,
+            ingredient_unused_quantity=self._scene_spec.initial_ingredient_quantity,
+        )
         return self._get_state(), self._get_info()
-    
+
     def step(
         self, action: CookingAction
     ) -> tuple[CookingState, float, bool, bool, dict[str, Any]]:
         assert self.action_space.contains(action)
-        import ipdb; ipdb.set_trace()
+        # TODO
         return self._get_state(), 0.0, False, False, self._get_info()
-    
+
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        raise NotImplementedError
+        pad = self._scene_spec.render_padding
+        min_x, max_x = -pad, self._scene_spec.stove_top_width + pad
+        min_y, max_y = -pad, self._scene_spec.stove_top_height + pad
+
+        scale = self._scene_spec.render_figscale
+        fig, ax = plt.subplots(
+            1, 1, figsize=(scale * (max_x - min_x), scale * (max_y - min_y))
+        )
+
+        # TODO
+        if self._current_state.pot_position is not None:
+            import ipdb
+
+            ipdb.set_trace()
+
+        ax.set_xlim(min_x + pad, max_x - pad)
+        ax.set_ylim(min_y + pad, max_y - pad)
+
+        plt.tight_layout()
+
+        img = fig2data(fig)
+        plt.close()
+
+        return img
 
     def _get_state(self) -> CookingState:
-        import ipdb; ipdb.set_trace()
+        return self._current_state
 
     def _get_info(self) -> dict[str, Any]:
-        import ipdb; ipdb.set_trace()
-    
+        return {}
