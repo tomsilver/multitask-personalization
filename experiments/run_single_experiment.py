@@ -8,6 +8,10 @@ Examples:
 
     python experiments/run_single_experiment.py +experiment=tiny_csp \
         wandb.enable=True wandb.entity=<username>
+
+    python experiments/run_single_experiment.py -m +experiment=tiny_csp \
+        wandb.enable=True seed="range(1, 11)" wandb.group=tiny_csp_test \
+        wandb.entity=<username>
 ```
 """
 
@@ -37,10 +41,11 @@ def _main(cfg: DictConfig) -> None:
     logging.info(f"Created model directory at {cfg.model_dir}")
 
     if cfg.wandb.enable:
+        wandb.config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
         wandb.init(
             project=cfg.wandb.project,
             entity=cfg.wandb.entity,
-            name=cfg.wandb.run_name if cfg.wandb.run_name else None,
+            group=cfg.wandb.group if cfg.wandb.group else None,
         )
 
     # Create training environment, which should only be reset once.
@@ -105,7 +110,9 @@ def _main(cfg: DictConfig) -> None:
             # Run evaluation.
             step_eval_metrics = _evaluate_approach(eval_approach, eval_env, cfg, t)
             if cfg.wandb.enable:
-                wandb.log({f"eval/{k}": v for k, v in step_eval_metrics.items()})
+                wandb_metrics = {f"eval/{k}": v for k, v in step_eval_metrics.items()}
+                del wandb_metrics["eval/training_step"]
+                wandb.log(wandb_metrics, step=t)
             eval_metrics.append(step_eval_metrics)
         # Eval on the last time step but don't train anymore.
         if t >= cfg.max_environment_steps:
@@ -126,7 +133,9 @@ def _main(cfg: DictConfig) -> None:
             **train_approach.get_step_metrics(),
         }
         if cfg.wandb.enable:
-            wandb.log({f"train/{k}": v for k, v in step_train_metrics.items()})
+            wandb_metrics = {f"train/{k}": v for k, v in step_train_metrics.items()}
+            del wandb_metrics["train/step"]
+            wandb.log(wandb_metrics, step=t)
         logging.info(f"Step {t} satisfaction: {user_satisfaction}")
         train_metrics.append(step_train_metrics)
     train_env.close()
@@ -140,6 +149,9 @@ def _main(cfg: DictConfig) -> None:
     eval_df = pd.DataFrame(eval_metrics)
     eval_df.to_csv(cfg.eval_results_file)
     logging.info(f"Wrote out eval results to {cfg.eval_results_file}")
+
+    if cfg.wandb.enable:
+        wandb.finish()
 
 
 def _evaluate_approach(

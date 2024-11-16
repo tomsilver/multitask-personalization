@@ -9,7 +9,7 @@ wandb:
   enable: False
   project: "multitask_personalization"
   entity: ???
-  run_name: null
+  group: null
 
 video_dir: ${hydra:runtime.output_dir}/videos
 model_dir: ${hydra:runtime.output_dir}/models
