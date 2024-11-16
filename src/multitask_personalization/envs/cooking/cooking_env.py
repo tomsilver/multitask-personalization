@@ -171,6 +171,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             ingredient_in_pot_temperature=0.0,
             ingredient_unused_quantity=0.0,
         )
+        self._current_user_satisfaction = 0.0
 
     def reset(
         self,
@@ -187,12 +188,16 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             ingredient_in_pot_temperature=0.0,
             ingredient_unused_quantity=self._scene_spec.initial_ingredient_quantity,
         )
+        self._current_user_satisfaction = 0.0
         return self._get_state(), self._get_info()
 
     def step(
         self, action: CookingAction
     ) -> tuple[CookingState, float, bool, bool, dict[str, Any]]:
         assert self.action_space.contains(action)
+
+        # May be updated if the action is serve.
+        self._current_user_satisfaction = 0.0
 
         # Heat up the ingredient in the pot if the pot is on the stove.
         if self._current_state.ingredient_in_pot is not None:
@@ -250,10 +255,35 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             # Do nothing else.
             pass
         elif isinstance(action, ServeMealCookingAction):
-            # TODO: empty the pot. Refresh the unused amounts.
-            import ipdb
+            # Serve the meal and compute user satisfaction.
+            if self._hidden_spec is None:
+                raise ValueError("Hidden spec required for step().")
 
-            ipdb.set_trace()
+            # Check ingredient quantity and temperature preferences.
+            is_salt_correct = (
+                self._hidden_spec.min_amount_salt
+                <= self._current_state.ingredient_quantity_in_pot
+                <= self._hidden_spec.max_amount_salt
+            )
+            is_temperature_correct = (
+                self._hidden_spec.min_temperature
+                <= self._current_state.ingredient_in_pot_temperature
+                <= self._hidden_spec.max_tempearture
+            )
+
+            if is_salt_correct and is_temperature_correct:
+                self._current_user_satisfaction = 1.0
+            else:
+                self._current_user_satisfaction = -1.0
+
+            # Reset the pot and ingredients.
+            self._current_state = CookingState(
+                pot_position=None,
+                ingredient_in_pot=None,
+                ingredient_quantity_in_pot=0.0,
+                ingredient_in_pot_temperature=0.0,
+                ingredient_unused_quantity=self._scene_spec.initial_ingredient_quantity,
+            )
         else:
             raise NotImplementedError()
 
@@ -296,4 +326,6 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         return self._current_state
 
     def _get_info(self) -> dict[str, Any]:
-        return {}
+        return {
+            "user_satisfaction": self._current_user_satisfaction,
+        }

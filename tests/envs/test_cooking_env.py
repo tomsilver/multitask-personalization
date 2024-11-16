@@ -1,8 +1,5 @@
 """Tests for cooking_env.py."""
 
-import os
-from pathlib import Path
-
 import numpy as np
 
 from multitask_personalization.envs.cooking.cooking_env import (
@@ -12,6 +9,7 @@ from multitask_personalization.envs.cooking.cooking_env import (
     CookingSceneSpec,
     CookingState,
     MovePotCookingAction,
+    ServeMealCookingAction,
     WaitCookingAction,
 )
 
@@ -29,10 +27,8 @@ def test_cooking_env():
     )
 
     # Uncomment to create video.
-    # TODO comment out
-    from gymnasium.wrappers import RecordVideo
-
-    env = RecordVideo(env, "videos/test-cooking-env")
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-cooking-env")
 
     env.action_space.seed(seed)
     obs, _ = env.reset()
@@ -42,6 +38,7 @@ def test_cooking_env():
     act = MovePotCookingAction(new_pot_position=(0.5, 0.5))
     obs, reward, terminated, truncated, _ = env.step(act)
     assert np.isclose(reward, 0.0)
+    assert not (terminated or truncated)
     assert isinstance(obs, CookingState)
     assert obs.pot_position == (0.5, 0.5)
 
@@ -49,6 +46,7 @@ def test_cooking_env():
     act = AddIngredientCookingAction("salt", 0.3)
     obs, reward, terminated, truncated, _ = env.step(act)
     assert np.isclose(reward, 0.0)
+    assert not (terminated or truncated)
     assert isinstance(obs, CookingState)
     assert obs.ingredient_in_pot == "salt"
     assert (
@@ -60,6 +58,7 @@ def test_cooking_env():
     act = WaitCookingAction()
     obs, reward, terminated, truncated, _ = env.step(act)
     assert np.isclose(reward, 0.0)
+    assert not (terminated or truncated)
     assert isinstance(obs, CookingState)
     assert obs.ingredient_in_pot == "salt"
     assert (
@@ -68,5 +67,15 @@ def test_cooking_env():
         + scene_spec.ingredient_temperature_increase_rate
     )
     assert obs.ingredient_quantity_in_pot == 0.3
+
+    # Serve.
+    act = ServeMealCookingAction()
+    obs, reward, terminated, truncated, info = env.step(act)
+    assert np.isclose(reward, 0.0)
+    assert not (terminated or truncated)
+    assert isinstance(obs, CookingState)
+    assert obs.pot_position is None
+    assert obs.ingredient_in_pot is None
+    assert info["user_satisfaction"] != 0
 
     env.close()
