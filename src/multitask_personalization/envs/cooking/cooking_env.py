@@ -1,7 +1,7 @@
 """A simple cooking environment."""
 
 from dataclasses import dataclass
-from typing import TypeAlias, get_args
+from typing import Any, TypeAlias, get_args
 
 import gymnasium as gym
 import numpy as np
@@ -112,3 +112,30 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self.action_space = FunctionalSpace(
             contains_fn=lambda x: isinstance(x, get_args(CookingAction)), seed=seed
         )
+
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[CookingState, dict[str, Any]]:
+        super().reset(seed=seed, options=options)
+        import ipdb; ipdb.set_trace()
+        return self._get_state(), self._get_info()
+    
+    def step(
+        self, action: CookingAction
+    ) -> tuple[CookingState, float, bool, bool, dict[str, Any]]:
+        assert self.action_space.contains(action)
+        import ipdb; ipdb.set_trace()
+        return self._get_state(), 0.0, False, False, self._get_info()
+    
+    def render(self) -> RenderFrame | list[RenderFrame] | None:
+        raise NotImplementedError
+
+    def _get_state(self) -> CookingState:
+        import ipdb; ipdb.set_trace()
+
+    def _get_info(self) -> dict[str, Any]:
+        import ipdb; ipdb.set_trace()
+    
