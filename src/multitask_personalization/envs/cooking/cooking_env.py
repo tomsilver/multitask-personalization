@@ -1,5 +1,7 @@
 """A simple cooking environment."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, TypeAlias, get_args
 
@@ -70,6 +72,41 @@ class CookingState:
 
     # Ingredient not yet in pot.
     ingredient_unused_quantity: float
+
+    def copy_with(
+        self,
+        pot_position: tuple[float, float] | None = None,
+        ingredient_in_pot: str | None = None,
+        ingredient_quantity_in_pot: float | None = None,
+        ingredient_in_pot_temperature: float | None = None,
+        ingredient_unused_quantity: float | None = None,
+    ) -> CookingState:
+        """Return a new CookingState with updated fields."""
+        return CookingState(
+            pot_position=(
+                pot_position if pot_position is not None else self.pot_position
+            ),
+            ingredient_in_pot=(
+                ingredient_in_pot
+                if ingredient_in_pot is not None
+                else self.ingredient_in_pot
+            ),
+            ingredient_quantity_in_pot=(
+                ingredient_quantity_in_pot
+                if ingredient_quantity_in_pot is not None
+                else self.ingredient_quantity_in_pot
+            ),
+            ingredient_in_pot_temperature=(
+                ingredient_in_pot_temperature
+                if ingredient_in_pot_temperature is not None
+                else self.ingredient_in_pot_temperature
+            ),
+            ingredient_unused_quantity=(
+                ingredient_unused_quantity
+                if ingredient_unused_quantity is not None
+                else self.ingredient_unused_quantity
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -156,7 +193,70 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self, action: CookingAction
     ) -> tuple[CookingState, float, bool, bool, dict[str, Any]]:
         assert self.action_space.contains(action)
-        # TODO
+
+        # Heat up the ingredient in the pot if the pot is on the stove.
+        if self._current_state.ingredient_in_pot is not None:
+            new_temperature = (
+                self._current_state.ingredient_in_pot_temperature
+                + self._scene_spec.ingredient_temperature_increase_rate
+            )
+            self._current_state = self._current_state.copy_with(
+                ingredient_in_pot_temperature=new_temperature
+            )
+
+        # Apply actions.
+        if isinstance(action, MovePotCookingAction):
+            # Move the pot to a new position (or off the stove).
+            self._current_state = self._current_state.copy_with(
+                pot_position=action.new_pot_position
+            )
+
+        elif isinstance(action, AddIngredientCookingAction):
+            # Add the specified quantity of the ingredient into the pot.
+            if self._current_state.pot_position is None:
+                raise ValueError(
+                    "Cannot add ingredient to a pot that is not on the stove."
+                )
+            if self._current_state.ingredient_in_pot is not None:
+                raise ValueError("Can only add ingredients to empty pots.")
+            if action.ingredient_name != self._scene_spec.ingredient_name:
+                raise ValueError(f"Ingredient {action.ingredient_name} not supported.")
+            if (
+                action.ingredient_quantity
+                > self._current_state.ingredient_unused_quantity
+            ):
+                raise ValueError("Not enough unused ingredient to add.")
+
+            total_quantity = (
+                self._current_state.ingredient_quantity_in_pot
+                + action.ingredient_quantity
+            )
+            pot_volume = (
+                2 * np.pi * self._scene_spec.pot_radius * self._scene_spec.pot_depth
+            )
+            if total_quantity > pot_volume:
+                raise ValueError("Cannot exceed the pot's capacity.")
+            unused_quantity = (
+                self._current_state.ingredient_unused_quantity
+                - action.ingredient_quantity
+            )
+
+            self._current_state = self._current_state.copy_with(
+                ingredient_in_pot=action.ingredient_name,
+                ingredient_quantity_in_pot=total_quantity,
+                ingredient_unused_quantity=unused_quantity,
+            )
+        elif isinstance(action, WaitCookingAction):
+            # Do nothing else.
+            pass
+        elif isinstance(action, ServeMealCookingAction):
+            # TODO: empty the pot. Refresh the unused amounts.
+            import ipdb
+
+            ipdb.set_trace()
+        else:
+            raise NotImplementedError()
+
         return self._get_state(), 0.0, False, False, self._get_info()
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -169,11 +269,18 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             1, 1, figsize=(scale * (max_x - min_x), scale * (max_y - min_y))
         )
 
-        # TODO
         if self._current_state.pot_position is not None:
-            import ipdb
-
-            ipdb.set_trace()
+            color = (
+                (1, 1, 1)
+                if self._current_state.ingredient_in_pot is None
+                else self._scene_spec.ingredient_color
+            )
+            circ = Circle(
+                self._current_state.pot_position[0],
+                self._current_state.pot_position[1],
+                self._scene_spec.pot_radius,
+            )
+            circ.plot(ax, facecolor=color, edgecolor="black")
 
         ax.set_xlim(min_x + pad, max_x - pad)
         ax.set_ylim(min_y + pad, max_y - pad)
@@ -183,7 +290,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         img = fig2data(fig)
         plt.close()
 
-        return img
+        return img  # type: ignore
 
     def _get_state(self) -> CookingState:
         return self._current_state
