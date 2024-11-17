@@ -7,6 +7,7 @@ from typing import Any, Iterator
 
 import numpy as np
 from tqdm import tqdm
+from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.structs import CSP, CSPSampler, CSPVariable, DiscreteCSP
 
@@ -86,8 +87,8 @@ class IterativeSolver(abc.ABC):
         return best_satisfying_sol
 
 
-class ExhaustiveDiscreteCSPSolver(DiscreteCSPSolver, IterativeSolver):
-    """A brute-force exhaustive discrete CSP solver."""
+class BruteForceDiscreteCSPSolver(DiscreteCSPSolver, IterativeSolver):
+    """A brute-force discrete CSP solver."""
 
     def __init__(
         self,
@@ -125,7 +126,7 @@ class ExhaustiveDiscreteCSPSolver(DiscreteCSPSolver, IterativeSolver):
             csp,
             initialization,
             max_iters,
-            min_num_satisfying_solutions=max_iters,
+            min_num_satisfying_solutions=1,
             show_progress_bar=self._show_progress_bar,
         )
 

@@ -119,13 +119,14 @@ class CSP:
 
 @dataclass(frozen=True)
 class DiscreteCSP(CSP):
-    """A CSP where all variables are discrete.
+    """A CSP where all variables are discrete and there are no costs.
 
     For simplicity, we enforce that all variables have EnumSpace
     domains.
     """
 
     def __post_init__(self) -> None:
+        assert self.cost is None
         for v in self.variables:
             assert isinstance(v.domain, EnumSpace)
 

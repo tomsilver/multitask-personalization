@@ -3,9 +3,10 @@
 import gymnasium as gym
 import numpy as np
 from tomsutils.spaces import EnumSpace
+import pytest
 
 from multitask_personalization.csp_solvers import (
-    ExhaustiveDiscreteCSPSolver,
+    BruteForceDiscreteCSPSolver,
     RandomWalkCSPSolver,
 )
 from multitask_personalization.structs import (
@@ -48,23 +49,22 @@ def test_hybrid_csp_solvers():
     assert sol[y] < sol[z] / 5
 
 
-def test_discrete_csp_solvers():
+@pytest.mark.parametrize("solver", [
+    BruteForceDiscreteCSPSolver(show_progress_bar=False)
+])
+def test_discrete_csp_solvers(solver):
     """Tests for discrete CSP solvers."""
     a = CSPVariable("a", EnumSpace(list(range(8))))
     b = CSPVariable("b", EnumSpace(list(range(8))))
-    c = CSPVariable("c", EnumSpace(list(range(8))))
 
-    # Optimal: a = 2, b = 3, c = 0.
-    c1 = FunctionalCSPConstraint("c1", [a, b], lambda a, b: a + b <= 5)
+    # Optimal: a = 2, b = 3.
+    c1 = FunctionalCSPConstraint("c1", [a, b], lambda a, b: a + b == 5)
     c2 = FunctionalCSPConstraint("c2", [a, b], lambda a, b: a < b)
-    c3 = FunctionalCSPConstraint("c3", [c], lambda c: c <= 5)
-    cost = CSPCost("cost", [a, b, c], lambda a, b, c: -(a * b * (10 - c)))
+    c3 = FunctionalCSPConstraint("c3", [a, b], lambda a, b: b - a == 1)
 
-    csp = DiscreteCSP([a, b, c], [c1, c2, c3], cost)
+    csp = DiscreteCSP([a, b], [c1, c2, c3])
 
-    solver = ExhaustiveDiscreteCSPSolver(show_progress_bar=False)
     sol = solver.solve(csp)
     assert sol is not None
     assert sol[a] == 2
     assert sol[b] == 3
-    assert sol[c] == 0
