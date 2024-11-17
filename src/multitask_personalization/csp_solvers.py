@@ -32,6 +32,10 @@ class CSPSolver(abc.ABC):
 class DiscreteCSPSolver(abc.ABC):
     """A solver of DiscreteCSPs."""
 
+    def __init__(self, seed: int) -> None:
+        self._seed = seed
+        self._rng = np.random.default_rng(seed)
+
     @abc.abstractmethod
     def solve(
         self,
@@ -92,8 +96,10 @@ class BruteForceDiscreteCSPSolver(DiscreteCSPSolver, IterativeSolver):
 
     def __init__(
         self,
+        seed: int,
         show_progress_bar: bool = True,
     ) -> None:
+        super().__init__(seed)
         self._show_progress_bar = show_progress_bar
         self._candidate_generator: Iterator[dict[CSPVariable, Any]] = iter([])
 
@@ -101,6 +107,10 @@ class BruteForceDiscreteCSPSolver(DiscreteCSPSolver, IterativeSolver):
         assert isinstance(csp, DiscreteCSP)
         variables = csp.variables
         values = [csp.get_domain_values(v) for v in variables]
+        # Randomly shuffle values so that the CSP produces different solutions
+        # if called multiple times (e.g. as part of incremental approach).
+        for v in values:
+            self._rng.shuffle(v)
         self._candidate_generator = (
             dict(zip(variables, vals)) for vals in itertools.product(*values)
         )

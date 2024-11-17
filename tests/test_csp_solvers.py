@@ -50,7 +50,7 @@ def test_hybrid_csp_solvers():
 
 
 @pytest.mark.parametrize("solver", [
-    BruteForceDiscreteCSPSolver(show_progress_bar=False)
+    BruteForceDiscreteCSPSolver(seed=123, show_progress_bar=False)
 ])
 def test_discrete_csp_solvers(solver):
     """Tests for discrete CSP solvers."""
