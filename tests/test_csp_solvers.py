@@ -2,16 +2,16 @@
 
 import gymnasium as gym
 import numpy as np
-from tomsutils.spaces import EnumSpace
 import pytest
+from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.csp_solvers import (
     BruteForceDiscreteCSPSolver,
     RandomWalkCSPSolver,
+    TreeSearchIncrementalCSPSolver,
 )
 from multitask_personalization.structs import (
     CSP,
-    CSPCost,
     CSPVariable,
     DiscreteCSP,
     FunctionalCSPConstraint,
@@ -20,7 +20,22 @@ from multitask_personalization.structs import (
 )
 
 
-def test_hybrid_csp_solvers():
+@pytest.mark.parametrize(
+    "solver",
+    [
+        RandomWalkCSPSolver(seed=123, show_progress_bar=False),
+        TreeSearchIncrementalCSPSolver(
+            seed=123,
+            discrete_csp_solver=BruteForceDiscreteCSPSolver(
+                seed=123, show_progress_bar=False
+            ),
+            max_depth=2,
+            base_branching_factor=3,
+            progressive_widening_scale=1.1,
+        ),
+    ],
+)
+def test_hybrid_csp_solvers(solver):
     """Tests for discrete-continuous CSP solvers."""
     x = CSPVariable("x", gym.spaces.Box(0, 1, dtype=np.float_))
     y = CSPVariable("y", gym.spaces.Box(0, 1, dtype=np.float_))
@@ -42,16 +57,15 @@ def test_hybrid_csp_solvers():
     samplers = [sampler_xy, sampler_z]
 
     initialization = {x: 0.0, y: 0.0, z: 0}
-    solver = RandomWalkCSPSolver(seed=123, show_progress_bar=False)
     sol = solver.solve(csp, initialization, samplers)
     assert sol is not None
     assert sol[x] < sol[y]
     assert sol[y] < sol[z] / 5
 
 
-@pytest.mark.parametrize("solver", [
-    BruteForceDiscreteCSPSolver(seed=123, show_progress_bar=False)
-])
+@pytest.mark.parametrize(
+    "solver", [BruteForceDiscreteCSPSolver(seed=123, show_progress_bar=False)]
+)
 def test_discrete_csp_solvers(solver):
     """Tests for discrete CSP solvers."""
     a = CSPVariable("a", EnumSpace(list(range(8))))

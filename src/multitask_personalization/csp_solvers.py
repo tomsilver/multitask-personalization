@@ -6,10 +6,18 @@ import math
 from typing import Any, Iterator
 
 import numpy as np
-from tqdm import tqdm
 from tomsutils.spaces import EnumSpace
+from tqdm import tqdm
 
-from multitask_personalization.structs import CSP, CSPSampler, CSPVariable, DiscreteCSP
+from multitask_personalization.structs import (
+    CSP,
+    CSPConstraint,
+    CSPCost,
+    CSPSampler,
+    CSPVariable,
+    DiscreteCSP,
+    FunctionalCSPConstraint,
+)
 
 
 class CSPSolver(abc.ABC):
@@ -97,9 +105,11 @@ class BruteForceDiscreteCSPSolver(DiscreteCSPSolver, IterativeSolver):
     def __init__(
         self,
         seed: int,
+        min_num_satisfying_solutions: int = 50,
         show_progress_bar: bool = True,
     ) -> None:
         super().__init__(seed)
+        self._min_num_satisfying_solutions = min_num_satisfying_solutions
         self._show_progress_bar = show_progress_bar
         self._candidate_generator: Iterator[dict[CSPVariable, Any]] = iter([])
 
@@ -136,7 +146,7 @@ class BruteForceDiscreteCSPSolver(DiscreteCSPSolver, IterativeSolver):
             csp,
             initialization,
             max_iters,
-            min_num_satisfying_solutions=1,
+            min_num_satisfying_solutions=self._min_num_satisfying_solutions,
             show_progress_bar=self._show_progress_bar,
         )
 
@@ -187,55 +197,152 @@ class RandomWalkCSPSolver(CSPSolver, IterativeSolver):
         )
 
 
-# class IncrementalCSPSolver(CSPSolver):
-#     """Solver inspired by the "incremental" version of PDDLStream."""
+class IncrementalCSPSolver(CSPSolver):
+    """Solver family inspired by the "incremental" version of PDDLStream."""
 
-#     def __init__(
-#         self,
-#         seed: int,
-#         discrete_csp_solver: DiscreteCSPSolver,
-#         max_depth: int = 5,
-#         base_branching_factor: int = 5,
-#         progressive_widening_scale: float = 1.1,
-#     ) -> None:
-#         super().__init__(seed)
-#         self._discrete_csp_solver = discrete_csp_solver
-#         self._base_branching_factor = base_branching_factor
-#         self._max_depth = max_depth
-#         self._progressive_widening_scale = progressive_widening_scale
+    def __init__(
+        self,
+        seed: int,
+        discrete_csp_solver: DiscreteCSPSolver,
+        max_generations: int,
+    ) -> None:
+        super().__init__(seed)
+        self._discrete_csp_solver = discrete_csp_solver
+        self._max_generations = max_generations
 
-#     def solve(
-#         self,
-#         csp: CSP,
-#         initialization: dict[CSPVariable, Any],
-#         samplers: list[CSPSampler],
-#     ) -> dict[CSPVariable, Any] | None:
+    @abc.abstractmethod
+    def _generate_candidates(
+        self,
+        csp: CSP,
+        initialization: dict[CSPVariable, Any],
+        samplers: list[CSPSampler],
+        generation: int,
+    ) -> dict[CSPVariable, list[Any]]:
+        """Generate candidate values for each CSP variable."""
 
-#         branching_factor = self._base_branching_factor
-#         for depth in range(1, self._max_depth + 1):
-#             # Generate candidates up to the given breadth and depth.
-#             candidates = self._generate_candidates(initialization, samplers, branching_factor, depth)
-#             # Convert into a discrete CSP and try to optimize.
-#             discrete_csp = self._discretize_csp(csp, candidates)
-#             sol = self._discrete_csp_solver.solve(discrete_csp)
-#             # Terminate immediately if a solution is found. Note that this may
-#             # be suboptimal.
-#             if sol is not None:
-#                 assert csp.check_solution(sol)
-#                 return sol
-#             # Widen branching factor.
-#             branching_factor = branching_factor * self._progressive_widening_scale
+    def solve(
+        self,
+        csp: CSP,
+        initialization: dict[CSPVariable, Any],
+        samplers: list[CSPSampler],
+    ) -> dict[CSPVariable, Any] | None:
+        for generation in range(self._max_generations):
+            candidates = self._generate_candidates(
+                csp, initialization, samplers, generation
+            )
+            # Convert into a discrete CSP, first without costs, to check if
+            # there is any feasible solution at all.
+            discrete_csp = self._discretize_csp(csp, candidates, include_costs=False)
+            sol = self._discrete_csp_solver.solve(discrete_csp)
+            # If no solution is found, we need to keep expanding the candidates.
+            if sol is None:
+                continue
+            # Otherwise, we found a solution, so we'll prepare to terminate.
+            # Rerun discrete CSP optimization, but this time WITH costs.
+            discrete_csp = self._discretize_csp(csp, candidates, include_costs=True)
+            improved_sol = self._discrete_csp_solver.solve(discrete_csp)
+            assert improved_sol is not None
+            # Note that this solution may still not be optimal due to the fact
+            # that we still only have finite candidates in the discrete CSP.
+            assert csp.check_solution(improved_sol)
+            return improved_sol
+        # Failed to find a solution.
+        return None
 
-#         # Failed to find a solution.
-#         return None
+    def _discretize_csp(
+        self, csp: CSP, candidates: dict[CSPVariable, list[Any]], include_costs: bool
+    ) -> DiscreteCSP:
+        """Convert into a discrete CSP given candidate variable values."""
 
-#     def _generate_candidates(self, initialization: dict[CSPVariable, Any],
-#         samplers: list[CSPSampler],
-#         branching_factor: int,
-#         depth: int) -> dict[CSPVariable, list[Any]]:
-#         """Generate candidate values for each CSP variable."""
-#         import ipdb; ipdb.set_trace()
+        variable_to_discrete: dict[CSPVariable, CSPVariable] = {}
+        for variable in csp.variables:
+            discrete_variable = CSPVariable(
+                variable.name, EnumSpace(candidates[variable])
+            )
+            variable_to_discrete[variable] = discrete_variable
 
-#     def _discretize_csp(self, csp: CSP, candidates: dict[CSPVariable, list[Any]]) -> DiscreteCSP:
-#         """Convert into a discrete CSP given candidate variable values."""
-#         import ipdb; ipdb.set_trace()
+        discrete_constraints: list[CSPConstraint] = []
+        for constraint in csp.constraints:
+            discrete_constraint = self._discretize_constraint(
+                constraint, variable_to_discrete
+            )
+            discrete_constraints.append(discrete_constraint)
+
+        if include_costs and csp.cost is not None:
+            discrete_cost = CSPCost(
+                csp.cost.name,
+                [variable_to_discrete[v] for v in csp.cost.variables],
+                csp.cost.cost_fn,
+            )
+        else:
+            discrete_cost = None
+
+        discrete_variables = list(variable_to_discrete.values())
+        return DiscreteCSP(discrete_variables, discrete_constraints, discrete_cost)
+
+    def _discretize_constraint(
+        self,
+        constraint: CSPConstraint,
+        variable_to_discrete: dict[CSPVariable, CSPVariable],
+    ) -> CSPConstraint:
+        variables = [variable_to_discrete[v] for v in constraint.variables]
+        constraint_fn = lambda *x: constraint.check_solution(dict(zip(variables, x)))
+        return FunctionalCSPConstraint(constraint.name, variables, constraint_fn)
+
+
+class TreeSearchIncrementalCSPSolver(IncrementalCSPSolver):
+    """Generate candidates by tree search with progressive widening."""
+
+    def __init__(
+        self,
+        seed: int,
+        discrete_csp_solver: DiscreteCSPSolver,
+        max_depth: int = 5,
+        base_branching_factor: int = 5,
+        progressive_widening_scale: float = 1.1,
+    ) -> None:
+        super().__init__(seed, discrete_csp_solver, max_generations=max_depth)
+        self._discrete_csp_solver = discrete_csp_solver
+        self._base_branching_factor = base_branching_factor
+        self._progressive_widening_scale = progressive_widening_scale
+
+    def _generate_candidates(
+        self,
+        csp: CSP,
+        initialization: dict[CSPVariable, Any],
+        samplers: list[CSPSampler],
+        generation: int,
+    ) -> dict[CSPVariable, list[Any]]:
+
+        max_depth = generation
+        branching_factor = int(
+            self._base_branching_factor * (self._progressive_widening_scale**max_depth)
+        )
+
+        var_to_vals = {v: [val] for v, val in initialization.items()}
+
+        queue = [(0, initialization.copy())]
+        while queue:
+            depth, sol = queue.pop()
+            if depth >= max_depth:
+                continue
+            for sampler in samplers:
+                for _ in range(branching_factor):
+                    partial_sol = sampler.sample(sol, self._rng)
+                    for variable, value in partial_sol.items():
+                        var_to_vals[variable].append(value)
+                    new_sol = sol.copy()
+                    new_sol.update(partial_sol)
+                    if depth < max_depth:
+                        queue.append((depth + 1, new_sol))
+
+        # Collapse unique values where possible.
+        final_var_to_vals: dict[CSPVariable, list[Any]] = {}
+        for v, vals in var_to_vals.items():
+            try:
+                vals = sorted(set(vals))
+            except TypeError:
+                pass
+            final_var_to_vals[v] = vals
+
+        return final_var_to_vals
