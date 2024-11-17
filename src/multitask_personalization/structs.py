@@ -7,6 +7,7 @@ from typing import Any, Callable, Generic
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import ActType, ObsType
+from tomsutils.spaces import EnumSpace
 
 
 @dataclass(frozen=True)
@@ -114,6 +115,24 @@ class CSP:
         """Evaluate the cost function."""
         assert self.cost is not None
         return self.cost.get_cost(sol)
+
+
+@dataclass(frozen=True)
+class DiscreteCSP(CSP):
+    """A CSP where all variables are discrete.
+
+    For simplicity, we enforce that all variables have EnumSpace
+    domains.
+    """
+
+    def __post_init__(self) -> None:
+        for v in self.variables:
+            assert isinstance(v.domain, EnumSpace)
+
+    def get_domain_values(self, variable: CSPVariable) -> list[Any]:
+        """Expose the variable domain as a list."""
+        assert isinstance(variable.domain, EnumSpace)
+        return variable.domain.elements
 
 
 class CSPSampler(abc.ABC):
