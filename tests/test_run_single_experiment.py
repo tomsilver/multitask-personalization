@@ -23,6 +23,7 @@ def test_run_single_experiment():
         "+experiment=tiny_csp",
         "seed=123",
         "max_environment_steps=10",
+        "eval_frequency=5",
         "+csp_solver.max_iters=10",
         "+csp_solver.show_progress_bar=False",
         "+csp_solver.min_num_satisfying_solutions=1",

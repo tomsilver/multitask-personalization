@@ -8,6 +8,13 @@ import numpy as np
 from gymnasium.core import RenderFrame
 from tomsutils.spaces import EnumSpace
 
+from multitask_personalization.structs import PublicSceneSpec
+
+
+@dataclass(frozen=True)
+class TinySceneSpec(PublicSceneSpec):
+    """At the moment, there is nothing to specify about the tiny env."""
+
 
 @dataclass(frozen=True)
 class TinyState:
@@ -40,14 +47,14 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
 
     def __init__(
         self,
+        scene_spec: TinySceneSpec,
         hidden_spec: TinyHiddenSpec | None = None,
         seed: int = 0,
-        allow_explore_switch_prob: float = 5e-2,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
+        self._scene_spec = scene_spec
         self._hidden_spec = hidden_spec
-        self._allow_explore_switch_prob = allow_explore_switch_prob
 
         self.action_space = gym.spaces.OneOf(
             (
@@ -59,7 +66,6 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         # Reset in reset().
         self._robot_position = -1.0
         self._human_position = 1.0
-        self._user_allows_explore = True
 
     def reset(
         self,
@@ -71,7 +77,6 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         # Randomly reset the positions of the human and robot.
         self._robot_position = self._rng.uniform(-10.0, 10.0)
         self._reset_human()
-        self._user_allows_explore = True
         return self._get_state(), self._get_info()
 
     def _reset_human(self) -> None:
@@ -91,9 +96,6 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
     def step(
         self, action: TinyAction
     ) -> tuple[TinyState, float, bool, bool, dict[str, Any]]:
-        if self._rng.uniform() < self._allow_explore_switch_prob:
-            self._user_allows_explore = not self._user_allows_explore
-
         assert self.action_space.contains(action)
         if np.isclose(action[0], 1):
             robot_indicated_done = True
@@ -130,5 +132,4 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         return {
             "robot_indicated_done": robot_indicated_done,
             "user_satisfaction": user_satisfaction,
-            "user_allows_explore": self._user_allows_explore,
         }

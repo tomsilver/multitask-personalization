@@ -10,7 +10,7 @@ from omegaconf import DictConfig, OmegaConf
 
 def combine_results_csvs(
     directory: Path,
-    results_filename: str = "results.csv",
+    results_filename: str = "eval_results.csv",
     config_filename: str = "config.yaml",
     config_fn: Callable[[DictConfig], bool] | None = None,
 ) -> pd.DataFrame:

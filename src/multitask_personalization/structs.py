@@ -10,6 +10,11 @@ from gymnasium.core import ActType, ObsType
 
 
 @dataclass(frozen=True)
+class PublicSceneSpec:
+    """A specification of the environment that is known to methods."""
+
+
+@dataclass(frozen=True)
 class CSPVariable:
     """Constraint satisfaction problem variable."""
 
@@ -188,17 +193,3 @@ class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
     @abc.abstractmethod
     def check_termination(self, obs: ObsType) -> bool:
         """Check if the policy should terminate given a "next" observation."""
-
-
-class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
-    """Generates CSPs, samplers, policies, and initializations; and learns from
-    environment transitions."""
-
-    def __init__(
-        self,
-        seed: int = 0,
-        explore_epsilon: float = 0.5,
-    ) -> None:
-        self._seed = seed
-        self._rng = np.random.default_rng(seed)
-        self._explore_epsilon = explore_epsilon

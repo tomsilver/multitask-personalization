@@ -9,6 +9,7 @@ from multitask_personalization.envs.tiny.tiny_csp import (
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
     TinyHiddenSpec,
+    TinySceneSpec,
     TinyState,
 )
 
@@ -18,10 +19,11 @@ def test_tiny_csp():
     seed = 123
     desired_distance = 0.1
     distance_threshold = 0.01
+    scene_spec = TinySceneSpec()
     hidden_spec = TinyHiddenSpec(
         desired_distance=desired_distance, distance_threshold=distance_threshold
     )
-    env = TinyEnv(hidden_spec=hidden_spec, seed=seed)
+    env = TinyEnv(scene_spec, hidden_spec=hidden_spec, seed=seed)
     obs, _ = env.reset()
     assert isinstance(obs, TinyState)
 

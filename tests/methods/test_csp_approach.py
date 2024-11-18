@@ -8,6 +8,7 @@ from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
     TinyHiddenSpec,
+    TinySceneSpec,
 )
 from multitask_personalization.methods.csp_approach import (
     CSPApproach,
@@ -18,12 +19,14 @@ from multitask_personalization.methods.csp_approach import (
 def test_csp_approach(explore_method):
     """Tests for csp_approach.py."""
     seed = 123
-
+    scene_spec = TinySceneSpec()
     hidden_spec = TinyHiddenSpec(1.0, 0.5)
-    env = TinyEnv(hidden_spec=hidden_spec, seed=seed, allow_explore_switch_prob=0.0)
     solver = RandomWalkCSPSolver(seed, show_progress_bar=False)
+    env = TinyEnv(scene_spec, hidden_spec=hidden_spec, seed=seed)
+    csp_generator = TinyCSPGenerator(seed=seed, explore_method=explore_method)
     approach = CSPApproach(
         solver,
+        scene_spec,
         env.action_space,
         seed=seed,
         explore_method=explore_method,

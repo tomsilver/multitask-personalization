@@ -18,50 +18,22 @@ def _main(results_dir: Path, outfile: Path) -> None:
     plt.rcParams.update({"font.size": 16})
 
     df = combine_results_csvs(results_dir)
+    keys = [
+        k
+        for k in df.keys()
+        if k.startswith("eval_") and k.endswith("_user_satisfaction")
+    ]
+    df["mean_eval_user_satisfaction"] = df[keys].mean(axis=1)
 
-    # Subselect non-explore steps.
-    df = df[~df.user_allows_explore]
-
-    fig, axes = plt.subplots(1, 2, figsize=(10, 7))
-    ax0, ax1 = axes  # type: ignore
-    fig.suptitle("CSP Approach in Tiny Env")
-
-    # Make a plot showing user satisfaction over time.
-    ax0.set_title("User Satisfaction")
-    sns.regplot(
-        df,
-        x="step",
-        y="user_satisfaction",
-        order=15,
-        scatter_kws={
-            "s": 2,
-            "color": (0, 0, 1, 0.1),
-        },
-        line_kws={
-            "lw": 3,
-            "color": "red",
-        },
-        ax=ax0,
+    plt.subplots(1, 1)
+    plt.title("CSP Approach in Tiny Env")
+    sns.lineplot(
+        data=df,
+        x="training_step",
+        y="mean_eval_user_satisfaction",
+        estimator="mean",
+        errorbar="sd",
     )
-
-    # Make a plot showing learned proximity over time.
-    ax1.set_title("Learned Proximity")
-    sns.regplot(
-        df,
-        x="step",
-        y="tiny_user_proximity_learned_distance",
-        order=15,
-        scatter_kws={
-            "s": 2,
-            "color": (0, 0, 1, 0.1),
-        },
-        line_kws={
-            "lw": 3,
-            "color": "red",
-        },
-        ax=ax1,
-    )
-
     plt.tight_layout()
     plt.savefig(outfile, dpi=500)
     print(f"Wrote out to {outfile}")
