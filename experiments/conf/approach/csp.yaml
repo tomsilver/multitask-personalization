@@ -1,4 +1,5 @@
 _target_: "multitask_personalization.methods.csp_approach.CSPApproach"
 max_motion_planning_candidates: 1
 explore_method: max-entropy
-csp_min_num_satisfying_solutions: 50
+defaults:
+  - /csp_solver: random_walk

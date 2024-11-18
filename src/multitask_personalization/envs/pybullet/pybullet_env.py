@@ -440,10 +440,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def _get_info(self) -> dict[str, Any]:
         assert self._current_mission is not None
+        env_video_should_pause = self.current_human_text is not None
         return {
             "mission": self._current_mission.get_id(),
             "scene_spec": self.scene_spec,
             "user_satisfaction": self._user_satisfaction,
+            "env_video_should_pause": env_video_should_pause,
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:

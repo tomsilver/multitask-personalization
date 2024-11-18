@@ -40,6 +40,9 @@ def _main(cfg: DictConfig) -> None:
     model_dir.mkdir(exist_ok=True)
     logging.info(f"Created model directory at {cfg.model_dir}")
 
+    # Sanity check config.
+    assert cfg.max_environment_steps % cfg.eval_frequency == 0
+
     if cfg.wandb.enable:
         wandb.config = OmegaConf.to_container(
             cfg, resolve=True, throw_on_missing=True  # type: ignore

@@ -1,8 +1,9 @@
-"""Tests for utils.py."""
+"""Tests for csp_solvers.py."""
 
 import gymnasium as gym
 import numpy as np
 
+from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.structs import (
     CSP,
     CSPVariable,
@@ -10,11 +11,10 @@ from multitask_personalization.structs import (
     FunctionalCSPSampler,
     LogProbCSPConstraint,
 )
-from multitask_personalization.utils import solve_csp
 
 
 def test_solve_csp():
-    """Tests for solve_csp()."""
+    """Tests for csp_solvers.py."""
     x = CSPVariable("x", gym.spaces.Box(0, 1, dtype=np.float_))
     y = CSPVariable("y", gym.spaces.Box(0, 1, dtype=np.float_))
     z = CSPVariable("z", gym.spaces.Discrete(5))
@@ -35,8 +35,8 @@ def test_solve_csp():
     samplers = [sampler_xy, sampler_z]
 
     initialization = {x: 0.0, y: 0.0, z: 0}
-    rng = np.random.default_rng(123)
-    sol = solve_csp(csp, initialization, samplers, rng)
+    solver = RandomWalkCSPSolver(seed=123, show_progress_bar=False)
+    sol = solver.solve(csp, initialization, samplers)
     assert sol is not None
     assert sol[x] < sol[y]
     assert sol[y] < sol[z] / 5
