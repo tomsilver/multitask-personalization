@@ -41,7 +41,7 @@ def _main(cfg: DictConfig) -> None:
     logging.info(f"Created model directory at {cfg.model_dir}")
 
     # Sanity check config.
-    assert cfg.max_environment_steps % cfg.eval_frequency == 0
+    assert cfg.env.max_environment_steps % cfg.env.eval_frequency == 0
 
     if cfg.wandb.enable:
         wandb.config = OmegaConf.to_container(
@@ -56,9 +56,7 @@ def _main(cfg: DictConfig) -> None:
         )
 
     # Create training environment, which should only be reset once.
-    train_env = hydra.utils.instantiate(
-        cfg.env, scene_spec=cfg.scene_spec, seed=cfg.seed
-    )
+    train_env = hydra.utils.instantiate(cfg.env.env, seed=cfg.seed)
     assert isinstance(train_env, gym.Env)
     if cfg.record_train_videos:
         train_env = gym.wrappers.RecordVideo(
@@ -68,9 +66,7 @@ def _main(cfg: DictConfig) -> None:
 
     # Create eval environment, which will be reset all the time.
     eval_seed = cfg.seed + cfg.eval_seed_offset
-    eval_env = hydra.utils.instantiate(
-        cfg.env, scene_spec=cfg.scene_spec, seed=eval_seed
-    )
+    eval_env = hydra.utils.instantiate(cfg.env.env, seed=eval_seed)
     assert isinstance(eval_env, gym.Env)
     if cfg.record_eval_videos:
         eval_env = gym.wrappers.RecordVideo(eval_env, str(Path(cfg.video_dir) / "eval"))
@@ -81,16 +77,16 @@ def _main(cfg: DictConfig) -> None:
     # the training approach.
     train_approach = hydra.utils.instantiate(
         cfg.approach,
-        scene_spec=cfg.scene_spec,
-        action_space=train_env.action_space,
+        train_env.scene_spec,
+        train_env.action_space,
         seed=cfg.seed,
     )
     assert isinstance(train_approach, BaseApproach)
     train_approach.train()
     eval_approach = hydra.utils.instantiate(
         cfg.approach,
-        scene_spec=cfg.scene_spec,
-        action_space=eval_env.action_space,
+        eval_env.scene_spec,
+        eval_env.action_space,
         seed=eval_seed,
     )
     assert isinstance(eval_approach, BaseApproach)
@@ -105,9 +101,9 @@ def _main(cfg: DictConfig) -> None:
     # Reset the training approach, one time only.
     train_approach.reset(obs, info)
     # Main training and eval loop.
-    for t in range(cfg.max_environment_steps + 1):
+    for t in range(cfg.env.max_environment_steps + 1):
         # Check if it's time to eval.
-        if t % cfg.eval_frequency == 0:
+        if t % cfg.env.eval_frequency == 0:
             # Save the models from the training approach and load them into the
             # eval approach.
             step_model_dir = model_dir / str(t)
@@ -122,7 +118,7 @@ def _main(cfg: DictConfig) -> None:
                 wandb.log(wandb_metrics, step=t)
             eval_metrics.append(step_eval_metrics)
         # Eval on the last time step but don't train anymore.
-        if t >= cfg.max_environment_steps:
+        if t >= cfg.env.max_environment_steps:
             break
         # Continue training.
         try:
@@ -167,7 +163,7 @@ def _evaluate_approach(
     """Evaluate the given approach and return metrics."""
     # Evaluate for a given number of trials.
     cumulative_user_satisfactions: list[float] = []
-    for eval_trial_idx in range(cfg.num_eval_trials):
+    for eval_trial_idx in range(cfg.env.num_eval_trials):
         logging.info(f"Starting eval trial {eval_trial_idx}")
         seed = cfg.seed + cfg.eval_seed_offset + eval_trial_idx
         obs, info = eval_env.reset(seed=seed)
@@ -175,7 +171,7 @@ def _evaluate_approach(
         eval_approach.reset(obs, info)
         # Main eval loop.
         cumulative_user_satisfaction = 0.0
-        for _ in range(cfg.max_eval_episode_length):
+        for _ in range(cfg.env.max_eval_episode_length):
             try:
                 act = eval_approach.step()
             except ApproachFailure as e:
@@ -186,7 +182,7 @@ def _evaluate_approach(
             eval_approach.update(obs, float(rew), terminated, info)
             user_satisfaction = info.get("user_satisfaction", 0.0)
             cumulative_user_satisfaction += user_satisfaction
-            if cfg.terminate_eval_episode_on_nonzero and user_satisfaction != 0:
+            if cfg.env.terminate_eval_episode_on_nonzero and user_satisfaction != 0:
                 break
         cumulative_user_satisfactions.append(cumulative_user_satisfaction)
     step_eval_metrics: dict[str, float] = {"training_step": training_step}

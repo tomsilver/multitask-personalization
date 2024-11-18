@@ -155,9 +155,9 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
-        self._scene_spec = scene_spec
         self._hidden_spec = hidden_spec
 
+        self.scene_spec = scene_spec
         self.render_mode = "rgb_array"
         self.action_space = FunctionalSpace(
             contains_fn=lambda x: isinstance(x, get_args(CookingAction)),
@@ -186,7 +186,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             ingredient_in_pot=None,
             ingredient_quantity_in_pot=0.0,
             ingredient_in_pot_temperature=0.0,
-            ingredient_unused_quantity=self._scene_spec.initial_ingredient_quantity,
+            ingredient_unused_quantity=self.scene_spec.initial_ingredient_quantity,
         )
         self._current_user_satisfaction = 0.0
         return self._get_state(), self._get_info()
@@ -203,7 +203,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         if self._current_state.ingredient_in_pot is not None:
             new_temperature = (
                 self._current_state.ingredient_in_pot_temperature
-                + self._scene_spec.ingredient_temperature_increase_rate
+                + self.scene_spec.ingredient_temperature_increase_rate
             )
             self._current_state = self._current_state.copy_with(
                 ingredient_in_pot_temperature=new_temperature
@@ -224,7 +224,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 )
             if self._current_state.ingredient_in_pot is not None:
                 raise ValueError("Can only add ingredients to empty pots.")
-            if action.ingredient_name != self._scene_spec.ingredient_name:
+            if action.ingredient_name != self.scene_spec.ingredient_name:
                 raise ValueError(f"Ingredient {action.ingredient_name} not supported.")
             if (
                 action.ingredient_quantity
@@ -237,7 +237,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 + action.ingredient_quantity
             )
             pot_volume = (
-                2 * np.pi * self._scene_spec.pot_radius * self._scene_spec.pot_depth
+                2 * np.pi * self.scene_spec.pot_radius * self.scene_spec.pot_depth
             )
             if total_quantity > pot_volume:
                 raise ValueError("Cannot exceed the pot's capacity.")
@@ -284,7 +284,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 ingredient_in_pot=None,
                 ingredient_quantity_in_pot=0.0,
                 ingredient_in_pot_temperature=0.0,
-                ingredient_unused_quantity=self._scene_spec.initial_ingredient_quantity,
+                ingredient_unused_quantity=self.scene_spec.initial_ingredient_quantity,
             )
         else:
             raise NotImplementedError()
@@ -292,11 +292,11 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         return self._get_state(), 0.0, False, False, self._get_info()
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        pad = self._scene_spec.render_padding
-        min_x, max_x = -pad, self._scene_spec.stove_top_width + pad
-        min_y, max_y = -pad, self._scene_spec.stove_top_height + pad
+        pad = self.scene_spec.render_padding
+        min_x, max_x = -pad, self.scene_spec.stove_top_width + pad
+        min_y, max_y = -pad, self.scene_spec.stove_top_height + pad
 
-        scale = self._scene_spec.render_figscale
+        scale = self.scene_spec.render_figscale
         fig, ax = plt.subplots(
             1, 1, figsize=(scale * (max_x - min_x), scale * (max_y - min_y))
         )
@@ -305,12 +305,12 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             color = (
                 (1, 1, 1)
                 if self._current_state.ingredient_in_pot is None
-                else self._scene_spec.ingredient_color
+                else self.scene_spec.ingredient_color
             )
             circ = Circle(
                 self._current_state.pot_position[0],
                 self._current_state.pot_position[1],
-                self._scene_spec.pot_radius,
+                self.scene_spec.pot_radius,
             )
             circ.plot(ax, facecolor=color, edgecolor="black")
 

@@ -1,5 +1,15 @@
-_target_: "multitask_personalization.envs.tiny.tiny_env.TinyEnv"
-hidden_spec:
-  _target_: "multitask_personalization.envs.tiny.tiny_env.TinyHiddenSpec"
-  desired_distance: 2.5
-  distance_threshold: 0.5
+env:
+  _target_: "multitask_personalization.envs.tiny.tiny_env.TinyEnv"
+  scene_spec:
+    _target_: "multitask_personalization.envs.tiny.tiny_env.TinySceneSpec"
+  hidden_spec:
+    _target_: "multitask_personalization.envs.tiny.tiny_env.TinyHiddenSpec"
+    desired_distance: 2.5
+    distance_threshold: 0.5
+  # note: seed is excluded because it varies for train/eval envs
+
+max_environment_steps: 50000
+eval_frequency: 5000
+max_eval_episode_length: 100
+terminate_eval_episode_on_nonzero: True
+num_eval_trials: 5

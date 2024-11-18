@@ -18,10 +18,11 @@ model_dir: ${hydra:runtime.output_dir}/models
 train_results_file: ${hydra:runtime.output_dir}/train_results.csv
 eval_results_file: ${hydra:runtime.output_dir}/eval_results.csv
 config_file: ${hydra:runtime.output_dir}/config.yaml
+record_train_videos: false
+record_eval_videos: false
 seed: 0
 eval_seed_offset: 100000
 defaults:
   - _self_
   - approach: random
   - env: tiny
-  - scene_spec: tiny_scene

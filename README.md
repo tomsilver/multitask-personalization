@@ -16,3 +16,24 @@
 ## Check Installation
 
 Run `./run_ci_checks.sh`. It should complete with all green successes in 5-10 seconds.
+
+## Running Experiments
+
+The main command for running experiments is below. This will be updated as we go on.
+
+```
+python experiments/run_single_experiment.py -m \
+    env=tiny \
+    approach=ours,exploit_only \
+    seed="range(1, 11)" \
+    wandb.enable=True wandb.group=main wandb.run_name="\${env}-\${approach}-\${seed}" wandb.entity=$WANDB_USER
+```
+
+Here's an example command to run a smaller shorter test:
+
+```
+python experiments/run_single_experiment.py -m \
+    env=tiny \
+    approach=ours \
+    seed="range(1, 3)"
+```
