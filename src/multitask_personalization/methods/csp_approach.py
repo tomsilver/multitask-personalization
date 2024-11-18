@@ -8,6 +8,7 @@ import gymnasium as gym
 import numpy as np
 
 from multitask_personalization.csp_generation import CSPGenerator
+from multitask_personalization.csp_solvers import CSPSolver
 from multitask_personalization.envs.pybullet.pybullet_csp import PyBulletCSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
@@ -27,7 +28,6 @@ from multitask_personalization.structs import (
     CSPVariable,
     PublicSceneSpec,
 )
-from multitask_personalization.utils import solve_csp
 
 
 class CSPApproach(BaseApproach[_ObsType, _ActType]):
@@ -35,21 +35,19 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
 
     def __init__(
         self,
+        csp_solver: CSPSolver,
         scene_spec: PublicSceneSpec,
         action_space: gym.spaces.Space[_ActType],
         seed: int,
         max_motion_planning_candidates: int = 1,
-        csp_min_num_satisfying_solutions: int = 50,
         explore_method: str = "nothing-personal",
-        show_csp_progress_bar: bool = True,
     ):
         super().__init__(scene_spec, action_space, seed)
+        self._csp_solver = csp_solver
         self._current_policy: CSPPolicy | None = None
         self._current_sol: dict[CSPVariable, Any] | None = None
-        self._max_motion_planning_candidates = max_motion_planning_candidates
-        self._csp_min_num_satisfying_solutions = csp_min_num_satisfying_solutions
         self._explore_method = explore_method
-        self._show_csp_progress_bar = show_csp_progress_bar
+        self._max_motion_planning_candidates = max_motion_planning_candidates
         self._csp_generator = self._create_csp_generator()
 
     def reset(
@@ -66,14 +64,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         csp, samplers, policy, initialization = self._csp_generator.generate(
             obs,
         )
-        self._current_sol = solve_csp(
-            csp,
-            initialization,
-            samplers,
-            self._rng,
-            min_num_satisfying_solutions=self._csp_min_num_satisfying_solutions,
-            show_progress_bar=self._show_csp_progress_bar,
-        )
+        self._current_sol = self._csp_solver.solve(csp, initialization, samplers)
         if self._current_sol is None:
             raise ApproachFailure("No solution found for generated CSP")
         self._current_policy = policy
