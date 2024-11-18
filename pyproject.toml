@@ -22,6 +22,7 @@ dependencies = [
    "moviepy",
    "tqdm",
    "types-tqdm",
+   "wandb",
    "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
    "gymnasium==1.0.0",
    "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
@@ -56,6 +57,7 @@ target-version = ["py310"]
 py_version = 310
 profile = "black"
 multi_line_output = 2
+src_paths = ["src"]
 skip_glob = ["venv/*"]
 split_on_trailing_comma = true
 
