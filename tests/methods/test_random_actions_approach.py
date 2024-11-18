@@ -3,6 +3,7 @@
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
     TinyHiddenSpec,
+    TinySceneSpec,
     TinyState,
 )
 from multitask_personalization.methods.random_actions_approach import (
@@ -13,10 +14,10 @@ from multitask_personalization.methods.random_actions_approach import (
 def test_random_actions_approach():
     """Tests for random_actions_approach.py."""
     seed = 123
-
+    scene_spec = TinySceneSpec()
     hidden_spec = TinyHiddenSpec(0.1, 0.01)
-    env = TinyEnv(hidden_spec=hidden_spec, seed=seed)
-    approach = RandomActionsApproach(env.action_space, seed=seed)
+    env = TinyEnv(scene_spec, hidden_spec=hidden_spec, seed=seed)
+    approach = RandomActionsApproach(scene_spec, env.action_space, seed=seed)
     approach.eval()
     env.action_space.seed(seed)
     obs, info = env.reset()

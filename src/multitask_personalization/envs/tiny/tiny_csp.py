@@ -1,5 +1,7 @@
 """CSP elements for the tiny environment."""
 
+import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -72,6 +74,22 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         # Training data for learning.
         self._training_inputs: list[float] = []
         self._training_outputs: list[bool] = []
+
+    def save(self, model_dir: Path) -> None:
+        """Save parameters."""
+        params = {
+            "desired_distance": self._desired_distance,
+        }
+        outfile = model_dir / "tiny_distance_constraint_params.json"
+        with open(outfile, "w", encoding="utf-8") as f:
+            json.dump(params, f)
+
+    def load(self, model_dir: Path) -> None:
+        """Load parameters."""
+        outfile = model_dir / "tiny_distance_constraint_params.json"
+        with open(outfile, "r", encoding="utf-8") as f:
+            params = json.load(f)
+        self._desired_distance = params["desired_distance"]
 
     def generate(
         self,
@@ -153,6 +171,12 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
             distance_threshold=distance_threshold,
             init_desired_distance=init_desired_distance,
         )
+
+    def save(self, model_dir: Path) -> None:
+        self._distance_constraint_generator.save(model_dir)
+
+    def load(self, model_dir: Path) -> None:
+        self._distance_constraint_generator.load(model_dir)
 
     def _generate_variables(
         self,

@@ -61,7 +61,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         llm_max_tokens: int = 700,
         llm_use_cache_only: bool = False,
         llm_temperature: float = 1.0,
-        allow_explore_switch_prob: float = 5e-2,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
@@ -81,7 +80,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             use_cache_only=llm_use_cache_only,
         )
         self._llm_temperature = llm_temperature
-        self._allow_explore_switch_prob = allow_explore_switch_prob
 
         # Create action space.
         self.action_space = gym.spaces.OneOf(
@@ -185,9 +183,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
-
-        # The user decides when the robot should explore.
-        self._user_allows_explore = True
 
         # For analysis purposes only. Should not be used by approaches.
         self._user_satisfaction = 0.0
@@ -335,9 +330,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         super().reset(seed=seed, options=options)
         self._reset_from_scene_spec()
 
-        # Always allow exploration in the beginning.
-        self._user_allows_explore = True
-
         # Reset user satisfaction.
         self._user_satisfaction = 0.0
 
@@ -356,9 +348,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return self.get_state(), self._get_info()
 
     def _step_simulator(self, action: PyBulletAction) -> None:
-        # Toggle whether exploration is allowed.
-        if self._rng.uniform() < self._allow_explore_switch_prob:
-            self._user_allows_explore = not self._user_allows_explore
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
@@ -456,7 +445,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "mission": self._current_mission.get_id(),
             "scene_spec": self.scene_spec,
             "user_satisfaction": self._user_satisfaction,
-            "user_allows_explore": self._user_allows_explore,
             "env_video_should_pause": env_video_should_pause,
         }
 

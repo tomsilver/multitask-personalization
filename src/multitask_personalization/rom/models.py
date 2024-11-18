@@ -1,6 +1,7 @@
 """ROM models."""
 
 import abc
+import json
 import logging
 import pickle
 from pathlib import Path
@@ -48,6 +49,14 @@ class ROMModel(abc.ABC):
 
         self._reachable_points: list[NDArray] = []
         self._reachable_kd_tree: KDTree = KDTree(np.array([[0, 0]]))
+
+    @abc.abstractmethod
+    def save(self, model_dir: Path) -> None:
+        """Save sufficient information about the model."""
+
+    @abc.abstractmethod
+    def load(self, model_dir: Path) -> None:
+        """Load from a saved model dir."""
 
     @abc.abstractmethod
     def check_position_reachable(
@@ -197,6 +206,12 @@ class GroundTruthROMModel(ROMModel):
         # Uncomment for debugging.
         # self._visualize_reachable_points()
 
+    def save(self, model_dir: Path) -> None:
+        pass
+
+    def load(self, model_dir: Path) -> None:
+        pass
+
     def check_position_reachable(
         self,
         position: NDArray,
@@ -253,6 +268,22 @@ class SphericalROMModel(TrainableROMModel):
         # Uncomment for debugging.
         # self._reachable_points = self._sample_spherical_points(n=500)
         # self._visualize_reachable_points()
+
+    def save(self, model_dir: Path) -> None:
+        outfile = model_dir / "spherical_rom_params.json"
+        params = {
+            "min_possible_radius": self._min_possible_radius,
+            "max_possible_radius": self._max_possible_radius,
+        }
+        with open(outfile, "w", encoding="utf-8") as f:
+            json.dump(params, f)
+
+    def load(self, model_dir: Path) -> None:
+        outfile = model_dir / "spherical_rom_params.json"
+        with open(outfile, "r", encoding="utf-8") as f:
+            params = json.load(f)
+        self._min_possible_radius = params["min_possible_radius"]
+        self._max_possible_radius = params["max_possible_radius"]
 
     @property
     def _radius(self) -> float:
@@ -371,6 +402,12 @@ class LearnedROMModel(TrainableROMModel):
 
         # Uncomment for debugging.
         # self._visualize_reachable_points()
+
+    def save(self, model_dir: Path) -> None:
+        raise NotImplementedError
+
+    def load(self, model_dir: Path) -> None:
+        raise NotImplementedError
 
     def check_position_reachable(
         self,
