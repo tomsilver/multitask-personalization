@@ -31,6 +31,9 @@ def _main(cfg: DictConfig) -> None:
     model_dir.mkdir(exist_ok=True)
     logging.info(f"Created model directory at {cfg.model_dir}")
 
+    # Sanity check config.
+    assert cfg.max_environment_steps % cfg.eval_frequency == 0
+
     # Create training environment, which should only be reset once.
     train_env = hydra.utils.instantiate(
         cfg.env, scene_spec=cfg.scene_spec, seed=cfg.seed
