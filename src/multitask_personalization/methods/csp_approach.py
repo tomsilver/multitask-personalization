@@ -36,9 +36,9 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
 
     def __init__(
         self,
+        csp_solver: CSPSolver,
         scene_spec: PublicSceneSpec,
         action_space: gym.spaces.Space[_ActType],
-        csp_solver: CSPSolver,
         llm: LargeLanguageModel | None = None,
         max_motion_planning_candidates: int = 1,
         explore_method: str = "nothing-personal",

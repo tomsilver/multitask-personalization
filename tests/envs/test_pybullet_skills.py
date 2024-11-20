@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from pybullet_helpers.geometry import Pose
+from tomsutils.llm import OpenAILLM
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
@@ -46,6 +47,12 @@ def test_pybullet_skills():
         book_poses=default_scene_spec.book_poses[:3],
         book_rgbas=default_scene_spec.book_rgbas[:3],
     )
+    llm = OpenAILLM(
+        model_name="gpt-4o-mini",
+        cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
+        max_tokens=700,
+        use_cache_only=True,
+    )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
     hidden_spec = HiddenSceneSpec(
@@ -55,11 +62,10 @@ def test_pybullet_skills():
     # Create a real environment.
     env = PyBulletEnv(
         scene_spec,
+        llm,
         hidden_spec=hidden_spec,
         use_gui=False,
         seed=seed,
-        llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
-        llm_use_cache_only=True,
     )
 
     # Uncomment to create video.
@@ -71,7 +77,7 @@ def test_pybullet_skills():
     assert isinstance(obs, PyBulletState)
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, use_gui=False, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
     book0, book1 = obs.book_descriptions[:2]
 
     # Test pick book.
