@@ -127,6 +127,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
                     entropy = bernoulli_entropy(lp)
                     total_entropy += entropy
                 mean_entropy = total_entropy / num_personal_lp_constraints
+                print("ENTROPY:", mean_entropy)
                 return 1.0 - mean_entropy
 
             return CSPCost("maximize-entropy", variables, _max_entropy_fn)

@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import scipy.stats
 from gymnasium.spaces import Box
+from sklearn.linear_model import LogisticRegression
 
 from multitask_personalization.csp_generation import (
     CSPConstraintGenerator,
@@ -28,12 +28,13 @@ from multitask_personalization.structs import (
 class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
 
     def __init__(
-        self, csp: CSP, seed: int = 0, distance_threshold: float = 1e-1
+        self,
+        csp: CSP,
+        seed: int = 0,
     ) -> None:
         super().__init__(csp, seed)
         self._target_position: float | None = None
         self._speed: float | None = None
-        self._distance_threshold = distance_threshold
         self._terminated = False
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
@@ -62,34 +63,25 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
     def __init__(
         self,
         seed: int = 0,
-        distance_threshold: float = 1e-1,
-        init_desired_distance: float = 1.0,
-        learning_rate: float = 1e-1,
     ) -> None:
         super().__init__(seed=seed)
-        self._learning_rate = learning_rate
-        self._distance_threshold = distance_threshold
         # Updated through learning.
-        self._desired_distance = init_desired_distance
+        self._classifier: LogisticRegression | None = None
         # Training data for learning.
         self._training_inputs: list[float] = []
         self._training_outputs: list[bool] = []
 
     def save(self, model_dir: Path) -> None:
-        """Save parameters."""
-        params = {
-            "desired_distance": self._desired_distance,
-        }
-        outfile = model_dir / "tiny_distance_constraint_params.json"
+        """Save classifier."""
+        outfile = model_dir / "tiny_distance_constraint_classifier.json"
         with open(outfile, "w", encoding="utf-8") as f:
-            json.dump(params, f)
+            json.dump(self._classifier, f)
 
     def load(self, model_dir: Path) -> None:
         """Load parameters."""
-        outfile = model_dir / "tiny_distance_constraint_params.json"
+        outfile = model_dir / "tiny_distance_constraint_classifier.json"
         with open(outfile, "r", encoding="utf-8") as f:
-            params = json.load(f)
-        self._desired_distance = params["desired_distance"]
+            self._classifier = json.load(f)
 
     def generate(
         self,
@@ -102,15 +94,16 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         position_var = next(iter(csp_vars))
 
         def _position_logprob(position: np.float_) -> float:
+            if self._classifier is None:
+                return 0.0
             dist = abs(obs.human - position)
-            return scipy.stats.norm.logpdf(dist, loc=self._desired_distance)
+            return self._classifier.predict_log_proba(np.array([[dist]]))[0][0]
 
-        threshold = scipy.stats.norm.logpdf(self._distance_threshold)
         user_preference_constraint = LogProbCSPConstraint(
             constraint_name,
             [position_var],
             _position_logprob,
-            threshold=threshold,
+            threshold=np.log(0.5),
         )
         return user_preference_constraint
 
@@ -137,22 +130,17 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         self._update_constraint_parameters()
 
     def get_metrics(self) -> dict[str, float]:
-        return {
-            "tiny_user_proximity_learned_distance": self._desired_distance,
-        }
+        return {}
 
     def _update_constraint_parameters(self) -> None:
-        positive_dists: set[float] = set()
-        for d, l in zip(self._training_inputs, self._training_outputs, strict=True):
-            if l:
-                positive_dists.add(d)
-        if not positive_dists:
-            return  # need to wait for data
-        min_positive_dist = min(positive_dists)
-        max_positive_dist = max(positive_dists)
-        center = (min_positive_dist + max_positive_dist) / 2
-        delta = center - self._desired_distance
-        self._desired_distance += self._learning_rate * delta
+        # Wait until we've seen both positive and negative examples to learn.
+        if len(set(self._training_outputs)) < 2:
+            return
+        # Train a classifier.
+        self._classifier = LogisticRegression()
+        self._classifier.fit(
+            np.array(self._training_inputs).reshape((-1, 1)), self._training_outputs
+        )
 
 
 class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
@@ -160,16 +148,11 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
 
     def __init__(
         self,
-        distance_threshold: float = 1e-1,
-        init_desired_distance: float = 1.0,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
-        self._distance_threshold = distance_threshold
         self._distance_constraint_generator = _TinyDistanceConstraintGenerator(
             seed=self._seed,
-            distance_threshold=distance_threshold,
-            init_desired_distance=init_desired_distance,
         )
 
     def save(self, model_dir: Path) -> None:
@@ -257,9 +240,7 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         obs: TinyState,
         csp: CSP,
     ) -> CSPPolicy:
-        return _TinyCSPPolicy(
-            csp, seed=self._seed, distance_threshold=self._distance_threshold
-        )
+        return _TinyCSPPolicy(csp, seed=self._seed)
 
     def observe_transition(
         self,

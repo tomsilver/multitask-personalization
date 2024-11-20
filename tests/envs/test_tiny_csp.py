@@ -28,11 +28,7 @@ def test_tiny_csp():
     assert isinstance(obs, TinyState)
 
     # Create the CSP.
-    csp_generator = TinyCSPGenerator(
-        seed=seed,
-        distance_threshold=distance_threshold,
-        init_desired_distance=desired_distance,
-    )
+    csp_generator = TinyCSPGenerator(seed=seed)
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
