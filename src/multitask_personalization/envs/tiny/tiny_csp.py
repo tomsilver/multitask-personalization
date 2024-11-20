@@ -1,12 +1,13 @@
 """CSP elements for the tiny environment."""
 
-import json
+import pickle as pkl
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from gymnasium.spaces import Box
-from sklearn.linear_model import LogisticRegression
+from numpy.typing import NDArray
+from sklearn.neighbors import RadiusNeighborsClassifier
 
 from multitask_personalization.csp_generation import (
     CSPConstraintGenerator,
@@ -66,22 +67,22 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
     ) -> None:
         super().__init__(seed=seed)
         # Updated through learning.
-        self._classifier: LogisticRegression | None = None
+        self._classifier: RadiusNeighborsClassifier | None = None
         # Training data for learning.
-        self._training_inputs: list[float] = []
+        self._training_inputs: list[NDArray] = []
         self._training_outputs: list[bool] = []
 
     def save(self, model_dir: Path) -> None:
         """Save classifier."""
         outfile = model_dir / "tiny_distance_constraint_classifier.json"
-        with open(outfile, "w", encoding="utf-8") as f:
-            json.dump(self._classifier, f)
+        with open(outfile, "wb") as f:
+            pkl.dump(self._classifier, f)
 
     def load(self, model_dir: Path) -> None:
         """Load parameters."""
         outfile = model_dir / "tiny_distance_constraint_classifier.json"
-        with open(outfile, "r", encoding="utf-8") as f:
-            self._classifier = json.load(f)
+        with open(outfile, "rb") as f:
+            self._classifier = pkl.load(f)
 
     def generate(
         self,
@@ -97,7 +98,9 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
             if self._classifier is None:
                 return 0.0
             dist = abs(obs.human - position)
-            return self._classifier.predict_log_proba(np.array([[dist]]))[0][0]
+            x = self._featurize_input(dist)
+            y = np.log(self._classifier.predict_proba([x])[0][1])
+            return y
 
         user_preference_constraint = LogProbCSPConstraint(
             constraint_name,
@@ -124,7 +127,7 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         # Get the current distance.
         dist = abs(obs.robot - obs.human)
         # Update the training data.
-        self._training_inputs.append(dist)
+        self._training_inputs.append(self._featurize_input(dist))
         self._training_outputs.append(label)
         # Update the constraint parameters.
         self._update_constraint_parameters()
@@ -137,10 +140,11 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
         if len(set(self._training_outputs)) < 2:
             return
         # Train a classifier.
-        self._classifier = LogisticRegression()
-        self._classifier.fit(
-            np.array(self._training_inputs).reshape((-1, 1)), self._training_outputs
-        )
+        self._classifier = RadiusNeighborsClassifier(radius=1000.0, weights="distance")
+        self._classifier.fit(self._training_inputs, self._training_outputs)
+
+    def _featurize_input(self, dist: np.floating | float) -> NDArray:
+        return np.array([dist])
 
 
 class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
