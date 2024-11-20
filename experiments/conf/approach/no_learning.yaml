@@ -1,0 +1,4 @@
+defaults:
+  - ours
+explore_method: nothing-personal  # doesn't matter, just pick a fast one
+disable_learning: true

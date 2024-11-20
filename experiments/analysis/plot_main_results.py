@@ -16,15 +16,19 @@ ENV_TO_DISPLAY_NAME = {
 
 APPROACH_TO_DISPLAY_NAME = {
     "ours": "CBTL (Ours)",
-    "nothing_personal": "Nothing Personal",
+    "nothing_personal": "Nothing Personal Explore",
     "exploit_only": "Exploit Only",
+    "epsilon_greedy": "Epsilon Greedy",
+    "no_learning": "No Learning",
 }
 
-# https://colorbrewer2.org/#type=diverging&scheme=PuOr&n=8
+# https://colorbrewer2.org/#type=diverging&scheme=Spectral&n=8
 APPROACH_TO_COLOR = {
-    "ours": "#542788",
-    "nothing_personal": "#b35806",
-    "exploit_only": "#fee0b6",
+    "ours": "#3288bd",
+    "nothing_personal": "#66c2a5",
+    "exploit_only": "#abdda4",
+    "epsilon_greedy": "#e6f598",
+    "no_learning": "#fee08b",
 }
 
 
