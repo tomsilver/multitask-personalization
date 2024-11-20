@@ -29,3 +29,5 @@ defaults:
   - approach: random
   - env: tiny
   - csp_solver: random_walk
+  - rom_model: spherical
+  - llm: openai
