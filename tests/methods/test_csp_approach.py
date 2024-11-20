@@ -16,7 +16,8 @@ from multitask_personalization.methods.csp_approach import (
 
 
 @pytest.mark.parametrize(
-    "explore_method", ["max-entropy", "nothing-personal", "exploit-only"]
+    "explore_method",
+    ["max-entropy", "nothing-personal", "exploit-only", "epsilon-greedy"],
 )
 def test_csp_approach(explore_method):
     """Tests for csp_approach.py."""

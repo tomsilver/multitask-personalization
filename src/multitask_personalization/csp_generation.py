@@ -27,11 +27,18 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         self,
         seed: int = 0,
         explore_method: str = "max-entropy",
+        epsilon_greedy_explore_threshold: float = 0.5,
     ) -> None:
-        assert explore_method in ("max-entropy", "nothing-personal", "exploit-only")
+        assert explore_method in (
+            "max-entropy",
+            "nothing-personal",
+            "exploit-only",
+            "epsilon-greedy",
+        )
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._explore_method = explore_method
+        self._epsilon_greedy_explore_threshold = epsilon_greedy_explore_threshold
         self._train_or_eval = "eval"
 
     def train(self) -> None:
@@ -79,10 +86,16 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     ) -> list[CSPConstraint]:
         """Generate CSP constraints."""
         nonpersonal_constraints = self._generate_nonpersonal_constraints(obs, variables)
-        if self._train_or_eval == "train" and self._explore_method in (
-            "nothing-personal",
-            "max-entropy",
-        ):
+        # Exclude personal constraints in the following cases.
+        exclude_personal_constraints = self._train_or_eval == "train" and (
+            self._explore_method == "nothing-personal"
+            or self._explore_method == "max-entropy"
+            or (
+                self._explore_method == "epsilon-greedy"
+                and self._rng.uniform() < self._epsilon_greedy_explore_threshold
+            )
+        )
+        if exclude_personal_constraints:
             return nonpersonal_constraints
         personal_constraints = self._generate_personal_constraints(obs, variables)
         return nonpersonal_constraints + personal_constraints

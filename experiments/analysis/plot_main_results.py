@@ -16,8 +16,9 @@ ENV_TO_DISPLAY_NAME = {
 
 APPROACH_TO_DISPLAY_NAME = {
     "ours": "CBTL (Ours)",
-    "nothing_personal": "Nothing Personal",
+    "nothing_personal": "Nothing Personal Explore",
     "exploit_only": "Exploit Only",
+    "epsilon_greedy": "Epsilon Greedy",
 }
 
 # https://colorbrewer2.org/#type=diverging&scheme=PuOr&n=8
@@ -25,6 +26,7 @@ APPROACH_TO_COLOR = {
     "ours": "#542788",
     "nothing_personal": "#b35806",
     "exploit_only": "#fee0b6",
+    "epsilon_greedy": "#d8daeb",
 }
 
 

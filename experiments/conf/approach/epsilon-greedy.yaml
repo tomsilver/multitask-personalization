@@ -1,0 +1,3 @@
+defaults:
+  - ours
+epsilon-greedy: epsilon-greedy
