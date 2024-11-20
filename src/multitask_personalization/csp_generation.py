@@ -26,8 +26,9 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     def __init__(
         self,
         seed: int = 0,
-        explore_method: str = "nothing-personal",
+        explore_method: str = "max-entropy",
     ) -> None:
+        assert explore_method in ("max-entropy", "nothing-personal")
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._explore_method = explore_method

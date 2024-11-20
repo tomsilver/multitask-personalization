@@ -25,9 +25,9 @@ def test_csp_approach(explore_method):
     env = TinyEnv(scene_spec, hidden_spec=hidden_spec, seed=seed)
     csp_generator = TinyCSPGenerator(seed=seed, explore_method=explore_method)
     approach = CSPApproach(
-        solver,
         scene_spec,
         env.action_space,
+        solver,
         seed=seed,
         explore_method=explore_method,
     )
