@@ -68,10 +68,11 @@ class PyBulletCannedLLM(LargeLanguageModel):
             "Generate a list of 3 real English-language book titles and authors."
         ):
             # pylint: disable=line-too-long
+            book_nums = rng.choice(list(range(1, 101)), size=3, replace=False)
             books = [
-                f"1. [The user would love] Title: Book {rng.integers(1, 101)}. Author: Love.",
-                f"2. [The user would hate] Title: Book {rng.integers(1, 101)}. Author: Hate.",
-                f"3. [The user would hate] Title: Book {rng.integers(1, 101)}. Author: Hate.",
+                f"1. [The user would love] Title: Book {book_nums[0]}. Author: Love.",
+                f"2. [The user would hate] Title: Book {book_nums[1]}. Author: Hate.",
+                f"3. [The user would hate] Title: Book {book_nums[2]}. Author: Hate.",
             ]
             resp = "\n".join(books)
             return [resp]
