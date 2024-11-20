@@ -17,6 +17,8 @@ from multitask_personalization.envs.pybullet.pybullet_utils import PyBulletCanne
 from multitask_personalization.rom.models import SphericalROMModel
 
 _LLM_CACHE_DIR = Path(__file__).parents[1] / "unit_test_llm_cache"
+if "OPENAI_API_KEY" not in os.environ:
+    os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
 
 
 @pytest.mark.parametrize(
@@ -33,8 +35,6 @@ _LLM_CACHE_DIR = Path(__file__).parents[1] / "unit_test_llm_cache"
 )
 def test_pybullet(llm):
     """Tests for pybullet.py."""
-    if "OPENAI_API_KEY" not in os.environ:
-        os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
 
     default_scene_spec = PyBulletSceneSpec()
