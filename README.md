@@ -33,7 +33,7 @@ Here's an example command to run a much shorter, cheaper set of all experiments:
 ```
 python experiments/run_single_experiment.py -m \
     env=tiny,pybullet \
-    approach=ours,nothing_personal \
+    approach=ours,nothing_personal,exploit_only \
     seed="range(1, 3)" \
     env.max_environment_steps=100 \
     env.eval_frequency=50 \

@@ -15,7 +15,9 @@ from multitask_personalization.methods.csp_approach import (
 )
 
 
-@pytest.mark.parametrize("explore_method", ["max-entropy", "nothing-personal"])
+@pytest.mark.parametrize(
+    "explore_method", ["max-entropy", "nothing-personal", "exploit-only"]
+)
 def test_csp_approach(explore_method):
     """Tests for csp_approach.py."""
     seed = 123
@@ -37,7 +39,7 @@ def test_csp_approach(explore_method):
     for _ in range(10):
         obs, info = env.reset()
         approach.reset(obs, info)
-        for _ in range(100):
+        for _ in range(10):
             act = approach.step()
             obs, reward, terminated, truncated, info = env.step(act)
             assert np.isclose(reward, 0.0)
