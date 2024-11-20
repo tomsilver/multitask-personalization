@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import numpy as np
+from tomsutils.llm import OpenAILLM
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
@@ -31,13 +32,18 @@ def test_pybullet():
     hidden_spec = HiddenSceneSpec(
         book_preferences=book_preferences, rom_model=rom_model
     )
+    llm = OpenAILLM(
+        model_name="gpt-4o-mini",
+        cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
+        max_tokens=700,
+        use_cache_only=True,
+    )
     env = PyBulletEnv(
         scene_spec,
+        llm,
         hidden_spec=hidden_spec,
         use_gui=False,
         seed=seed,
-        llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
-        llm_use_cache_only=True,
     )
     env.action_space.seed(seed)
     obs, _ = env.reset()

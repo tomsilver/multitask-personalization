@@ -1,6 +1,7 @@
 """Utilities for the pybullet environment and models."""
 
 import numpy as np
+import PIL
 from tomsutils.llm import LargeLanguageModel
 
 
@@ -40,3 +41,30 @@ def user_would_enjoy_book(
     """Return whether the user would enjoy the book."""
     lp = get_user_book_enjoyment_logprob(book_description, user_preferences, llm, seed)
     return lp > np.log(0.5)
+
+
+class PyBulletCannedLLM(LargeLanguageModel):
+    """A very domain-specific 'LLM' that we can use for testing things without
+    paying any money to OpenAI."""
+
+    def get_id(self) -> str:
+        return "pybullet-canned"
+
+    def _sample_completions(
+        self,
+        prompt: str,
+        imgs: list[PIL.Image.Image] | None,
+        temperature: float,
+        seed: int,
+        num_completions: int = 1,
+    ) -> list[str]:
+        import ipdb
+
+        ipdb.set_trace()
+
+    def get_multiple_choice_logprobs(
+        self, prompt: str, choices: list[str], seed: int
+    ) -> dict[str, float]:
+        import ipdb
+
+        ipdb.set_trace()

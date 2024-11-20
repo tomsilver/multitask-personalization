@@ -22,7 +22,7 @@ from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
-from tomsutils.llm import OpenAILLM
+from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
 from tomsutils.utils import render_textbox_on_image
 
@@ -53,14 +53,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     def __init__(
         self,
         scene_spec: PyBulletSceneSpec,
+        llm: LargeLanguageModel,
         hidden_spec: HiddenSceneSpec | None = None,
         use_gui: bool = False,
         seed: int = 0,
-        llm_model_name: str = "gpt-4o-mini",
-        llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
-        llm_max_tokens: int = 700,
-        llm_use_cache_only: bool = False,
-        llm_temperature: float = 1.0,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
@@ -73,13 +69,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.scene_spec = scene_spec
         self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
-        self._llm = OpenAILLM(
-            llm_model_name,
-            llm_cache_dir,
-            max_tokens=llm_max_tokens,
-            use_cache_only=llm_use_cache_only,
-        )
-        self._llm_temperature = llm_temperature
+        self._llm = llm
 
         # Create action space.
         self.action_space = gym.spaces.OneOf(
@@ -602,7 +592,7 @@ Return that list and nothing else. Do not explain anything."""
             response = self._llm.sample_completions(
                 prompt,
                 imgs=None,
-                temperature=self._llm_temperature,
+                temperature=1.0,
                 seed=seed,
             )[0]
             book_descriptions: list[str] = []

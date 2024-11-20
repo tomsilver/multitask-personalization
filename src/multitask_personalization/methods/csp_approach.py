@@ -6,6 +6,7 @@ from typing import Any
 
 import gymnasium as gym
 import numpy as np
+from tomsutils.llm import LargeLanguageModel
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.csp_solvers import CSPSolver
@@ -38,11 +39,13 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         scene_spec: PublicSceneSpec,
         action_space: gym.spaces.Space[_ActType],
         csp_solver: CSPSolver,
+        llm: LargeLanguageModel | None = None,
         max_motion_planning_candidates: int = 1,
         explore_method: str = "nothing-personal",
         seed: int = 0,
     ):
         super().__init__(scene_spec, action_space, seed)
+        self._llm = llm
         self._csp_solver = csp_solver
         self._current_policy: CSPPolicy | None = None
         self._current_sol: dict[CSPVariable, Any] | None = None
@@ -124,11 +127,15 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 seed=self._seed, explore_method=self._explore_method
             )
         if isinstance(self._scene_spec, PyBulletSceneSpec):
-            sim = PyBulletEnv(self._scene_spec, seed=self._seed, use_gui=False)
+            assert self._llm is not None
+            sim = PyBulletEnv(
+                self._scene_spec, self._llm, seed=self._seed, use_gui=False
+            )
             rom_model = SphericalROMModel(self._scene_spec.human_spec, self._seed)
             return PyBulletCSPGenerator(
                 sim,
                 rom_model,
+                self._llm,
                 seed=self._seed,
                 explore_method=self._explore_method,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,

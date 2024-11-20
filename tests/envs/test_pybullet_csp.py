@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import numpy as np
+from tomsutils.llm import OpenAILLM
 
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.pybullet.pybullet_csp import (
@@ -39,14 +40,20 @@ def test_pybullet_csp():
         book_preferences=book_preferences, rom_model=rom_model
     )
 
+    llm = OpenAILLM(
+        model_name="gpt-4o-mini",
+        cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
+        max_tokens=700,
+        use_cache_only=True,
+    )
+
     # Create a real environment.
     env = PyBulletEnv(
         scene_spec,
+        llm,
         hidden_spec=hidden_spec,
         use_gui=False,
         seed=seed,
-        llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
-        llm_use_cache_only=True,
     )
 
     # Uncomment to create video.
@@ -58,15 +65,14 @@ def test_pybullet_csp():
     assert isinstance(obs, PyBulletState)
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, use_gui=False, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
         sim,
         rom_model,
+        llm,
         seed=seed,
-        llm_cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
-        llm_use_cache_only=True,
         book_preference_initialization="I like everything!",
     )
 

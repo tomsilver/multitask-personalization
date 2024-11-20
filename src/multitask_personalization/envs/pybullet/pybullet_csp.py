@@ -18,7 +18,7 @@ from pybullet_helpers.inverse_kinematics import (
 from pybullet_helpers.manipulation import generate_surface_placements
 from pybullet_helpers.math_utils import get_poses_facing_line
 from pybullet_helpers.spaces import PoseSpace
-from tomsutils.llm import OpenAILLM
+from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.csp_generation import CSPGenerator
@@ -202,12 +202,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         sim: PyBulletEnv,
         rom_model: ROMModel,
+        llm: LargeLanguageModel,
         book_preference_initialization: str = "Unknown",
-        llm_model_name: str = "gpt-4o-mini",
-        llm_cache_dir: Path = Path(__file__).parents[4] / "llm_cache",
-        llm_max_tokens: int = 700,
-        llm_use_cache_only: bool = False,
-        llm_temperature: float = 1.0,
         max_motion_planning_candidates: int = 1,
         **kwargs,
     ) -> None:
@@ -217,13 +213,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
         self._current_book_preference = book_preference_initialization
         self._all_user_feedback: list[str] = []
-        self._llm = OpenAILLM(
-            llm_model_name,
-            llm_cache_dir,
-            max_tokens=llm_max_tokens,
-            use_cache_only=llm_use_cache_only,
-        )
-        self._llm_temperature = llm_temperature
+        self._llm = llm
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._current_mission: str | None = None
 
@@ -675,7 +665,7 @@ Return this description and nothing else. Do not explain anything."""
         response = self._llm.sample_completions(
             prompt,
             imgs=None,
-            temperature=self._llm_temperature,
+            temperature=1.0,
             seed=self._seed,
         )[0]
         self._current_book_preference = response
