@@ -58,13 +58,37 @@ class PyBulletCannedLLM(LargeLanguageModel):
         seed: int,
         num_completions: int = 1,
     ) -> list[str]:
-        import ipdb
 
-        ipdb.set_trace()
+        assert num_completions == 1
+        rng = np.random.default_rng(seed)
+
+        if prompt.startswith("Generate a list of 3 real English-language book titles and authors."):
+            books = [
+                f"1. [The user would love] Title: Book {rng.integers(1, 101)}. Author: Love.",
+                f"2. [The user would hate] Title: Book {rng.integers(1, 101)}. Author: Hate.",
+                f"3. [The user would hate] Title: Book {rng.integers(1, 101)}. Author: Hate.",
+            ]
+            resp = "\n".join(books)
+            return [resp]
+
+        else:
+            import ipdb; ipdb.set_trace()
+            raise NotImplementedError
 
     def get_multiple_choice_logprobs(
         self, prompt: str, choices: list[str], seed: int
     ) -> dict[str, float]:
-        import ipdb
+        book_description, _, user_description, remainder = prompt.split("\n", 3)
+        assert book_description.startswith("Book description: ")
+        assert user_description.startswith("User description: ")
+        assert "0 to 10" in remainder
+        
+        if "Unknown" in user_description:
+            logprobs = {i: -np.inf for i in choices}
+            logprobs[5] = 0.0
+            return logprobs
+        
+        else:
+            import ipdb; ipdb.set_trace()
+            raise NotImplementedError
 
-        ipdb.set_trace()

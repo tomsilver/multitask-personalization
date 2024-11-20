@@ -1,0 +1,5 @@
+_target_: "multitask_personalization.envs.pybullet.pybullet_utils.PyBulletCannedLLM"
+cache_dir:
+  _target_: "pathlib.Path"
+  _args_:
+    - "llm_cache"
