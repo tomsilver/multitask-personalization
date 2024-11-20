@@ -9,7 +9,7 @@ env:
   # note: seed is excluded because it varies for train/eval envs
 
 max_environment_steps: 50000
-eval_frequency: 5000
+eval_frequency: 1000
 max_eval_episode_length: 100
 terminate_eval_episode_on_nonzero: True
 num_eval_trials: 5
