@@ -24,7 +24,7 @@ The main command for running experiments is below. This will be updated as we go
 ```
 python experiments/run_single_experiment.py -m \
     env=tiny,pybullet \
-    approach=ours,nothing_personal \
+    approach=ours,nothing_personal,exploit_only \
     seed="range(1, 11)" \
     wandb.enable=True wandb.group=main wandb.run_name="\${env}-\${approach}-\${seed}" wandb.entity=$WANDB_USER
 ```
