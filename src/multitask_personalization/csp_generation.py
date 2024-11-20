@@ -27,6 +27,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         self,
         seed: int = 0,
         explore_method: str = "max-entropy",
+        disable_learning: bool = False,
         epsilon_greedy_explore_threshold: float = 0.5,
     ) -> None:
         assert explore_method in (
@@ -38,6 +39,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._explore_method = explore_method
+        self._disable_learning = disable_learning
         self._epsilon_greedy_explore_threshold = epsilon_greedy_explore_threshold
         self._train_or_eval = "eval"
 

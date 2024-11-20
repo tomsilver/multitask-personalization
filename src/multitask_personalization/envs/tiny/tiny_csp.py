@@ -269,9 +269,10 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        self._distance_constraint_generator.learn_from_transition(
-            obs, act, next_obs, done, info
-        )
+        if not self._disable_learning:
+            self._distance_constraint_generator.learn_from_transition(
+                obs, act, next_obs, done, info
+            )
 
     def get_metrics(self) -> dict[str, float]:
         return self._distance_constraint_generator.get_metrics()
