@@ -75,7 +75,7 @@ If everything is installed and you're ready to run jobs:
 Use the same commands above, but with `hydra/launcher=g2` added to the command line. For example:
 
 ```
-python experiments/run_single_experiment.py -m     env=tiny approach=ours seed="range(1, 5)" hydra/launcher=g2
+python experiments/run_single_experiment.py -m env=tiny approach=ours seed="range(1, 5)" hydra/launcher=g2
 ```
 
 Note that the launch command will hang due to an open issue (https://github.com/facebookresearch/hydra/issues/2479). Control-C after a while and verify that the jobs were launched.

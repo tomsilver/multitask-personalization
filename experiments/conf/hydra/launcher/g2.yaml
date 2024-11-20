@@ -2,7 +2,6 @@ defaults:
   - submitit_slurm
 
 _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
-timeout_min: 120 # 2 hours
 name: ${hydra.job.name}
 additional_parameters: {
   "wckey": ""
