@@ -1,5 +1,7 @@
 """Utilities for the pybullet environment and models."""
 
+import re
+
 import numpy as np
 import PIL
 from tomsutils.llm import LargeLanguageModel
@@ -16,7 +18,7 @@ def get_user_book_enjoyment_logprob(
 
     prompt = f"""Book description: {book_description}
 
-User description: {user_preferences}.
+User description: {user_preferences}
 
 How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 0 means hate and {num_bins-1} means love?
 """
@@ -74,7 +76,20 @@ class PyBulletCannedLLM(LargeLanguageModel):
             resp = "\n".join(books)
             return [resp]
 
-        import ipdb; ipdb.set_trace()
+        if prompt.startswith(
+            "Pretend you are a human user with the following preferences"
+        ):
+            book_number = self._get_book_number_from_description(prompt)
+            resp = f"<SEEN>{book_number}</SEEN>"
+            return [resp]
+
+        if prompt.startswith("Below is a first-person history of interactions"):
+            pattern = r"<SEEN>(\d+)</SEEN>"
+            matches = re.findall(pattern, prompt)
+            numbers = [int(num) for num in matches]
+            resp = " ".join([f"<SEEN>{i}</SEEN>" for i in numbers])
+            return [resp]
+
         raise NotImplementedError
 
     def get_multiple_choice_logprobs(
@@ -84,11 +99,34 @@ class PyBulletCannedLLM(LargeLanguageModel):
         assert book_description.startswith("Book description: ")
         assert user_description.startswith("User description: ")
         assert "0 to 10" in remainder
+        book_number = self._get_book_number_from_description(book_description)
 
-        if "Unknown" in user_description:
-            logprobs = {str(i): -np.inf for i in choices}
-            logprobs["5"] = 0.0
-            return logprobs
+        if "Author: Love" in book_description:
+            love_or_hate = "love"
+        else:
+            assert "Author: Hate" in book_description
+            love_or_hate = "hate"
 
-        import ipdb; ipdb.set_trace()
-        raise NotImplementedError
+        # Book is either unknown, known hate, or known love.
+        status = "unknown"
+        if f"<SEEN>{book_number}</SEEN>" in user_description:
+            status = love_or_hate
+
+        if status == "unknown":
+            response_num = 5
+        elif status == "love":
+            response_num = 10
+        else:
+            assert status == "hate"
+            response_num = 0
+
+        logprobs = {str(i): -np.inf for i in choices}
+        logprobs[str(response_num)] = 0.0
+        return logprobs
+
+    def _get_book_number_from_description(self, description: str) -> int:
+        prefix = "Book description: Title: Book "
+        assert prefix in description
+        after_prefix = description[description.index(prefix) + len(prefix) :]
+        book_number = int(after_prefix[: after_prefix.index(".")])
+        return book_number
