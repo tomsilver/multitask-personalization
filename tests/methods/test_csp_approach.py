@@ -47,7 +47,7 @@ def test_csp_approach(explore_method, disable_learning):
     for _ in range(10):
         obs, info = env.reset()
         approach.reset(obs, info)
-        for _ in range(10):
+        for _ in range(100):
             act = approach.step()
             obs, reward, terminated, truncated, info = env.step(act)
             assert np.isclose(reward, 0.0)
