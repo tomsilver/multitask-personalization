@@ -1,12 +1,11 @@
 env:
   _target_: "multitask_personalization.envs.pybullet.pybullet_env.PyBulletEnv"
   scene_spec:
-    _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PybulletSceneSpec"
+    _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PyBulletSceneSpec"
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     book_preferences: "I enjoy some fiction, especially science fiction, but not historical fiction. I like certain nonfiction genres like true crime. But I find most biographies to be boring."
-    defaults:
-      - /rom_model: spherical
+    rom_model: spherical
   use_gui: False
   # note: seed is excluded because it varies for train/eval envs
 
@@ -15,4 +14,4 @@ eval_frequency: 100
 max_eval_episode_length: 250
 terminate_eval_episode_on_nonzero: True
 num_eval_trials: 10
-
+dt: 0.00416667

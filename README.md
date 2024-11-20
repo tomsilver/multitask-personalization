@@ -23,17 +23,21 @@ The main command for running experiments is below. This will be updated as we go
 
 ```
 python experiments/run_single_experiment.py -m \
-    env=tiny \
-    approach=ours,exploit_only \
+    env=tiny,pybullet \
+    approach=ours,nothing_personal \
     seed="range(1, 11)" \
     wandb.enable=True wandb.group=main wandb.run_name="\${env}-\${approach}-\${seed}" wandb.entity=$WANDB_USER
 ```
 
-Here's an example command to run a smaller shorter test:
-
+Here's an example command to run a much shorter, cheaper set of all experiments:
 ```
 python experiments/run_single_experiment.py -m \
-    env=tiny \
-    approach=ours \
-    seed="range(1, 3)"
+    env=tiny,pybullet \
+    approach=ours,nothing_personal \
+    seed="range(1, 3)" \
+    env.max_environment_steps=100 \
+    env.eval_frequency=50 \
+    env.num_eval_trials=1 \
+    csp_solver.min_num_satisfying_solutions=1 \
+    csp_solver.max_iters=100
 ```

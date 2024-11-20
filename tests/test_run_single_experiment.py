@@ -20,13 +20,14 @@ def test_run_single_experiment():
     # Set up the flags.
     flags = [
         "-m",
-        "+experiment=tiny_csp",
+        "env=tiny",
+        "approach=ours",
         "seed=123",
         "env.max_environment_steps=10",
         "env.eval_frequency=5",
-        "+csp_solver.max_iters=10",
-        "+csp_solver.show_progress_bar=False",
-        "+csp_solver.min_num_satisfying_solutions=1",
+        "env.num_eval_trials=1",
+        "csp_solver.min_num_satisfying_solutions=1",
+        "csp_solver.max_iters=1000",
     ]
 
     # Run the script using subprocess.

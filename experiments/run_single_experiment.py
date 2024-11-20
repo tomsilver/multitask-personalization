@@ -1,18 +1,6 @@
 """Script for running experiments with hydra.
 
-Examples:
-```
-    python experiments/run_single_experiment.py +experiment=tiny_csp
-
-    python experiments/run_single_experiment.py +experiment=pybullet_csp
-
-    python experiments/run_single_experiment.py +experiment=tiny_csp \
-        wandb.enable=True wandb.entity=<username>
-
-    python experiments/run_single_experiment.py -m +experiment=tiny_csp \
-        wandb.enable=True seed="range(1, 11)" wandb.group=tiny_csp_test \
-        wandb.run_name="seed\${seed}" wandb.entity=<username>
-```
+See README for examples.
 """
 
 import logging
@@ -31,10 +19,13 @@ from multitask_personalization.methods.approach import ApproachFailure, BaseAppr
 @hydra.main(version_base=None, config_name="config", config_path="conf/")
 def _main(cfg: DictConfig) -> None:
 
-    logging.info(f"Running seed={cfg.seed}, env={cfg.env}, approach={cfg.approach}")
+    logging.info(
+        f"Running seed={cfg.seed}, env={cfg.env_name}, approach={cfg.approach_name}"
+    )
     logging.info("Full config:")
-    logging.info(OmegaConf.to_yaml(cfg))
-    OmegaConf.save(cfg, cfg.config_file)
+    resolved_cfg = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
+    logging.info(OmegaConf.to_yaml(resolved_cfg))
+    OmegaConf.save(resolved_cfg, cfg.config_file)
     logging.info(f"Saved config to {cfg.config_file}")
     model_dir = Path(cfg.model_dir)
     model_dir.mkdir(exist_ok=True)
@@ -43,10 +34,10 @@ def _main(cfg: DictConfig) -> None:
     # Sanity check config.
     assert cfg.env.max_environment_steps % cfg.env.eval_frequency == 0
 
+    # Initialize weights and biases.
     if cfg.wandb.enable:
-        wandb.config = OmegaConf.to_container(
-            cfg, resolve=True, throw_on_missing=True  # type: ignore
-        )
+        wandb.config = resolved_cfg  # type: ignore
+        assert cfg.wandb.entity is not None
         wandb.init(
             project=cfg.wandb.project,
             entity=cfg.wandb.entity,
@@ -132,6 +123,7 @@ def _main(cfg: DictConfig) -> None:
         user_satisfaction = info.get("user_satisfaction", np.nan)
         step_train_metrics = {
             "step": t,
+            "execution_time": t * cfg.env.dt,
             "user_satisfaction": user_satisfaction,
             **train_approach.get_step_metrics(),
         }
@@ -185,9 +177,15 @@ def _evaluate_approach(
             if cfg.env.terminate_eval_episode_on_nonzero and user_satisfaction != 0:
                 break
         cumulative_user_satisfactions.append(cumulative_user_satisfaction)
-    step_eval_metrics: dict[str, float] = {"training_step": training_step}
+    step_eval_metrics: dict[str, float] = {
+        "training_step": training_step,
+        "training_execution_time": training_step * cfg.env.dt,
+    }
     for idx, cus in enumerate(cumulative_user_satisfactions):
         step_eval_metrics[f"eval_episode_{idx}_user_satisfaction"] = cus
+    step_eval_metrics["eval_mean_user_satisfaction"] = float(
+        np.mean(cumulative_user_satisfactions)
+    )
     return step_eval_metrics
 
 

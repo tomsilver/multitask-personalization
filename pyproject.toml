@@ -19,7 +19,7 @@ dependencies = [
    "pandas-stubs",
    "hydra-core",
    "omegaconf",
-   "moviepy",
+   "moviepy==1.0.3",
    "tqdm",
    "types-tqdm",
    "wandb",
