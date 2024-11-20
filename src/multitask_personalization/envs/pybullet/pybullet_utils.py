@@ -1,13 +1,13 @@
 """Utilities for the pybullet environment and models."""
 
 import numpy as np
-from tomsutils.llm import OpenAILLM
+from tomsutils.llm import LargeLanguageModel
 
 
 def get_user_book_enjoyment_logprob(
     book_description: str,
     user_preferences: str,
-    llm: OpenAILLM,
+    llm: LargeLanguageModel,
     seed: int = 0,
     num_bins: int = 11,
 ) -> float:
@@ -34,7 +34,7 @@ How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 
 def user_would_enjoy_book(
     book_description: str,
     user_preferences: str,
-    llm: OpenAILLM,
+    llm: LargeLanguageModel,
     seed: int = 0,
 ) -> float:
     """Return whether the user would enjoy the book."""
