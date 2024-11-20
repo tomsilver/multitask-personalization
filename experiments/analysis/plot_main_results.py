@@ -16,7 +16,7 @@ ENV_TO_DISPLAY_NAME = {
 
 APPROACH_TO_DISPLAY_NAME = {
     "ours": "CBTL (Ours)",
-    "nothing_personal": "Nothing Personal Explore",
+    "nothing_personal": "Free Explore",
     "exploit_only": "Exploit Only",
     "epsilon_greedy": "Epsilon Greedy",
     "no_learning": "No Learning",
