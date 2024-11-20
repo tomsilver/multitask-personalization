@@ -354,6 +354,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 "handover_rom_constraint",
                 [handover_position],
                 _handover_position_is_in_rom_logprob,
+                threshold=np.log(0.5) - 1e-3,
             )
             return [book_preference_constraint, handover_rom_constraint]
 

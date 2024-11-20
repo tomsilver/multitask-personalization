@@ -40,7 +40,7 @@ def user_would_enjoy_book(
 ) -> float:
     """Return whether the user would enjoy the book."""
     lp = get_user_book_enjoyment_logprob(book_description, user_preferences, llm, seed)
-    return lp > np.log(0.5)
+    return lp >= np.log(0.5) - 1e-6
 
 
 class PyBulletCannedLLM(LargeLanguageModel):
@@ -86,8 +86,8 @@ class PyBulletCannedLLM(LargeLanguageModel):
         assert "0 to 10" in remainder
 
         if "Unknown" in user_description:
-            logprobs = {i: -np.inf for i in choices}
-            logprobs[5] = 0.0
+            logprobs = {str(i): -np.inf for i in choices}
+            logprobs["5"] = 0.0
             return logprobs
 
         import ipdb; ipdb.set_trace()
