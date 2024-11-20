@@ -65,6 +65,7 @@ class PyBulletCannedLLM(LargeLanguageModel):
         if prompt.startswith(
             "Generate a list of 3 real English-language book titles and authors."
         ):
+            # pylint: disable=line-too-long
             books = [
                 f"1. [The user would love] Title: Book {rng.integers(1, 101)}. Author: Love.",
                 f"2. [The user would hate] Title: Book {rng.integers(1, 101)}. Author: Hate.",
@@ -73,11 +74,8 @@ class PyBulletCannedLLM(LargeLanguageModel):
             resp = "\n".join(books)
             return [resp]
 
-        else:
-            import ipdb
-
-            ipdb.set_trace()
-            raise NotImplementedError
+        import ipdb; ipdb.set_trace()
+        raise NotImplementedError
 
     def get_multiple_choice_logprobs(
         self, prompt: str, choices: list[str], seed: int
@@ -92,8 +90,5 @@ class PyBulletCannedLLM(LargeLanguageModel):
             logprobs[5] = 0.0
             return logprobs
 
-        else:
-            import ipdb
-
-            ipdb.set_trace()
-            raise NotImplementedError
+        import ipdb; ipdb.set_trace()
+        raise NotImplementedError
