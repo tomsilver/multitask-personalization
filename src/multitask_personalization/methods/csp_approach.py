@@ -42,6 +42,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         llm: LargeLanguageModel | None = None,
         max_motion_planning_candidates: int = 1,
         explore_method: str = "nothing-personal",
+        disable_learning: bool = False,
         seed: int = 0,
     ):
         super().__init__(scene_spec, action_space, seed)
@@ -50,6 +51,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._current_policy: CSPPolicy | None = None
         self._current_sol: dict[CSPVariable, Any] | None = None
         self._explore_method = explore_method
+        self._disable_learning = disable_learning
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._csp_generator = self._create_csp_generator()
 
@@ -124,7 +126,9 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         # We will refactor this in a future PR.
         if isinstance(self._scene_spec, TinySceneSpec):
             return TinyCSPGenerator(
-                seed=self._seed, explore_method=self._explore_method
+                seed=self._seed,
+                explore_method=self._explore_method,
+                disable_learning=self._disable_learning,
             )
         if isinstance(self._scene_spec, PyBulletSceneSpec):
             assert self._llm is not None
@@ -138,6 +142,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 self._llm,
                 seed=self._seed,
                 explore_method=self._explore_method,
+                disable_learning=self._disable_learning,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
         raise NotImplementedError()
