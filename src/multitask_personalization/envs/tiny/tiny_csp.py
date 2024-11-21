@@ -28,9 +28,7 @@ from multitask_personalization.structs import (
 
 class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
 
-    def __init__(
-        self, csp: CSP, seed: int = 0, distance_threshold: float = 0.5
-    ) -> None:
+    def __init__(self, csp: CSP, seed: int = 0) -> None:
         super().__init__(csp, seed)
         self._target_position: float | None = None
         self._speed: float | None = None
@@ -62,9 +60,6 @@ class _TinyDistanceConstraintGenerator(CSPConstraintGenerator[TinyState, TinyAct
     def __init__(
         self,
         seed: int = 0,
-        distance_threshold: float = 0.5,
-        init_desired_distance: float = 1.0,
-        learning_rate: float = 1e-1,
     ) -> None:
         super().__init__(seed=seed)
         # Updated through learning.
@@ -153,8 +148,6 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
 
     def __init__(
         self,
-        distance_threshold: float = 0.5,
-        init_desired_distance: float = 1.0,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
