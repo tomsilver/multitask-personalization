@@ -14,8 +14,17 @@ from multitask_personalization.methods.csp_approach import (
 )
 
 
-@pytest.mark.parametrize("explore_method", ["max-entropy", "nothing-personal"])
-def test_csp_approach(explore_method):
+@pytest.mark.parametrize(
+    ["explore_method", "disable_learning"],
+    [
+        ("max-entropy", False),
+        ("nothing-personal", False),
+        ("exploit-only", False),
+        ("epsilon-greedy", False),
+        ("nothing-personal", True),
+    ],
+)
+def test_csp_approach(explore_method, disable_learning):
     """Tests for csp_approach.py."""
     seed = 123
     scene_spec = TinySceneSpec()
@@ -28,6 +37,7 @@ def test_csp_approach(explore_method):
         solver,
         seed=seed,
         explore_method=explore_method,
+        disable_learning=disable_learning,
     )
     approach.train()
     env.action_space.seed(seed)

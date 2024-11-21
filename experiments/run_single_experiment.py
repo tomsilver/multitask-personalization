@@ -93,6 +93,8 @@ def _main(cfg: DictConfig) -> None:
     train_approach.reset(obs, info)
     # Main training and eval loop.
     for t in range(cfg.env.max_environment_steps + 1):
+        if t % cfg.train_logging_interval == 0:
+            logging.info(f"Starting training step {t}")
         # Check if it's time to eval.
         if t % cfg.env.eval_frequency == 0:
             # Save the models from the training approach and load them into the
@@ -131,7 +133,6 @@ def _main(cfg: DictConfig) -> None:
             wandb_metrics = {f"train/{k}": v for k, v in step_train_metrics.items()}
             del wandb_metrics["train/step"]
             wandb.log(wandb_metrics, step=t)
-        logging.info(f"Step {t} satisfaction: {user_satisfaction}")
         train_metrics.append(step_train_metrics)
     train_env.close()
     eval_env.close()
@@ -155,8 +156,8 @@ def _evaluate_approach(
     """Evaluate the given approach and return metrics."""
     # Evaluate for a given number of trials.
     cumulative_user_satisfactions: list[float] = []
+    logging.info("Starting evaluation")
     for eval_trial_idx in range(cfg.env.num_eval_trials):
-        logging.info(f"Starting eval trial {eval_trial_idx}")
         seed = cfg.seed + cfg.eval_seed_offset + eval_trial_idx
         obs, info = eval_env.reset(seed=seed)
         # Reset the approach.
