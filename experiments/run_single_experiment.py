@@ -68,7 +68,7 @@ def _main(cfg: DictConfig) -> None:
     # the training approach.
     train_approach = hydra.utils.instantiate(
         cfg.approach,
-        train_env.scene_spec,
+        train_env.unwrapped.scene_spec,
         train_env.action_space,
         seed=cfg.seed,
     )
@@ -76,7 +76,7 @@ def _main(cfg: DictConfig) -> None:
     train_approach.train()
     eval_approach = hydra.utils.instantiate(
         cfg.approach,
-        eval_env.scene_spec,
+        eval_env.unwrapped.scene_spec,
         eval_env.action_space,
         seed=eval_seed,
     )
