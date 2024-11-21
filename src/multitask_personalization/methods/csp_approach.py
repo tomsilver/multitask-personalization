@@ -35,12 +35,12 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
 
     def __init__(
         self,
-        csp_solver: CSPSolver,
         scene_spec: PublicSceneSpec,
         action_space: gym.spaces.Space[_ActType],
-        seed: int,
+        csp_solver: CSPSolver,
         max_motion_planning_candidates: int = 1,
         explore_method: str = "nothing-personal",
+        seed: int = 0,
     ):
         super().__init__(scene_spec, action_space, seed)
         self._csp_solver = csp_solver

@@ -53,9 +53,9 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
-        self._scene_spec = scene_spec
         self._hidden_spec = hidden_spec
 
+        self.scene_spec = scene_spec
         self.action_space = gym.spaces.OneOf(
             (
                 gym.spaces.Box(-1.0, 1.0, shape=(), dtype=np.float32),
