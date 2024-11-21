@@ -130,6 +130,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     surface_dust_patch_size: int = 2  # dust arrays will be this number ^ 2
     surface_max_dust: float = 1.0
+    max_dust_clean_threshold: float = 0.5
+    dirty_patch_penalty: float = -0.5
     surface_dust_delta: float = 1e-2
     surface_dust_visual_height: float = 1e-3
     dust_color: tuple[float, float, float] = (0.7, 0.5, 0.2)

@@ -374,12 +374,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
         for pybullet_id_arr in self._dust_patches.values():
-            for r in range(pybullet_id_arr.shape[0]):
-                for c in range(pybullet_id_arr.shape[1]):
-                    patch_id = pybullet_id_arr[r, c]
-                    level = self._get_dust_level(patch_id)
-                    new_level = np.clip(level + dust_delta, 0, max_dust)
-                    self._set_dust_level(patch_id, new_level)
+            for patch_id in pybullet_id_arr.flat:
+                level = self._get_dust_level(patch_id)
+                new_level = np.clip(level + dust_delta, 0, max_dust)
+                self._set_dust_level(patch_id, new_level)
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
@@ -450,9 +448,23 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Advance the mission.
         assert self._current_mission is not None
-        self.current_human_text, self._user_satisfaction = self._current_mission.step(
+        self.current_human_text, mission_satisfaction = self._current_mission.step(
             state, action
         )
+        self._user_satisfaction = mission_satisfaction
+
+        # Penalize if any dust levels are above a cleanliness threshold.
+        num_dirty_patches = 0
+        num_total_patches = 0
+        for pybullet_id_arr in self._dust_patches.values():
+            for patch_id in pybullet_id_arr.flat:
+                num_total_patches += 1
+                level = self._get_dust_level(patch_id)
+                if level >= self.scene_spec.max_dust_clean_threshold:
+                    num_dirty_patches += 1
+        frac_dirty = num_dirty_patches / num_total_patches
+        dirty_penalty = self.scene_spec.dirty_patch_penalty
+        self._user_satisfaction += dirty_penalty * frac_dirty
 
         # Start a new mission if the current one is complete.
         if self._current_mission.check_complete(state, action):
