@@ -22,6 +22,7 @@ record_train_videos: false
 record_eval_videos: false
 seed: 0
 eval_seed_offset: 100000
+train_logging_interval: 100
 approach_name: ${hydra:runtime.choices.approach}
 env_name: ${hydra:runtime.choices.env}
 defaults:
