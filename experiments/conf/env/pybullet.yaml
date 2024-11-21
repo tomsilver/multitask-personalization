@@ -5,8 +5,9 @@ env:
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     book_preferences: "I enjoy some fiction, especially science fiction, but not historical fiction. I like certain nonfiction genres like true crime. But I find most biographies to be boring."
-    rom_model: spherical
+    rom_model: ${rom_model}
   use_gui: False
+  llm: ${llm}
   # note: seed is excluded because it varies for train/eval envs
 
 max_environment_steps: 1000

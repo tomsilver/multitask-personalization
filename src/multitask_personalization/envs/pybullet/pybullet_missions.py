@@ -2,7 +2,7 @@
 
 import numpy as np
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
-from tomsutils.llm import OpenAILLM
+from tomsutils.llm import LargeLanguageModel
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -22,7 +22,7 @@ class HandOverBookMission(PyBulletMission):
         sim_robot: FingeredSingleArmPyBulletRobot,
         rom_model: ROMModel,
         hidden_book_preferences: str,
-        llm: OpenAILLM,
+        llm: LargeLanguageModel,
         seed: int,
     ) -> None:
         super().__init__()
@@ -123,7 +123,7 @@ class StoreHeldObjectMission(PyBulletMission):
 def _explain_user_book_preference(
     book_description: str,
     user_preferences: str,
-    llm: OpenAILLM,
+    llm: LargeLanguageModel,
     llm_temperature: float = 0.0,
     enjoyed: bool = False,
     seed: int = 0,

@@ -1,13 +1,16 @@
 """Utilities for the pybullet environment and models."""
 
+import re
+
 import numpy as np
-from tomsutils.llm import OpenAILLM
+import PIL
+from tomsutils.llm import LargeLanguageModel
 
 
 def get_user_book_enjoyment_logprob(
     book_description: str,
     user_preferences: str,
-    llm: OpenAILLM,
+    llm: LargeLanguageModel,
     seed: int = 0,
     num_bins: int = 11,
 ) -> float:
@@ -15,7 +18,7 @@ def get_user_book_enjoyment_logprob(
 
     prompt = f"""Book description: {book_description}
 
-User description: {user_preferences}.
+User description: {user_preferences}
 
 How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 0 means hate and {num_bins-1} means love?
 """
@@ -34,9 +37,97 @@ How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 
 def user_would_enjoy_book(
     book_description: str,
     user_preferences: str,
-    llm: OpenAILLM,
+    llm: LargeLanguageModel,
     seed: int = 0,
 ) -> float:
     """Return whether the user would enjoy the book."""
     lp = get_user_book_enjoyment_logprob(book_description, user_preferences, llm, seed)
-    return lp > np.log(0.5)
+    return lp >= np.log(0.5) - 1e-6
+
+
+class PyBulletCannedLLM(LargeLanguageModel):
+    """A very domain-specific 'LLM' that we can use for testing things without
+    paying any money to OpenAI."""
+
+    def get_id(self) -> str:
+        return "pybullet-canned"
+
+    def _sample_completions(
+        self,
+        prompt: str,
+        imgs: list[PIL.Image.Image] | None,
+        temperature: float,
+        seed: int,
+        num_completions: int = 1,
+    ) -> list[str]:
+
+        assert num_completions == 1
+        rng = np.random.default_rng(seed)
+
+        if prompt.startswith(
+            "Generate a list of 3 real English-language book titles and authors."
+        ):
+            # pylint: disable=line-too-long
+            book_nums = rng.choice(list(range(1, 101)), size=3, replace=False)
+            books = [
+                f"1. [The user would love] Title: Book {book_nums[0]}. Author: Love.",
+                f"2. [The user would hate] Title: Book {book_nums[1]}. Author: Hate.",
+                f"3. [The user would hate] Title: Book {book_nums[2]}. Author: Hate.",
+            ]
+            resp = "\n".join(books)
+            return [resp]
+
+        if prompt.startswith(
+            "Pretend you are a human user with the following preferences"
+        ):
+            book_number = self._get_book_number_from_description(prompt)
+            resp = f"<SEEN>{book_number}</SEEN>"
+            return [resp]
+
+        if prompt.startswith("Below is a first-person history of interactions"):
+            pattern = r"<SEEN>(\d+)</SEEN>"
+            matches = re.findall(pattern, prompt)
+            numbers = [int(num) for num in matches]
+            resp = " ".join([f"<SEEN>{i}</SEEN>" for i in numbers])
+            return [resp]
+
+        raise NotImplementedError
+
+    def get_multiple_choice_logprobs(
+        self, prompt: str, choices: list[str], seed: int
+    ) -> dict[str, float]:
+        book_description, _, user_description, remainder = prompt.split("\n", 3)
+        assert book_description.startswith("Book description: ")
+        assert user_description.startswith("User description: ")
+        assert "0 to 10" in remainder
+        book_number = self._get_book_number_from_description(book_description)
+
+        if "Author: Love" in book_description:
+            love_or_hate = "love"
+        else:
+            assert "Author: Hate" in book_description
+            love_or_hate = "hate"
+
+        # Book is either unknown, known hate, or known love.
+        status = "unknown"
+        if f"<SEEN>{book_number}</SEEN>" in user_description:
+            status = love_or_hate
+
+        if status == "unknown":
+            response_num = 5
+        elif status == "love":
+            response_num = 10
+        else:
+            assert status == "hate"
+            response_num = 0
+
+        logprobs = {str(i): -np.inf for i in choices}
+        logprobs[str(response_num)] = 0.0
+        return logprobs
+
+    def _get_book_number_from_description(self, description: str) -> int:
+        prefix = "Book description: Title: Book "
+        assert prefix in description
+        after_prefix = description[description.index(prefix) + len(prefix) :]
+        book_number = int(after_prefix[: after_prefix.index(".")])
+        return book_number
