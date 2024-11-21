@@ -607,8 +607,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        self._update_rom_model(obs, act, next_obs)
-        self._update_book_preferences(act, next_obs)
+        if not self._disable_learning:
+            self._update_rom_model(obs, act, next_obs)
+            self._update_book_preferences(act, next_obs)
         self._update_current_mission(obs)
 
     def _book_is_preferred_logprob(self, book_description: str) -> float:
