@@ -3,3 +3,4 @@ max_motion_planning_candidates: 1
 explore_method: max-entropy
 csp_solver: ${csp_solver}
 llm: ${llm}
+disable_learning: false
