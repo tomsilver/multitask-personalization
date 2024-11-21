@@ -171,11 +171,10 @@ def _evaluate_approach(
                 logging.info(e)
             obs, rew, terminated, truncated, info = eval_env.step(act)
             assert np.isclose(float(rew), 0.0)
-            assert not (terminated or truncated)
             eval_approach.update(obs, float(rew), terminated, info)
             user_satisfaction = info.get("user_satisfaction", 0.0)
             cumulative_user_satisfaction += user_satisfaction
-            if cfg.env.terminate_eval_episode_on_nonzero and user_satisfaction != 0:
+            if terminated or truncated:
                 break
         cumulative_user_satisfactions.append(cumulative_user_satisfaction)
     step_eval_metrics: dict[str, float] = {

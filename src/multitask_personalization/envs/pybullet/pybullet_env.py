@@ -467,7 +467,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._user_satisfaction += dirty_penalty * frac_dirty
 
         # Start a new mission if the current one is complete.
+        done = False
         if self._current_mission.check_complete(state, action):
+            # NOTE: the done bit is only used during evaluation. Do not assume
+            # that the environment will be reset after done=True.
+            done = True
             self._current_mission = self._generate_mission()
             # Tell the robot its new mission.
             mission_description = self._current_mission.get_mission_command()
@@ -480,7 +484,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             logging.info(f"Human says: {self.current_human_text}")
 
         # Return the next state and default gym API stuff.
-        return self.get_state(), 0.0, False, False, self._get_info()
+        return self.get_state(), 0.0, done, False, self._get_info()
 
     def _get_info(self) -> dict[str, Any]:
         assert self._current_mission is not None

@@ -107,9 +107,13 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
             self._robot_position += float(delta_action)
         info = self._get_info(robot_indicated_done)
         # Move the human if the robot succeeded.
+        done = False
         if info["user_satisfaction"] > 0:
+            # NOTE: the done bit is only used during evaluation. Do not assume
+            # that the environment will be reset after done=True.
+            done = True
             self._reset_human()
-        return self._get_state(), 0.0, False, False, info
+        return self._get_state(), 0.0, done, False, info
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         raise NotImplementedError
