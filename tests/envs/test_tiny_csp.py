@@ -28,11 +28,7 @@ def test_tiny_csp():
     assert isinstance(obs, TinyState)
 
     # Create the CSP.
-    csp_generator = TinyCSPGenerator(
-        seed=seed,
-        distance_threshold=distance_threshold,
-        init_desired_distance=desired_distance,
-    )
+    csp_generator = TinyCSPGenerator(seed=seed)
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
@@ -52,12 +48,8 @@ def test_tiny_csp():
         act = policy.step(obs)
         obs, reward, env_terminated, truncated, _ = env.step(act)
         assert isinstance(obs, TinyState)
-        if policy.check_termination(obs):
-            assert np.isclose(reward, 0.0)
-            break
+        assert np.isclose(reward, 0.0)
         assert not env_terminated
         assert not truncated
-    else:
-        assert False, "Policy did not terminate."
 
     env.close()

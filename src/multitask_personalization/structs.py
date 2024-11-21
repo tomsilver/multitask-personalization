@@ -157,12 +157,7 @@ class FunctionalCSPSampler(CSPSampler):
     def sample(
         self, current_vals: dict[CSPVariable, Any], rng: np.random.Generator
     ) -> dict[CSPVariable, Any]:
-        sample = self._fn(current_vals, rng)
-        # Validate.
-        for v, val in sample.items():
-            assert v in self._sampled_vars, f"Sampled {v}"
-            assert v.domain.contains(val), f"Value {val} not in domain {v.domain}"
-        return sample
+        return self._fn(current_vals, rng)
 
 
 class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):

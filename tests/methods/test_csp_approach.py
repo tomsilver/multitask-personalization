@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
-from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
     TinyHiddenSpec,
@@ -32,7 +31,6 @@ def test_csp_approach(explore_method, disable_learning):
     hidden_spec = TinyHiddenSpec(1.0, 0.5)
     solver = RandomWalkCSPSolver(seed, show_progress_bar=False)
     env = TinyEnv(scene_spec, hidden_spec=hidden_spec, seed=seed)
-    csp_generator = TinyCSPGenerator(seed=seed, explore_method=explore_method)
     approach = CSPApproach(
         scene_spec,
         env.action_space,
@@ -56,9 +54,4 @@ def test_csp_approach(explore_method, disable_learning):
             if terminated:
                 break
 
-    # pylint: disable=protected-access
-    csp_generator = approach._csp_generator
-    assert isinstance(csp_generator, TinyCSPGenerator)
-    learned_dist = csp_generator._distance_constraint_generator._desired_distance
-    assert learned_dist <= 1.5
     env.close()
