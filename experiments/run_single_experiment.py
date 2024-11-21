@@ -93,6 +93,8 @@ def _main(cfg: DictConfig) -> None:
     train_approach.reset(obs, info)
     # Main training and eval loop.
     for t in range(cfg.env.max_environment_steps + 1):
+        if t % cfg.train_logging_interval == 0:
+            logging.info(f"Starting training step {t}")
         # Check if it's time to eval.
         if cfg.env.eval_frequency > 0 and t % cfg.env.eval_frequency == 0:
             # Save the models from the training approach and load them into the
