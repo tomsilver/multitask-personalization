@@ -128,6 +128,12 @@ class PyBulletSceneSpec(PublicSceneSpec):
     tray_half_extents: tuple[float, float, float] = (0.4, 0.2, 0.025)
     tray_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
 
+    surface_dust_patch_size: int = 2  # dust arrays will be this number ^ 2
+    surface_max_dust: float = 1.0
+    surface_dust_delta: float = 1e-2
+    surface_dust_visual_height: float = 1e-3
+    dust_color: tuple[float, float, float] = (0.7, 0.5, 0.2)
+
     @property
     def tray_pose(self) -> Pose:
         """Calculate the tray pose relative to the side table pose."""

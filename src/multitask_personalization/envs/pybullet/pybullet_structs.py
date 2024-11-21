@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TypeAlias
 
+from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
@@ -23,6 +24,7 @@ class PyBulletState:
     book_poses: list[Pose]
     book_descriptions: list[str]
     grasp_transform: Pose | None
+    surface_dust_patches: dict[tuple[str, int], NDArray]
     held_object: str | None = None
     human_text: str | None = None
 
