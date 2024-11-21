@@ -738,7 +738,12 @@ Return that list and nothing else. Do not explain anything."""
         return half_extents
 
     def _set_dust_level(self, patch_id: int, level: float) -> None:
-        color = self.scene_spec.dust_color + (level,)
+        # Transparency alone doesn't seem to render correctly, so we also change
+        # the color. But we still include alpha as the store of the dust value.
+        clean_color_arr = np.array(self.scene_spec.table_rgba[:3])
+        dirty_color_arr = np.array(self.scene_spec.dust_color)
+        color_arr = level * dirty_color_arr + (1 - level) * clean_color_arr
+        color = (color_arr[0], color_arr[1], color_arr[2], level)
         p.changeVisualShape(
             patch_id, -1, rgbaColor=color, physicsClientId=self.physics_client_id
         )
