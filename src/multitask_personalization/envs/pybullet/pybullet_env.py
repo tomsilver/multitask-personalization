@@ -452,6 +452,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             state, action
         )
         self._user_satisfaction = mission_satisfaction
+        # NOTE: the done bit is only used during evaluation. Do not assume
+        # that the environment will be reset after done=True.
+        done = mission_satisfaction != 0
 
         # Penalize if any dust levels are above a cleanliness threshold.
         num_dirty_patches = 0
@@ -467,11 +470,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._user_satisfaction += dirty_penalty * frac_dirty
 
         # Start a new mission if the current one is complete.
-        done = False
         if self._current_mission.check_complete(state, action):
-            # NOTE: the done bit is only used during evaluation. Do not assume
-            # that the environment will be reset after done=True.
-            done = True
             self._current_mission = self._generate_mission()
             # Tell the robot its new mission.
             mission_description = self._current_mission.get_mission_command()
