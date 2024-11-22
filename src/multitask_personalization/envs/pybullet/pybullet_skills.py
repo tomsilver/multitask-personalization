@@ -287,14 +287,14 @@ def get_plan_to_wipe_surface(state: PyBulletState,
         seed: int = 0,
         off_surface_padding: float = 1e-3) -> list[PyBulletAction]:
     """Assuming a surface is clear of objects and the duster is held."""
+    sim.set_state(state)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
 
     assert 0 <= wipe_direction_num_rotations < 4
     wipe_yaw = (np.pi / 2) * wipe_direction_num_rotations
     surface_id = sim.get_object_id_from_name(surface_name)
     duster_id = sim.get_object_id_from_name(duster_name)
 
-    sim.set_state(state)
-    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     assert duster_id in kinematic_state.attachments
     collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
 
@@ -383,7 +383,6 @@ def get_plan_to_wipe_surface(state: PyBulletState,
     for init_wipe_pose, terminal_wipe_pose in zip(init_wipe_poses, terminal_wipe_poses, strict=True):
 
         # Motion plan to hand over.
-        kinematic_state.set_pybullet(sim.robot)
         robot_joint_plan = run_smooth_motion_planning_to_pose(
             init_wipe_pose,
             sim.robot,
@@ -429,10 +428,5 @@ def get_plan_to_wipe_surface(state: PyBulletState,
         # Sync the simulator.
         kinematic_plan[-1].set_pybullet(sim.robot)
 
-        for kin_state in kinematic_plan:
-            import time; time.sleep(0.1)
-            kin_state.set_pybullet(sim.robot)
-
-        while True:
-            p.stepSimulation(sim.physics_client_id)
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 

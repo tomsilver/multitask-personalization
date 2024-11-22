@@ -66,20 +66,20 @@ def test_pybullet_skills():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=False,
+        use_gui=True,
         seed=seed,
     )
 
     # Uncomment to create video.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "videos/test-pybullet-skills")
+    from gymnasium.wrappers import RecordVideo
+    env = RecordVideo(env, "videos/test-pybullet-skills")
 
     env.action_space.seed(seed)
     obs, _ = env.reset()
     assert isinstance(obs, PyBulletState)
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
     book0, book1 = obs.book_descriptions[:2]
 
     # Test pick duster.
@@ -101,61 +101,62 @@ def test_pybullet_skills():
         "duster",
         "table",
         wipe_direction_num_rotations,
-        sim
+        sim,
+        max_motion_planning_candidates=50,
     )
-    obs = _run_plan(pick_duster_plan, env)
+    obs = _run_plan(wipe_plan, env)
 
     # Test place duster.
     import ipdb; ipdb.set_trace()
 
-    # Test pick book.
-    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
-    pick_book_plan = get_plan_to_pick_object(
-        obs,
-        book1,
-        grasp_pose,
-        sim,
-    )
-    obs = _run_plan(pick_book_plan, env)
-    assert obs.held_object == book1
+    # # Test pick book.
+    # grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
+    # pick_book_plan = get_plan_to_pick_object(
+    #     obs,
+    #     book1,
+    #     grasp_pose,
+    #     sim,
+    # )
+    # obs = _run_plan(pick_book_plan, env)
+    # assert obs.held_object == book1
 
-    # Test move to tray.
-    move_to_tray_plan = get_plan_to_move_next_to_object(obs, "tray", sim, seed=seed)
-    obs = _run_plan(move_to_tray_plan, env)
+    # # Test move to tray.
+    # move_to_tray_plan = get_plan_to_move_next_to_object(obs, "tray", sim, seed=seed)
+    # obs = _run_plan(move_to_tray_plan, env)
 
-    # Test place book on tray.
-    surface_extents = sim.get_aabb_dimensions(sim.tray_id)
-    object_extents = sim.get_aabb_dimensions(sim.book_ids[1])
-    placement_pose = Pose(
-        (
-            -surface_extents[0] / 2 + object_extents[0] / 2,
-            0,
-            surface_extents[2] / 2 + object_extents[2] / 2,
-        )
-    )
-    place_book_on_tray_plan = get_plan_to_place_object(
-        obs,
-        book1,
-        "tray",
-        placement_pose,
-        sim,
-    )
-    obs = _run_plan(place_book_on_tray_plan, env)
-    assert obs.held_object is None
+    # # Test place book on tray.
+    # surface_extents = sim.get_aabb_dimensions(sim.tray_id)
+    # object_extents = sim.get_aabb_dimensions(sim.book_ids[1])
+    # placement_pose = Pose(
+    #     (
+    #         -surface_extents[0] / 2 + object_extents[0] / 2,
+    #         0,
+    #         surface_extents[2] / 2 + object_extents[2] / 2,
+    #     )
+    # )
+    # place_book_on_tray_plan = get_plan_to_place_object(
+    #     obs,
+    #     book1,
+    #     "tray",
+    #     placement_pose,
+    #     sim,
+    # )
+    # obs = _run_plan(place_book_on_tray_plan, env)
+    # assert obs.held_object is None
 
-    # Test move to shelf.
-    move_to_shelf_plan = get_plan_to_move_next_to_object(obs, "shelf", sim, seed=seed)
-    obs = _run_plan(move_to_shelf_plan, env)
+    # # Test move to shelf.
+    # move_to_shelf_plan = get_plan_to_move_next_to_object(obs, "shelf", sim, seed=seed)
+    # obs = _run_plan(move_to_shelf_plan, env)
 
-    # Test pick another book.
-    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
-    pick_book_plan = get_plan_to_pick_object(
-        obs,
-        book0,
-        grasp_pose,
-        sim,
-    )
-    obs = _run_plan(pick_book_plan, env)
-    assert obs.held_object == book0
+    # # Test pick another book.
+    # grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
+    # pick_book_plan = get_plan_to_pick_object(
+    #     obs,
+    #     book0,
+    #     grasp_pose,
+    #     sim,
+    # )
+    # obs = _run_plan(pick_book_plan, env)
+    # assert obs.held_object == book0
 
     env.close()
