@@ -217,9 +217,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Uncomment for debug / development.
-        while True:
-            self._step_simulator((1, GripperAction.OPEN))
-            p.stepSimulation(self.physics_client_id)
+        # while True:
+        #     self._step_simulator((1, GripperAction.OPEN))
+        #     p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
@@ -535,6 +535,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "table": self.table_id,
             "tray": self.tray_id,
             "shelf": self.shelf_id,
+            "duster": self.duster_id,
         }[object_name]
 
     def get_surface_names(self) -> set[str]:

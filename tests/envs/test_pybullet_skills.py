@@ -80,6 +80,19 @@ def test_pybullet_skills():
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
     book0, book1 = obs.book_descriptions[:2]
 
+    # Test pick duster.
+    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
+    pick_book_plan = get_plan_to_pick_object(
+        obs,
+        "duster",
+        grasp_pose,
+        sim,
+    )
+    obs = _run_plan(pick_book_plan, env)
+    assert obs.held_object == "duster"
+
+    import ipdb; ipdb.set_trace()
+
     # Test pick book.
     grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
     pick_book_plan = get_plan_to_pick_object(
