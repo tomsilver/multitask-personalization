@@ -136,6 +136,14 @@ class PyBulletSceneSpec(PublicSceneSpec):
     surface_dust_visual_height: float = 1e-3
     dust_color: tuple[float, float, float] = (0.7, 0.5, 0.2)
 
+    duster_head_radius: float = 0.025
+    duster_head_height: float = 0.1
+    duster_head_rgba: tuple[float, float, float, float] = (0.4, 0.8, 0.8, 1.0)
+    duster_pole_radius: float = 0.01
+    duster_pole_height: float = 0.15
+    duster_pole_rgba: tuple[float, float, float, float] = (0.0, 0.3, 0.3, 1.0)
+    duster_pose: Pose = Pose(position=(-0.5, 0.0, duster_head_height / 2))
+
     @property
     def tray_pose(self) -> Pose:
         """Calculate the tray pose relative to the side table pose."""

@@ -130,6 +130,19 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             physics_client_id=self.physics_client_id,
         )
 
+        # Create duster.
+        self.duster_id, self.duster_head_link_id, self.duster_pole_link_id = (
+            _create_duster(
+                self.scene_spec.duster_head_radius,
+                self.scene_spec.duster_head_height,
+                self.scene_spec.duster_head_rgba,
+                self.scene_spec.duster_pole_radius,
+                self.scene_spec.duster_pole_height,
+                self.scene_spec.duster_pole_rgba,
+                physics_client_id=self.physics_client_id,
+            )
+        )
+
         # Create shelf.
         self.shelf_id, self.shelf_link_ids = _create_shelf(
             self.scene_spec.shelf_rgba,
@@ -204,9 +217,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Uncomment for debug / development.
-        # while True:
-        #     self._step_simulator((1, GripperAction.OPEN))
-        #     p.stepSimulation(self.physics_client_id)
+        while True:
+            self._step_simulator((1, GripperAction.OPEN))
+            p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
@@ -311,6 +324,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Reset cup.
         set_pose(self.cup_id, self.scene_spec.object_pose, self.physics_client_id)
+
+        # Reset duster.
+        set_pose(self.duster_id, self.scene_spec.duster_pose, self.physics_client_id)
 
         # Reset shelf.
         set_pose(self.shelf_id, self.scene_spec.shelf_pose, self.physics_client_id)
@@ -741,6 +757,80 @@ Return that list and nothing else. Do not explain anything."""
         ][7]
         assert len(color) == 4
         return color[-1]
+
+
+def _create_duster(
+    duster_head_radius: float,
+    duster_head_height: float,
+    duster_head_rgba: tuple[float, float, float, float],
+    duster_pole_radius: float,
+    duster_pole_height: float,
+    duster_pole_rgba: tuple[float, float, float, float],
+    physics_client_id: int,
+) -> tuple[int, int, int]:
+    """Returns body id, link id of the head, and link id of the pole."""
+
+    # Create duster head.
+    head_col_shape_id = p.createCollisionShape(
+        p.GEOM_CYLINDER,
+        radius=duster_head_radius,
+        height=duster_head_height,
+        physicsClientId=physics_client_id,
+    )
+    head_visual_shape_id = p.createVisualShape(
+        p.GEOM_CYLINDER,
+        radius=duster_head_radius,
+        length=duster_head_height,
+        rgbaColor=duster_head_rgba,
+        physicsClientId=physics_client_id,
+    )
+    head_base_position = (0, 0, 0)
+    head_base_orn = (0, 0, 0, 1)
+
+    # Create duster pole.
+    pole_col_shape_id = p.createCollisionShape(
+        p.GEOM_CYLINDER,
+        radius=duster_pole_radius,
+        height=duster_pole_height,
+        physicsClientId=physics_client_id,
+    )
+    pole_visual_shape_id = p.createVisualShape(
+        p.GEOM_CYLINDER,
+        radius=duster_pole_radius,
+        length=duster_pole_height,
+        rgbaColor=duster_pole_rgba,
+        physicsClientId=physics_client_id,
+    )
+    pole_base_position = (0, 0, duster_head_height / 2 + duster_pole_height / 2)
+    pole_base_orn = (0, 0, 0, 1)
+
+    collision_shape_ids = [head_col_shape_id, pole_col_shape_id]
+    visual_shape_ids = [head_visual_shape_id, pole_visual_shape_id]
+    base_positions = [head_base_position, pole_base_position]
+    base_orientations = [head_base_orn, pole_base_orn]
+
+    # Combine into multibody.
+    duster_id = p.createMultiBody(
+        baseMass=0,
+        baseCollisionShapeIndex=-1,
+        baseVisualShapeIndex=-1,
+        basePosition=(0, 0, 0),  # changed externally
+        linkMasses=[0] * 2,
+        linkCollisionShapeIndices=collision_shape_ids,
+        linkVisualShapeIndices=visual_shape_ids,
+        linkPositions=base_positions,
+        linkOrientations=base_orientations,
+        linkInertialFramePositions=[[0, 0, 0]] * 2,
+        linkInertialFrameOrientations=[[0, 0, 0, 1]] * 2,
+        linkParentIndices=[0] * 2,
+        linkJointTypes=[p.JOINT_FIXED] * 2,
+        linkJointAxis=[[0, 0, 0]] * 2,
+        linkLowerLimits=[1] * 2,
+        linkUpperLimits=[-1] * 2,
+        physicsClientId=physics_client_id,
+    )
+
+    return duster_id, 0, 1
 
 
 def _create_shelf(

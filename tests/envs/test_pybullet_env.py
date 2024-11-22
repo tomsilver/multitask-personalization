@@ -52,7 +52,7 @@ def test_pybullet(llm):
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=False,
+        use_gui=True,
         seed=seed,
     )
     env.action_space.seed(seed)
