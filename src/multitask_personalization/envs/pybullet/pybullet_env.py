@@ -456,19 +456,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # that the environment will be reset after done=True.
         done = mission_satisfaction != 0
 
-        # Penalize if any dust levels are above a cleanliness threshold.
-        num_dirty_patches = 0
-        num_total_patches = 0
-        for pybullet_id_arr in self._dust_patches.values():
-            for patch_id in pybullet_id_arr.flat:
-                num_total_patches += 1
-                level = self._get_dust_level(patch_id)
-                if level >= self.scene_spec.max_dust_clean_threshold:
-                    num_dirty_patches += 1
-        frac_dirty = num_dirty_patches / num_total_patches
-        dirty_penalty = self.scene_spec.dirty_patch_penalty
-        self._user_satisfaction += dirty_penalty * frac_dirty
-
         # Start a new mission if the current one is complete.
         if self._current_mission.check_complete(state, action):
             self._current_mission = self._generate_mission()
