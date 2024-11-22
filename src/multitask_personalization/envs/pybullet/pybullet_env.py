@@ -133,12 +133,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Create duster.
         self.duster_id, self.duster_head_link_id, self.duster_pole_link_id = (
             _create_duster(
-                self.scene_spec.duster_head_radius,
-                self.scene_spec.duster_head_height,
+                self.scene_spec.duster_head_half_extents,
                 self.scene_spec.duster_head_rgba,
                 self.scene_spec.duster_pole_radius,
                 self.scene_spec.duster_pole_height,
                 self.scene_spec.duster_pole_rgba,
+                self.scene_spec.duster_pole_offset,
                 physics_client_id=self.physics_client_id,
             )
         )
@@ -404,18 +404,25 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
-                for object_id in [self.cup_id, self.duster_id] + self.book_ids:
+                # Check for objects near the end effector.
+                grasp_threshold = 1e-2
+                # Despite documentation, this actually returns a list of body
+                # AND link ID tuples.
+                grasped_object_link_ids = set(p.getOverlappingObjects(
+                    [end_effector_position[0] - grasp_threshold, end_effector_position[1] - grasp_threshold, end_effector_position[2] - grasp_threshold],
+                    [end_effector_position[0] + grasp_threshold, end_effector_position[1] + grasp_threshold, end_effector_position[2] + grasp_threshold],
+                    physicsClientId=self.physics_client_id
+                ))
+                graspable_object_ids = set(self.book_ids) | {self.cup_id, self.duster_id}
+                grasped_object_ids = {o for o, _ in grasped_object_link_ids if o in graspable_object_ids}
+                assert len(grasped_object_ids) <= 1
+                if grasped_object_ids:
+                    object_id = next(iter(grasped_object_ids))
                     world_to_object = get_pose(object_id, self.physics_client_id)
-                    object_position = world_to_object.position
-                    dist = np.sum(
-                        np.square(np.subtract(end_effector_position, object_position))
+                    self.current_grasp_transform = multiply_poses(
+                        world_to_robot.invert(), world_to_object
                     )
-                    # Grasp successful.
-                    if dist < 1e-3:
-                        self.current_grasp_transform = multiply_poses(
-                            world_to_robot.invert(), world_to_object
-                        )
-                        self.current_held_object_id = object_id
+                    self.current_held_object_id = object_id
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
@@ -766,27 +773,25 @@ Return that list and nothing else. Do not explain anything."""
 
 
 def _create_duster(
-    duster_head_radius: float,
-    duster_head_height: float,
+    duster_head_half_extents: tuple[float, float, float],
     duster_head_rgba: tuple[float, float, float, float],
     duster_pole_radius: float,
     duster_pole_height: float,
     duster_pole_rgba: tuple[float, float, float, float],
+    duster_pole_offset: tuple[float, float, float],
     physics_client_id: int,
 ) -> tuple[int, int, int]:
     """Returns body id, link id of the head, and link id of the pole."""
 
     # Create duster head.
     head_col_shape_id = p.createCollisionShape(
-        p.GEOM_CYLINDER,
-        radius=duster_head_radius,
-        height=duster_head_height,
+        p.GEOM_BOX,
+        halfExtents=duster_head_half_extents,
         physicsClientId=physics_client_id,
     )
     head_visual_shape_id = p.createVisualShape(
-        p.GEOM_CYLINDER,
-        radius=duster_head_radius,
-        length=duster_head_height,
+        p.GEOM_BOX,
+        halfExtents=duster_head_half_extents,
         rgbaColor=duster_head_rgba,
         physicsClientId=physics_client_id,
     )
@@ -807,7 +812,7 @@ def _create_duster(
         rgbaColor=duster_pole_rgba,
         physicsClientId=physics_client_id,
     )
-    pole_base_position = (0, 0, duster_head_height / 2 + duster_pole_height / 2)
+    pole_base_position = duster_pole_offset
     pole_base_orn = (0, 0, 0, 1)
 
     collision_shape_ids = [head_col_shape_id, pole_col_shape_id]

@@ -31,6 +31,7 @@ def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
         assert np.isclose(reward, 0.0)
         assert not terminated
         assert not truncated
+        import time; time.sleep(0.1)
     return obs
 
 
@@ -64,7 +65,7 @@ def test_pybullet_skills():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=False,
+        use_gui=True,
         seed=seed,
     )
 
@@ -81,14 +82,15 @@ def test_pybullet_skills():
     book0, book1 = obs.book_descriptions[:2]
 
     # Test pick duster.
-    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
-    pick_book_plan = get_plan_to_pick_object(
+    grasp_pose = Pose.from_rpy((scene_spec.duster_pole_offset[0] + 2 * scene_spec.duster_pole_radius, 0, scene_spec.duster_head_half_extents[2] + scene_spec.duster_pole_height / 2),
+                               (np.pi / 2, np.pi, -np.pi / 2))
+    pick_duster_plan = get_plan_to_pick_object(
         obs,
         "duster",
         grasp_pose,
         sim,
     )
-    obs = _run_plan(pick_book_plan, env)
+    obs = _run_plan(pick_duster_plan, env)
     assert obs.held_object == "duster"
 
     import ipdb; ipdb.set_trace()
