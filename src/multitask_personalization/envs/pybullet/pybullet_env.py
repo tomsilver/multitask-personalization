@@ -228,12 +228,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
         human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
         cup_pose = get_pose(self.cup_id, self.physics_client_id)
+        duster_pose = get_pose(self.duster_id, self.physics_client_id)
         book_poses = [
             get_pose(book_id, self.physics_client_id) for book_id in self.book_ids
         ]
         obj_to_obj_name = {
             None: None,
             self.cup_id: "cup",
+            self.duster_id: "duster",
         }
         for book_id, book_description in zip(
             self.book_ids, self.book_descriptions, strict=True
@@ -256,6 +258,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             human_base,
             human_joints,
             cup_pose,
+            duster_pose,
             book_poses,
             self.book_descriptions,
             self.current_grasp_transform,
@@ -276,6 +279,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             state.human_joints,
         )
         set_pose(self.cup_id, state.cup_pose, self.physics_client_id)
+        set_pose(self.duster_id, state.duster_pose, self.physics_client_id)
         for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
             set_pose(book_id, book_pose, self.physics_client_id)
         self.book_descriptions = state.book_descriptions
@@ -284,6 +288,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         obj_name_to_obj = {
             None: None,
             "cup": self.cup_id,
+            "duster": self.duster_id,
         }
         for book_id, book_description in zip(
             self.book_ids, self.book_descriptions, strict=True
@@ -399,7 +404,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
-                for object_id in [self.cup_id] + self.book_ids:
+                for object_id in [self.cup_id, self.duster_id] + self.book_ids:
                     world_to_object = get_pose(object_id, self.physics_client_id)
                     object_position = world_to_object.position
                     dist = np.sum(

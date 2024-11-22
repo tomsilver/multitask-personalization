@@ -41,6 +41,7 @@ def get_kinematic_state_from_pybullet_state(
     robot_joints = pybullet_state.robot_joints
     object_poses = {
         sim.cup_id: pybullet_state.cup_pose,
+        sim.duster_id: pybullet_state.duster_pose,
         sim.table_id: sim.scene_spec.table_pose,
         sim.shelf_id: sim.scene_spec.shelf_pose,
         sim.tray_id: sim.scene_spec.tray_pose,
@@ -51,6 +52,9 @@ def get_kinematic_state_from_pybullet_state(
     if pybullet_state.held_object == "cup":
         assert pybullet_state.grasp_transform is not None
         attachments[sim.cup_id] = pybullet_state.grasp_transform
+    if pybullet_state.held_object == "duster":
+        assert pybullet_state.grasp_transform is not None
+        attachments[sim.duster_id] = pybullet_state.grasp_transform
     for book_id, book_description in zip(
         sim.book_ids, pybullet_state.book_descriptions, strict=True
     ):
