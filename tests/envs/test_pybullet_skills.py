@@ -107,7 +107,7 @@ def test_pybullet_skills():
     obs = _run_plan(wipe_plan, env)
 
     # Test place duster.
-    import ipdb; ipdb.set_trace()
+    # import ipdb; ipdb.set_trace()
 
     # # Test pick book.
     # grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))

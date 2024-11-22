@@ -391,13 +391,31 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return self.get_state(), self._get_info()
 
     def _step_simulator(self, action: PyBulletAction) -> None:
-        # Increase dust.
+        # Handle dust: increase for any dust not touched, zero out dust that is
+        # touched by the duster.
+        wiper_overlap_obj_ids = set()
+        if self.current_held_object_id == self.duster_id:
+            wiper_aabb_min, wiper_aabb_max = self._get_duster_surface_aabb()
+            wiper_overlap_obj_links = p.getOverlappingObjects(
+                wiper_aabb_min, wiper_aabb_max,
+                physicsClientId=self.physics_client_id
+            )
+            wiper_overlap_obj_ids = {o for o, _ in wiper_overlap_obj_links}
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
         for pybullet_id_arr in self._dust_patches.values():
             for patch_id in pybullet_id_arr.flat:
+
+                # from pybullet_helpers.gui import visualize_aabb
+                # aabb = p.getAABB(patch_id, physicsClientId=self.physics_client_id)
+                # visualize_aabb(aabb, self.physics_client_id)
+
                 level = self._get_dust_level(patch_id)
                 new_level = np.clip(level + dust_delta, 0, max_dust)
+                # If the robot is holding the duster, check for contact between
+                # the duster and any patches and remove dust accordingly.
+                if patch_id in wiper_overlap_obj_ids:
+                    new_level = 0.0
                 self._set_dust_level(patch_id, new_level)
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
@@ -690,6 +708,15 @@ Return that list and nothing else. Do not explain anything."""
         s = self.scene_spec.surface_dust_patch_size
         patch_arr = np.empty((s, s), dtype=int)
         for r, c, pose in self._get_dust_patch_poses(surface_name, link_id):
+            # NOTE: if a collision shape is not created, the AABB of the patch
+            # will be wrong, which messes up all forms of collision checking or
+            # overlap checking that might be used to detect dust wiping. So we
+            # create a collision shape but then disable collisions using groups.
+            collision_id = p.createCollisionShape(
+                p.GEOM_BOX,
+                halfExtents=half_extents,
+                physicsClientId=self.physics_client_id,
+            )
             visual_id = p.createVisualShape(
                 p.GEOM_BOX,
                 halfExtents=half_extents,
@@ -698,12 +725,13 @@ Return that list and nothing else. Do not explain anything."""
             )
             patch_id = p.createMultiBody(
                 baseMass=-1,
-                baseCollisionShapeIndex=-1,
+                baseCollisionShapeIndex=collision_id,
                 baseVisualShapeIndex=visual_id,
                 basePosition=pose.position,
                 baseOrientation=pose.orientation,
                 physicsClientId=self.physics_client_id,
             )
+            p.setCollisionFilterGroupMask(bodyUniqueId=patch_id, linkIndexA=-1, collisionFilterGroup=0, collisionFilterMask=0, physicsClientId=self.physics_client_id)
             patch_arr[r, c] = patch_id
 
         return patch_arr
@@ -744,7 +772,7 @@ Return that list and nothing else. Do not explain anything."""
         )
         x_min, y_min, _ = aabb_min
         x_max, y_max, z_min = aabb_max
-        z_max = z_min + self.scene_spec.surface_dust_visual_height
+        z_max = z_min + self.scene_spec.surface_dust_height
         s = self.scene_spec.surface_dust_patch_size
         half_extents = (
             (x_max - x_min) / (2 * s),
@@ -752,6 +780,22 @@ Return that list and nothing else. Do not explain anything."""
             (z_max - z_min) / 2,
         )
         return half_extents
+    
+    def _get_duster_surface_aabb(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        head_pose = get_link_pose(self.duster_id, self.duster_head_link_id, self.physics_client_id)
+        half_extents = self.scene_spec.duster_head_half_extents
+        padding = 1e-2
+        min_tf = Pose((-half_extents[0]-padding, -half_extents[1]+padding, padding))
+        max_tf = Pose((-half_extents[0]+padding, half_extents[1]-padding, half_extents[2]-padding))
+        corner1 = multiply_poses(head_pose, min_tf).position
+        corner2 = multiply_poses(head_pose, max_tf).position
+        aabb_min = (min(corner1[0], corner2[0]), min(corner1[1], corner2[1]), min(corner1[2], corner2[2]))
+        aabb_max = (max(corner1[0], corner2[0]), max(corner1[1], corner2[1]), max(corner1[2], corner2[2]))
+        # from pybullet_helpers.gui import visualize_aabb
+        # visualize_aabb((aabb_min, aabb_max), self.physics_client_id)
+        # while True:
+        #     p.stepSimulation(self.physics_client_id)
+        return (aabb_min, aabb_max)
 
     def _set_dust_level(self, patch_id: int, level: float) -> None:
         # Transparency alone doesn't seem to render correctly, so we also change
