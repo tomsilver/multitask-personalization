@@ -397,19 +397,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self.current_held_object_id == self.duster_id:
             wiper_aabb_min, wiper_aabb_max = self._get_duster_surface_aabb()
             wiper_overlap_obj_links = p.getOverlappingObjects(
-                wiper_aabb_min, wiper_aabb_max,
-                physicsClientId=self.physics_client_id
+                wiper_aabb_min, wiper_aabb_max, physicsClientId=self.physics_client_id
             )
             wiper_overlap_obj_ids = {o for o, _ in wiper_overlap_obj_links}
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
         for pybullet_id_arr in self._dust_patches.values():
             for patch_id in pybullet_id_arr.flat:
-
-                # from pybullet_helpers.gui import visualize_aabb
-                # aabb = p.getAABB(patch_id, physicsClientId=self.physics_client_id)
-                # visualize_aabb(aabb, self.physics_client_id)
-
                 level = self._get_dust_level(patch_id)
                 new_level = np.clip(level + dust_delta, 0, max_dust)
                 # If the robot is holding the duster, check for contact between
@@ -426,13 +420,28 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 grasp_threshold = 1e-2
                 # Despite documentation, this actually returns a list of body
                 # AND link ID tuples.
-                grasped_object_link_ids = set(p.getOverlappingObjects(
-                    [end_effector_position[0] - grasp_threshold, end_effector_position[1] - grasp_threshold, end_effector_position[2] - grasp_threshold],
-                    [end_effector_position[0] + grasp_threshold, end_effector_position[1] + grasp_threshold, end_effector_position[2] + grasp_threshold],
-                    physicsClientId=self.physics_client_id
-                ))
-                graspable_object_ids = set(self.book_ids) | {self.cup_id, self.duster_id}
-                grasped_object_ids = {o for o, _ in grasped_object_link_ids if o in graspable_object_ids}
+                grasped_object_link_ids = set(
+                    p.getOverlappingObjects(
+                        [
+                            end_effector_position[0] - grasp_threshold,
+                            end_effector_position[1] - grasp_threshold,
+                            end_effector_position[2] - grasp_threshold,
+                        ],
+                        [
+                            end_effector_position[0] + grasp_threshold,
+                            end_effector_position[1] + grasp_threshold,
+                            end_effector_position[2] + grasp_threshold,
+                        ],
+                        physicsClientId=self.physics_client_id,
+                    )
+                )
+                graspable_object_ids = set(self.book_ids) | {
+                    self.cup_id,
+                    self.duster_id,
+                }
+                grasped_object_ids = {
+                    o for o, _ in grasped_object_link_ids if o in graspable_object_ids
+                }
                 assert len(grasped_object_ids) <= 1
                 if grasped_object_ids:
                     object_id = next(iter(grasped_object_ids))
@@ -609,6 +618,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.wheelchair.body,
             self.shelf_id,
             self.tray_id,
+            self.duster_id,
+            self.cup_id,
             self.side_table_id,
         }
 
@@ -731,7 +742,13 @@ Return that list and nothing else. Do not explain anything."""
                 baseOrientation=pose.orientation,
                 physicsClientId=self.physics_client_id,
             )
-            p.setCollisionFilterGroupMask(bodyUniqueId=patch_id, linkIndexA=-1, collisionFilterGroup=0, collisionFilterMask=0, physicsClientId=self.physics_client_id)
+            p.setCollisionFilterGroupMask(
+                bodyUniqueId=patch_id,
+                linkIndexA=-1,
+                collisionFilterGroup=0,
+                collisionFilterMask=0,
+                physicsClientId=self.physics_client_id,
+            )
             patch_arr[r, c] = patch_id
 
         return patch_arr
@@ -780,21 +797,35 @@ Return that list and nothing else. Do not explain anything."""
             (z_max - z_min) / 2,
         )
         return half_extents
-    
-    def _get_duster_surface_aabb(self) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
-        head_pose = get_link_pose(self.duster_id, self.duster_head_link_id, self.physics_client_id)
+
+    def _get_duster_surface_aabb(
+        self,
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        head_pose = get_link_pose(
+            self.duster_id, self.duster_head_link_id, self.physics_client_id
+        )
         half_extents = self.scene_spec.duster_head_half_extents
         padding = 1e-2
-        min_tf = Pose((-half_extents[0]-padding, -half_extents[1]+padding, padding))
-        max_tf = Pose((-half_extents[0]+padding, half_extents[1]-padding, half_extents[2]-padding))
+        min_tf = Pose((-half_extents[0] - padding, -half_extents[1] + padding, padding))
+        max_tf = Pose(
+            (
+                -half_extents[0] + padding,
+                half_extents[1] - padding,
+                half_extents[2] - padding,
+            )
+        )
         corner1 = multiply_poses(head_pose, min_tf).position
         corner2 = multiply_poses(head_pose, max_tf).position
-        aabb_min = (min(corner1[0], corner2[0]), min(corner1[1], corner2[1]), min(corner1[2], corner2[2]))
-        aabb_max = (max(corner1[0], corner2[0]), max(corner1[1], corner2[1]), max(corner1[2], corner2[2]))
-        # from pybullet_helpers.gui import visualize_aabb
-        # visualize_aabb((aabb_min, aabb_max), self.physics_client_id)
-        # while True:
-        #     p.stepSimulation(self.physics_client_id)
+        aabb_min = (
+            min(corner1[0], corner2[0]),
+            min(corner1[1], corner2[1]),
+            min(corner1[2], corner2[2]),
+        )
+        aabb_max = (
+            max(corner1[0], corner2[0]),
+            max(corner1[1], corner2[1]),
+            max(corner1[2], corner2[2]),
+        )
         return (aabb_min, aabb_max)
 
     def _set_dust_level(self, patch_id: int, level: float) -> None:

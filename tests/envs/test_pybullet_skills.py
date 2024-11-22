@@ -2,9 +2,9 @@
 
 import os
 from pathlib import Path
-import pybullet as p
 
 import numpy as np
+import pybullet as p
 from pybullet_helpers.geometry import Pose
 from tomsutils.llm import OpenAILLM
 
@@ -66,13 +66,13 @@ def test_pybullet_skills():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=True,
+        use_gui=False,
         seed=seed,
     )
 
     # Uncomment to create video.
-    from gymnasium.wrappers import RecordVideo
-    env = RecordVideo(env, "videos/test-pybullet-skills")
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-pybullet-skills")
 
     env.action_space.seed(seed)
     obs, _ = env.reset()
@@ -83,8 +83,14 @@ def test_pybullet_skills():
     book0, book1 = obs.book_descriptions[:2]
 
     # Test pick duster.
-    grasp_pose = Pose.from_rpy((scene_spec.duster_pole_offset[0] + 2 * scene_spec.duster_pole_radius, 0, scene_spec.duster_head_half_extents[2] + scene_spec.duster_pole_height / 2),
-                               (np.pi / 2, np.pi, -np.pi / 2))
+    grasp_pose = Pose.from_rpy(
+        (
+            scene_spec.duster_pole_offset[0] + 2 * scene_spec.duster_pole_radius,
+            0,
+            scene_spec.duster_head_half_extents[2] + scene_spec.duster_pole_height / 2,
+        ),
+        (np.pi / 2, np.pi, -np.pi / 2),
+    )
     pick_duster_plan = get_plan_to_pick_object(
         obs,
         "duster",

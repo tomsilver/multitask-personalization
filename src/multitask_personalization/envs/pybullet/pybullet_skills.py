@@ -1,19 +1,19 @@
 """Python programs that implement various behaviors in PyBullet envs."""
 
 import numpy as np
-from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, iter_between_poses
-from pybullet_helpers.link import get_link_pose
 import pybullet as p
+from pybullet_helpers.geometry import Pose, get_pose, iter_between_poses, multiply_poses
+from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
     get_kinematic_plan_to_retract,
 )
 from pybullet_helpers.motion_planning import (
+    create_joint_distance_fn,
     run_base_motion_planning,
     run_smooth_motion_planning_to_pose,
     smoothly_follow_end_effector_path,
-    create_joint_distance_fn,
 )
 from pybullet_helpers.states import KinematicState
 
@@ -276,16 +276,18 @@ def get_plan_to_place_object(
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
-def get_plan_to_wipe_surface(state: PyBulletState,
-        duster_name: str,
-        surface_name: str,
-        wipe_direction_num_rotations: int,
-        sim: PyBulletEnv,
-        surface_link_id: int = -1,
-        max_motion_planning_candidates: int = 1,
-        max_motion_planning_time: float = np.inf,
-        seed: int = 0,
-        off_surface_padding: float = 1e-3) -> list[PyBulletAction]:
+def get_plan_to_wipe_surface(
+    state: PyBulletState,
+    duster_name: str,
+    surface_name: str,
+    wipe_direction_num_rotations: int,
+    sim: PyBulletEnv,
+    surface_link_id: int = -1,
+    max_motion_planning_candidates: int = 1,
+    max_motion_planning_time: float = np.inf,
+    seed: int = 0,
+    off_surface_padding: float = 1e-3,
+) -> list[PyBulletAction]:
     """Assuming a surface is clear of objects and the duster is held."""
     sim.set_state(state)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
@@ -306,63 +308,58 @@ def get_plan_to_wipe_surface(state: PyBulletState,
     assert duster_name == "duster"
     # Need to rotate the duster head frame to point in wiping direction.
     duster_head_tf = Pose.from_rpy((0, 0, 0), (0, np.pi, np.pi / 2))
-    world_to_duster_head = multiply_poses(get_link_pose(sim.duster_id, sim.duster_head_link_id, sim.physics_client_id), duster_head_tf)
+    world_to_duster_head = multiply_poses(
+        get_link_pose(sim.duster_id, sim.duster_head_link_id, sim.physics_client_id),
+        duster_head_tf,
+    )
     world_to_ee = sim.robot.get_end_effector_pose()
     ee_to_duster_head = multiply_poses(world_to_ee.invert(), world_to_duster_head)
 
     joint_distance_fn = create_joint_distance_fn(sim.robot)
 
-    # from pybullet_helpers.gui import visualize_pose
-    # visualize_pose(world_to_duster_head, sim.physics_client_id)
-    # while True:
-    #     p.stepSimulation(sim.physics_client_id)
-
     # Create the starting poses from which we will wipe forward. The poses are
     # in the frame of the duster.
     aabb_min, aabb_max = p.getAABB(
-        surface_id, linkIndex=surface_link_id,
-        physicsClientId=sim.physics_client_id
+        surface_id, linkIndex=surface_link_id, physicsClientId=sim.physics_client_id
     )
     surface_center = (
         (aabb_min[0] + aabb_max[0]) / 2,
         (aabb_min[1] + aabb_max[1]) / 2,
         aabb_max[2] + off_surface_padding,
     )
-    # The wipe origin is a pose at the center of the surface facing in the 
+    # The wipe origin is a pose at the center of the surface facing in the
     # wipe direction (z axis pointing forward) with the duster shape offset.
     wipe_origin = Pose.from_rpy(surface_center, (-np.pi / 2, 0, wipe_yaw))
 
-    # from pybullet_helpers.gui import visualize_pose
-    # visualize_pose(wipe_origin, sim.physics_client_id)
-    # while True:
-    #     p.stepSimulation(sim.physics_client_id)
-
     if wipe_direction_num_rotations in {1, 3}:
-        wipe_horiz = (aabb_max[1] - aabb_min[1])
-        wipe_vert = (aabb_max[0] - aabb_min[0])
+        wipe_horiz = aabb_max[1] - aabb_min[1]
+        wipe_vert = aabb_max[0] - aabb_min[0]
     else:
         assert wipe_direction_num_rotations in {0, 2}
-        wipe_horiz = (aabb_max[0] - aabb_min[0])
-        wipe_vert = (aabb_max[1] - aabb_min[1])
+        wipe_horiz = aabb_max[0] - aabb_min[0]
+        wipe_vert = aabb_max[1] - aabb_min[1]
 
     prewipe_tf = Pose((-wipe_horiz / 2, 0, -wipe_vert / 2))
     # The prewipe origin is a pose at the bottom left hand corner of the surface
     # where wiping should start, but without the size of the duster considered.
     prewipe_origin = multiply_poses(wipe_origin, prewipe_tf)
 
-    # from pybullet_helpers.gui import visualize_pose
-    # visualize_pose(prewipe_origin, sim.physics_client_id)
-    # while True:
-    #     p.stepSimulation(sim.physics_client_id)
-
     # Calculate the initial poses to start wiping.
     duster_vert_half = sim.scene_spec.duster_head_half_extents[0]
     duster_horiz_half = sim.scene_spec.duster_head_half_extents[1]
     duster_height_half = sim.scene_spec.duster_head_half_extents[2]
     num_wipes = int(np.ceil(wipe_horiz / (2 * duster_horiz_half)))
-    first_init_wipe_pose = multiply_poses(prewipe_origin, Pose((duster_horiz_half, -duster_height_half, duster_vert_half)))
-    final_init_wipe_pose = multiply_poses(first_init_wipe_pose, Pose((wipe_horiz - 2 * duster_horiz_half, 0, 0)))
-    init_wipe_poses = list(iter_between_poses(first_init_wipe_pose, final_init_wipe_pose, num_interp=(num_wipes-1)))
+    first_init_wipe_pose = multiply_poses(
+        prewipe_origin, Pose((duster_horiz_half, -duster_height_half, duster_vert_half))
+    )
+    final_init_wipe_pose = multiply_poses(
+        first_init_wipe_pose, Pose((wipe_horiz - 2 * duster_horiz_half, 0, 0))
+    )
+    init_wipe_poses = list(
+        iter_between_poses(
+            first_init_wipe_pose, final_init_wipe_pose, num_interp=(num_wipes - 1)
+        )
+    )
 
     # Calculate corresponding final poses to finish wiping.
     wipe_motion_tf = Pose((0, 0, wipe_vert - 2 * duster_vert_half))
@@ -370,17 +367,11 @@ def get_plan_to_wipe_surface(state: PyBulletState,
         multiply_poses(pose, wipe_motion_tf) for pose in init_wipe_poses
     ]
 
-    # from pybullet_helpers.gui import visualize_pose
-    # for pose in init_wipe_poses:
-    #     visualize_pose(pose, sim.physics_client_id)
-    # for pose in terminal_wipe_poses:
-    #     visualize_pose(pose, sim.physics_client_id)
-    # while True:
-    #     p.stepSimulation(sim.physics_client_id)
-
     # Alternate between motion planning and smooth end effector movements.
     kinematic_plan: list[KinematicState] = []
-    for init_wipe_pose, terminal_wipe_pose in zip(init_wipe_poses, terminal_wipe_poses, strict=True):
+    for init_wipe_pose, terminal_wipe_pose in zip(
+        init_wipe_poses, terminal_wipe_poses, strict=True
+    ):
 
         # Motion plan to hand over.
         robot_joint_plan = run_smooth_motion_planning_to_pose(
@@ -401,7 +392,9 @@ def get_plan_to_wipe_surface(state: PyBulletState,
 
         # Smooth plan to wipe.
         init_ee_pose = sim.robot.get_end_effector_pose()
-        terminal_ee_pose = multiply_poses(terminal_wipe_pose, ee_to_duster_head.invert())
+        terminal_ee_pose = multiply_poses(
+            terminal_wipe_pose, ee_to_duster_head.invert()
+        )
         end_effector_path = list(
             iter_between_poses(
                 init_ee_pose,
@@ -429,4 +422,3 @@ def get_plan_to_wipe_surface(state: PyBulletState,
         kinematic_plan[-1].set_pybullet(sim.robot)
 
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
-
