@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import pybullet as p
 
 import numpy as np
 from pybullet_helpers.geometry import Pose
@@ -16,6 +17,7 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_move_next_to_object,
     get_plan_to_pick_object,
     get_plan_to_place_object,
+    get_plan_to_wipe_surface,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -31,7 +33,6 @@ def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
         assert np.isclose(reward, 0.0)
         assert not terminated
         assert not truncated
-        import time; time.sleep(0.1)
     return obs
 
 
@@ -65,7 +66,7 @@ def test_pybullet_skills():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=True,
+        use_gui=False,
         seed=seed,
     )
 
@@ -78,7 +79,7 @@ def test_pybullet_skills():
     assert isinstance(obs, PyBulletState)
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
     book0, book1 = obs.book_descriptions[:2]
 
     # Test pick duster.
@@ -93,6 +94,18 @@ def test_pybullet_skills():
     obs = _run_plan(pick_duster_plan, env)
     assert obs.held_object == "duster"
 
+    # Test wipe table with duster.
+    wipe_direction_num_rotations = 1
+    wipe_plan = get_plan_to_wipe_surface(
+        obs,
+        "duster",
+        "table",
+        wipe_direction_num_rotations,
+        sim
+    )
+    obs = _run_plan(pick_duster_plan, env)
+
+    # Test place duster.
     import ipdb; ipdb.set_trace()
 
     # Test pick book.

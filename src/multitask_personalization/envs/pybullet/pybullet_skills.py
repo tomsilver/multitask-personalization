@@ -1,7 +1,8 @@
 """Python programs that implement various behaviors in PyBullet envs."""
 
 import numpy as np
-from pybullet_helpers.geometry import Pose, get_pose
+from pybullet_helpers.geometry import Pose, get_pose, multiply_poses
+import pybullet as p
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
@@ -270,3 +271,51 @@ def get_plan_to_place_object(
     if kinematic_plan is None:
         return None
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+
+
+def get_plan_to_wipe_surface(obs: PyBulletState,
+        duster_name: str,
+        surface_name: str,
+        wipe_direction_num_rotations: int,
+        sim: PyBulletEnv,
+        surface_link_id: int = -1) -> list[PyBulletAction]:
+    """Assuming a surface is clear of objects and the duster is held."""
+    assert 0 <= wipe_direction_num_rotations < 4
+    wipe_yaw = (np.pi / 2) * wipe_direction_num_rotations
+
+    surface_id = sim.get_object_id_from_name(surface_name)
+    duster_id = sim.get_object_id_from_name(duster_name)
+
+    # Create the starting poses from which we will wipe forward. The poses are
+    # in the frame of the duster.
+    aabb_min, aabb_max = p.getAABB(
+        surface_id, linkIndex=surface_link_id,
+        physicsClientId=sim.physics_client_id
+    )
+    surface_center = (
+        (aabb_min[0] + aabb_max[0]) / 2,
+        (aabb_min[1] + aabb_max[1]) / 2,
+        aabb_max[2],
+    )
+    # The wipe origin is a pose at the center of the surface facing in the 
+    # wipe direction (z axis pointing forward).
+    wipe_origin = Pose.from_rpy(surface_center, (-np.pi / 2, 0, wipe_yaw))
+
+    # from pybullet_helpers.gui import visualize_pose
+    # visualize_pose(wipe_origin, sim.physics_client_id)
+    # while True:
+    #     p.stepSimulation(sim.physics_client_id)
+
+    if wipe_direction_num_rotations in {1, 3}:
+        prewipe_distance = (aabb_max[0] - aabb_min[0]) / 2
+    else:
+        assert wipe_direction_num_rotations in {0, 2}
+        prewipe_distance = (aabb_max[1] - aabb_min[1]) / 2
+
+    prewipe_tf = Pose((0, 0, -prewipe_distance))
+    prewipe_pose = multiply_poses(wipe_origin, prewipe_tf)
+
+    from pybullet_helpers.gui import visualize_pose
+    visualize_pose(prewipe_pose, sim.physics_client_id)
+    while True:
+        p.stepSimulation(sim.physics_client_id)
