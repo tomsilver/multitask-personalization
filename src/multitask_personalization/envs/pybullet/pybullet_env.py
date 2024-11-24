@@ -130,6 +130,19 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             physics_client_id=self.physics_client_id,
         )
 
+        # Create duster.
+        self.duster_id, self.duster_head_link_id, self.duster_pole_link_id = (
+            _create_duster(
+                self.scene_spec.duster_head_half_extents,
+                self.scene_spec.duster_head_rgba,
+                self.scene_spec.duster_pole_radius,
+                self.scene_spec.duster_pole_height,
+                self.scene_spec.duster_pole_rgba,
+                self.scene_spec.duster_pole_offset,
+                physics_client_id=self.physics_client_id,
+            )
+        )
+
         # Create shelf.
         self.shelf_id, self.shelf_link_ids = _create_shelf(
             self.scene_spec.shelf_rgba,
@@ -215,12 +228,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
         human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
         cup_pose = get_pose(self.cup_id, self.physics_client_id)
+        duster_pose = get_pose(self.duster_id, self.physics_client_id)
         book_poses = [
             get_pose(book_id, self.physics_client_id) for book_id in self.book_ids
         ]
         obj_to_obj_name = {
             None: None,
             self.cup_id: "cup",
+            self.duster_id: "duster",
         }
         for book_id, book_description in zip(
             self.book_ids, self.book_descriptions, strict=True
@@ -243,6 +258,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             human_base,
             human_joints,
             cup_pose,
+            duster_pose,
             book_poses,
             self.book_descriptions,
             self.current_grasp_transform,
@@ -263,6 +279,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             state.human_joints,
         )
         set_pose(self.cup_id, state.cup_pose, self.physics_client_id)
+        set_pose(self.duster_id, state.duster_pose, self.physics_client_id)
         for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
             set_pose(book_id, book_pose, self.physics_client_id)
         self.book_descriptions = state.book_descriptions
@@ -271,6 +288,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         obj_name_to_obj = {
             None: None,
             "cup": self.cup_id,
+            "duster": self.duster_id,
         }
         for book_id, book_description in zip(
             self.book_ids, self.book_descriptions, strict=True
@@ -311,6 +329,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Reset cup.
         set_pose(self.cup_id, self.scene_spec.object_pose, self.physics_client_id)
+
+        # Reset duster.
+        set_pose(self.duster_id, self.scene_spec.duster_pose, self.physics_client_id)
 
         # Reset shelf.
         set_pose(self.shelf_id, self.scene_spec.shelf_pose, self.physics_client_id)
@@ -370,31 +391,65 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return self.get_state(), self._get_info()
 
     def _step_simulator(self, action: PyBulletAction) -> None:
-        # Increase dust.
+        # Handle dust: increase for any dust not touched, zero out dust that is
+        # touched by the duster.
+        wiper_overlap_obj_ids = set()
+        if self.current_held_object_id == self.duster_id:
+            wiper_aabb_min, wiper_aabb_max = self._get_duster_surface_aabb()
+            wiper_overlap_obj_links = p.getOverlappingObjects(
+                wiper_aabb_min, wiper_aabb_max, physicsClientId=self.physics_client_id
+            )
+            wiper_overlap_obj_ids = {o for o, _ in wiper_overlap_obj_links}
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
         for pybullet_id_arr in self._dust_patches.values():
             for patch_id in pybullet_id_arr.flat:
                 level = self._get_dust_level(patch_id)
                 new_level = np.clip(level + dust_delta, 0, max_dust)
+                # If the robot is holding the duster, check for contact between
+                # the duster and any patches and remove dust accordingly.
+                if patch_id in wiper_overlap_obj_ids:
+                    new_level = 0.0
                 self._set_dust_level(patch_id, new_level)
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
                 world_to_robot = self.robot.get_end_effector_pose()
                 end_effector_position = world_to_robot.position
-                for object_id in [self.cup_id] + self.book_ids:
-                    world_to_object = get_pose(object_id, self.physics_client_id)
-                    object_position = world_to_object.position
-                    dist = np.sum(
-                        np.square(np.subtract(end_effector_position, object_position))
+                # Check for objects near the end effector.
+                grasp_threshold = 1e-2
+                # Despite documentation, this actually returns a list of body
+                # AND link ID tuples.
+                grasped_object_link_ids = set(
+                    p.getOverlappingObjects(
+                        [
+                            end_effector_position[0] - grasp_threshold,
+                            end_effector_position[1] - grasp_threshold,
+                            end_effector_position[2] - grasp_threshold,
+                        ],
+                        [
+                            end_effector_position[0] + grasp_threshold,
+                            end_effector_position[1] + grasp_threshold,
+                            end_effector_position[2] + grasp_threshold,
+                        ],
+                        physicsClientId=self.physics_client_id,
                     )
-                    # Grasp successful.
-                    if dist < 1e-3:
-                        self.current_grasp_transform = multiply_poses(
-                            world_to_robot.invert(), world_to_object
-                        )
-                        self.current_held_object_id = object_id
+                )
+                graspable_object_ids = set(self.book_ids) | {
+                    self.cup_id,
+                    self.duster_id,
+                }
+                grasped_object_ids = {
+                    o for o, _ in grasped_object_link_ids if o in graspable_object_ids
+                }
+                assert len(grasped_object_ids) <= 1
+                if grasped_object_ids:
+                    object_id = next(iter(grasped_object_ids))
+                    world_to_object = get_pose(object_id, self.physics_client_id)
+                    self.current_grasp_transform = multiply_poses(
+                        world_to_robot.invert(), world_to_object
+                    )
+                    self.current_held_object_id = object_id
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
@@ -519,6 +574,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "table": self.table_id,
             "tray": self.tray_id,
             "shelf": self.shelf_id,
+            "duster": self.duster_id,
         }[object_name]
 
     def get_surface_names(self) -> set[str]:
@@ -562,6 +618,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.wheelchair.body,
             self.shelf_id,
             self.tray_id,
+            self.duster_id,
+            self.cup_id,
             self.side_table_id,
         }
 
@@ -661,6 +719,15 @@ Return that list and nothing else. Do not explain anything."""
         s = self.scene_spec.surface_dust_patch_size
         patch_arr = np.empty((s, s), dtype=int)
         for r, c, pose in self._get_dust_patch_poses(surface_name, link_id):
+            # NOTE: if a collision shape is not created, the AABB of the patch
+            # will be wrong, which messes up all forms of collision checking or
+            # overlap checking that might be used to detect dust wiping. So we
+            # create a collision shape but then disable collisions using groups.
+            collision_id = p.createCollisionShape(
+                p.GEOM_BOX,
+                halfExtents=half_extents,
+                physicsClientId=self.physics_client_id,
+            )
             visual_id = p.createVisualShape(
                 p.GEOM_BOX,
                 halfExtents=half_extents,
@@ -669,10 +736,17 @@ Return that list and nothing else. Do not explain anything."""
             )
             patch_id = p.createMultiBody(
                 baseMass=-1,
-                baseCollisionShapeIndex=-1,
+                baseCollisionShapeIndex=collision_id,
                 baseVisualShapeIndex=visual_id,
                 basePosition=pose.position,
                 baseOrientation=pose.orientation,
+                physicsClientId=self.physics_client_id,
+            )
+            p.setCollisionFilterGroupMask(
+                bodyUniqueId=patch_id,
+                linkIndexA=-1,
+                collisionFilterGroup=0,
+                collisionFilterMask=0,
                 physicsClientId=self.physics_client_id,
             )
             patch_arr[r, c] = patch_id
@@ -715,7 +789,7 @@ Return that list and nothing else. Do not explain anything."""
         )
         x_min, y_min, _ = aabb_min
         x_max, y_max, z_min = aabb_max
-        z_max = z_min + self.scene_spec.surface_dust_visual_height
+        z_max = z_min + self.scene_spec.surface_dust_height
         s = self.scene_spec.surface_dust_patch_size
         half_extents = (
             (x_max - x_min) / (2 * s),
@@ -723,6 +797,36 @@ Return that list and nothing else. Do not explain anything."""
             (z_max - z_min) / 2,
         )
         return half_extents
+
+    def _get_duster_surface_aabb(
+        self,
+    ) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        head_pose = get_link_pose(
+            self.duster_id, self.duster_head_link_id, self.physics_client_id
+        )
+        half_extents = self.scene_spec.duster_head_half_extents
+        padding = 1e-2
+        min_tf = Pose((-half_extents[0] - padding, -half_extents[1] + padding, padding))
+        max_tf = Pose(
+            (
+                -half_extents[0] + padding,
+                half_extents[1] - padding,
+                half_extents[2] - padding,
+            )
+        )
+        corner1 = multiply_poses(head_pose, min_tf).position
+        corner2 = multiply_poses(head_pose, max_tf).position
+        aabb_min = (
+            min(corner1[0], corner2[0]),
+            min(corner1[1], corner2[1]),
+            min(corner1[2], corner2[2]),
+        )
+        aabb_max = (
+            max(corner1[0], corner2[0]),
+            max(corner1[1], corner2[1]),
+            max(corner1[2], corner2[2]),
+        )
+        return (aabb_min, aabb_max)
 
     def _set_dust_level(self, patch_id: int, level: float) -> None:
         # Transparency alone doesn't seem to render correctly, so we also change
@@ -741,6 +845,78 @@ Return that list and nothing else. Do not explain anything."""
         ][7]
         assert len(color) == 4
         return color[-1]
+
+
+def _create_duster(
+    duster_head_half_extents: tuple[float, float, float],
+    duster_head_rgba: tuple[float, float, float, float],
+    duster_pole_radius: float,
+    duster_pole_height: float,
+    duster_pole_rgba: tuple[float, float, float, float],
+    duster_pole_offset: tuple[float, float, float],
+    physics_client_id: int,
+) -> tuple[int, int, int]:
+    """Returns body id, link id of the head, and link id of the pole."""
+
+    # Create duster head.
+    head_col_shape_id = p.createCollisionShape(
+        p.GEOM_BOX,
+        halfExtents=duster_head_half_extents,
+        physicsClientId=physics_client_id,
+    )
+    head_visual_shape_id = p.createVisualShape(
+        p.GEOM_BOX,
+        halfExtents=duster_head_half_extents,
+        rgbaColor=duster_head_rgba,
+        physicsClientId=physics_client_id,
+    )
+    head_base_position = (0, 0, 0)
+    head_base_orn = (0, 0, 0, 1)
+
+    # Create duster pole.
+    pole_col_shape_id = p.createCollisionShape(
+        p.GEOM_CYLINDER,
+        radius=duster_pole_radius,
+        height=duster_pole_height,
+        physicsClientId=physics_client_id,
+    )
+    pole_visual_shape_id = p.createVisualShape(
+        p.GEOM_CYLINDER,
+        radius=duster_pole_radius,
+        length=duster_pole_height,
+        rgbaColor=duster_pole_rgba,
+        physicsClientId=physics_client_id,
+    )
+    pole_base_position = duster_pole_offset
+    pole_base_orn = (0, 0, 0, 1)
+
+    collision_shape_ids = [head_col_shape_id, pole_col_shape_id]
+    visual_shape_ids = [head_visual_shape_id, pole_visual_shape_id]
+    base_positions = [head_base_position, pole_base_position]
+    base_orientations = [head_base_orn, pole_base_orn]
+
+    # Combine into multibody.
+    duster_id = p.createMultiBody(
+        baseMass=0,
+        baseCollisionShapeIndex=-1,
+        baseVisualShapeIndex=-1,
+        basePosition=(0, 0, 0),  # changed externally
+        linkMasses=[0] * 2,
+        linkCollisionShapeIndices=collision_shape_ids,
+        linkVisualShapeIndices=visual_shape_ids,
+        linkPositions=base_positions,
+        linkOrientations=base_orientations,
+        linkInertialFramePositions=[[0, 0, 0]] * 2,
+        linkInertialFrameOrientations=[[0, 0, 0, 1]] * 2,
+        linkParentIndices=[0] * 2,
+        linkJointTypes=[p.JOINT_FIXED] * 2,
+        linkJointAxis=[[0, 0, 0]] * 2,
+        linkLowerLimits=[1] * 2,
+        linkUpperLimits=[-1] * 2,
+        physicsClientId=physics_client_id,
+    )
+
+    return duster_id, 0, 1
 
 
 def _create_shelf(

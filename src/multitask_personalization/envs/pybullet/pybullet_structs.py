@@ -21,6 +21,7 @@ class PyBulletState:
     human_base: Pose
     human_joints: JointPositions
     cup_pose: Pose
+    duster_pose: Pose
     book_poses: list[Pose]
     book_descriptions: list[str]
     grasp_transform: Pose | None

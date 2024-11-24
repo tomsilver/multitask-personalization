@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import numpy as np
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, get_pose, multiply_poses
 from tomsutils.llm import OpenAILLM
 
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
@@ -16,6 +16,7 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_move_next_to_object,
     get_plan_to_pick_object,
     get_plan_to_place_object,
+    get_plan_to_wipe_surface,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -79,6 +80,51 @@ def test_pybullet_skills():
     # Create a simulator.
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
     book0, book1 = obs.book_descriptions[:2]
+
+    # Extract the relative pose of the duster so we can later place it back.
+    world_to_table = get_pose(sim.table_id, sim.physics_client_id)
+    world_to_duster = get_pose(sim.duster_id, sim.physics_client_id)
+    duster_placement_pose = multiply_poses(world_to_table.invert(), world_to_duster)
+
+    # Test pick duster.
+    grasp_pose = Pose.from_rpy(
+        (
+            scene_spec.duster_pole_offset[0] + 2 * scene_spec.duster_pole_radius,
+            0,
+            scene_spec.duster_head_half_extents[2] + scene_spec.duster_pole_height / 2,
+        ),
+        (np.pi / 2, np.pi, -np.pi / 2),
+    )
+    pick_duster_plan = get_plan_to_pick_object(
+        obs,
+        "duster",
+        grasp_pose,
+        sim,
+    )
+    obs = _run_plan(pick_duster_plan, env)
+    assert obs.held_object == "duster"
+
+    # Test wipe table with duster.
+    wipe_direction_num_rotations = 1
+    wipe_plan = get_plan_to_wipe_surface(
+        obs,
+        "duster",
+        "table",
+        wipe_direction_num_rotations,
+        sim,
+    )
+    obs = _run_plan(wipe_plan, env)
+
+    # Test place duster.
+    place_duster_on_table_plan = get_plan_to_place_object(
+        obs,
+        "duster",
+        "table",
+        duster_placement_pose,
+        sim,
+    )
+    obs = _run_plan(place_duster_on_table_plan, env)
+    assert obs.held_object is None
 
     # Test pick book.
     grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))

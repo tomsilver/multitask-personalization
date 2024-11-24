@@ -133,8 +133,20 @@ class PyBulletSceneSpec(PublicSceneSpec):
     max_dust_clean_threshold: float = 0.5
     dirty_patch_penalty: float = -0.5
     surface_dust_delta: float = 1e-2
-    surface_dust_visual_height: float = 1e-3
+    surface_dust_height: float = 1e-3
     dust_color: tuple[float, float, float] = (0.7, 0.5, 0.2)
+
+    duster_head_half_extents: tuple[float, float, float] = (0.04, 0.075, 0.04)
+    duster_head_rgba: tuple[float, float, float, float] = (0.4, 0.8, 0.8, 1.0)
+    duster_pole_radius: float = 0.01
+    duster_pole_height: float = 0.15
+    duster_pole_rgba: tuple[float, float, float, float] = (0.0, 0.3, 0.3, 1.0)
+    duster_pole_offset: tuple[float, float, float] = (
+        duster_head_half_extents[0] - duster_pole_radius,
+        0,
+        duster_head_half_extents[2] + duster_pole_height / 2,
+    )
+    duster_pose: Pose = Pose(position=(-0.5, 0.2, duster_head_half_extents[2]))
 
     @property
     def tray_pose(self) -> Pose:
