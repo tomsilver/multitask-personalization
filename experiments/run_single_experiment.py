@@ -68,7 +68,7 @@ def _main(cfg: DictConfig) -> None:
     # the training approach.
     train_approach = hydra.utils.instantiate(
         cfg.approach,
-        train_env.scene_spec,
+        train_env.unwrapped.scene_spec,
         train_env.action_space,
         seed=cfg.seed,
     )
@@ -76,7 +76,7 @@ def _main(cfg: DictConfig) -> None:
     train_approach.train()
     eval_approach = hydra.utils.instantiate(
         cfg.approach,
-        eval_env.scene_spec,
+        eval_env.unwrapped.scene_spec,
         eval_env.action_space,
         seed=eval_seed,
     )
@@ -171,11 +171,10 @@ def _evaluate_approach(
                 logging.info(e)
             obs, rew, terminated, truncated, info = eval_env.step(act)
             assert np.isclose(float(rew), 0.0)
-            assert not (terminated or truncated)
             eval_approach.update(obs, float(rew), terminated, info)
             user_satisfaction = info.get("user_satisfaction", 0.0)
             cumulative_user_satisfaction += user_satisfaction
-            if cfg.env.terminate_eval_episode_on_nonzero and user_satisfaction != 0:
+            if terminated or truncated:
                 break
         cumulative_user_satisfactions.append(cumulative_user_satisfaction)
     step_eval_metrics: dict[str, float] = {

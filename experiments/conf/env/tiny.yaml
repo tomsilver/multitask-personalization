@@ -11,6 +11,5 @@ env:
 max_environment_steps: 50000
 eval_frequency: 5000
 max_eval_episode_length: 100
-terminate_eval_episode_on_nonzero: True
 num_eval_trials: 5
 dt: 0.001

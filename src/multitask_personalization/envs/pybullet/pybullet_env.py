@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import assistive_gym.envs
 import gymnasium as gym
@@ -12,6 +12,7 @@ import numpy as np
 import pybullet as p
 from assistive_gym.envs.agents.furniture import Furniture
 from gymnasium.core import RenderFrame
+from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
@@ -174,6 +175,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
 
+        # Create and track dust patches.
+        self._dust_patches = {
+            (surface, link_id): self._create_dust_patch_array(surface, link_id)
+            for surface in self.get_surface_names()
+            for link_id in self.get_surface_link_ids(
+                self.get_object_id_from_name(surface)
+            )
+        }
+
         # For analysis purposes only. Should not be used by approaches.
         self._user_satisfaction = 0.0
 
@@ -195,6 +205,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Uncomment for debug / development.
         # while True:
+        #     self._step_simulator((1, GripperAction.OPEN))
         #     p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
@@ -217,6 +228,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             obj_to_obj_name[book_id] = book_description
 
         held_object = obj_to_obj_name[self.current_held_object_id]
+        # Convert PyBullet dust patch object colors into numpy array of levels.
+        np_dust_patches = {
+            k: np.empty(v.shape, dtype=np.float_) for k, v in self._dust_patches.items()
+        }
+        for surf, pybullet_id_arr in self._dust_patches.items():
+            for r in range(pybullet_id_arr.shape[0]):
+                for c in range(pybullet_id_arr.shape[1]):
+                    value = self._get_dust_level(pybullet_id_arr[r, c])
+                    np_dust_patches[surf][r, c] = value
         return PyBulletState(
             robot_base,
             robot_joints,
@@ -226,6 +246,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             book_poses,
             self.book_descriptions,
             self.current_grasp_transform,
+            np_dust_patches,
             held_object,
             self.current_human_text,
         )
@@ -256,6 +277,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         ):
             obj_name_to_obj[book_description] = book_id
         self.current_held_object_id = obj_name_to_obj[state.held_object]
+        # Set PyBullet dust patch object colors from numpy array of levels.
+        for surf, np_dust_patch_array in state.surface_dust_patches.items():
+            for r in range(np_dust_patch_array.shape[0]):
+                for c in range(np_dust_patch_array.shape[1]):
+                    pybullet_id = self._dust_patches[surf][r, c]
+                    value = np_dust_patch_array[r, c]
+                    self._set_dust_level(pybullet_id, value)
 
     def _reset_from_scene_spec(self) -> None:
 
@@ -307,6 +335,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_grasp_transform = None
         self.current_held_object_id = None
 
+        # Reset dust patches.
+        for surface, link_id in self._dust_patches:
+            self._reset_dust_patch_array(surface, link_id)
+
         # Reset human text.
         self.current_human_text = None
 
@@ -338,6 +370,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return self.get_state(), self._get_info()
 
     def _step_simulator(self, action: PyBulletAction) -> None:
+        # Increase dust.
+        dust_delta = self.scene_spec.surface_dust_delta
+        max_dust = self.scene_spec.surface_max_dust
+        for pybullet_id_arr in self._dust_patches.values():
+            for patch_id in pybullet_id_arr.flat:
+                level = self._get_dust_level(patch_id)
+                new_level = np.clip(level + dust_delta, 0, max_dust)
+                self._set_dust_level(patch_id, new_level)
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
@@ -408,9 +448,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Advance the mission.
         assert self._current_mission is not None
-        self.current_human_text, self._user_satisfaction = self._current_mission.step(
+        self.current_human_text, mission_satisfaction = self._current_mission.step(
             state, action
         )
+        self._user_satisfaction = mission_satisfaction
+        # NOTE: the done bit is only used during evaluation. Do not assume
+        # that the environment will be reset after done=True.
+        done = mission_satisfaction != 0
 
         # Start a new mission if the current one is complete.
         if self._current_mission.check_complete(state, action):
@@ -426,7 +470,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             logging.info(f"Human says: {self.current_human_text}")
 
         # Return the next state and default gym API stuff.
-        return self.get_state(), 0.0, False, False, self._get_info()
+        return self.get_state(), 0.0, done, False, self._get_info()
 
     def _get_info(self) -> dict[str, Any]:
         assert self._current_mission is not None
@@ -609,6 +653,94 @@ Return that list and nothing else. Do not explain anything."""
             if len(book_descriptions) == num_books:  # success
                 return book_descriptions
         raise RuntimeError("LLM book description generation failed")
+
+    def _create_dust_patch_array(self, surface_name: str, link_id: int) -> NDArray:
+        """Create an array of PyBullet IDs."""
+        half_extents = self._get_dust_patch_dimensions(surface_name, link_id)
+        color = self.scene_spec.dust_color + (0.0,)
+        s = self.scene_spec.surface_dust_patch_size
+        patch_arr = np.empty((s, s), dtype=int)
+        for r, c, pose in self._get_dust_patch_poses(surface_name, link_id):
+            visual_id = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=half_extents,
+                rgbaColor=color,
+                physicsClientId=self.physics_client_id,
+            )
+            patch_id = p.createMultiBody(
+                baseMass=-1,
+                baseCollisionShapeIndex=-1,
+                baseVisualShapeIndex=visual_id,
+                basePosition=pose.position,
+                baseOrientation=pose.orientation,
+                physicsClientId=self.physics_client_id,
+            )
+            patch_arr[r, c] = patch_id
+
+        return patch_arr
+
+    def _reset_dust_patch_array(self, surface_name: str, link_id: int) -> None:
+        patch_arr = self._dust_patches[(surface_name, link_id)]
+        for r, c, pose in self._get_dust_patch_poses(surface_name, link_id):
+            patch_id = patch_arr[r, c]
+            set_pose(patch_id, pose, self.physics_client_id)
+            self._set_dust_level(patch_id, 0.0)
+
+    def _get_dust_patch_poses(
+        self, surface_name: str, link_id: int
+    ) -> Iterable[tuple[int, int, Pose]]:
+        surface_id = self.get_object_id_from_name(surface_name)
+        aabb_min, aabb_max = p.getAABB(
+            surface_id, linkIndex=link_id, physicsClientId=self.physics_client_id
+        )
+        x_min, y_min, _ = aabb_min
+        x_max, y_max, z_min = aabb_max
+        s = self.scene_spec.surface_dust_patch_size
+        half_extents = self._get_dust_patch_dimensions(surface_name, link_id)
+        for r, x in enumerate(np.linspace(x_min, x_max, num=s, endpoint=False)):
+            for c, y in enumerate(np.linspace(y_min, y_max, num=s, endpoint=False)):
+                position = (
+                    x + half_extents[0],
+                    y + half_extents[1],
+                    z_min + half_extents[2],
+                )
+                yield (r, c, Pose(position))
+
+    def _get_dust_patch_dimensions(
+        self, surface_name: str, link_id: int
+    ) -> tuple[float, float, float]:
+        surface_id = self.get_object_id_from_name(surface_name)
+        aabb_min, aabb_max = p.getAABB(
+            surface_id, linkIndex=link_id, physicsClientId=self.physics_client_id
+        )
+        x_min, y_min, _ = aabb_min
+        x_max, y_max, z_min = aabb_max
+        z_max = z_min + self.scene_spec.surface_dust_visual_height
+        s = self.scene_spec.surface_dust_patch_size
+        half_extents = (
+            (x_max - x_min) / (2 * s),
+            (y_max - y_min) / (2 * s),
+            (z_max - z_min) / 2,
+        )
+        return half_extents
+
+    def _set_dust_level(self, patch_id: int, level: float) -> None:
+        # Transparency alone doesn't seem to render correctly, so we also change
+        # the color. But we still include alpha as the store of the dust value.
+        clean_color_arr = np.array(self.scene_spec.table_rgba[:3])
+        dirty_color_arr = np.array(self.scene_spec.dust_color)
+        color_arr = level * dirty_color_arr + (1 - level) * clean_color_arr
+        color = (color_arr[0], color_arr[1], color_arr[2], level)
+        p.changeVisualShape(
+            patch_id, -1, rgbaColor=color, physicsClientId=self.physics_client_id
+        )
+
+    def _get_dust_level(self, patch_id: int) -> float:
+        color = p.getVisualShapeData(patch_id, physicsClientId=self.physics_client_id)[
+            0
+        ][7]
+        assert len(color) == 4
+        return color[-1]
 
 
 def _create_shelf(
