@@ -57,6 +57,9 @@ class RandomWalkCSPSolver(CSPSolver):
             pbar := tqdm(range(self._max_iters), disable=not self._show_progress_bar)
         ):
             pbar.set_description(f"Found {num_satisfying_solutions} solns")
+            from multitask_personalization.utils import print_csp_sol
+
+            print_csp_sol(sol)
             if csp.check_solution(sol):
                 num_satisfying_solutions += 1
                 if csp.cost is None:

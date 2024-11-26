@@ -1,10 +1,12 @@
 """General utility functions."""
 
+from typing import Any
+
 import numpy as np
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose3D
 from scipy.spatial.transform import Rotation as R
-from typing import Any
+
 from multitask_personalization.structs import CSPVariable
 
 DIMENSION_NAMES = ("shoulder_aa", "shoulder_fe", "shoulder_rot", "elbow_flexion")

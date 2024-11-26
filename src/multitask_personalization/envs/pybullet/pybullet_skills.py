@@ -335,7 +335,7 @@ def get_plan_to_wipe_surface(
         kinematic_plan.append(kinematic_state.copy_with(robot_base_pose=base_pose))
     kinematic_state = kinematic_plan[-1]
     kinematic_state.set_pybullet(sim.robot)
-    # Very unfortunate workaround to deal with the fact that set_pybullet() 
+    # Very unfortunate workaround to deal with the fact that set_pybullet()
     # does not know about robot platform.
     sim.set_robot_base(kinematic_state.robot_base_pose)
 
@@ -381,7 +381,7 @@ def get_plan_to_wipe_surface(
         kinematic_state = kinematic_state.copy_with(robot_base_pose=target_base_pose)
         kinematic_plan.append(kinematic_state)
         kinematic_state.set_pybullet(sim.robot)
-        # Very unfortunate workaround to deal with the fact that set_pybullet() 
+        # Very unfortunate workaround to deal with the fact that set_pybullet()
         # does not know about robot platform.
         sim.set_robot_base(kinematic_state.robot_base_pose)
         current_base_pose = target_base_pose

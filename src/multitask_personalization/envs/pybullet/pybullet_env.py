@@ -25,7 +25,7 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
-from tomsutils.utils import render_textbox_on_image
+from tomsutils.utils import render_textbox_on_image, sample_seed_from_rng
 
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
@@ -380,7 +380,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Randomize book descriptions.
         self.book_descriptions = self._generate_book_descriptions(
             num_books=len(self.book_ids),
-            seed=int(self._book_llm_rng.integers(0, 2**31 - 1)),
+            seed=sample_seed_from_rng(self._book_llm_rng),
         )
 
         # Randomize robot mission.
@@ -492,7 +492,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
         return
-    
+
     def step(
         self, action: PyBulletAction
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
@@ -665,7 +665,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         raise NotImplementedError
 
     def _create_possible_missions(self) -> list[PyBulletMission]:
-        seed = int(self._mission_rng.integers(0, 2**31 - 1))
+        seed = sample_seed_from_rng(self._mission_rng)
         assert self._hidden_spec is not None
         # NOTE: don't use the real robot / real environment inside the missions
         # in case they want to do things like use robot FK.
