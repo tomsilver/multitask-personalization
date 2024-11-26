@@ -79,7 +79,9 @@ def test_pybullet_csp():
     )
 
     # Generate and solve CSPs once per possible mission.
-    unused_missions = env._create_possible_missions()  # pylint: disable=protected-access
+    unused_missions = (
+        env._create_possible_missions()
+    )  # pylint: disable=protected-access
 
     # TODO remove
     unused_missions = [m for m in unused_missions if m.get_id() == "clean"]

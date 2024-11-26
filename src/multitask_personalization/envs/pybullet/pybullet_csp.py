@@ -15,6 +15,7 @@ from pybullet_helpers.inverse_kinematics import (
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
 )
+from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import generate_surface_placements
 from pybullet_helpers.math_utils import get_poses_facing_line
 from pybullet_helpers.spaces import PoseSpace
@@ -337,8 +338,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 "surface", Tuple([EnumSpace(surfaces), Discrete(1000000, start=-1)])
             )
             robot_base_pose = CSPVariable("robot_base_pose", PoseSpace())
-            robot_joint_state = CSPVariable("robot_joint_state", Box(np.array(self._sim.robot.joint_lower_limits),
-                                                                     np.array(self._sim.robot.joint_upper_limits)))
+            robot_joint_state = CSPVariable(
+                "robot_joint_state",
+                Box(
+                    np.array(self._sim.robot.joint_lower_limits),
+                    np.array(self._sim.robot.joint_upper_limits),
+                ),
+            )
 
             variables = [surface, robot_base_pose, robot_joint_state]
 
@@ -393,9 +399,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "put away held object":
             # Nothing personal about putting away an object.
             return []
-        
+
         if self._current_mission == "clean":
-            import ipdb; ipdb.set_trace()
+            import ipdb
+
+            ipdb.set_trace()
 
         raise NotImplementedError
 
@@ -499,12 +507,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             )
 
             return [plan_to_place_exists]
-        
+
         if self._current_mission == "clean":
 
-            def _wipe_plan_exists(surface_name_and_link: tuple[str, int],
-                                  base_pose: Pose,
-                                  robot_joint_arr: NDArray) -> bool:
+            # TODO handle removal of objects...
+
+            def _wipe_plan_exists(
+                surface_name_and_link: tuple[str, int],
+                base_pose: Pose,
+                robot_joint_arr: NDArray,
+            ) -> bool:
                 surface_name, surface_link_id = surface_name_and_link
                 num_rots = 1 if surface_name == "table" else 0
 
@@ -514,20 +526,34 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 self._sim.robot.set_base(base_pose)
                 self._sim.robot.set_joints(robot_joint_arr.tolist())
                 grasp_pose = self._sim.scene_spec.duster_grasp
-                duster_pose = multiply_poses(self._sim.robot.get_end_effector_pose(), grasp_pose.invert())
+                end_effector_pose = self._sim.robot.get_end_effector_pose()
+                duster_pose = multiply_poses(end_effector_pose, grasp_pose.invert())
                 set_pose(self._sim.duster_id, duster_pose, self._sim.physics_client_id)
-                import pybullet as p
-                while True:
-                    p.stepSimulation(self._sim.physics_client_id)
-                # TODO derive ee_to_duster_head...
-                # TODO actually update state
-                collision_ids = self._sim.get_collision_ids() - {self._sim.current_held_object_id}
+                world_to_duster_head = get_link_pose(
+                    self._sim.duster_id,
+                    self._sim.duster_head_link_id,
+                    self._sim.physics_client_id,
+                )
+                ee_to_duster_head = multiply_poses(
+                    end_effector_pose.invert(), world_to_duster_head
+                )
+                self._sim.current_held_object_id = self._sim.duster_id
+                self._sim.current_grasp_transform = grasp_pose.invert()
+                grasping_state = self._sim.get_state()
+                collision_ids = self._sim.get_collision_ids() - {self._sim.duster_id}
 
                 # Start by determining the initial end effector pose.
                 duster_head_plan = get_duster_head_frame_wiping_plan(
-                    grasping_state, "duster", surface_name, num_rots, self._sim, surface_link_id=surface_link_id
+                    grasping_state,
+                    "duster",
+                    surface_name,
+                    num_rots,
+                    self._sim,
+                    surface_link_id=surface_link_id,
                 )
-                ee_init_pose = multiply_poses(duster_head_plan[0], ee_to_duster_head.invert())
+                ee_init_pose = multiply_poses(
+                    duster_head_plan[0], ee_to_duster_head.invert()
+                )
                 try:
                     joint_state_candidate = next(
                         sample_collision_free_inverse_kinematics(
@@ -535,8 +561,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                             ee_init_pose,
                             collision_ids,
                             self._rng,
-                            held_object=self._sim.current_held_object_id,
-                            base_link_to_held_obj=self._sim.current_grasp_transform,
+                            held_object=self._sim.duster_id,
+                            base_link_to_held_obj=grasp_pose.invert(),
                         )
                     )
                 except StopIteration:
@@ -552,9 +578,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     surface_link_id=surface_link_id,
                 )
                 return wipe_plan is not None
-            
+
             # TODO remove, just for testing
-            _wipe_plan_exists(("table", -1), self._sim.robot.get_base_pose(), np.array(self._sim.robot.get_joint_positions()))
+            # res = _wipe_plan_exists(("table", -1), self._sim.robot.get_base_pose(), np.array(self._sim.robot.get_joint_positions()))
+            # import ipdb; ipdb.set_trace()
 
             return [_wipe_plan_exists]
 
@@ -653,9 +680,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             surface_sampler = FunctionalCSPSampler(_sample_surface, csp, {surface})
 
             return [placement_sampler, surface_sampler]
-        
+
         if self._current_mission == "clean":
-            import ipdb; ipdb.set_trace()
+            import ipdb
+
+            ipdb.set_trace()
 
         raise NotImplementedError
 
@@ -664,7 +693,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         obs: PyBulletState,
         csp: CSP,
     ) -> CSPPolicy:
-        
+
         # NOTE: need to figure out a way to make this more scalable...
         if self._current_mission == "hand over book":
 
@@ -683,10 +712,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
-        
+
         if self._current_mission == "clean":
 
-            import ipdb; ipdb.set_trace()
+            import ipdb
+
+            ipdb.set_trace()
 
         raise NotImplementedError
 
