@@ -401,9 +401,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return []
 
         if self._current_mission == "clean":
-            import ipdb
-
-            ipdb.set_trace()
+            # TODO add personal constraints about fragile objects.
+            return []
 
         raise NotImplementedError
 
@@ -525,22 +524,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 self._sim.set_state(obs)
                 self._sim.robot.set_base(base_pose)
                 self._sim.robot.set_joints(robot_joint_arr.tolist())
-                grasp_pose = self._sim.scene_spec.duster_grasp
-                end_effector_pose = self._sim.robot.get_end_effector_pose()
-                duster_pose = multiply_poses(end_effector_pose, grasp_pose.invert())
-                set_pose(self._sim.duster_id, duster_pose, self._sim.physics_client_id)
-                world_to_duster_head = get_link_pose(
-                    self._sim.duster_id,
-                    self._sim.duster_head_link_id,
-                    self._sim.physics_client_id,
-                )
-                ee_to_duster_head = multiply_poses(
-                    end_effector_pose.invert(), world_to_duster_head
-                )
-                self._sim.current_held_object_id = self._sim.duster_id
-                self._sim.current_grasp_transform = grasp_pose.invert()
+                ee_to_duster_head = self._snap_duster_to_end_effector()
                 grasping_state = self._sim.get_state()
-                collision_ids = self._sim.get_collision_ids() - {self._sim.duster_id}
+                collision_ids = self._sim.get_collision_ids() - {self._sim.current_held_object_id}
 
                 # Start by determining the initial end effector pose.
                 duster_head_plan = get_duster_head_frame_wiping_plan(
@@ -561,8 +547,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                             ee_init_pose,
                             collision_ids,
                             self._rng,
-                            held_object=self._sim.duster_id,
-                            base_link_to_held_obj=grasp_pose.invert(),
+                            held_object=self._sim.current_held_object_id,
+                            base_link_to_held_obj=self._sim.current_grasp_transform,
                         )
                     )
                 except StopIteration:
@@ -682,9 +668,71 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return [placement_sampler, surface_sampler]
 
         if self._current_mission == "clean":
-            import ipdb
 
-            ipdb.set_trace()
+            surfaces = sorted(self._sim.get_surface_names())
+            surface, robot_base_pose, robot_joint_state = csp.variables
+
+            def _sample_surface(
+                _: dict[CSPVariable, Any], rng: np.random.Generator
+            ) -> dict[CSPVariable, Any]:
+                surface_name = surfaces[rng.choice(len(surfaces))]
+                surface_id = self._sim.get_object_id_from_name(surface_name)
+                candidates = sorted(self._sim.get_surface_link_ids(surface_id))
+                surface_link_id = candidates[rng.choice(len(candidates))]
+                return {surface: (surface_name, surface_link_id)}
+            
+            surface_sampler = FunctionalCSPSampler(_sample_surface, csp, {surface})
+
+            def _robot_base_pose_sampler(
+                _: dict[CSPVariable, Any], rng: np.random.Generator
+            ) -> dict[CSPVariable, Any]:
+                dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
+                position = (
+                    self._sim.scene_spec.robot_base_pose.position[0] + dx,
+                    self._sim.scene_spec.robot_base_pose.position[1] + dy,
+                    self._sim.scene_spec.robot_base_pose.position[2],
+                )
+                orientation = self._sim.scene_spec.robot_base_pose.orientation
+                base_pose = Pose(position, orientation)
+                return {robot_base_pose: base_pose}
+
+            robot_base_pose_sampler = FunctionalCSPSampler(
+                _robot_base_pose_sampler, csp, {robot_base_pose}
+            )
+
+            def _robot_joint_state_sampler(
+                sol: dict[CSPVariable, Any], rng: np.random.Generator
+            ) -> dict[CSPVariable, Any]:
+                self._sim.robot.set_base(sol[robot_base_pose])
+                ee_to_duster_head = self._snap_duster_to_end_effector()
+                surface_name, link_id = sol[surface]
+                num_rots = 1 if surface_name == "table" else 0
+                duster_head_plan = get_duster_head_frame_wiping_plan(
+                    obs, "duster", surface_name, num_rots, self._sim, surface_link_id=link_id
+                )
+                ee_init_pose = multiply_poses(duster_head_plan[0], ee_to_duster_head.invert())
+                collision_ids = self._sim.get_collision_ids() - {self._sim.current_held_object_id}
+                try:
+                    joint_state = next(
+                        sample_collision_free_inverse_kinematics(
+                            self._sim.robot,
+                            ee_init_pose,
+                            collision_ids,
+                            rng,
+                            held_object=self._sim.current_held_object_id,
+                            base_link_to_held_obj=self._sim.current_grasp_transform,
+                        )
+                    )
+                except StopIteration:
+                    return None
+                return {robot_joint_state: joint_state}
+            
+            robot_joint_state_sampler = FunctionalCSPSampler(
+                _robot_joint_state_sampler, csp, {robot_joint_state}
+            )
+
+            return [surface_sampler, robot_base_pose_sampler, robot_joint_state_sampler]
+
 
         raise NotImplementedError
 
@@ -808,6 +856,23 @@ Return this description and nothing else. Do not explain anything."""
         mission = _infer_mission_from_obs(obs)
         if mission is not None:
             self._current_mission = mission
+
+    def _snap_duster_to_end_effector(self) -> Pose:
+        grasp_pose = self._sim.scene_spec.duster_grasp
+        end_effector_pose = self._sim.robot.get_end_effector_pose()
+        duster_pose = multiply_poses(end_effector_pose, grasp_pose.invert())
+        set_pose(self._sim.duster_id, duster_pose, self._sim.physics_client_id)
+        world_to_duster_head = get_link_pose(
+            self._sim.duster_id,
+            self._sim.duster_head_link_id,
+            self._sim.physics_client_id,
+        )
+        ee_to_duster_head = multiply_poses(
+            end_effector_pose.invert(), world_to_duster_head
+        )
+        self._sim.current_held_object_id = self._sim.duster_id
+        self._sim.current_grasp_transform = grasp_pose.invert()
+        return ee_to_duster_head
 
     def get_metrics(self) -> dict[str, float]:
         metrics: dict[str, float] = {}
