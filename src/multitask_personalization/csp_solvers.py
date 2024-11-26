@@ -52,6 +52,7 @@ class RandomWalkCSPSolver(CSPSolver):
         best_satisfying_sol: dict[CSPVariable, Any] | None = None
         best_satisfying_cost: float = np.inf
         num_satisfying_solutions = 0
+        sampler_idxs = list(range(len(samplers)))
         for _ in (
             pbar := tqdm(range(self._max_iters), disable=not self._show_progress_bar)
         ):
@@ -66,8 +67,14 @@ class RandomWalkCSPSolver(CSPSolver):
                     best_satisfying_sol = sol
                 if num_satisfying_solutions >= self._min_num_satisfying_solutions:
                     return best_satisfying_sol
-            sampler = samplers[self._rng.choice(len(samplers))]
-            partial_sol = sampler.sample(sol, self._rng)
+            self._rng.shuffle(sampler_idxs)
+            for sample_idx in sampler_idxs:
+                sampler = samplers[sample_idx]
+                partial_sol = sampler.sample(sol, self._rng)
+                if partial_sol is not None:
+                    break
+            else:
+                raise RuntimeError("All samplers produced None; solver stuck.")
             sol = sol.copy()
             sol.update(partial_sol)
         return best_satisfying_sol
