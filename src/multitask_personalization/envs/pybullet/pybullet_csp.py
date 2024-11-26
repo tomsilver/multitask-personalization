@@ -559,15 +559,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 self._sim.robot.set_joints(robot_joint_arr.tolist())
                 current_pose = self._sim.robot.get_end_effector_pose()
                 target_pose = self._get_prewipe_end_effector_pose(surface_name, surface_link_id, num_rots)
-                res = target_pose.allclose(current_pose, atol=1e-3)
-                # TODO something is wrong... this should either be True, or it should be a constant
-                # from the initialization. But I'm seeing multiple values.
-                # print(res, current_pose)
-                if not res:
-                    print(base_pose)
-                    print(robot_joint_arr)
-                    import ipdb; ipdb.set_trace()
-                return res
+                return target_pose.allclose(current_pose, atol=1e-3)
             
             prewipe_pose_is_valid = FunctionalCSPConstraint(
                 "prewipe_pose_is_valid",
