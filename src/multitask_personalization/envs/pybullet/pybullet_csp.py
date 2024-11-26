@@ -162,7 +162,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         surface_name, link_id = self._get_value("surface")
-        base_pose, joint_arr = self._get_value("robot_state_")
+        base_pose, joint_arr = self._get_value("robot_state")
         joint_state = joint_arr.tolist()
         num_rots = 1 if surface_name == "table" else 0
         if obs.held_object is None:
@@ -580,6 +580,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 self._sim.set_state(obs)
                 self._sim.robot.set_base(base_pose)
                 self._sim.robot.set_joints(robot_joint_arr.tolist())
+                self._snap_duster_to_end_effector()  # need to set grasp TF
                 grasping_state = self._sim.get_state()
                 collision_ids = self._sim.get_collision_ids() - {self._sim.current_held_object_id}
 
