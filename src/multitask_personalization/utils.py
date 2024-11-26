@@ -4,6 +4,8 @@ import numpy as np
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose3D
 from scipy.spatial.transform import Rotation as R
+from typing import Any
+from multitask_personalization.structs import CSPVariable
 
 DIMENSION_NAMES = ("shoulder_aa", "shoulder_fe", "shoulder_rot", "elbow_flexion")
 DIMENSION_LIMITS = {
@@ -89,3 +91,11 @@ def bernoulli_entropy(log_p_true: float) -> float:
     entropy_nats = -p_true * log_p_true - p_false * log_p_false
     entropy = entropy_nats / np.log(2)  # convert to base 2 for convention
     return entropy
+
+
+def print_csp_sol(sol: dict[CSPVariable, Any]) -> None:
+    """Useful for debugging."""
+    print("-" * 80)
+    for v in sorted(sol, key=lambda v: v.name):
+        print(f"{v.name}: {sol[v]}")
+    print()

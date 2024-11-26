@@ -163,7 +163,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         surface_name, link_id = self._get_value("surface")
         base_pose = self._get_value("robot_base_pose")
-        joint_state = self._get_value("robot_joint_state")
+        joint_state = self._get_value("robot_joint_state").tolist()
         num_rots = 1 if surface_name == "table" else 0
         if obs.held_object is None:
             # Pick up the duster.
