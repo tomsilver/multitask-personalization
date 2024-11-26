@@ -185,6 +185,9 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
                 num_rots,
                 self._sim,
                 surface_link_id=link_id,
+                # Use a very high number here because we should be guaranteed
+                # that a motion plan exists.
+                max_base_motion_planning_iters=1_000,
             )
             assert plan is not None
             # Indicate done.
@@ -613,10 +616,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
                 return wipe_plan is not None
 
-            # TODO remove, just for testing
-            # res = _wipe_plan_exists(("table", -1), self._sim.robot.get_base_pose(), np.array(self._sim.robot.get_joint_positions()))
-            # import ipdb; ipdb.set_trace()
-
             wipe_plan_exists = FunctionalCSPConstraint(
                 "wipe_plan_exists",
                 [surface, robot_state],
@@ -729,9 +728,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             def _sample_surface(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any]:
-                # surface_name = surfaces[rng.choice(len(surfaces))]
-                # TODO
-                surface_name = "shelf"
+                surface_name = surfaces[rng.choice(len(surfaces))]
                 surface_id = self._sim.get_object_id_from_name(surface_name)
                 candidates = sorted(self._sim.get_surface_link_ids(surface_id))
                 surface_link_id = candidates[rng.choice(len(candidates))]
