@@ -53,7 +53,7 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=True,
+        use_gui=False,
         seed=seed,
     )
     env.action_space.seed(seed)
@@ -80,11 +80,8 @@ def test_pybullet_csp():
 
     # Generate and solve CSPs once per possible mission.
     unused_missions = (
-        env._create_possible_missions()
-    )  # pylint: disable=protected-access
-
-    # TODO remove
-    unused_missions = [m for m in unused_missions if m.get_id() == "clean"]
+        env._create_possible_missions()  # pylint: disable=protected-access
+    )
 
     # Force considering each mission once.
     def _get_new_mission(self):

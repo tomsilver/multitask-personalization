@@ -140,7 +140,8 @@ class CleanSurfacesMission(PyBulletMission):
     def step(
         self, state: PyBulletState, action: PyBulletAction
     ) -> tuple[str | None, float]:
-        # TODO yell at the robot if it tries to move some immovable objects
+        # Coming soon: penalty and feedback if the robot tries to touch an object
+        # that it should not touch.
         return None, 0.0
 
 

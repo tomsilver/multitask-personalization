@@ -337,6 +337,7 @@ def get_plan_to_wipe_surface(
     kinematic_state.set_pybullet(sim.robot)
     # Very unfortunate workaround to deal with the fact that set_pybullet()
     # does not know about robot platform.
+    assert kinematic_state.robot_base_pose is not None
     sim.set_robot_base(kinematic_state.robot_base_pose)
 
     # Now motion plan in joint space to the initial pre-wiping pose.
@@ -383,6 +384,7 @@ def get_plan_to_wipe_surface(
         kinematic_state.set_pybullet(sim.robot)
         # Very unfortunate workaround to deal with the fact that set_pybullet()
         # does not know about robot platform.
+        assert kinematic_state.robot_base_pose is not None
         sim.set_robot_base(kinematic_state.robot_base_pose)
         current_base_pose = target_base_pose
         # Check for collisions.

@@ -446,7 +446,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return []
 
         if self._current_mission == "clean":
-            # TODO add personal constraints about fragile objects.
+            # Coming soon: personal constraints about do-not-touch objects.
             return []
 
         raise NotImplementedError
@@ -557,7 +557,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "clean":
 
-            # TODO handle removal of objects...
+            # Coming soon: removing objects to clean surfaces.
 
             surface, robot_state = variables
 
@@ -755,7 +755,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             def _robot_state_sampler(
                 sol: dict[CSPVariable, Any], rng: np.random.Generator
-            ) -> dict[CSPVariable, Any]:
+            ) -> dict[CSPVariable, Any] | None:
                 # Sample base pose.
                 dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
                 position = (
