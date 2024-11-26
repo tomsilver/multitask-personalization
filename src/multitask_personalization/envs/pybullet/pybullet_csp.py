@@ -162,8 +162,8 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         surface_name, link_id = self._get_value("surface")
-        base_pose = self._get_value("robot_base_pose")
-        joint_state = self._get_value("robot_joint_state").tolist()
+        base_pose, joint_arr = self._get_value("robot_state_")
+        joint_state = joint_arr.tolist()
         num_rots = 1 if surface_name == "table" else 0
         if obs.held_object is None:
             # Pick up the duster.
@@ -376,16 +376,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             surface = CSPVariable(
                 "surface", Tuple([EnumSpace(surfaces), Discrete(1000000, start=-1)])
             )
-            robot_base_pose = CSPVariable("robot_base_pose", PoseSpace())
-            robot_joint_state = CSPVariable(
-                "robot_joint_state",
-                Box(
-                    np.array(self._sim.robot.joint_lower_limits),
-                    np.array(self._sim.robot.joint_upper_limits),
-                ),
-            )
+            robot_state = CSPVariable("robot_state", Tuple([PoseSpace(), Box(
+                np.array(self._sim.robot.joint_lower_limits),
+                np.array(self._sim.robot.joint_upper_limits),
+            )]))
 
-            variables = [surface, robot_base_pose, robot_joint_state]
+            variables = [surface, robot_state]
 
             init_surface = surfaces[self._rng.choice(len(surfaces))]
             init_surface_id = self._sim.get_object_id_from_name(init_surface)
@@ -397,8 +393,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             init_robot_joint_state = np.array(obs.robot_joints)
             initialization = {
                 surface: (init_surface, init_surface_link_id),
-                robot_base_pose: init_robot_base_pose,
-                robot_joint_state: init_robot_joint_state,
+                robot_state: (init_robot_base_pose, init_robot_joint_state),
             }
 
         else:
@@ -550,14 +545,42 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             # TODO handle removal of objects...
 
-            surface, robot_base_pose, robot_joint_state = variables
+            surface, robot_state = variables
+
+            def _prewipe_pose_is_valid(
+                surface_name_and_link: tuple[str, int],
+                candidate_robot_state: tuple[Pose, NDArray],
+                ) -> bool:
+                # Necessary to escape from initialization.
+                surface_name, surface_link_id = surface_name_and_link
+                base_pose, robot_joint_arr = candidate_robot_state
+                num_rots = 1 if surface_name == "table" else 0
+                self._sim.robot.set_base(base_pose)
+                self._sim.robot.set_joints(robot_joint_arr.tolist())
+                current_pose = self._sim.robot.get_end_effector_pose()
+                target_pose = self._get_prewipe_end_effector_pose(surface_name, surface_link_id, num_rots)
+                res = target_pose.allclose(current_pose, atol=1e-3)
+                # TODO something is wrong... this should either be True, or it should be a constant
+                # from the initialization. But I'm seeing multiple values.
+                # print(res, current_pose)
+                if not res:
+                    print(base_pose)
+                    print(robot_joint_arr)
+                    import ipdb; ipdb.set_trace()
+                return res
+            
+            prewipe_pose_is_valid = FunctionalCSPConstraint(
+                "prewipe_pose_is_valid",
+                [surface, robot_state],
+                _prewipe_pose_is_valid,
+            )
 
             def _wipe_plan_exists(
                 surface_name_and_link: tuple[str, int],
-                base_pose: Pose,
-                robot_joint_arr: NDArray,
+                candidate_robot_state: tuple[Pose, NDArray],
             ) -> bool:
                 surface_name, surface_link_id = surface_name_and_link
+                base_pose, robot_joint_arr = candidate_robot_state
                 num_rots = 1 if surface_name == "table" else 0
 
                 # Set the simulation so that the robot is holding the duster.
@@ -565,22 +588,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 self._sim.set_state(obs)
                 self._sim.robot.set_base(base_pose)
                 self._sim.robot.set_joints(robot_joint_arr.tolist())
-                ee_to_duster_head = self._snap_duster_to_end_effector()
                 grasping_state = self._sim.get_state()
                 collision_ids = self._sim.get_collision_ids() - {self._sim.current_held_object_id}
 
                 # Start by determining the initial end effector pose.
-                duster_head_plan = get_duster_head_frame_wiping_plan(
-                    grasping_state,
-                    "duster",
-                    surface_name,
-                    num_rots,
-                    self._sim,
-                    surface_link_id=surface_link_id,
-                )
-                ee_init_pose = multiply_poses(
-                    duster_head_plan[0], ee_to_duster_head.invert()
-                )
+                ee_init_pose = self._get_prewipe_end_effector_pose(surface_name, surface_link_id, num_rots)
+
                 try:
                     joint_state_candidate = next(
                         sample_collision_free_inverse_kinematics(
@@ -594,6 +607,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     )
                 except StopIteration:
                     return False
+                
                 wipe_plan = get_plan_to_wipe_surface(
                     grasping_state,
                     "duster",
@@ -612,11 +626,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             wipe_plan_exists = FunctionalCSPConstraint(
                 "wipe_plan_exists",
-                [surface, robot_base_pose, robot_joint_state],
+                [surface, robot_state],
                 _wipe_plan_exists,
             )
 
-            return [wipe_plan_exists]
+            return [prewipe_pose_is_valid, wipe_plan_exists]
 
         raise NotImplementedError
 
@@ -717,12 +731,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "clean":
 
             surfaces = sorted(self._sim.get_surface_names())
-            surface, robot_base_pose, robot_joint_state = csp.variables
+            surface, robot_state = csp.variables
 
             def _sample_surface(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any]:
-                surface_name = surfaces[rng.choice(len(surfaces))]
+                # surface_name = surfaces[rng.choice(len(surfaces))]
+                # TODO
+                surface_name = "table"
                 surface_id = self._sim.get_object_id_from_name(surface_name)
                 candidates = sorted(self._sim.get_surface_link_ids(surface_id))
                 surface_link_id = candidates[rng.choice(len(candidates))]
@@ -730,9 +746,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             
             surface_sampler = FunctionalCSPSampler(_sample_surface, csp, {surface})
 
-            def _robot_base_pose_sampler(
-                _: dict[CSPVariable, Any], rng: np.random.Generator
+            def _robot_state_sampler(
+                sol: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any]:
+                # Sample base pose.
                 dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
                 position = (
                     self._sim.scene_spec.robot_base_pose.position[0] + dx,
@@ -741,23 +758,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
                 orientation = self._sim.scene_spec.robot_base_pose.orientation
                 base_pose = Pose(position, orientation)
-                return {robot_base_pose: base_pose}
-
-            robot_base_pose_sampler = FunctionalCSPSampler(
-                _robot_base_pose_sampler, csp, {robot_base_pose}
-            )
-
-            def _robot_joint_state_sampler(
-                sol: dict[CSPVariable, Any], rng: np.random.Generator
-            ) -> dict[CSPVariable, Any]:
-                self._sim.robot.set_base(sol[robot_base_pose])
-                ee_to_duster_head = self._snap_duster_to_end_effector()
-                surface_name, link_id = sol[surface]
+                # Sample joint.s
+                self._sim.robot.set_base(base_pose)
+                surface_name, surface_link_id = sol[surface]
                 num_rots = 1 if surface_name == "table" else 0
-                duster_head_plan = get_duster_head_frame_wiping_plan(
-                    obs, "duster", surface_name, num_rots, self._sim, surface_link_id=link_id
-                )
-                ee_init_pose = multiply_poses(duster_head_plan[0], ee_to_duster_head.invert())
+                ee_init_pose = self._get_prewipe_end_effector_pose(surface_name, surface_link_id, num_rots)
                 collision_ids = self._sim.get_collision_ids() - {self._sim.current_held_object_id}
                 try:
                     joint_state = next(
@@ -772,13 +777,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     )
                 except StopIteration:
                     return None
-                return {robot_joint_state: np.array(joint_state)}
-            
-            robot_joint_state_sampler = FunctionalCSPSampler(
-                _robot_joint_state_sampler, csp, {robot_joint_state}
+                return {robot_state: (base_pose, np.array(joint_state))}
+
+            robot_state_sampler = FunctionalCSPSampler(
+                _robot_state_sampler, csp, {robot_state}
             )
 
-            return [surface_sampler, robot_base_pose_sampler, robot_joint_state_sampler]
+            return [surface_sampler, robot_state_sampler]
 
 
         raise NotImplementedError
@@ -923,6 +928,21 @@ Return this description and nothing else. Do not explain anything."""
         self._sim.current_held_object_id = self._sim.duster_id
         self._sim.current_grasp_transform = grasp_pose.invert()
         return ee_to_duster_head
+    
+    def _get_prewipe_end_effector_pose(self, surface_name: str, surface_link_id: int, num_rots: int) -> Pose:
+        ee_to_duster_head = self._snap_duster_to_end_effector()
+        grasping_state = self._sim.get_state()
+        duster_head_plan = get_duster_head_frame_wiping_plan(
+            grasping_state,
+            "duster",
+            surface_name,
+            num_rots,
+            self._sim,
+            surface_link_id=surface_link_id,
+        )
+        return multiply_poses(
+            duster_head_plan[0], ee_to_duster_head.invert()
+        )
 
     def get_metrics(self) -> dict[str, float]:
         metrics: dict[str, float] = {}

@@ -369,9 +369,12 @@ def get_plan_to_wipe_surface(
     # Move the robot base in x, y space to do the wiping.
     for head_pose in duster_head_plan[1:]:
         target_base_pose = multiply_poses(head_pose, base_to_head.invert())
-        assert np.isclose(
-            current_base_pose.position[2], target_base_pose.position[2], atol=1e-3
-        )
+        try:
+            assert np.isclose(
+                current_base_pose.position[2], target_base_pose.position[2], atol=1e-3
+            )
+        except:
+            import ipdb; ipdb.set_trace()
         assert np.allclose(
             current_base_pose.orientation, target_base_pose.orientation, atol=1e-3
         )
