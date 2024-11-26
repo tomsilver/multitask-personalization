@@ -192,6 +192,8 @@ def _infer_mission_from_obs(obs: PyBulletState) -> str | None:
         return "hand over book"
     if "Put away the thing you're holding" in obs.human_text:
         return "put away held object"
+    if "Clean the dirty surfaces" in obs.human_text:
+        return "clean"
     return None
 
 
@@ -324,6 +326,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 surface: (init_surface, init_surface_link_id),
             }
 
+        elif self._current_mission == "clean":
+            import ipdb; ipdb.set_trace()
+
         else:
             raise NotImplementedError
 
@@ -361,6 +366,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "put away held object":
             # Nothing personal about putting away an object.
             return []
+        
+        if self._current_mission == "clean":
+            import ipdb; ipdb.set_trace()
 
         raise NotImplementedError
 
@@ -464,6 +472,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             )
 
             return [plan_to_place_exists]
+        
+        if self._current_mission == "clean":
+            import ipdb; ipdb.set_trace()
 
         raise NotImplementedError
 
@@ -560,6 +571,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             surface_sampler = FunctionalCSPSampler(_sample_surface, csp, {surface})
 
             return [placement_sampler, surface_sampler]
+        
+        if self._current_mission == "clean":
+            import ipdb; ipdb.set_trace()
 
         raise NotImplementedError
 
@@ -587,6 +601,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
+        
+        if self._current_mission == "clean":
+
+            import ipdb; ipdb.set_trace()
 
         raise NotImplementedError
 
