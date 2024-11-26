@@ -86,8 +86,6 @@ def test_pybullet_csp():
     # TODO remove
     unused_missions = [m for m in unused_missions if m.get_id() == "clean"]
 
-    num_missions = len(unused_missions)
-
     # Force considering each mission once.
     def _get_new_mission(self):
         state = self.get_state()
@@ -96,7 +94,7 @@ def test_pybullet_csp():
                 selected_mission = mission
                 break
         else:
-            assert False, "Ran out of missions"
+            raise RuntimeError("Ran out of missions")
         unused_missions.remove(selected_mission)
         return selected_mission
 
@@ -107,7 +105,8 @@ def test_pybullet_csp():
         obs, _ = env.reset()
         assert isinstance(obs, PyBulletState)
 
-        for _ in range(num_missions):
+        missions_incomplete = True
+        while missions_incomplete:
             csp, samplers, policy, initialization = csp_generator.generate(obs)
 
             # Solve the CSP.
@@ -122,7 +121,12 @@ def test_pybullet_csp():
             # Run the policy.
             for _ in range(1000):
                 act = policy.step(obs)
-                obs, reward, terminated, truncated, _ = env.step(act)
+                try:
+                    obs, reward, terminated, truncated, _ = env.step(act)
+                except RuntimeError as e:
+                    assert "Ran out of missions" in str(e)
+                    missions_incomplete = False
+                    break
                 assert isinstance(obs, PyBulletState)
                 assert np.isclose(reward, 0.0)
                 if policy.check_termination(obs):

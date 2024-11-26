@@ -156,6 +156,45 @@ class _PutAwayHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
     def _policy_can_handle_mission(self, mission: str) -> bool:
         return mission == "put away held object"
+    
+
+class _CleanCSPPolicy(_PyBulletCSPPolicy):
+
+    def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
+        surface_name, link_id = self._get_value("surface")
+        base_pose = self._get_value("robot_base_pose")
+        joint_state = self._get_value("robot_joint_state")
+        num_rots = 1 if surface_name == "table" else 0
+        if obs.held_object is None:
+            # Pick up the duster.
+            return get_plan_to_pick_object(
+                obs,
+                "duster",
+                self._sim.scene_spec.duster_grasp,
+                self._sim,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+            )
+        if obs.held_object == "duster":
+            # Wipe.
+            plan = get_plan_to_wipe_surface(
+                obs,
+                "duster",
+                surface_name,
+                base_pose,
+                joint_state,
+                num_rots,
+                self._sim,
+                surface_link_id=link_id,
+            )
+            assert plan is not None
+            # Indicate done.
+            plan.append((2, None))
+            return plan
+        raise NotImplementedError
+
+
+    def _policy_can_handle_mission(self, mission: str) -> bool:
+        return mission == "clean"
 
 
 def _book_grasp_to_pose(yaw: NDArray) -> Pose:
@@ -355,7 +394,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 self._rng.choice(len(surface_link_ids))
             ]
             init_robot_base_pose = obs.robot_base
-            init_robot_joint_state = obs.robot_joints
+            init_robot_joint_state = np.array(obs.robot_joints)
             initialization = {
                 surface: (init_surface, init_surface_link_id),
                 robot_base_pose: init_robot_base_pose,
@@ -511,6 +550,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             # TODO handle removal of objects...
 
+            surface, robot_base_pose, robot_joint_state = variables
+
             def _wipe_plan_exists(
                 surface_name_and_link: tuple[str, int],
                 base_pose: Pose,
@@ -569,7 +610,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             # res = _wipe_plan_exists(("table", -1), self._sim.robot.get_base_pose(), np.array(self._sim.robot.get_joint_positions()))
             # import ipdb; ipdb.set_trace()
 
-            return [_wipe_plan_exists]
+            wipe_plan_exists = FunctionalCSPConstraint(
+                "wipe_plan_exists",
+                [surface, robot_base_pose, robot_joint_state],
+                _wipe_plan_exists,
+            )
+
+            return [wipe_plan_exists]
 
         raise NotImplementedError
 
@@ -725,7 +772,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     )
                 except StopIteration:
                     return None
-                return {robot_joint_state: joint_state}
+                return {robot_joint_state: np.array(joint_state)}
             
             robot_joint_state_sampler = FunctionalCSPSampler(
                 _robot_joint_state_sampler, csp, {robot_joint_state}
@@ -763,9 +810,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "clean":
 
-            import ipdb
-
-            ipdb.set_trace()
+            return _CleanCSPPolicy(
+                self._sim,
+                csp,
+                seed=self._seed,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+            )
 
         raise NotImplementedError
 
