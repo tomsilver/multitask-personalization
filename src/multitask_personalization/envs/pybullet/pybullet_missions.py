@@ -120,6 +120,30 @@ class StoreHeldObjectMission(PyBulletMission):
         return None, 0.0
 
 
+class CleanSurfacesMission(PyBulletMission):
+    """Clean some dirty surfaces."""
+
+    def get_id(self) -> str:
+        return "clean"
+
+    def get_mission_command(self) -> str:
+        # Could add some variation with an LLM later.
+        return "Clean the dirty surfaces"
+
+    def check_initiable(self, state: PyBulletState) -> bool:
+        return state.held_object is None
+
+    def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
+        robot_indicated_done = bool(np.isclose(action[0], 2))
+        return robot_indicated_done
+
+    def step(
+        self, state: PyBulletState, action: PyBulletAction
+    ) -> tuple[str | None, float]:
+        # TODO yell at the robot if it tries to move some immovable objects
+        return None, 0.0
+
+
 def _explain_user_book_preference(
     book_description: str,
     user_preferences: str,

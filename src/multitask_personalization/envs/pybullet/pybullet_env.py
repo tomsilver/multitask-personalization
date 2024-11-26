@@ -31,6 +31,7 @@ from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
 )
 from multitask_personalization.envs.pybullet.pybullet_missions import (
+    CleanSurfacesMission,
     HandOverBookMission,
     StoreHeldObjectMission,
 )
@@ -654,6 +655,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def _generate_mission(self) -> PyBulletMission:
         state = self.get_state()
+        possible_missions = self._create_possible_missions()
+        self._rng.shuffle(possible_missions)  # type: ignore
+        for mission in possible_missions:
+            if mission.check_initiable(state):
+                return mission
+        raise NotImplementedError
+
+    def _create_possible_missions(self) -> list[PyBulletMission]:
         seed = int(self._mission_rng.integers(0, 2**31 - 1))
         assert self._hidden_spec is not None
         # NOTE: don't use the real robot / real environment inside the missions
@@ -670,11 +679,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 seed=seed,
             ),
             StoreHeldObjectMission(),
+            CleanSurfacesMission(),
         ]
-        for mission in possible_missions:
-            if mission.check_initiable(state):
-                return mission
-        raise NotImplementedError
+        return possible_missions
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
         assert self._hidden_spec is not None

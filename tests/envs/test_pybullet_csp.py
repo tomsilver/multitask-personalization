@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from tomsutils.llm import OpenAILLM
@@ -80,31 +81,49 @@ def test_pybullet_csp():
         seed, min_num_satisfying_solutions=1, show_progress_bar=False
     )
 
-    # Generate and solve CSPs twice in a row. The first time will be a book
-    # handover and the second time will be a placement.
-    for _ in range(2):
-        csp, samplers, policy, initialization = csp_generator.generate(obs)
+    # Generate and solve CSPs once per possible mission.
+    unused_missions = env._create_possible_missions()
+    num_missions = len(unused_missions)
 
-        # Solve the CSP.
-        sol = solver.solve(
-            csp,
-            initialization,
-            samplers,
-        )
-        assert sol is not None
-        policy.reset(sol)
-
-        # Run the policy.
-        for _ in range(1000):
-            act = policy.step(obs)
-            obs, reward, terminated, truncated, _ = env.step(act)
-            assert isinstance(obs, PyBulletState)
-            assert np.isclose(reward, 0.0)
-            if policy.check_termination(obs):
+    # Force considering each mission once.
+    def _get_new_mission(self):
+        state = self.get_state()
+        for mission in unused_missions:
+            if mission.check_initiable(state):
+                selected_mission = mission
                 break
-            assert not terminated
-            assert not truncated
         else:
-            assert False, "Policy did not terminate."
+            assert False, "Ran out of missions"
+        unused_missions.remove(selected_mission)
+        return selected_mission
+
+    with patch.object(
+        PyBulletEnv, "_generate_mission", side_effect=_get_new_mission, autospec=True
+    ):
+
+        for _ in range(num_missions):
+            csp, samplers, policy, initialization = csp_generator.generate(obs)
+
+            # Solve the CSP.
+            sol = solver.solve(
+                csp,
+                initialization,
+                samplers,
+            )
+            assert sol is not None
+            policy.reset(sol)
+
+            # Run the policy.
+            for _ in range(1000):
+                act = policy.step(obs)
+                obs, reward, terminated, truncated, _ = env.step(act)
+                assert isinstance(obs, PyBulletState)
+                assert np.isclose(reward, 0.0)
+                if policy.check_termination(obs):
+                    break
+                assert not terminated
+                assert not truncated
+            else:
+                assert False, "Policy did not terminate."
 
     env.close()
