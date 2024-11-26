@@ -272,10 +272,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def set_state(self, state: PyBulletState) -> None:
         """Sync the simulator with the given state."""
-        set_pose(self.robot.robot_id, state.robot_base, self.physics_client_id)
+        self.set_robot_base(state.robot_base)
         self.robot.set_joints(state.robot_joints)
-        stand_pose = multiply_poses(state.robot_base, self.robot_base_to_stand)
-        set_pose(self.robot_stand_id, stand_pose, self.physics_client_id)
         set_pose(self.human.body, state.human_base, self.physics_client_id)
         self.human.set_joint_angles(
             self.human.right_arm_joints,
@@ -470,9 +468,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         x, y, z = world_to_base.position
         roll, pitch, yaw = world_to_base.rpy
         next_base = Pose.from_rpy((x + dx, y + dy, z), (roll, pitch, yaw + dyaw))
-        self.robot.set_base(next_base)
-        next_stand_pose = multiply_poses(next_base, self.robot_base_to_stand)
-        set_pose(self.robot_stand_id, next_stand_pose, self.physics_client_id)
+        self.set_robot_base(next_base)
         # Update the robot arm angles.
         current_joints = self.robot.get_joint_positions()
         # Only update the arm, assuming the first 7 entries are the arm.
@@ -496,7 +492,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_held_object_id, world_to_object, self.physics_client_id
             )
         return
-
+    
     def step(
         self, action: PyBulletAction
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
@@ -638,6 +634,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             object_id, -1, self.physics_client_id
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
+
+    def set_robot_base(self, base_pose: Pose) -> None:
+        """Update the robot and stand pose."""
+        self.robot.set_base(base_pose)
+        next_stand_pose = multiply_poses(base_pose, self.robot_base_to_stand)
+        set_pose(self.robot_stand_id, next_stand_pose, self.physics_client_id)
 
     def _create_robot(
         self, scene_spec: PyBulletSceneSpec, physics_client_id: int

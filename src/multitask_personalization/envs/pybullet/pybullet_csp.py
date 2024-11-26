@@ -555,7 +555,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 surface_name, surface_link_id = surface_name_and_link
                 base_pose, robot_joint_arr = candidate_robot_state
                 num_rots = 1 if surface_name == "table" else 0
-                self._sim.robot.set_base(base_pose)
+                self._sim.set_robot_base(base_pose)
                 self._sim.robot.set_joints(robot_joint_arr.tolist())
                 current_pose = self._sim.robot.get_end_effector_pose()
                 target_pose = self._get_prewipe_end_effector_pose(surface_name, surface_link_id, num_rots)
@@ -578,7 +578,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 # Set the simulation so that the robot is holding the duster.
                 # We assume that this is always feasible.
                 self._sim.set_state(obs)
-                self._sim.robot.set_base(base_pose)
+                self._sim.set_robot_base(base_pose)
                 self._sim.robot.set_joints(robot_joint_arr.tolist())
                 self._snap_duster_to_end_effector()  # need to set grasp TF
                 grasping_state = self._sim.get_state()
@@ -731,7 +731,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ) -> dict[CSPVariable, Any]:
                 # surface_name = surfaces[rng.choice(len(surfaces))]
                 # TODO
-                surface_name = "table"
+                surface_name = "shelf"
                 surface_id = self._sim.get_object_id_from_name(surface_name)
                 candidates = sorted(self._sim.get_surface_link_ids(surface_id))
                 surface_link_id = candidates[rng.choice(len(candidates))]
@@ -752,7 +752,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 orientation = self._sim.scene_spec.robot_base_pose.orientation
                 base_pose = Pose(position, orientation)
                 # Sample joint.s
-                self._sim.robot.set_base(base_pose)
+                self._sim.set_robot_base(base_pose)
                 surface_name, surface_link_id = sol[surface]
                 num_rots = 1 if surface_name == "table" else 0
                 ee_init_pose = self._get_prewipe_end_effector_pose(surface_name, surface_link_id, num_rots)
