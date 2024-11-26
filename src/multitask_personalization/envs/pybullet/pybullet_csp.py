@@ -568,7 +568,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         obs: PyBulletState,
         csp: CSP,
     ) -> CSPPolicy:
-
+        
         # NOTE: need to figure out a way to make this more scalable...
         if self._current_mission == "hand over book":
 

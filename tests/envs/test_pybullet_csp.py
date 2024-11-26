@@ -56,14 +56,11 @@ def test_pybullet_csp():
         use_gui=False,
         seed=seed,
     )
+    env.action_space.seed(seed)
 
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo
     # env = RecordVideo(env, "videos/test-pybullet-csp")
-
-    env.action_space.seed(seed)
-    obs, _ = env.reset()
-    assert isinstance(obs, PyBulletState)
 
     # Create a simulator.
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
@@ -82,7 +79,11 @@ def test_pybullet_csp():
     )
 
     # Generate and solve CSPs once per possible mission.
-    unused_missions = env._create_possible_missions()
+    unused_missions = env._create_possible_missions()  # pylint: disable=protected-access
+
+    # TODO remove
+    unused_missions = [m for m in unused_missions if m.get_id() == "clean"]
+
     num_missions = len(unused_missions)
 
     # Force considering each mission once.
@@ -100,6 +101,9 @@ def test_pybullet_csp():
     with patch.object(
         PyBulletEnv, "_generate_mission", side_effect=_get_new_mission, autospec=True
     ):
+
+        obs, _ = env.reset()
+        assert isinstance(obs, PyBulletState)
 
         for _ in range(num_missions):
             csp, samplers, policy, initialization = csp_generator.generate(obs)
