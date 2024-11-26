@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
@@ -29,6 +29,8 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_handover_object,
     get_plan_to_pick_object,
     get_plan_to_place_object,
+    get_duster_head_frame_wiping_plan,
+    get_plan_to_wipe_surface,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -327,7 +329,32 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             }
 
         elif self._current_mission == "clean":
-            import ipdb; ipdb.set_trace()
+
+            # Choose a surface to clean and a robot base pose / joint state to
+            # initiate the cleaning.
+            surfaces = sorted(self._sim.get_surface_names())
+            surface = CSPVariable(
+                "surface", Tuple([EnumSpace(surfaces), Discrete(1000000, start=-1)])
+            )
+            robot_base_pose = CSPVariable("robot_base_pose", PoseSpace())
+            robot_joint_state = CSPVariable("robot_joint_state", Box(np.array(self._sim.robot.joint_lower_limits),
+                                                                     np.array(self._sim.robot.joint_upper_limits)))
+
+            variables = [surface, robot_base_pose, robot_joint_state]
+
+            init_surface = surfaces[self._rng.choice(len(surfaces))]
+            init_surface_id = self._sim.get_object_id_from_name(init_surface)
+            surface_link_ids = sorted(self._sim.get_surface_link_ids(init_surface_id))
+            init_surface_link_id = surface_link_ids[
+                self._rng.choice(len(surface_link_ids))
+            ]
+            init_robot_base_pose = obs.robot_base
+            init_robot_joint_state = obs.robot_joints
+            initialization = {
+                surface: (init_surface, init_surface_link_id),
+                robot_base_pose: init_robot_base_pose,
+                robot_joint_state: init_robot_joint_state,
+            }
 
         else:
             raise NotImplementedError
@@ -474,7 +501,62 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return [plan_to_place_exists]
         
         if self._current_mission == "clean":
-            import ipdb; ipdb.set_trace()
+
+            def _wipe_plan_exists(surface_name_and_link: tuple[str, int],
+                                  base_pose: Pose,
+                                  robot_joint_arr: NDArray) -> bool:
+                surface_name, surface_link_id = surface_name_and_link
+                num_rots = 1 if surface_name == "table" else 0
+
+                # Set the simulation so that the robot is holding the duster.
+                # We assume that this is always feasible.
+                self._sim.set_state(obs)
+                self._sim.robot.set_base(base_pose)
+                self._sim.robot.set_joints(robot_joint_arr.tolist())
+                grasp_pose = self._sim.scene_spec.duster_grasp
+                duster_pose = multiply_poses(self._sim.robot.get_end_effector_pose(), grasp_pose.invert())
+                set_pose(self._sim.duster_id, duster_pose, self._sim.physics_client_id)
+                import pybullet as p
+                while True:
+                    p.stepSimulation(self._sim.physics_client_id)
+                # TODO derive ee_to_duster_head...
+                # TODO actually update state
+                collision_ids = self._sim.get_collision_ids() - {self._sim.current_held_object_id}
+
+                # Start by determining the initial end effector pose.
+                duster_head_plan = get_duster_head_frame_wiping_plan(
+                    grasping_state, "duster", surface_name, num_rots, self._sim, surface_link_id=surface_link_id
+                )
+                ee_init_pose = multiply_poses(duster_head_plan[0], ee_to_duster_head.invert())
+                try:
+                    joint_state_candidate = next(
+                        sample_collision_free_inverse_kinematics(
+                            self._sim.robot,
+                            ee_init_pose,
+                            collision_ids,
+                            self._rng,
+                            held_object=self._sim.current_held_object_id,
+                            base_link_to_held_obj=self._sim.current_grasp_transform,
+                        )
+                    )
+                except StopIteration:
+                    return False
+                wipe_plan = get_plan_to_wipe_surface(
+                    grasping_state,
+                    "duster",
+                    surface_name,
+                    base_pose,
+                    joint_state_candidate,
+                    num_rots,
+                    self._sim,
+                    surface_link_id=surface_link_id,
+                )
+                return wipe_plan is not None
+            
+            # TODO remove, just for testing
+            _wipe_plan_exists(("table", -1), self._sim.robot.get_base_pose(), np.array(self._sim.robot.get_joint_positions()))
+
+            return [_wipe_plan_exists]
 
         raise NotImplementedError
 

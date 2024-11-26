@@ -182,14 +182,7 @@ def test_wiping_all_surfaces():
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
 
     # Pick the duster.
-    grasp_pose = Pose.from_rpy(
-        (
-            scene_spec.duster_pole_offset[0] + 2 * scene_spec.duster_pole_radius,
-            0,
-            scene_spec.duster_head_up_down_length + 0.8 * scene_spec.duster_pole_height,
-        ),
-        (np.pi / 2, np.pi, -np.pi / 2),
-    )
+    grasp_pose = scene_spec.duster_grasp
     pick_duster_plan = get_plan_to_pick_object(
         obs,
         "duster",

@@ -10,6 +10,7 @@ from pybullet_helpers.joint import JointPositions
 from multitask_personalization.envs.pybullet.pybullet_human_spec import HumanSpec
 from multitask_personalization.rom.models import ROMModel
 from multitask_personalization.structs import PublicSceneSpec
+import numpy as np
 
 
 @dataclass(frozen=True)
@@ -161,6 +162,18 @@ class PyBulletSceneSpec(PublicSceneSpec):
                 self.side_table_pose.position[2] + self.side_table_half_extents[2],
             )
         )
+    
+    @property
+    def duster_grasp(self) -> Pose:
+        """Hardcode a good relative grasp for the duster."""
+        return Pose.from_rpy(
+        (
+            self.duster_pole_offset[0] + 2 * self.duster_pole_radius,
+            0,
+            self.duster_head_up_down_length + 0.8 * self.duster_pole_height,
+        ),
+        (np.pi / 2, np.pi, -np.pi / 2),
+    )
 
 
 @dataclass(frozen=True)
