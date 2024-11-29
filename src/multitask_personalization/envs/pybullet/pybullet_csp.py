@@ -326,6 +326,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             # book CSP and the placement CSP below. We generally need to figure
             # out a more elegant way to compose/scale CSP generation.
             if obs.held_object is not None:
+                import ipdb
+
+                ipdb.set_trace()
                 assert obs.held_object in books
                 books = [obs.held_object]  # only consider this one!
             book = CSPVariable("book", EnumSpace(books))
@@ -865,6 +868,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Only train trainable ROM models.
         if not isinstance(self._rom_model, TrainableROMModel):
             return
+        # Don't learn from duster, which is not handed over.
+        if obs.held_object == "duster":
+            return
         # Only learn from cases where the robot triggered "done".
         if not np.isclose(act[0], 2):
             return
@@ -889,6 +895,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return
         # Ignore failures due to ROM.
         if "I can't reach there" in next_obs.human_text:
+            return
+        # Only learn from attempted handovers, not cleaning.
+        if next_obs.held_object == "duster":
             return
         # For now, only learn when the robot triggered "done".
         if not np.isclose(act[0], 2):

@@ -389,6 +389,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Tell the robot its mission.
         self.current_human_text = self._current_mission.get_mission_command()
 
+        if self.current_human_text:
+            logging.info(f"Human says: {self.current_human_text}")
+
         return self.get_state(), self._get_info()
 
     def _step_simulator(self, action: PyBulletAction) -> None:

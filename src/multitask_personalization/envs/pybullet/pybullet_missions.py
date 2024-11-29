@@ -41,7 +41,7 @@ class HandOverBookMission(PyBulletMission):
         return "Please bring me a book to read"
 
     def check_initiable(self, state: PyBulletState) -> bool:
-        return state.held_object is None
+        return True
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
         robot_indicated_done = bool(np.isclose(action[0], 2))

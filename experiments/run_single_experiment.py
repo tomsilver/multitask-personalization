@@ -47,7 +47,8 @@ def _main(cfg: DictConfig) -> None:
         )
 
     # Create training environment, which should only be reset once.
-    train_env = hydra.utils.instantiate(cfg.env.env, seed=cfg.seed)
+    train_env_cfg = OmegaConf.merge(cfg.env.env, cfg.env.train_env)
+    train_env = hydra.utils.instantiate(train_env_cfg, seed=cfg.seed)
     assert isinstance(train_env, gym.Env)
     if cfg.record_train_videos:
         train_env = gym.wrappers.RecordVideo(
@@ -57,7 +58,8 @@ def _main(cfg: DictConfig) -> None:
 
     # Create eval environment, which will be reset all the time.
     eval_seed = cfg.seed + cfg.eval_seed_offset
-    eval_env = hydra.utils.instantiate(cfg.env.env, seed=eval_seed)
+    eval_env_cfg = OmegaConf.merge(cfg.env.env, cfg.env.eval_env)
+    eval_env = hydra.utils.instantiate(eval_env_cfg, seed=eval_seed)
     assert isinstance(eval_env, gym.Env)
     if cfg.record_eval_videos:
         eval_env = gym.wrappers.RecordVideo(eval_env, str(Path(cfg.video_dir) / "eval"))
