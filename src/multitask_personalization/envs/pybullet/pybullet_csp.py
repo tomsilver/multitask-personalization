@@ -101,10 +101,10 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
     def check_termination(self, obs: PyBulletState) -> bool:
         if self._terminated:
             return True
-        mission = _infer_mission_from_obs(obs)
-        if mission is None:
+        missions = _infer_next_missions_from_obs(obs)
+        if not missions:
             return False
-        return not self._policy_can_handle_mission(mission)
+        return not self._policy_can_handle_mission(missions[0])
 
 
 class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
@@ -235,17 +235,19 @@ def _pose_is_reachable(pose: Pose, sim: PyBulletEnv) -> bool:
     return True
 
 
-def _infer_mission_from_obs(obs: PyBulletState) -> str | None:
+def _infer_next_missions_from_obs(obs: PyBulletState) -> list[str]:
     # Hardcode rules to save some LLM costs for now.
     if obs.human_text is None:
-        return None
+        return []
     if "Please bring me a book to read" in obs.human_text:
-        return "hand over book"
+        if obs.held_object == "duster":
+            return ["put away held object", "hand over book"]
+        return ["hand over book"]
     if "Put away the thing you're holding" in obs.human_text:
-        return "put away held object"
+        return ["put away held object"]
     if "Clean the dirty surfaces" in obs.human_text:
-        return "clean"
-    return None
+        return ["clean"]
+    return []
 
 
 class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
@@ -268,7 +270,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._all_user_feedback: list[str] = []
         self._llm = llm
         self._max_motion_planning_candidates = max_motion_planning_candidates
-        self._current_mission: str | None = None
+        self._mission_queue: list[str] = []  # first to last
 
     def generate(
         self,
@@ -319,22 +321,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Sync the simulator.
         self._sim.set_state(obs)
 
-        # NOTE: need to figure out a way to make this more scalable...
-        if self._current_mission == "hand over book":
+        if self._mission_queue[0] == "hand over book":
 
             # Choose a book to fetch.
             books = self._sim.book_descriptions
-            # NOTE: this is a temporary hack to save ourselves the trouble of
-            # considering the case where the robot is currently holding some
-            # book but decides to handover another book, which would require
-            # placing the currently held book first, and would therefore require
-            # a larger CSP that is essentially a combination of this hand over
-            # book CSP and the placement CSP below. We generally need to figure
-            # out a more elegant way to compose/scale CSP generation.
-            if obs.held_object is not None:
-                import ipdb
 
-                ipdb.set_trace()
+            # As a shortcut, only consider the held book if applicable.
+            if obs.held_object is not None:
                 assert obs.held_object in books
                 books = [obs.held_object]  # only consider this one!
             book = CSPVariable("book", EnumSpace(books))
@@ -356,7 +349,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 handover_position: np.zeros((3,)),
             }
 
-        elif self._current_mission == "put away held object":
+        elif self._mission_queue[0] == "put away held object":
 
             # Choose a placement pose.
             placement = CSPVariable("placement", PoseSpace())
@@ -380,7 +373,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 surface: (init_surface, init_surface_link_id),
             }
 
-        elif self._current_mission == "clean":
+        elif self._mission_queue[0] == "clean":
 
             # Choose a surface to clean and a robot base pose / joint state to
             # initiate the cleaning.
@@ -427,8 +420,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
 
-        # NOTE: need to figure out a way to make this more scalable...
-        if self._current_mission == "hand over book":
+        if self._mission_queue[0] == "hand over book":
             book, _, handover_position = variables
 
             book_preference_constraint = LogProbCSPConstraint(
@@ -450,11 +442,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             )
             return [book_preference_constraint, handover_rom_constraint]
 
-        if self._current_mission == "put away held object":
+        if self._mission_queue[0] == "put away held object":
             # Nothing personal about putting away an object.
             return []
 
-        if self._current_mission == "clean":
+        if self._mission_queue[0] == "clean":
             # Coming soon: personal constraints about do-not-touch objects.
             return []
 
@@ -466,8 +458,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
 
-        # NOTE: need to figure out a way to make this more scalable...
-        if self._current_mission == "hand over book":
+        if self._mission_queue[0] == "hand over book":
             book, book_grasp, handover_position = variables
 
             # Create reaching constraints.
@@ -529,7 +520,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 handover_collision_free_constraint,
             ]
 
-        if self._current_mission == "put away held object":
+        if self._mission_queue[0] == "put away held object":
 
             # Lazy (of me) and slow, but correct...
             placement, surface = variables
@@ -564,7 +555,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return [plan_to_place_exists]
 
-        if self._current_mission == "clean":
+        if self._mission_queue[0] == "clean":
 
             # Coming soon: removing objects to clean surfaces.
 
@@ -665,8 +656,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         csp: CSP,
     ) -> list[CSPSampler]:
 
-        # NOTE: need to figure out a way to make this more scalable...
-        if self._current_mission == "hand over book":
+        if self._mission_queue[0] == "hand over book":
 
             book, book_grasp, handover_position = csp.variables
 
@@ -705,7 +695,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return [book_sampler, handover_sampler, grasp_sampler]
 
-        if self._current_mission == "put away held object":
+        if self._mission_queue[0] == "put away held object":
             placement, surface = csp.variables
 
             assert obs.held_object is not None
@@ -748,7 +738,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return [placement_sampler, surface_sampler]
 
-        if self._current_mission == "clean":
+        if self._mission_queue[0] == "clean":
 
             surfaces = sorted(self._sim.get_surface_names())
             surface, robot_state = csp.variables
@@ -819,8 +809,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         csp: CSP,
     ) -> CSPPolicy:
 
-        # NOTE: need to figure out a way to make this more scalable...
-        if self._current_mission == "hand over book":
+        if self._mission_queue[0] == "hand over book":
 
             return _BookHandoverCSPPolicy(
                 self._sim,
@@ -829,7 +818,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
 
-        if self._current_mission == "put away held object":
+        if self._mission_queue[0] == "put away held object":
 
             return _PutAwayHeldObjectCSPPolicy(
                 self._sim,
@@ -838,7 +827,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
 
-        if self._current_mission == "clean":
+        if self._mission_queue[0] == "clean":
 
             return _CleanCSPPolicy(
                 self._sim,
@@ -939,9 +928,7 @@ Return this description and nothing else. Do not explain anything."""
         logging.info(f"Updated learned user book preferences: {response}")
 
     def _update_current_mission(self, obs: PyBulletState) -> None:
-        mission = _infer_mission_from_obs(obs)
-        if mission is not None:
-            self._current_mission = mission
+        self._mission_queue = _infer_next_missions_from_obs(obs)
 
     def _snap_duster_to_end_effector(self) -> Pose:
         grasp_pose = self._sim.scene_spec.duster_grasp
