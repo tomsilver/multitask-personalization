@@ -928,7 +928,9 @@ Return this description and nothing else. Do not explain anything."""
         logging.info(f"Updated learned user book preferences: {response}")
 
     def _update_current_mission(self, obs: PyBulletState) -> None:
-        self._mission_queue = _infer_next_missions_from_obs(obs)
+        missions = _infer_next_missions_from_obs(obs)
+        if missions:
+            self._mission_queue = missions
 
     def _snap_duster_to_end_effector(self) -> Pose:
         grasp_pose = self._sim.scene_spec.duster_grasp
