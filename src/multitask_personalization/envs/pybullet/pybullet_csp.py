@@ -704,6 +704,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             assert obs.held_object is not None
             held_obj_id = self._sim.get_object_id_from_name(obs.held_object)
+            held_obj_link_id = self._sim.duster_head_link_id if obs.held_object == "duster" else None
 
             def _sample_placement_pose(
                 sol: dict[CSPVariable, Any], rng: np.random.Generator
@@ -717,6 +718,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                         rng,
                         self._sim.physics_client_id,
                         surface_link_id=surface_link_id,
+                        object_link_id=held_obj_link_id,
                     )
                 )
                 return {placement: placement_pose}
