@@ -33,6 +33,8 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_pick_object,
     get_plan_to_place_object,
     get_plan_to_wipe_surface,
+    get_plan_to_move_next_to_object,
+    get_target_base_pose,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -112,6 +114,10 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
         if obs.held_object is None:
+            # First move next to the object.
+            target_base_pose = get_target_base_pose(obs, book_description, self._sim)
+            if not target_base_pose.allclose(obs.robot_base, atol=1e-3):
+                return get_plan_to_move_next_to_object(obs, book_description, self._sim, seed=self._seed)
             # Pick up the target book.
             return get_plan_to_pick_object(
                 obs,

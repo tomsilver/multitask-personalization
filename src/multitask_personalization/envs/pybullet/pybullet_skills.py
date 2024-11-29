@@ -142,6 +142,48 @@ def get_plan_to_pick_object(
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
+def get_target_base_pose(
+    state: PyBulletState,
+    object_name: str,
+    sim: PyBulletEnv,
+) -> Pose:
+    """Get a base pose for the robot to move next to an object."""
+    sim.set_state(state)
+    object_id = sim.get_object_id_from_name(object_name)
+    surface_extents = sim.get_aabb_dimensions(object_id)
+
+    current_base_pose = state.robot_base
+    object_pose = get_pose(object_id, sim.physics_client_id)
+
+    # Use pre-defined staging base poses for now. Generalize this later.
+    if object_name == "tray":
+        return Pose(
+            (
+                object_pose.position[0] - surface_extents[0],
+                object_pose.position[1] - surface_extents[1],
+                0.0,
+            ),
+            orientation=current_base_pose.orientation,
+        )
+    if object_name == "shelf":
+        return sim.scene_spec.robot_base_pose  # initial base pose
+    if object_name == "table":
+        return Pose(
+            (
+                sim.scene_spec.robot_base_pose.position[0],
+                sim.scene_spec.robot_base_pose.position[1] - 0.1,
+                sim.scene_spec.robot_base_pose.position[2],
+            ),
+            sim.scene_spec.robot_base_pose.orientation,
+        )
+    if object_name in ["duster"] + sim.book_descriptions:
+        surface_id = sim.get_surface_that_object_is_on(object_id)
+        surface_name = sim.get_name_from_object_id(surface_id)
+        return get_target_base_pose(state, surface_name, sim)
+
+    raise NotImplementedError
+
+
 def get_plan_to_move_next_to_object(
     state: PyBulletState,
     object_name: str,
@@ -150,37 +192,10 @@ def get_plan_to_move_next_to_object(
 ) -> list[PyBulletAction]:
     """Get a plan to move next to a given object."""
     sim.set_state(state)
-    object_id = sim.get_object_id_from_name(object_name)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
-    surface_extents = sim.get_aabb_dimensions(object_id)
-
     current_base_pose = state.robot_base
-    object_pose = get_pose(object_id, sim.physics_client_id)
-
-    # Use pre-defined staging base poses for now. Generalize this later.
-    if object_name == "tray":
-        target_base_pose = Pose(
-            (
-                object_pose.position[0] - surface_extents[0],
-                object_pose.position[1] - surface_extents[1],
-                0.0,
-            ),
-            orientation=current_base_pose.orientation,
-        )
-    elif object_name == "shelf":
-        target_base_pose = sim.scene_spec.robot_base_pose  # initial base pose
-    elif object_name == "table":
-        target_base_pose = Pose(
-            (
-                sim.scene_spec.robot_base_pose.position[0],
-                sim.scene_spec.robot_base_pose.position[1] - 0.1,
-                sim.scene_spec.robot_base_pose.position[2],
-            ),
-            sim.scene_spec.robot_base_pose.orientation,
-        )
-    else:
-        raise NotImplementedError
+    target_base_pose = get_target_base_pose(state, object_name, sim)
 
     if kinematic_state.attachments:
         assert len(kinematic_state.attachments) == 1

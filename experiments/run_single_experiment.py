@@ -120,9 +120,10 @@ def _main(cfg: DictConfig) -> None:
             act = train_approach.step()
         except ApproachFailure as e:
             logging.info(e)
-        obs, rew, terminated, truncated, info = train_env.step(act)
+        obs, rew, _, _, info = train_env.step(act)
         assert np.isclose(rew, 0.0)
-        assert not (terminated or truncated)
+        # During training, there is no such thing as termination.
+        terminated = False
         train_approach.update(obs, float(rew), terminated, info)
         user_satisfaction = info.get("user_satisfaction", np.nan)
         step_train_metrics = {

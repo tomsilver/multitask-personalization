@@ -565,19 +565,27 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 max_chars_per_line=100,
             )
         return img  # type: ignore
-
-    def get_object_id_from_name(self, object_name: str) -> int:
-        """Get the PyBullet object ID given a name."""
-        if object_name in self.book_descriptions:
-            idx = self.book_descriptions.index(object_name)
-            return self.book_ids[idx]
+    
+    def _object_name_to_id(self) -> dict[str, int]:
+        book_name_to_id = dict(zip(self.book_descriptions, self.book_ids))
         return {
             "cup": self.cup_id,
             "table": self.table_id,
             "tray": self.tray_id,
             "shelf": self.shelf_id,
             "duster": self.duster_id,
-        }[object_name]
+            **book_name_to_id,
+        }
+
+    def get_object_id_from_name(self, object_name: str) -> int:
+        """Get the PyBullet object ID given a name."""
+        return self._object_name_to_id()[object_name]
+    
+    def get_name_from_object_id(self, object_id: int) -> str:
+        """Inverse of get_object_id_from_name()."""
+        obj_name_to_id = self._object_name_to_id()
+        obj_id_to_name = {v: k for k, v in obj_name_to_id.items()}
+        return obj_id_to_name[object_id]
 
     def get_surface_names(self) -> set[str]:
         """Get all possible surfaces in the environment."""
