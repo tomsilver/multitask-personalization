@@ -209,6 +209,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         surface_name, link_id = self._get_value("surface")
         base_pose, joint_arr = self._get_value("robot_state")
         grasp_base_pose = self._get_value("grasp_base_pose")
+        assert isinstance(grasp_base_pose, Pose)
         joint_state = joint_arr.tolist()
         num_rots = 1 if surface_name == "table" else 0
         if obs.held_object is None:
@@ -524,6 +525,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         obs: PyBulletState,
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
+        
+        print(obs.duster_pose)
 
         # NOTE: need to figure out a way to make this more scalable...
         if self._current_mission == "hand over book":
@@ -700,14 +703,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             )
 
             rel_grasp_pose = self._sim.scene_spec.duster_grasp
-            object_to_link = get_relative_link_pose(
-                self._sim.duster_id,
-                self._sim.duster_head_link_id,
-                -1,
-                self._sim.physics_client_id,
-            )
             duster_grasp = multiply_poses(
-                obs.duster_pose, object_to_link, rel_grasp_pose
+                obs.duster_pose, rel_grasp_pose,
             )
 
             def _duster_grasp_is_reachable(base_pose: Pose) -> bool:

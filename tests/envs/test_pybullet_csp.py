@@ -53,7 +53,7 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=True,
+        use_gui=False,
         seed=seed,
     )
     env.action_space.seed(seed)
@@ -63,7 +63,7 @@ def test_pybullet_csp():
     # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
