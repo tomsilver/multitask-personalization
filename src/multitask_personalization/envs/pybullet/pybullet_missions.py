@@ -1,8 +1,8 @@
 """Specific missions for the robot in the PyBullet environment."""
 
 import numpy as np
-from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.joint import JointPositions
+from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from tomsutils.llm import LargeLanguageModel
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
@@ -120,7 +120,17 @@ class StoreHeldObjectMission(PyBulletMission):
         return state.held_object is not None
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
-        return state.held_object is None and np.allclose(state.robot_joints, self._retract_joint_positions)
+        if action[0] != 0:
+            return False
+        joint_action = action[1]
+        joint_angle_delta = joint_action[3:]
+        current_joints = state.robot_joints
+        arm_joints = current_joints[:7]
+        new_arm_joints = np.add(arm_joints, joint_angle_delta)  # type: ignore
+        retract_arm_joints = self._retract_joint_positions[:7]
+        return state.held_object is None and np.allclose(
+            new_arm_joints, retract_arm_joints, atol=1e-3
+        )
 
     def step(
         self, state: PyBulletState, action: PyBulletAction
