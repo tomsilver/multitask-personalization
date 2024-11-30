@@ -30,10 +30,10 @@ from multitask_personalization.envs.pybullet.pybullet_env import (
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_duster_head_frame_wiping_plan,
     get_plan_to_handover_object,
+    get_plan_to_move_next_to_object,
     get_plan_to_pick_object,
     get_plan_to_place_object,
     get_plan_to_wipe_surface,
-    get_plan_to_move_next_to_object,
     get_target_base_pose,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
@@ -118,7 +118,9 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
             # First move next to the object.
             target_base_pose = get_target_base_pose(obs, book_description, self._sim)
             if not target_base_pose.allclose(obs.robot_base, atol=1e-3):
-                return get_plan_to_move_next_to_object(obs, book_description, self._sim, seed=self._seed)
+                return get_plan_to_move_next_to_object(
+                    obs, book_description, self._sim, seed=self._seed
+                )
             # Pick up the target book.
             return get_plan_to_pick_object(
                 obs,
@@ -377,7 +379,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 variables.extend(placement_vars)
                 initialization.update(placement_init)
 
-
         elif self._current_mission == "put away held object":
 
             variables, initialization = self._generate_placement_variables()
@@ -412,7 +413,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             if obs.held_object is not None:
                 # If the user is holding something, we'll need to place it, and
                 # we'll need to determine a placement for it as part of the CSP.
-                placement_vars, placement_init = self._generate_placement_variables(surface_name="placement_surface")
+                placement_vars, placement_init = self._generate_placement_variables(
+                    surface_name="placement_surface"
+                )
                 variables.extend(placement_vars)
                 initialization.update(placement_init)
 
@@ -523,7 +526,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _handover_position_is_collision_free,
             )
 
-            constraints = [
+            constraints: list[CSPConstraint] = [
                 book_grasp_reachable_constraint,
                 handover_reachable_constraint,
                 handover_collision_free_constraint,
@@ -532,14 +535,18 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             if obs.held_object is not None:
                 assert len(variables) == 5
                 placement, surface = variables[3], variables[4]
-                plan_to_place_exists = self._generate_plan_to_place_exists_constraint(obs, placement, surface)
+                plan_to_place_exists = self._generate_plan_to_place_exists_constraint(
+                    obs, placement, surface
+                )
                 constraints.append(plan_to_place_exists)
 
             return constraints
 
         if self._current_mission == "put away held object":
             placement, surface = variables
-            plan_to_place_exists = self._generate_plan_to_place_exists_constraint(obs, placement, surface)
+            plan_to_place_exists = self._generate_plan_to_place_exists_constraint(
+                obs, placement, surface
+            )
             return [plan_to_place_exists]
 
         if self._current_mission == "clean":
@@ -631,7 +638,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             if obs.held_object is not None:
                 assert len(variables) == 4
                 placement, surface = variables[2], variables[3]
-                plan_to_place_exists = self._generate_plan_to_place_exists_constraint(obs, placement, surface)
+                plan_to_place_exists = self._generate_plan_to_place_exists_constraint(
+                    obs, placement, surface
+                )
                 constraints.append(plan_to_place_exists)
 
             return constraints
@@ -685,19 +694,23 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             grasp_sampler = FunctionalCSPSampler(_sample_grasp_pose, csp, {book_grasp})
 
-            samplers = [book_sampler, handover_sampler, grasp_sampler]
+            samplers: list[CSPSampler] = [book_sampler, handover_sampler, grasp_sampler]
 
             if obs.held_object is not None:
                 assert len(csp.variables) == 5
                 placement, surface = csp.variables[3], csp.variables[4]
-                placement_samplers = self._generate_placement_samplers(obs, csp, placement, surface)
+                placement_samplers = self._generate_placement_samplers(
+                    obs, csp, placement, surface
+                )
                 samplers.extend(placement_samplers)
 
             return samplers
 
         if self._current_mission == "put away held object":
             placement, surface = csp.variables
-            placement_sampler, surface_sampler = self._generate_placement_samplers(obs, csp, placement, surface)
+            placement_sampler, surface_sampler = self._generate_placement_samplers(
+                obs, csp, placement, surface
+            )
             return [placement_sampler, surface_sampler]
 
         if self._current_mission == "clean":
@@ -766,7 +779,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             if obs.held_object is not None:
                 assert len(csp.variables) == 4
                 placement, surface = csp.variables[2], csp.variables[3]
-                placement_samplers = self._generate_placement_samplers(obs, csp, placement, surface)
+                placement_samplers = self._generate_placement_samplers(
+                    obs, csp, placement, surface
+                )
                 samplers.extend(placement_samplers)
 
             return samplers
@@ -822,7 +837,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             self._update_book_preferences(act, next_obs)
         self._update_current_mission(obs)
 
-    def _generate_surface_variable(self, surface_name: str="surface") -> tuple[CSPVariable, Any]:
+    def _generate_surface_variable(
+        self, surface_name: str = "surface"
+    ) -> tuple[CSPVariable, Any]:
         # Choose a surface (and link ID on the surface).
         surfaces = sorted(self._sim.get_surface_names())
         surface = CSPVariable(
@@ -832,12 +849,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         init_surface = surfaces[self._rng.choice(len(surfaces))]
         init_surface_id = self._sim.get_object_id_from_name(init_surface)
         surface_link_ids = sorted(self._sim.get_surface_link_ids(init_surface_id))
-        init_surface_link_id = surface_link_ids[
-            self._rng.choice(len(surface_link_ids))
-        ]
+        init_surface_link_id = surface_link_ids[self._rng.choice(len(surface_link_ids))]
         return surface, (init_surface, init_surface_link_id)
 
-    def _generate_placement_variables(self, placement_name: str="placement", surface_name: str="surface") -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
+    def _generate_placement_variables(
+        self, placement_name: str = "placement", surface_name: str = "surface"
+    ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
         placement = CSPVariable(placement_name, PoseSpace())
         placement_init = Pose.identity()
         surface, surface_init = self._generate_surface_variable(surface_name)
@@ -848,9 +865,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         }
 
         return variables, initialization
-    
-    def _generate_plan_to_place_exists_constraint(self, obs: PyBulletState, placement_var: CSPVariable, surface_var: CSPVariable,
-                                                constraint_name: str = "plan_to_place_exists") -> CSPConstraint:
+
+    def _generate_plan_to_place_exists_constraint(
+        self,
+        obs: PyBulletState,
+        placement_var: CSPVariable,
+        surface_var: CSPVariable,
+        constraint_name: str = "plan_to_place_exists",
+    ) -> CSPConstraint:
         def _plan_to_place_exists(
             placement_pose: Pose,
             surface_name_and_link: tuple[str, int],
@@ -881,10 +903,18 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         return plan_to_place_exists
 
-    def _generate_placement_samplers(self, obs: PyBulletState, csp: CSP, placement_var: CSPVariable, surface_var: CSPVariable) -> list[CSPSampler]:
+    def _generate_placement_samplers(
+        self,
+        obs: PyBulletState,
+        csp: CSP,
+        placement_var: CSPVariable,
+        surface_var: CSPVariable,
+    ) -> list[CSPSampler]:
         assert obs.held_object is not None
         held_obj_id = self._sim.get_object_id_from_name(obs.held_object)
-        held_obj_link_id = self._sim.duster_head_link_id if obs.held_object == "duster" else None
+        held_obj_link_id = (
+            self._sim.duster_head_link_id if obs.held_object == "duster" else None
+        )
 
         def _sample_placement_pose(
             sol: dict[CSPVariable, Any], rng: np.random.Generator

@@ -565,7 +565,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 max_chars_per_line=100,
             )
         return img  # type: ignore
-    
+
     def _object_name_to_id(self) -> dict[str, int]:
         book_name_to_id = dict(zip(self.book_descriptions, self.book_ids))
         return {
@@ -580,7 +580,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     def get_object_id_from_name(self, object_name: str) -> int:
         """Get the PyBullet object ID given a name."""
         return self._object_name_to_id()[object_name]
-    
+
     def get_name_from_object_id(self, object_id: int) -> str:
         """Inverse of get_object_id_from_name()."""
         obj_name_to_id = self._object_name_to_id()

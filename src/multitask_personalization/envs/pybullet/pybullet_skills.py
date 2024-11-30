@@ -344,7 +344,6 @@ def get_plan_to_wipe_surface(
         base_link_to_held_obj=kinematic_state.attachments[duster_id],
     )
     if base_motion_plan is None:
-        print("BASE MOTION PLANNING FAILED")
         return None
 
     kinematic_plan: list[KinematicState] = []
@@ -372,7 +371,6 @@ def get_plan_to_wipe_surface(
         ),
     )
     if robot_joint_plan is None:
-        print("JOINT MOTION PLANNING FAILED")
         return None
     for robot_joints in robot_joint_plan:
         kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
@@ -414,7 +412,6 @@ def get_plan_to_wipe_surface(
             base_link_to_held_obj=sim.current_grasp_transform,
             joint_state=sim.robot.get_joint_positions(),
         ):
-            print("COLLISION CHECK 1 FAILED")
             return None
         for collision_body in collision_ids:
             if check_body_collisions(
@@ -423,10 +420,8 @@ def get_plan_to_wipe_surface(
                 sim.physics_client_id,
                 perform_collision_detection=False,
             ):
-                print("COLLISION CHECK 2 FAILED")
                 return None
 
-    print("SUCCESS")
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
