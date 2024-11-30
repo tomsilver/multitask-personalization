@@ -83,6 +83,13 @@ def test_pybullet_csp():
         env._create_possible_missions()  # pylint: disable=protected-access
     )
 
+    # Uncomment to test specific missions.
+    # mission_id_to_mission = {m.get_id(): m for m in unused_missions}
+    # unused_missions = [
+    #     mission_id_to_mission["book handover"],
+    #     mission_id_to_mission["clean"],
+    # ]
+
     # Force considering each mission once.
     def _get_new_mission(self):
         state = self.get_state()

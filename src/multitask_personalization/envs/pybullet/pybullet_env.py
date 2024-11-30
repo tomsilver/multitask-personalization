@@ -173,20 +173,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
             self.book_ids.append(book_id)
 
-        # Create side table.
-        self.side_table_id = create_pybullet_block(
-            self.scene_spec.side_table_rgba,
-            half_extents=self.scene_spec.side_table_half_extents,
-            physics_client_id=self.physics_client_id,
-        )
-
-        # Create tray.
-        self.tray_id = create_pybullet_block(
-            self.scene_spec.tray_rgba,
-            half_extents=self.scene_spec.tray_half_extents,
-            physics_client_id=self.physics_client_id,
-        )
-
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
@@ -345,14 +331,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         ):
             set_pose(book_id, book_pose, self.physics_client_id)
 
-        # Reset side table.
-        set_pose(
-            self.side_table_id, self.scene_spec.side_table_pose, self.physics_client_id
-        )
-
-        # Reset tray.
-        set_pose(self.tray_id, self.scene_spec.tray_pose, self.physics_client_id)
-
         # Reset held object statuses.
         self.current_grasp_transform = None
         self.current_held_object_id = None
@@ -388,6 +366,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Tell the robot its mission.
         self.current_human_text = self._current_mission.get_mission_command()
+
+        if self.current_human_text:
+            logging.info(f"Human says: {self.current_human_text}")
 
         return self.get_state(), self._get_info()
 
@@ -537,11 +518,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        target = get_link_pose(
-            self.human.body,
-            self.human.right_wrist,
-            self.physics_client_id,
-        ).position
+        target = self.robot.get_base_pose().position
         img = capture_image(
             self.physics_client_id,
             camera_target=target,
@@ -563,22 +540,30 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
         return img  # type: ignore
 
-    def get_object_id_from_name(self, object_name: str) -> int:
-        """Get the PyBullet object ID given a name."""
-        if object_name in self.book_descriptions:
-            idx = self.book_descriptions.index(object_name)
-            return self.book_ids[idx]
+    def _object_name_to_id(self) -> dict[str, int]:
+        book_name_to_id = dict(zip(self.book_descriptions, self.book_ids))
         return {
             "cup": self.cup_id,
             "table": self.table_id,
-            "tray": self.tray_id,
             "shelf": self.shelf_id,
             "duster": self.duster_id,
-        }[object_name]
+            "wheelchair": self.wheelchair.body,
+            **book_name_to_id,
+        }
+
+    def get_object_id_from_name(self, object_name: str) -> int:
+        """Get the PyBullet object ID given a name."""
+        return self._object_name_to_id()[object_name]
+
+    def get_name_from_object_id(self, object_id: int) -> str:
+        """Inverse of get_object_id_from_name()."""
+        obj_name_to_id = self._object_name_to_id()
+        obj_id_to_name = {v: k for k, v in obj_name_to_id.items()}
+        return obj_id_to_name[object_id]
 
     def get_surface_names(self) -> set[str]:
         """Get all possible surfaces in the environment."""
-        return {"table", "tray", "shelf"}
+        return {"table", "shelf"}
 
     def get_surface_ids(self) -> set[int]:
         """Get all possible surfaces in the environment."""
@@ -616,10 +601,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.human.body,
             self.wheelchair.body,
             self.shelf_id,
-            self.tray_id,
             self.duster_id,
             self.cup_id,
-            self.side_table_id,
         }
 
     def get_surface_link_ids(self, object_id: int) -> set[int]:
@@ -680,7 +663,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._llm,
                 seed=seed,
             ),
-            StoreHeldObjectMission(),
+            StoreHeldObjectMission(sim_robot),
             CleanSurfacesMission(),
         ]
         return possible_missions

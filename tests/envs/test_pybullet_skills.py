@@ -16,9 +16,7 @@ from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
 )
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_duster_head_frame_wiping_plan,
-    get_plan_to_move_next_to_object,
     get_plan_to_pick_object,
-    get_plan_to_place_object,
     get_plan_to_wipe_surface,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
@@ -47,7 +45,6 @@ def test_pybullet_skills():
     seed = 123
     default_scene_spec = PyBulletSceneSpec()
     scene_spec = PyBulletSceneSpec(
-        side_table_pose=Pose(position=(1.45, 0.0, -0.1)),
         book_half_extents=default_scene_spec.book_half_extents[:3],
         book_poses=default_scene_spec.book_poses[:3],
         book_rgbas=default_scene_spec.book_rgbas[:3],
@@ -83,7 +80,7 @@ def test_pybullet_skills():
 
     # Create a simulator.
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
-    book0, book1 = obs.book_descriptions[:2]
+    _, book1 = obs.book_descriptions[:2]
 
     # Test pick book.
     grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
@@ -96,45 +93,6 @@ def test_pybullet_skills():
     obs = _run_plan(pick_book_plan, env)
     assert obs.held_object == book1
 
-    # Test move to tray.
-    move_to_tray_plan = get_plan_to_move_next_to_object(obs, "tray", sim, seed=seed)
-    obs = _run_plan(move_to_tray_plan, env)
-
-    # Test place book on tray.
-    surface_extents = sim.get_aabb_dimensions(sim.tray_id)
-    object_extents = sim.get_aabb_dimensions(sim.book_ids[1])
-    placement_pose = Pose(
-        (
-            -surface_extents[0] / 2 + object_extents[0] / 2,
-            0,
-            surface_extents[2] / 2 + object_extents[2] / 2,
-        )
-    )
-    place_book_on_tray_plan = get_plan_to_place_object(
-        obs,
-        book1,
-        "tray",
-        placement_pose,
-        sim,
-    )
-    obs = _run_plan(place_book_on_tray_plan, env)
-    assert obs.held_object is None
-
-    # Test move to shelf.
-    move_to_shelf_plan = get_plan_to_move_next_to_object(obs, "shelf", sim, seed=seed)
-    obs = _run_plan(move_to_shelf_plan, env)
-
-    # Test pick another book.
-    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
-    pick_book_plan = get_plan_to_pick_object(
-        obs,
-        book0,
-        grasp_pose,
-        sim,
-    )
-    obs = _run_plan(pick_book_plan, env)
-    assert obs.held_object == book0
-
     env.close()
 
 
@@ -146,7 +104,6 @@ def test_wiping_all_surfaces():
     seed = 123
     default_scene_spec = PyBulletSceneSpec()
     scene_spec = PyBulletSceneSpec(
-        side_table_pose=Pose(position=(1.45, 0.0, -0.1)),
         # NOTE: disable books.
         book_half_extents=default_scene_spec.book_half_extents[:1],
         book_poses=[Pose((-1000, -1000, -1000))],
