@@ -173,20 +173,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
             self.book_ids.append(book_id)
 
-        # Create side table.
-        self.side_table_id = create_pybullet_block(
-            self.scene_spec.side_table_rgba,
-            half_extents=self.scene_spec.side_table_half_extents,
-            physics_client_id=self.physics_client_id,
-        )
-
-        # Create tray.
-        self.tray_id = create_pybullet_block(
-            self.scene_spec.tray_rgba,
-            half_extents=self.scene_spec.tray_half_extents,
-            physics_client_id=self.physics_client_id,
-        )
-
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
@@ -344,14 +330,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             strict=True,
         ):
             set_pose(book_id, book_pose, self.physics_client_id)
-
-        # Reset side table.
-        set_pose(
-            self.side_table_id, self.scene_spec.side_table_pose, self.physics_client_id
-        )
-
-        # Reset tray.
-        set_pose(self.tray_id, self.scene_spec.tray_pose, self.physics_client_id)
 
         # Reset held object statuses.
         self.current_grasp_transform = None
@@ -571,9 +549,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return {
             "cup": self.cup_id,
             "table": self.table_id,
-            "tray": self.tray_id,
             "shelf": self.shelf_id,
             "duster": self.duster_id,
+            "wheelchair": self.wheelchair.body,
             **book_name_to_id,
         }
 
@@ -589,7 +567,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def get_surface_names(self) -> set[str]:
         """Get all possible surfaces in the environment."""
-        return {"table", "tray", "shelf"}
+        return {"table",  "shelf"}
 
     def get_surface_ids(self) -> set[int]:
         """Get all possible surfaces in the environment."""
@@ -627,10 +605,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.human.body,
             self.wheelchair.body,
             self.shelf_id,
-            self.tray_id,
             self.duster_id,
             self.cup_id,
-            self.side_table_id,
         }
 
     def get_surface_link_ids(self, object_id: int) -> set[int]:

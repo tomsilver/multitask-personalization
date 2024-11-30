@@ -567,6 +567,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 end_effector_pose = _handover_position_to_pose(position)
                 grasp_pose = _book_grasp_to_pose(yaw)
                 collision_bodies = self._sim.get_collision_ids() - {book_id}
+                if obs.held_object is not None:
+                    collision_bodies -= {self._sim.get_object_id_from_name(obs.held_object)}
                 # The number of calls to the RNG internally to the function is
                 # nondeterministic, so make a new RNG to maintain determinism.
                 ik_rng = create_rng_from_rng(self._rng)
@@ -791,20 +793,20 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             if obs.held_object is not None:
                 assert len(csp.variables) == 8
-                placement, surface = csp.variables[5], csp.variables[6]
-                placement_samplers = self._generate_placement_samplers(
-                    obs, csp, placement, surface
+                placement, surface, placement_base_pose = csp.variables[5:]
+                placement_sampler = self._generate_placement_sampler(
+                    obs, csp, placement, surface, placement_base_pose
                 )
-                samplers.extend(placement_samplers)
+                samplers.append(placement_sampler)
 
             return samplers
 
         if self._current_mission == "put away held object":
-            placement, surface, _ = csp.variables
-            placement_sampler, surface_sampler = self._generate_placement_samplers(
-                obs, csp, placement, surface
+            placement, surface, placement_base_pose = csp.variables
+            placement_sample = self._generate_placement_sampler(
+                obs, csp, placement, surface, placement_base_pose
             )
-            return [placement_sampler, surface_sampler]
+            return [placement_sampler]
 
         if self._current_mission == "clean":
 
@@ -872,10 +874,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             if obs.held_object is not None:
                 assert len(csp.variables) == 4
                 placement, placement_surface = csp.variables[2], csp.variables[3]
-                placement_samplers = self._generate_placement_samplers(
+                placement_sampler = self._generate_placement_sampler(
                     obs, csp, placement, placement_surface
                 )
-                samplers.extend(placement_samplers)
+                samplers.append(placement_sampler)
 
             return samplers
 
@@ -981,19 +983,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             surface_name, surface_link_id = surface_name_and_link
             max_mp_candidates = self._max_motion_planning_candidates
             self._sim.robot.set_base(base_pose)
-            try:
-                plan = get_plan_to_place_object(
-                    obs,
-                    obs.held_object,
-                    surface_name,
-                    placement_pose,
-                    self._sim,
-                    max_motion_planning_time=1e-1,
-                    max_motion_planning_candidates=max_mp_candidates,
-                    surface_link_id=surface_link_id,
-                )
-            except:  # pylint: disable=bare-except
-                return False
+            plan = get_plan_to_place_object(
+                obs,
+                obs.held_object,
+                surface_name,
+                placement_pose,
+                self._sim,
+                max_motion_planning_time=1e-1,
+                max_motion_planning_candidates=max_mp_candidates,
+                surface_link_id=surface_link_id,
+            )
             return plan is not None
 
         plan_to_place_exists = FunctionalCSPConstraint(
@@ -1004,24 +1003,29 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         return plan_to_place_exists
 
-    def _generate_placement_samplers(
+    def _generate_placement_sampler(
         self,
         obs: PyBulletState,
         csp: CSP,
         placement_var: CSPVariable,
         surface_var: CSPVariable,
-    ) -> list[CSPSampler]:
+        placement_base_pose_var: CSPVariable,
+    ) -> CSPSampler:
         assert obs.held_object is not None
         held_obj_id = self._sim.get_object_id_from_name(obs.held_object)
         held_obj_link_id = (
             self._sim.duster_head_link_id if obs.held_object == "duster" else None
         )
+        surfaces = sorted(self._sim.get_surface_names())
 
-        def _sample_placement_pose(
-            sol: dict[CSPVariable, Any], rng: np.random.Generator
+        def _sample_placement(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            surface_name, surface_link_id = sol[surface_var]
+            surface_name = surfaces[rng.choice(len(surfaces))]
             surface_id = self._sim.get_object_id_from_name(surface_name)
+            candidates = sorted(self._sim.get_surface_link_ids(surface_id))
+            surface_link_id = candidates[rng.choice(len(candidates))]
+            base_pose = get_target_base_pose(obs, surface_name, self._sim)
             placement_pose = next(
                 generate_surface_placements(
                     held_obj_id,
@@ -1032,26 +1036,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     object_link_id=held_obj_link_id,
                 )
             )
-            return {placement_var: placement_pose}
+            return {placement_var: placement_pose, surface_var: (surface_name, surface_link_id),
+                    placement_base_pose_var: base_pose}
 
         placement_sampler = FunctionalCSPSampler(
-            _sample_placement_pose, csp, {placement_var}
+            _sample_placement, csp, {placement_var, surface_var, placement_base_pose_var}
         )
 
-        surfaces = sorted(self._sim.get_surface_names())
-
-        def _sample_surface(
-            _: dict[CSPVariable, Any], rng: np.random.Generator
-        ) -> dict[CSPVariable, Any]:
-            surface_name = surfaces[rng.choice(len(surfaces))]
-            surface_id = self._sim.get_object_id_from_name(surface_name)
-            candidates = sorted(self._sim.get_surface_link_ids(surface_id))
-            surface_link_id = candidates[rng.choice(len(candidates))]
-            return {surface_var: (surface_name, surface_link_id)}
-
-        surface_sampler = FunctionalCSPSampler(_sample_surface, csp, {surface_var})
-
-        return [placement_sampler, surface_sampler]
+        return placement_sampler
 
     def _book_is_preferred_logprob(self, book_description: str) -> float:
         return get_user_book_enjoyment_logprob(

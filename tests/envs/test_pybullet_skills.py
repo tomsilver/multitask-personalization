@@ -96,45 +96,6 @@ def test_pybullet_skills():
     obs = _run_plan(pick_book_plan, env)
     assert obs.held_object == book1
 
-    # Test move to tray.
-    move_to_tray_plan = get_plan_to_move_next_to_object(obs, "tray", sim, seed=seed)
-    obs = _run_plan(move_to_tray_plan, env)
-
-    # Test place book on tray.
-    surface_extents = sim.get_aabb_dimensions(sim.tray_id)
-    object_extents = sim.get_aabb_dimensions(sim.book_ids[1])
-    placement_pose = Pose(
-        (
-            -surface_extents[0] / 2 + object_extents[0] / 2,
-            0,
-            surface_extents[2] / 2 + object_extents[2] / 2,
-        )
-    )
-    place_book_on_tray_plan = get_plan_to_place_object(
-        obs,
-        book1,
-        "tray",
-        placement_pose,
-        sim,
-    )
-    obs = _run_plan(place_book_on_tray_plan, env)
-    assert obs.held_object is None
-
-    # Test move to shelf.
-    move_to_shelf_plan = get_plan_to_move_next_to_object(obs, "shelf", sim, seed=seed)
-    obs = _run_plan(move_to_shelf_plan, env)
-
-    # Test pick another book.
-    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
-    pick_book_plan = get_plan_to_pick_object(
-        obs,
-        book0,
-        grasp_pose,
-        sim,
-    )
-    obs = _run_plan(pick_book_plan, env)
-    assert obs.held_object == book0
-
     env.close()
 
 

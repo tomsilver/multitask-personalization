@@ -52,7 +52,6 @@ def get_kinematic_state_from_pybullet_state(
         sim.duster_id: pybullet_state.duster_pose,
         sim.table_id: sim.scene_spec.table_pose,
         sim.shelf_id: sim.scene_spec.shelf_pose,
-        sim.tray_id: sim.scene_spec.tray_pose,
     }
     for book_id, book_pose in zip(sim.book_ids, pybullet_state.book_poses, strict=True):
         object_poses[book_id] = book_pose
@@ -141,16 +140,6 @@ def get_target_base_pose(
     current_base_pose = state.robot_base
     object_pose = get_pose(object_id, sim.physics_client_id)
 
-    # Use pre-defined staging base poses for now. Generalize this later.
-    if object_name == "tray":
-        return Pose(
-            (
-                object_pose.position[0] - surface_extents[0],
-                object_pose.position[1] - surface_extents[1],
-                0.0,
-            ),
-            orientation=current_base_pose.orientation,
-        )
     if object_name == "shelf":
         return sim.scene_spec.robot_base_pose  # initial base pose
     if object_name == "wheelchair":
