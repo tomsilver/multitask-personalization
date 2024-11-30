@@ -1,9 +1,11 @@
 """Specific missions for the robot in the PyBullet environment."""
 
 import numpy as np
-from pybullet_helpers.joint import JointPositions
+from pybullet_helpers.motion_planning import get_joint_positions_distance
+from pybullet_helpers.joint import get_joint_infos
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from tomsutils.llm import LargeLanguageModel
+from functools import partial
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -104,10 +106,20 @@ class StoreHeldObjectMission(PyBulletMission):
 
     def __init__(
         self,
-        retract_joint_positions: JointPositions,
+        sim_robot: FingeredSingleArmPyBulletRobot,
+        retract_joint_distance_atol: float = 1e-3,
     ) -> None:
         super().__init__()
-        self._retract_joint_positions = retract_joint_positions
+        self._retract_joint_positions = sim_robot.home_joint_positions
+        joint_infos = get_joint_infos(
+            sim_robot.robot_id, sim_robot.arm_joints, sim_robot.physics_client_id
+        )
+        self._joint_distance_fn = partial(
+            get_joint_positions_distance,
+            sim_robot,
+            joint_infos,
+        )
+        self._retract_joint_distance_atol = retract_joint_distance_atol
 
     def get_id(self) -> str:
         return "store held object"
@@ -123,13 +135,16 @@ class StoreHeldObjectMission(PyBulletMission):
         if action[0] != 0:
             return False
         joint_action = action[1]
-        joint_angle_delta = joint_action[3:]
-        current_joints = state.robot_joints
-        arm_joints = current_joints[:7]
-        new_arm_joints = np.add(arm_joints, joint_angle_delta)  # type: ignore
-        retract_arm_joints = self._retract_joint_positions[:7]
-        return state.held_object is None and np.allclose(
-            new_arm_joints, retract_arm_joints, atol=1e-3
+        joint_angle_delta = joint_action[3:]  # type: ignore
+        new_arm_joints = np.add(state.robot_joints[:7], joint_angle_delta)  # type: ignore
+        new_joints = list(state.robot_joints)
+        new_joints[:7] = new_arm_joints
+        retract_dist = self._joint_distance_fn(
+            new_joints, self._retract_joint_positions
+        )
+        return (
+            state.held_object is None
+            and retract_dist < self._retract_joint_distance_atol
         )
 
     def step(
