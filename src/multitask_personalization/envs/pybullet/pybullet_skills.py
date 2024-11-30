@@ -135,10 +135,6 @@ def get_target_base_pose(
     """Get a base pose for the robot to move next to an object."""
     sim.set_state(state)
     object_id = sim.get_object_id_from_name(object_name)
-    surface_extents = sim.get_aabb_dimensions(object_id)
-
-    current_base_pose = state.robot_base
-    object_pose = get_pose(object_id, sim.physics_client_id)
 
     if object_name == "shelf":
         return sim.scene_spec.robot_base_pose  # initial base pose

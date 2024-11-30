@@ -15,7 +15,7 @@ from pybullet_helpers.inverse_kinematics import (
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
 )
-from pybullet_helpers.link import get_link_pose, get_relative_link_pose
+from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import generate_surface_placements
 from pybullet_helpers.math_utils import get_poses_facing_line
 from pybullet_helpers.spaces import PoseSpace

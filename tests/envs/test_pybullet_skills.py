@@ -16,9 +16,7 @@ from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
 )
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_duster_head_frame_wiping_plan,
-    get_plan_to_move_next_to_object,
     get_plan_to_pick_object,
-    get_plan_to_place_object,
     get_plan_to_wipe_surface,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
@@ -82,7 +80,7 @@ def test_pybullet_skills():
 
     # Create a simulator.
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
-    book0, book1 = obs.book_descriptions[:2]
+    _, book1 = obs.book_descriptions[:2]
 
     # Test pick book.
     grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
