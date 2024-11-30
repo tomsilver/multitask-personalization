@@ -111,7 +111,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         book_description = self._get_value("book")
-        book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
+        book_grasp = _book_grasp_to_relative_pose(self._get_value("book_grasp"))
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
         grasp_base_pose = self._get_value("grasp_base_pose")
         assert isinstance(grasp_base_pose, Pose)
@@ -264,7 +264,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         return mission == "clean"
 
 
-def _book_grasp_to_pose(yaw: NDArray) -> Pose:
+def _book_grasp_to_relative_pose(yaw: NDArray) -> Pose:
     assert len(yaw) == 1
     return get_poses_facing_line(
         axis=(0.0, 0.0, 1.0),
@@ -374,6 +374,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         obs: PyBulletState,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
+
+        logging.info(f"Generating CSP for: {self._current_mission}")
 
         # Sync the simulator.
         self._sim.set_state(obs)
@@ -542,13 +544,20 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             )
 
             # Create reaching constraints.
-            def _book_grasp_is_reachable(yaw: NDArray, base_pose: Pose) -> bool:
-                pose = _book_grasp_to_pose(yaw)
-                return _pose_is_reachable(pose, base_pose, self._sim)
+            def _book_grasp_is_reachable(
+                book_description: str, yaw: NDArray, base_pose: Pose
+            ) -> bool:
+                if obs.held_object == book_description:
+                    return True
+                relative_pose = _book_grasp_to_relative_pose(yaw)
+                book_idx = obs.book_descriptions.index(book_description)
+                book_pose = obs.book_poses[book_idx]
+                world_pose = multiply_poses(book_pose, relative_pose)
+                return _pose_is_reachable(world_pose, base_pose, self._sim)
 
             book_grasp_reachable_constraint = FunctionalCSPConstraint(
                 "book_reachable",
-                [book_grasp, grasp_base_pose],
+                [book, book_grasp, grasp_base_pose],
                 _book_grasp_is_reachable,
             )
 
@@ -575,7 +584,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 self._sim.set_robot_base(base_pose)
                 book_id = self._sim.get_object_id_from_name(book_description)
                 end_effector_pose = _handover_position_to_pose(position)
-                grasp_pose = _book_grasp_to_pose(yaw)
+                grasp_pose = _book_grasp_to_relative_pose(yaw)
                 collision_bodies = self._sim.get_collision_ids() - {book_id}
                 if obs.held_object is not None:
                     collision_bodies -= {
