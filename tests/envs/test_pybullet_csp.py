@@ -63,7 +63,7 @@ def test_pybullet_csp():
     # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
@@ -100,13 +100,12 @@ def test_pybullet_csp():
         else:
             raise RuntimeError("Ran out of missions")
         unused_missions.remove(selected_mission)
-        print("STARTING MISSION", selected_mission.get_id())
         return selected_mission
 
     with patch.object(
         PyBulletEnv, "_generate_mission", side_effect=_get_new_mission, autospec=True
     ):
-        
+
         obs, _ = env.reset()
         assert isinstance(obs, PyBulletState)
 

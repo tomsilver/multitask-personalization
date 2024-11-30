@@ -241,10 +241,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
                 # that a motion plan exists.
                 max_motion_planning_iters=1_000,
             )
-            try:
-                assert plan is not None
-            except:
-                import ipdb; ipdb.set_trace()
+            assert plan is not None
             # Indicate done.
             plan.append((2, None))
             return plan
@@ -528,8 +525,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         obs: PyBulletState,
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
-        
-        print(obs.duster_pose)
 
         # NOTE: need to figure out a way to make this more scalable...
         if self._current_mission == "hand over book":
@@ -574,7 +569,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 grasp_pose = _book_grasp_to_pose(yaw)
                 collision_bodies = self._sim.get_collision_ids() - {book_id}
                 if obs.held_object is not None:
-                    collision_bodies -= {self._sim.get_object_id_from_name(obs.held_object)}
+                    collision_bodies -= {
+                        self._sim.get_object_id_from_name(obs.held_object)
+                    }
                 # The number of calls to the RNG internally to the function is
                 # nondeterministic, so make a new RNG to maintain determinism.
                 ik_rng = create_rng_from_rng(self._rng)
@@ -686,7 +683,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             rel_grasp_pose = self._sim.scene_spec.duster_grasp
             duster_grasp = multiply_poses(
-                obs.duster_pose, rel_grasp_pose,
+                obs.duster_pose,
+                rel_grasp_pose,
             )
 
             def _duster_grasp_is_reachable(base_pose: Pose) -> bool:
@@ -851,10 +849,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             samplers = [surface_sampler, robot_state_sampler]
 
             if obs.held_object is not None:
-                assert len(csp.variables) == 4
-                placement, placement_surface = csp.variables[2], csp.variables[3]
+                assert len(csp.variables) == 5
+                placement, placement_surface, placement_base_pose = csp.variables[2:]
                 placement_sampler = self._generate_placement_sampler(
-                    obs, csp, placement, placement_surface
+                    obs, csp, placement, placement_surface, placement_base_pose
                 )
                 samplers.append(placement_sampler)
 
@@ -965,7 +963,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             obs_after_base_move = self._sim.get_state()
             plan = get_plan_to_place_object(
                 obs_after_base_move,
-                obs_after_base_move.held_object,
+                obs.held_object,
                 surface_name,
                 placement_pose,
                 self._sim,
@@ -1016,11 +1014,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     object_link_id=held_obj_link_id,
                 )
             )
-            return {placement_var: placement_pose, surface_var: (surface_name, surface_link_id),
-                    placement_base_pose_var: base_pose}
+            return {
+                placement_var: placement_pose,
+                surface_var: (surface_name, surface_link_id),
+                placement_base_pose_var: base_pose,
+            }
 
         placement_sampler = FunctionalCSPSampler(
-            _sample_placement, csp, {placement_var, surface_var, placement_base_pose_var}
+            _sample_placement,
+            csp,
+            {placement_var, surface_var, placement_base_pose_var},
         )
 
         return placement_sampler

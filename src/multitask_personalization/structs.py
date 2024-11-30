@@ -112,13 +112,7 @@ class CSP:
         """Check whether all constraints hold given values of the variables."""
         for constraint in self.constraints:
             if not constraint.check_solution(sol):
-                print("failed:", constraint.name)
-                # if "plan_to_place" in constraint.name:
-                #     from multitask_personalization.utils import print_csp_sol
-                #     print_csp_sol(sol)
-                #     import ipdb; ipdb.set_trace()
                 return False
-            # print("succeeded:", constraint.name)
         return True
 
     def get_cost(self, sol: dict[CSPVariable, Any]) -> float:

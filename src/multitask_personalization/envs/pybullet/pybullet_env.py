@@ -567,7 +567,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def get_surface_names(self) -> set[str]:
         """Get all possible surfaces in the environment."""
-        return {"table",  "shelf"}
+        return {"table", "shelf"}
 
     def get_surface_ids(self) -> set[int]:
         """Get all possible surfaces in the environment."""
