@@ -140,7 +140,19 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
             plan.append((2, None))
             return plan
         # Need to place held object.
-        import ipdb; ipdb.set_trace()
+        placement_pose = self._get_value("placement")
+        surface_name, surface_link_id = self._get_value("surface")
+        assert obs.held_object is not None
+        return get_plan_to_place_object(
+            obs,
+            obs.held_object,
+            surface_name,
+            placement_pose,
+            self._sim,
+            max_motion_planning_time=self._max_motion_planning_time,
+            max_motion_planning_candidates=self._max_motion_planning_candidates,
+            surface_link_id=surface_link_id,
+        )
 
     def _policy_can_handle_mission(self, mission: str) -> bool:
         return mission == "hand over book"
