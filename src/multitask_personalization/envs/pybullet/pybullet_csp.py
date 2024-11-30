@@ -753,7 +753,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # NOTE: need to figure out a way to make this more scalable...
         if self._current_mission == "hand over book":
 
-            book, book_grasp, handover_position = csp.variables[:3]
+            book, book_grasp, handover_position, grasp_base_pose = csp.variables[:4]
 
             books = self._sim.book_descriptions
 
@@ -761,9 +761,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any]:
                 book_description = books[rng.choice(len(books))]
-                return {book: book_description}
+                if obs.held_object == book_description:
+                    base_pose = obs.robot_base
+                else:
+                    base_pose = get_target_base_pose(obs, book_description, self._sim)
+                return {book: book_description, grasp_base_pose: base_pose}
 
-            book_sampler = FunctionalCSPSampler(_sample_book_fn, csp, {book})
+            book_sampler = FunctionalCSPSampler(
+                _sample_book_fn, csp, {book, grasp_base_pose}
+            )
 
             def _sample_handover_pose(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
