@@ -852,8 +852,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             samplers = [surface_sampler, robot_state_sampler]
 
             if obs.held_object is not None:
-                assert len(csp.variables) == 5
-                placement, placement_surface, placement_base_pose = csp.variables[2:]
+                assert len(csp.variables) == 6
+                placement, placement_surface, placement_base_pose = csp.variables[3:]
                 placement_sampler = self._generate_placement_sampler(
                     obs, csp, placement, placement_surface, placement_base_pose
                 )
