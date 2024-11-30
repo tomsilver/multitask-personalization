@@ -636,12 +636,17 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             constraints = [prewipe_pose_is_valid, wipe_plan_exists]
 
             if obs.held_object is not None:
-                assert len(variables) == 4
-                placement, surface = variables[2], variables[3]
-                plan_to_place_exists = self._generate_plan_to_place_exists_constraint(
-                    obs, placement, surface
-                )
-                constraints.append(plan_to_place_exists)
+                # Shortcut: if already holding the duster, don't bother making
+                # a real plan to place it, because the policy won't need to.
+                if obs.held_object != "duster":
+                    assert len(variables) == 4
+                    placement, surface = variables[2], variables[3]
+                    plan_to_place_exists = (
+                        self._generate_plan_to_place_exists_constraint(
+                            obs, placement, surface
+                        )
+                    )
+                    constraints.append(plan_to_place_exists)
 
             return constraints
 
