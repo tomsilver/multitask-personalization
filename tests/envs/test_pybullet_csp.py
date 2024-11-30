@@ -53,7 +53,7 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=False,
+        use_gui=True,
         seed=seed,
     )
     env.action_space.seed(seed)
@@ -82,6 +82,14 @@ def test_pybullet_csp():
     unused_missions = (
         env._create_possible_missions()  # pylint: disable=protected-access
     )
+
+    # Uncomment to test specific missions.
+    mission_id_to_mission = {m.get_id(): m for m in unused_missions}
+    unused_missions = [
+        # TODO test the opposite order too
+        mission_id_to_mission["clean"],
+        mission_id_to_mission["book handover"],
+    ]
 
     # Force considering each mission once.
     def _get_new_mission(self):
