@@ -2,7 +2,7 @@
 
 import numpy as np
 import pybullet as p
-from pybullet_helpers.geometry import Pose, get_pose, iter_between_poses, multiply_poses
+from pybullet_helpers.geometry import Pose, iter_between_poses, multiply_poses
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
     check_collisions_with_held_object,
