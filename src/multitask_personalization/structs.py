@@ -136,7 +136,7 @@ class CSPSampler(abc.ABC):
     @abc.abstractmethod
     def sample(
         self, current_vals: dict[CSPVariable, Any], rng: np.random.Generator
-    ) -> dict[CSPVariable, Any]:
+    ) -> dict[CSPVariable, Any] | None:
         """Sample values for self.sampled_vars given values of all CSP vars."""
 
 
@@ -146,7 +146,7 @@ class FunctionalCSPSampler(CSPSampler):
     def __init__(
         self,
         fn: Callable[
-            [dict[CSPVariable, Any], np.random.Generator], dict[CSPVariable, Any]
+            [dict[CSPVariable, Any], np.random.Generator], dict[CSPVariable, Any] | None
         ],
         csp: CSP,
         sampled_vars: set[CSPVariable],
@@ -156,7 +156,7 @@ class FunctionalCSPSampler(CSPSampler):
 
     def sample(
         self, current_vals: dict[CSPVariable, Any], rng: np.random.Generator
-    ) -> dict[CSPVariable, Any]:
+    ) -> dict[CSPVariable, Any] | None:
         return self._fn(current_vals, rng)
 
 
