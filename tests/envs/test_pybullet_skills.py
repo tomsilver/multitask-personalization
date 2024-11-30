@@ -47,7 +47,6 @@ def test_pybullet_skills():
     seed = 123
     default_scene_spec = PyBulletSceneSpec()
     scene_spec = PyBulletSceneSpec(
-        side_table_pose=Pose(position=(1.45, 0.0, -0.1)),
         book_half_extents=default_scene_spec.book_half_extents[:3],
         book_poses=default_scene_spec.book_poses[:3],
         book_rgbas=default_scene_spec.book_rgbas[:3],
@@ -107,7 +106,6 @@ def test_wiping_all_surfaces():
     seed = 123
     default_scene_spec = PyBulletSceneSpec()
     scene_spec = PyBulletSceneSpec(
-        side_table_pose=Pose(position=(1.45, 0.0, -0.1)),
         # NOTE: disable books.
         book_half_extents=default_scene_spec.book_half_extents[:1],
         book_poses=[Pose((-1000, -1000, -1000))],
