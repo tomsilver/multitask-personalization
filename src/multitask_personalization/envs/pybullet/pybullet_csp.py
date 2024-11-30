@@ -113,10 +113,18 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         book_description = self._get_value("book")
         book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
+        grasp_base_pose = self._get_value("grasp_base_pose")
+
+        # NOTE: these need to be handled.
+        handover_base_pose = self._get_value("handover_base_pose")
+        placement_base_pose = self._get_value("placement_base_pose")
 
         if obs.held_object is None:
             # First move next to the object.
+            # NOTE: refactor later so that we can move to arbitrary poses.
+            # Need to just add simple move skill.
             target_base_pose = get_target_base_pose(obs, book_description, self._sim)
+            assert target_base_pose.allclose(grasp_base_pose)
             if not target_base_pose.allclose(obs.robot_base, atol=1e-3):
                 return get_plan_to_move_next_to_object(
                     obs, book_description, self._sim, seed=self._seed
@@ -379,20 +387,21 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ]
 
             init_book = books[self._rng.choice(len(books))]
-            init_base_pose = get_target_base_pose(obs, init_book, self._sim)
+            init_surface = self._sim.get_name_from_object_id(self._sim.get_surface_that_object_is_on(self._sim.get_object_id_from_name(init_book)))
             initialization = {
                 book: init_book,
                 book_grasp: np.array([-np.pi / 2]),
                 handover_position: np.zeros((3,)),
-                grasp_base_pose: init_base_pose,
-                handover_base_pose: init_base_pose,
+                grasp_base_pose: get_target_base_pose(obs, init_surface, self._sim),
+                # TODO: handle wheelchair.
+                handover_base_pose: get_target_base_pose(obs, init_surface, self._sim),
             }
 
             if obs.held_object is not None:
                 # If the user is holding something, we'll need to place it, and
                 # we'll need to determine a placement for it as part of the CSP.
                 placement_vars, placement_init = self._generate_placement_variables(
-                    init_base_pose
+                    obs.robot_base
                 )
                 variables.extend(placement_vars)
                 initialization.update(placement_init)
