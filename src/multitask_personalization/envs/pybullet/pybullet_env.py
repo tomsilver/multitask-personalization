@@ -133,7 +133,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Create duster.
         self.duster_id, self.duster_head_link_id, self.duster_pole_link_id = (
             _create_duster(
-                self.scene_spec.duster_head_half_extents,
+                self.scene_spec.duster_head_forward_length,
+                self.scene_spec.duster_head_long_length,
+                self.scene_spec.duster_head_up_down_length,
                 self.scene_spec.duster_head_rgba,
                 self.scene_spec.duster_pole_radius,
                 self.scene_spec.duster_pole_height,
@@ -804,14 +806,19 @@ Return that list and nothing else. Do not explain anything."""
         head_pose = get_link_pose(
             self.duster_id, self.duster_head_link_id, self.physics_client_id
         )
-        half_extents = self.scene_spec.duster_head_half_extents
         padding = 1e-2
-        min_tf = Pose((-half_extents[0] - padding, -half_extents[1] + padding, padding))
+        min_tf = Pose(
+            (
+                -self.scene_spec.duster_head_long_length + padding,
+                self.scene_spec.duster_head_forward_length,
+                -self.scene_spec.duster_head_up_down_length + padding,
+            )
+        )
         max_tf = Pose(
             (
-                -half_extents[0] + padding,
-                half_extents[1] - padding,
-                half_extents[2] - padding,
+                self.scene_spec.duster_head_long_length - padding,
+                self.scene_spec.duster_head_forward_length + padding,
+                padding,
             )
         )
         corner1 = multiply_poses(head_pose, min_tf).position
@@ -826,6 +833,11 @@ Return that list and nothing else. Do not explain anything."""
             max(corner1[1], corner2[1]),
             max(corner1[2], corner2[2]),
         )
+
+        # Uncomment to debug.
+        # from pybullet_helpers.gui import visualize_aabb
+        # visualize_aabb((aabb_min, aabb_max), self.physics_client_id)
+
         return (aabb_min, aabb_max)
 
     def _set_dust_level(self, patch_id: int, level: float) -> None:
@@ -840,15 +852,24 @@ Return that list and nothing else. Do not explain anything."""
         )
 
     def _get_dust_level(self, patch_id: int) -> float:
-        color = p.getVisualShapeData(patch_id, physicsClientId=self.physics_client_id)[
-            0
-        ][7]
+        while True:
+            try:
+                color = p.getVisualShapeData(
+                    patch_id, physicsClientId=self.physics_client_id
+                )[0][7]
+                break
+            except p.error:
+                # PyBullet rarely throws pybullet.error: "Error receiving visual
+                # shape info", probably some bug in pybullet.
+                pass
         assert len(color) == 4
         return color[-1]
 
 
 def _create_duster(
-    duster_head_half_extents: tuple[float, float, float],
+    duster_head_forward_length: float,
+    duster_head_long_length,
+    duster_head_up_down_length,
     duster_head_rgba: tuple[float, float, float, float],
     duster_pole_radius: float,
     duster_pole_height: float,
@@ -859,19 +880,26 @@ def _create_duster(
     """Returns body id, link id of the head, and link id of the pole."""
 
     # Create duster head.
+    # NOTE: orient the head so that the z axis points in the wipe direction,
+    # that is, in the direction of pole -> head.
+    head_base_orn = p.getQuaternionFromEuler((0, np.pi, np.pi / 2))
+    half_extents = [
+        duster_head_long_length,
+        duster_head_forward_length,
+        duster_head_up_down_length,
+    ]
     head_col_shape_id = p.createCollisionShape(
         p.GEOM_BOX,
-        halfExtents=duster_head_half_extents,
+        halfExtents=half_extents,
         physicsClientId=physics_client_id,
     )
     head_visual_shape_id = p.createVisualShape(
         p.GEOM_BOX,
-        halfExtents=duster_head_half_extents,
+        halfExtents=half_extents,
         rgbaColor=duster_head_rgba,
         physicsClientId=physics_client_id,
     )
     head_base_position = (0, 0, 0)
-    head_base_orn = (0, 0, 0, 1)
 
     # Create duster pole.
     pole_col_shape_id = p.createCollisionShape(
@@ -968,37 +996,33 @@ def _create_shelf(
     shelf_link_ids = set(range(num_layers))
 
     # Add vertical side supports to the lists.
-    support_height = (num_layers - 1) * spacing + (num_layers - 1) * shelf_height
+    support_height = (num_layers - 1) * spacing + (num_layers) * shelf_height
     support_half_height = support_height / 2
 
     for x_offset in [
-        -shelf_width / 2 + support_width / 2,
-        shelf_width / 2 - support_width / 2,
+        -shelf_width / 2 - support_width / 2,
+        shelf_width / 2 + support_width / 2,
     ]:
-        for y_offset in [
-            -shelf_depth / 2 + support_width / 2,
-            shelf_depth / 2 - support_width / 2,
-        ]:
-            support_col_shape_id = p.createCollisionShape(
-                p.GEOM_BOX,
-                halfExtents=[support_width / 2, support_width / 2, support_half_height],
-                physicsClientId=physics_client_id,
-            )
-            support_visual_shape_id = p.createVisualShape(
-                p.GEOM_BOX,
-                halfExtents=[support_width / 2, support_width / 2, support_half_height],
-                rgbaColor=color,
-                physicsClientId=physics_client_id,
-            )
+        support_col_shape_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=[support_width / 2, shelf_depth / 2, support_half_height],
+            physicsClientId=physics_client_id,
+        )
+        support_visual_shape_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=[support_width / 2, shelf_depth / 2, support_half_height],
+            rgbaColor=color,
+            physicsClientId=physics_client_id,
+        )
 
-            collision_shape_ids.append(support_col_shape_id)
-            visual_shape_ids.append(support_visual_shape_id)
-            base_positions.append([x_offset, y_offset, support_half_height])
-            base_orientations.append([0, 0, 0, 1])
-            link_masses.append(0)
-            link_parent_indices.append(0)
-            link_joint_types.append(p.JOINT_FIXED)
-            link_joint_axes.append([0, 0, 0])
+        collision_shape_ids.append(support_col_shape_id)
+        visual_shape_ids.append(support_visual_shape_id)
+        base_positions.append([x_offset, 0, support_half_height - shelf_height / 2])
+        base_orientations.append([0, 0, 0, 1])
+        link_masses.append(0)
+        link_parent_indices.append(0)
+        link_joint_types.append(p.JOINT_FIXED)
+        link_joint_axes.append([0, 0, 0])
 
     # Create the multibody with all collision and visual shapes.
     shelf_id = p.createMultiBody(

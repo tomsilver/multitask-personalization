@@ -3,6 +3,11 @@
 import numpy as np
 import pybullet as p
 from pybullet_helpers.geometry import Pose, get_pose, iter_between_poses, multiply_poses
+from pybullet_helpers.inverse_kinematics import (
+    check_body_collisions,
+    check_collisions_with_held_object,
+)
+from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
@@ -10,10 +15,10 @@ from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_retract,
 )
 from pybullet_helpers.motion_planning import (
-    create_joint_distance_fn,
+    MotionPlanningHyperparameters,
     run_base_motion_planning,
+    run_motion_planning,
     run_smooth_motion_planning_to_pose,
-    smoothly_follow_end_effector_path,
 )
 from pybullet_helpers.states import KinematicState
 
@@ -280,42 +285,145 @@ def get_plan_to_wipe_surface(
     state: PyBulletState,
     duster_name: str,
     surface_name: str,
+    robot_base_pose: Pose,
+    robot_joint_state: JointPositions,
     wipe_direction_num_rotations: int,
     sim: PyBulletEnv,
     surface_link_id: int = -1,
-    max_motion_planning_candidates: int = 1,
-    max_motion_planning_time: float = np.inf,
     seed: int = 0,
     off_surface_padding: float = 1e-3,
-) -> list[PyBulletAction]:
+    max_base_motion_planning_iters: int = 10,
+) -> list[PyBulletAction] | None:
     """Assuming a surface is clear of objects and the duster is held."""
+
+    # Make a plan for the duster head.
+    duster_head_plan = get_duster_head_frame_wiping_plan(
+        state,
+        duster_name,
+        surface_name,
+        wipe_direction_num_rotations,
+        sim,
+        surface_link_id=surface_link_id,
+        off_surface_padding=off_surface_padding,
+    )
+
     sim.set_state(state)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    duster_id = sim.get_object_id_from_name(duster_name)
+    assert duster_id in kinematic_state.attachments
+    collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
+
+    # First motion plan in SE2 to the robot base pose.
+    base_motion_plan = run_base_motion_planning(
+        sim.robot,
+        state.robot_base,
+        robot_base_pose,
+        position_lower_bounds=sim.scene_spec.world_lower_bounds[:2],
+        position_upper_bounds=sim.scene_spec.world_upper_bounds[:2],
+        collision_bodies=collision_ids,
+        seed=seed,
+        physics_client_id=sim.physics_client_id,
+        platform=sim.robot_stand_id,
+        held_object=duster_id,
+        base_link_to_held_obj=kinematic_state.attachments[duster_id],
+    )
+    if base_motion_plan is None:
+        return None
+
+    kinematic_plan: list[KinematicState] = []
+    for base_pose in base_motion_plan:
+        kinematic_plan.append(kinematic_state.copy_with(robot_base_pose=base_pose))
+    kinematic_state = kinematic_plan[-1]
+    kinematic_state.set_pybullet(sim.robot)
+
+    # Now motion plan in joint space to the initial pre-wiping pose.
+    robot_joint_plan = run_motion_planning(
+        sim.robot,
+        kinematic_state.robot_joints,
+        robot_joint_state,
+        collision_bodies=collision_ids,
+        seed=seed,
+        physics_client_id=sim.physics_client_id,
+        held_object=duster_id,
+        base_link_to_held_obj=kinematic_state.attachments[duster_id],
+        hyperparameters=MotionPlanningHyperparameters(
+            birrt_num_iters=max_base_motion_planning_iters
+        ),
+    )
+    if robot_joint_plan is None:
+        return None
+    for robot_joints in robot_joint_plan:
+        kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
+    kinematic_state = kinematic_plan[-1]
+    kinematic_state.set_pybullet(sim.robot)
+
+    # The duster head should now be in position to start duster_head_plan.
+    duster_head_pose = get_link_pose(
+        sim.duster_id, sim.duster_head_link_id, sim.physics_client_id
+    )
+
+    # Get the transform between the duster head and the robot base.
+    current_base_pose = sim.robot.get_base_pose()
+    base_to_head = multiply_poses(current_base_pose.invert(), duster_head_pose)
+
+    # Move the robot base in x, y space to do the wiping.
+    for head_pose in duster_head_plan[1:]:
+        target_base_pose = multiply_poses(head_pose, base_to_head.invert())
+        assert np.isclose(
+            current_base_pose.position[2], target_base_pose.position[2], atol=1e-3
+        )
+        assert np.allclose(
+            current_base_pose.orientation, target_base_pose.orientation, atol=1e-3
+        )
+        kinematic_state = kinematic_state.copy_with(robot_base_pose=target_base_pose)
+        kinematic_plan.append(kinematic_state)
+        kinematic_state.set_pybullet(sim.robot)
+        current_base_pose = target_base_pose
+        # Check for collisions.
+        if check_collisions_with_held_object(
+            sim.robot,
+            collision_ids,
+            sim.physics_client_id,
+            held_object=sim.current_held_object_id,
+            base_link_to_held_obj=sim.current_grasp_transform,
+            joint_state=sim.robot.get_joint_positions(),
+        ):
+            return None
+        for collision_body in collision_ids:
+            if check_body_collisions(
+                sim.robot_stand_id,
+                collision_body,
+                sim.physics_client_id,
+                perform_collision_detection=False,
+            ):
+                return None
+
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+
+
+def get_duster_head_frame_wiping_plan(
+    state: PyBulletState,
+    duster_name: str,
+    surface_name: str,
+    wipe_direction_num_rotations: int,
+    sim: PyBulletEnv,
+    surface_link_id: int = -1,
+    off_surface_padding: float = 1e-3,
+) -> list[Pose]:
+    """Interpolate between poses in the duster head frame space.
+
+    Note that this function does not do collision checking.
+    """
+    sim.set_state(state)
 
     assert 0 <= wipe_direction_num_rotations < 4
     wipe_yaw = (np.pi / 2) * wipe_direction_num_rotations
     surface_id = sim.get_object_id_from_name(surface_name)
-    duster_id = sim.get_object_id_from_name(duster_name)
 
-    assert duster_id in kinematic_state.attachments
-    collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
-
-    duster_vert_half = sim.scene_spec.duster_head_half_extents[0]
-    duster_height_half = sim.scene_spec.duster_head_half_extents[1]
-    duster_horiz_half = sim.scene_spec.duster_head_half_extents[2]
-
-    # Calculate TF between end effector and duster head.
     assert duster_name == "duster"
-    # Need to rotate the duster head frame to point in wiping direction.
-    duster_head_tf = Pose.from_rpy((0, 0, 0), (0, np.pi, np.pi / 2))
-    world_to_duster_head = multiply_poses(
-        get_link_pose(sim.duster_id, sim.duster_head_link_id, sim.physics_client_id),
-        duster_head_tf,
-    )
-    world_to_ee = sim.robot.get_end_effector_pose()
-    ee_to_duster_head = multiply_poses(world_to_ee.invert(), world_to_duster_head)
-
-    joint_distance_fn = create_joint_distance_fn(sim.robot)
+    duster_vert_half = sim.scene_spec.duster_head_forward_length
+    duster_height_half = sim.scene_spec.duster_head_up_down_length
+    duster_horiz_half = sim.scene_spec.duster_head_long_length
 
     # Create the starting poses from which we will wipe forward. The poses are
     # in the frame of the duster.
@@ -345,15 +453,21 @@ def get_plan_to_wipe_surface(
     prewipe_origin = multiply_poses(wipe_origin, prewipe_tf)
 
     # Calculate the initial poses to start wiping.
-    duster_vert_half = sim.scene_spec.duster_head_half_extents[0]
-    duster_horiz_half = sim.scene_spec.duster_head_half_extents[1]
-    duster_height_half = sim.scene_spec.duster_head_half_extents[2]
     num_wipes = int(np.ceil(wipe_horiz / (2 * duster_horiz_half)))
+    padding = duster_horiz_half / 4
     first_init_wipe_pose = multiply_poses(
-        prewipe_origin, Pose((duster_horiz_half, -duster_height_half, duster_vert_half))
+        prewipe_origin,
+        Pose(
+            (
+                duster_horiz_half + padding,
+                -duster_height_half,
+                duster_vert_half + padding,
+            )
+        ),
     )
     final_init_wipe_pose = multiply_poses(
-        first_init_wipe_pose, Pose((wipe_horiz - 2 * duster_horiz_half, 0, 0))
+        first_init_wipe_pose,
+        Pose((wipe_horiz - 2 * duster_horiz_half - 2 * padding, 0, 0)),
     )
     init_wipe_poses = list(
         iter_between_poses(
@@ -362,63 +476,33 @@ def get_plan_to_wipe_surface(
     )
 
     # Calculate corresponding final poses to finish wiping.
-    wipe_motion_tf = Pose((0, 0, wipe_vert - 2 * duster_vert_half))
+    wipe_motion_tf = Pose((0, 0, wipe_vert - 2 * duster_vert_half - 2 * padding))
     terminal_wipe_poses = [
         multiply_poses(pose, wipe_motion_tf) for pose in init_wipe_poses
     ]
 
-    # Alternate between motion planning and smooth end effector movements.
-    kinematic_plan: list[KinematicState] = []
-    for init_wipe_pose, terminal_wipe_pose in zip(
-        init_wipe_poses, terminal_wipe_poses, strict=True
+    # Join together the waypoints and then interpolate between them.
+    wipe_pose_waypoints = [
+        val for pair in zip(init_wipe_poses, terminal_wipe_poses) for val in pair
+    ]
+
+    # Add one final waypoint at the bottom center of the surface to make the
+    # next motion planning easier.
+    finish_pose = list(
+        iter_between_poses(init_wipe_poses[0], init_wipe_poses[-1], num_interp=2)
+    )[1]
+    wipe_pose_waypoints.append(finish_pose)
+
+    final_poses: list[Pose] = [wipe_pose_waypoints[0]]
+    for waypoint1, waypoint2 in zip(
+        wipe_pose_waypoints[:-1], wipe_pose_waypoints[1:], strict=True
     ):
-
-        # Motion plan to hand over.
-        robot_joint_plan = run_smooth_motion_planning_to_pose(
-            init_wipe_pose,
-            sim.robot,
-            collision_ids=collision_ids,
-            end_effector_frame_to_plan_frame=ee_to_duster_head.invert(),
-            seed=seed,
-            max_candidate_plans=max_motion_planning_candidates,
-            held_object=duster_id,
-            base_link_to_held_obj=kinematic_state.attachments[duster_id],
-        )
-        assert robot_joint_plan is not None
-        for robot_joints in robot_joint_plan:
-            kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
-        # Sync the simulator.
-        kinematic_plan[-1].set_pybullet(sim.robot)
-
-        # Smooth plan to wipe.
-        init_ee_pose = sim.robot.get_end_effector_pose()
-        terminal_ee_pose = multiply_poses(
-            terminal_wipe_pose, ee_to_duster_head.invert()
-        )
-        end_effector_path = list(
+        final_poses.extend(
             iter_between_poses(
-                init_ee_pose,
-                terminal_ee_pose,
+                waypoint1,
+                waypoint2,
                 include_start=False,
             )
         )
 
-        single_wipe_plan = smoothly_follow_end_effector_path(
-            sim.robot,
-            end_effector_path,
-            state.robot_joints,
-            collision_ids,
-            joint_distance_fn,
-            max_time=max_motion_planning_time,
-            max_smoothing_iters_per_step=max_motion_planning_candidates,
-            held_object=duster_id,
-            base_link_to_held_obj=kinematic_state.attachments[duster_id],
-            include_start=False,
-        )
-        assert single_wipe_plan is not None
-        for robot_joints in single_wipe_plan:
-            kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
-        # Sync the simulator.
-        kinematic_plan[-1].set_pybullet(sim.robot)
-
-    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+    return final_poses
