@@ -408,16 +408,20 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ]
 
             init_book = books[self._rng.choice(len(books))]
-            init_surface = self._sim.get_name_from_object_id(
-                self._sim.get_surface_that_object_is_on(
-                    self._sim.get_object_id_from_name(init_book)
+            if obs.held_object == init_book:
+                init_grasp_base_pose = obs.robot_base
+            else:
+                init_surface = self._sim.get_name_from_object_id(
+                    self._sim.get_surface_that_object_is_on(
+                        self._sim.get_object_id_from_name(init_book)
+                    )
                 )
-            )
+                get_target_base_pose(obs, init_surface, self._sim)
             initialization = {
                 book: init_book,
                 book_grasp: np.array([-np.pi / 2]),
                 handover_position: np.zeros((3,)),
-                grasp_base_pose: get_target_base_pose(obs, init_surface, self._sim),
+                grasp_base_pose: init_grasp_base_pose,
                 handover_base_pose: get_target_base_pose(obs, "wheelchair", self._sim),
             }
 
