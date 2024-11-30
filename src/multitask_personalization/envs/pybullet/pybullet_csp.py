@@ -682,9 +682,20 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
                 # Set the simulation so that the robot is holding the duster.
                 # We assume that this is always feasible.
+
                 self._sim.set_state(obs)
-                self._sim.set_robot_base(base_pose)
-                self._sim.robot.set_joints(joint_state)
+                # TODO this is wrong... we need to know exactly the joint state
+                # that will occur AFTER the grasp of the duster. So we need to
+                # change the pick skill to take in a target joint state...
+                # but this will get messy...
+                # self._sim.set_robot_base(base_pose)
+                # self._sim.robot.set_joints(joint_state)
+                # TODO this is not going to work because the robot is standing
+                # where the held object... also if we snap to where the robot
+                # is currently standing, then the duster might collide with
+                # something else, like the human. I think the safest thing is
+                # to join together the picking and wiping into one planning fn
+                # and then check it here and use it again in the skill.
                 self._snap_duster_to_end_effector()  # need to set grasp TF
                 grasping_state = self._sim.get_state()
 

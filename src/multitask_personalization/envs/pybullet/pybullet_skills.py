@@ -359,6 +359,11 @@ def get_plan_to_wipe_surface(
     sim.set_robot_base(kinematic_state.robot_base_pose)
 
     # Now motion plan in joint space to the initial pre-wiping pose.
+    # TODO: joints are the problem
+    print("starting with joints:", kinematic_state.robot_joints)
+    print("starting with base:", kinematic_state.robot_base_pose)
+    print("target:", robot_joint_state)
+    print("attachment:", kinematic_state.attachments[duster_id])
     robot_joint_plan = run_motion_planning(
         sim.robot,
         kinematic_state.robot_joints,
