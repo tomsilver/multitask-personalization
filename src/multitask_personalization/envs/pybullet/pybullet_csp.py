@@ -15,7 +15,7 @@ from pybullet_helpers.inverse_kinematics import (
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
 )
-from pybullet_helpers.link import get_link_pose
+from pybullet_helpers.link import get_link_pose, get_relative_link_pose
 from pybullet_helpers.manipulation import generate_surface_placements
 from pybullet_helpers.math_utils import get_poses_facing_line
 from pybullet_helpers.spaces import PoseSpace
@@ -30,7 +30,7 @@ from multitask_personalization.envs.pybullet.pybullet_env import (
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_duster_head_frame_wiping_plan,
     get_plan_to_handover_object,
-    get_plan_to_move_next_to_object,
+    get_plan_to_move_to_pose,
     get_plan_to_pick_object,
     get_plan_to_place_object,
     get_plan_to_wipe_surface,
@@ -114,20 +114,15 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         book_grasp = _book_grasp_to_pose(self._get_value("book_grasp"))
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
         grasp_base_pose = self._get_value("grasp_base_pose")
-
-        # NOTE: these need to be handled.
+        assert isinstance(grasp_base_pose, Pose)
         handover_base_pose = self._get_value("handover_base_pose")
-        placement_base_pose = self._get_value("placement_base_pose")
+        assert isinstance(handover_base_pose, Pose)
 
         if obs.held_object is None:
             # First move next to the object.
-            # NOTE: refactor later so that we can move to arbitrary poses.
-            # Need to just add simple move skill.
-            target_base_pose = get_target_base_pose(obs, book_description, self._sim)
-            assert target_base_pose.allclose(grasp_base_pose)
-            if not target_base_pose.allclose(obs.robot_base, atol=1e-3):
-                return get_plan_to_move_next_to_object(
-                    obs, book_description, self._sim, seed=self._seed
+            if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
+                return get_plan_to_move_to_pose(
+                    obs, grasp_base_pose, self._sim, seed=self._seed
                 )
             # Pick up the target book.
             return get_plan_to_pick_object(
@@ -138,6 +133,11 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
         if obs.held_object == book_description:
+            # Move to the handover base pose.
+            if not handover_base_pose.allclose(obs.robot_base, atol=1e-3):
+                return get_plan_to_move_to_pose(
+                    obs, handover_base_pose, self._sim, seed=self._seed
+                )
             # Handover the book.
             plan = get_plan_to_handover_object(
                 obs,
@@ -151,6 +151,13 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
             return plan
         # Need to place held object.
         placement_pose = self._get_value("placement")
+        placement_base_pose = self._get_value("placement_base_pose")
+        assert isinstance(placement_base_pose, Pose)
+        # Move to the placement base pose.
+        if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+            return get_plan_to_move_to_pose(
+                obs, placement_base_pose, self._sim, seed=self._seed
+            )
         surface_name, surface_link_id = self._get_value("surface")
         assert obs.held_object is not None
         return get_plan_to_place_object(
@@ -173,6 +180,13 @@ class _PutAwayHeldObjectCSPPolicy(_PyBulletCSPPolicy):
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         placement_pose = self._get_value("placement")
         surface_name, surface_link_id = self._get_value("surface")
+        placement_base_pose = self._get_value("placement_base_pose")
+        assert isinstance(placement_base_pose, Pose)
+        # Move to the placement base pose.
+        if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+            return get_plan_to_move_to_pose(
+                obs, placement_base_pose, self._sim, seed=self._seed
+            )
         assert obs.held_object is not None
         return get_plan_to_place_object(
             obs,
@@ -194,9 +208,15 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         surface_name, link_id = self._get_value("surface")
         base_pose, joint_arr = self._get_value("robot_state")
+        grasp_base_pose = self._get_value("grasp_base_pose")
         joint_state = joint_arr.tolist()
         num_rots = 1 if surface_name == "table" else 0
         if obs.held_object is None:
+            # Move to the grasp base pose.
+            if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
+                return get_plan_to_move_to_pose(
+                    obs, grasp_base_pose, self._sim, seed=self._seed
+                )
             # Pick up the duster.
             return get_plan_to_pick_object(
                 obs,
@@ -387,14 +407,17 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ]
 
             init_book = books[self._rng.choice(len(books))]
-            init_surface = self._sim.get_name_from_object_id(self._sim.get_surface_that_object_is_on(self._sim.get_object_id_from_name(init_book)))
+            init_surface = self._sim.get_name_from_object_id(
+                self._sim.get_surface_that_object_is_on(
+                    self._sim.get_object_id_from_name(init_book)
+                )
+            )
             initialization = {
                 book: init_book,
                 book_grasp: np.array([-np.pi / 2]),
                 handover_position: np.zeros((3,)),
                 grasp_base_pose: get_target_base_pose(obs, init_surface, self._sim),
-                # TODO: handle wheelchair.
-                handover_base_pose: get_target_base_pose(obs, init_surface, self._sim),
+                handover_base_pose: get_target_base_pose(obs, "wheelchair", self._sim),
             }
 
             if obs.held_object is not None:
@@ -415,7 +438,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         elif self._current_mission == "clean":
 
             # Choose a surface to clean and a robot base pose / joint state to
-            # initiate the cleaning.
+            # initiate the cleaning. Also determine where to stand while picking
+            # the duster.
             surface, surface_init = self._generate_surface_variable()
             robot_state = CSPVariable(
                 "robot_state",
@@ -429,14 +453,17 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     ]
                 ),
             )
+            grasp_base_pose = CSPVariable("grasp_base_pose", PoseSpace())
 
-            variables = [surface, robot_state]
+            variables = [surface, robot_state, grasp_base_pose]
 
             init_robot_base_pose = obs.robot_base
             init_robot_joint_state = np.array(obs.robot_joints)
+            init_grasp_base_pose = get_target_base_pose(obs, "duster", self._sim)
             initialization = {
                 surface: surface_init,
                 robot_state: (init_robot_base_pose, init_robot_joint_state),
+                grasp_base_pose: init_grasp_base_pose,
             }
 
             if obs.held_object is not None:
@@ -590,7 +617,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             # Coming soon: removing objects to clean surfaces.
 
-            surface, robot_state = variables[:2]
+            surface, robot_state, grasp_base_pose = variables[:3]
 
             def _prewipe_pose_is_valid(
                 surface_name_and_link: tuple[str, int],
@@ -670,14 +697,38 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _wipe_plan_exists,
             )
 
-            constraints = [prewipe_pose_is_valid, wipe_plan_exists]
+            rel_grasp_pose = self._sim.scene_spec.duster_grasp
+            object_to_link = get_relative_link_pose(
+                self._sim.duster_id,
+                self._sim.duster_head_link_id,
+                -1,
+                self._sim.physics_client_id,
+            )
+            duster_grasp = multiply_poses(
+                obs.duster_pose, object_to_link, rel_grasp_pose
+            )
+
+            def _duster_grasp_is_reachable(base_pose: Pose) -> bool:
+                return _pose_is_reachable(duster_grasp, base_pose, self._sim)
+
+            duster_grasp_reachable_constraint = FunctionalCSPConstraint(
+                "duster_reachable",
+                [grasp_base_pose],
+                _duster_grasp_is_reachable,
+            )
+
+            constraints = [
+                prewipe_pose_is_valid,
+                wipe_plan_exists,
+                duster_grasp_reachable_constraint,
+            ]
 
             if obs.held_object is not None:
                 # Shortcut: if already holding the duster, don't bother making
                 # a real plan to place it, because the policy won't need to.
                 if obs.held_object != "duster":
-                    assert len(variables) == 5
-                    placement, placement_surface, placement_base_pose = variables[2:]
+                    assert len(variables) == 6
+                    placement, placement_surface, placement_base_pose = variables[3:]
                     plan_to_place_exists = (
                         self._generate_plan_to_place_exists_constraint(
                             obs, placement, placement_surface, placement_base_pose

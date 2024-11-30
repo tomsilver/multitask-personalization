@@ -153,6 +153,8 @@ def get_target_base_pose(
         )
     if object_name == "shelf":
         return sim.scene_spec.robot_base_pose  # initial base pose
+    if object_name == "wheelchair":
+        return Pose((1.0, 0.0, 0.0))
     if object_name == "table":
         return Pose(
             (
@@ -177,11 +179,21 @@ def get_plan_to_move_next_to_object(
     seed: int = 0,
 ) -> list[PyBulletAction]:
     """Get a plan to move next to a given object."""
+    target_base_pose = get_target_base_pose(state, object_name, sim)
+    return get_plan_to_move_to_pose(state, target_base_pose, sim, seed)
+
+
+def get_plan_to_move_to_pose(
+    state: PyBulletState,
+    target_base_pose: Pose,
+    sim: PyBulletEnv,
+    seed: int = 0,
+) -> list[PyBulletAction]:
+    """Get a plan to move next to a given object."""
     sim.set_state(state)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
     current_base_pose = state.robot_base
-    target_base_pose = get_target_base_pose(state, object_name, sim)
 
     if kinematic_state.attachments:
         assert len(kinematic_state.attachments) == 1
