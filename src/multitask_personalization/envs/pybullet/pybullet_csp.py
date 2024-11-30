@@ -460,7 +460,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             init_robot_base_pose = obs.robot_base
             init_robot_joint_state = np.array(obs.robot_joints)
-            init_grasp_base_pose = get_target_base_pose(obs, "duster", self._sim)
+            if obs.held_object == "duster":
+                init_grasp_base_pose = obs.robot_base
+            else:
+                init_grasp_base_pose = get_target_base_pose(obs, "duster", self._sim)
             initialization = {
                 surface: surface_init,
                 robot_state: (init_robot_base_pose, init_robot_joint_state),
