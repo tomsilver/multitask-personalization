@@ -691,7 +691,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._llm,
                 seed=seed,
             ),
-            StoreHeldObjectMission(),
+            StoreHeldObjectMission(self.robot.home_joint_positions),
             CleanSurfacesMission(),
         ]
         return possible_missions

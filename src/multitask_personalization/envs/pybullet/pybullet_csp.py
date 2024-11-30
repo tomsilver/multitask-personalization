@@ -210,7 +210,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
                 surface_link_id=link_id,
                 # Use a very high number here because we should be guaranteed
                 # that a motion plan exists.
-                max_base_motion_planning_iters=1_000,
+                max_motion_planning_iters=1_000,
             )
             assert plan is not None
             # Indicate done.
@@ -640,10 +640,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 # a real plan to place it, because the policy won't need to.
                 if obs.held_object != "duster":
                     assert len(variables) == 4
-                    placement, surface = variables[2], variables[3]
+                    placement, placement_surface = variables[2], variables[3]
                     plan_to_place_exists = (
                         self._generate_plan_to_place_exists_constraint(
-                            obs, placement, surface
+                            obs, placement, placement_surface
                         )
                     )
                     constraints.append(plan_to_place_exists)
@@ -783,9 +783,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             if obs.held_object is not None:
                 assert len(csp.variables) == 4
-                placement, surface = csp.variables[2], csp.variables[3]
+                placement, placement_surface = csp.variables[2], csp.variables[3]
                 placement_samplers = self._generate_placement_samplers(
-                    obs, csp, placement, surface
+                    obs, csp, placement, placement_surface
                 )
                 samplers.extend(placement_samplers)
 

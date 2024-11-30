@@ -12,7 +12,6 @@ from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
-    get_kinematic_plan_to_retract,
 )
 from pybullet_helpers.motion_planning import (
     MotionPlanningHyperparameters,
@@ -112,19 +111,6 @@ def get_plan_to_pick_object(
     grasp_generator = iter([grasp_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan: list[KinematicState] = []
-    # Start by retracting in case we just placed a nearby object.
-    kinematic_retract_plan = get_kinematic_plan_to_retract(
-        kinematic_state,
-        sim.robot,
-        collision_ids=set(),
-        max_motion_planning_time=max_motion_planning_time,
-        max_smoothing_iters_per_step=max_motion_planning_candidates,
-    )
-    assert kinematic_retract_plan is not None
-    kinematic_plan.extend(kinematic_retract_plan)
-    kinematic_state = kinematic_retract_plan[-1]
-    kinematic_state.set_pybullet(sim.robot)
-    # Now to the pick.
     kinematic_pick_plan = get_kinematic_plan_to_pick_object(
         kinematic_state,
         sim.robot,
@@ -267,6 +253,7 @@ def get_plan_to_place_object(
     surface_name: str,
     placement_pose: Pose,
     sim: PyBulletEnv,
+    seed: int = 0,
     max_motion_planning_candidates: int = 1,
     max_motion_planning_time: float = np.inf,
     surface_link_id: int = -1,
@@ -291,9 +278,27 @@ def get_plan_to_place_object(
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
         max_smoothing_iters_per_step=max_motion_planning_candidates,
+        retract_after=True,
     )
     if kinematic_plan is None:
         return None
+    kinematic_state = kinematic_plan[-1]
+    kinematic_state.set_pybullet(sim.robot)
+    # Motion plan back to home joint positions.
+    robot_joint_plan = run_motion_planning(
+        sim.robot,
+        kinematic_state.robot_joints,
+        sim.robot.home_joint_positions,
+        collision_bodies=collision_ids,
+        seed=seed,
+        physics_client_id=sim.physics_client_id,
+    )
+    if robot_joint_plan is None:
+        return None
+    for robot_joints in robot_joint_plan:
+        kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
+    kinematic_state = kinematic_plan[-1]
+    kinematic_state.set_pybullet(sim.robot)
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
@@ -308,7 +313,7 @@ def get_plan_to_wipe_surface(
     surface_link_id: int = -1,
     seed: int = 0,
     off_surface_padding: float = 1e-3,
-    max_base_motion_planning_iters: int = 10,
+    max_motion_planning_iters: int = 10,
 ) -> list[PyBulletAction] | None:
     """Assuming a surface is clear of objects and the duster is held."""
 
@@ -367,7 +372,7 @@ def get_plan_to_wipe_surface(
         held_object=duster_id,
         base_link_to_held_obj=kinematic_state.attachments[duster_id],
         hyperparameters=MotionPlanningHyperparameters(
-            birrt_num_iters=max_base_motion_planning_iters
+            birrt_num_iters=max_motion_planning_iters
         ),
     )
     if robot_joint_plan is None:

@@ -2,6 +2,7 @@
 
 import numpy as np
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
+from pybullet_helpers.joint import JointPositions
 from tomsutils.llm import LargeLanguageModel
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
@@ -101,6 +102,13 @@ class HandOverBookMission(PyBulletMission):
 class StoreHeldObjectMission(PyBulletMission):
     """Put away the thing the robot is holding."""
 
+    def __init__(
+        self,
+        retract_joint_positions: JointPositions,
+    ) -> None:
+        super().__init__()
+        self._retract_joint_positions = retract_joint_positions
+
     def get_id(self) -> str:
         return "store held object"
 
@@ -112,7 +120,7 @@ class StoreHeldObjectMission(PyBulletMission):
         return state.held_object is not None
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
-        return state.held_object is None
+        return state.held_object is None and np.allclose(state.robot_joints, self._retract_joint_positions)
 
     def step(
         self, state: PyBulletState, action: PyBulletAction
