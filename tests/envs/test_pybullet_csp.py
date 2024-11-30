@@ -86,9 +86,8 @@ def test_pybullet_csp():
     # Uncomment to test specific missions.
     mission_id_to_mission = {m.get_id(): m for m in unused_missions}
     unused_missions = [
-        # TODO test the opposite order too
-        mission_id_to_mission["clean"],
         mission_id_to_mission["book handover"],
+        mission_id_to_mission["clean"],
     ]
 
     # Force considering each mission once.

@@ -214,7 +214,20 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
             # Indicate done.
             plan.append((2, None))
             return plan
-        raise NotImplementedError
+        # Need to place held object.
+        placement_pose = self._get_value("placement")
+        surface_name, surface_link_id = self._get_value("placement_surface")
+        assert obs.held_object is not None
+        return get_plan_to_place_object(
+            obs,
+            obs.held_object,
+            surface_name,
+            placement_pose,
+            self._sim,
+            max_motion_planning_time=self._max_motion_planning_time,
+            max_motion_planning_candidates=self._max_motion_planning_candidates,
+            surface_link_id=surface_link_id,
+        )
 
     def _policy_can_handle_mission(self, mission: str) -> bool:
         return mission == "clean"
@@ -396,6 +409,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 robot_state: (init_robot_base_pose, init_robot_joint_state),
             }
 
+            if obs.held_object is not None:
+                # If the user is holding something, we'll need to place it, and
+                # we'll need to determine a placement for it as part of the CSP.
+                placement_vars, placement_init = self._generate_placement_variables(surface_name="placement_surface")
+                variables.extend(placement_vars)
+                initialization.update(placement_init)
+
         else:
             raise NotImplementedError
 
@@ -526,7 +546,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             # Coming soon: removing objects to clean surfaces.
 
-            surface, robot_state = variables
+            surface, robot_state = variables[:2]
 
             def _prewipe_pose_is_valid(
                 surface_name_and_link: tuple[str, int],
@@ -606,7 +626,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _wipe_plan_exists,
             )
 
-            return [prewipe_pose_is_valid, wipe_plan_exists]
+            constraints = [prewipe_pose_is_valid, wipe_plan_exists]
+
+            if obs.held_object is not None:
+                assert len(variables) == 4
+                placement, surface = variables[2], variables[3]
+                plan_to_place_exists = self._generate_plan_to_place_exists_constraint(obs, placement, surface)
+                constraints.append(plan_to_place_exists)
+
+            return constraints
 
         raise NotImplementedError
 
@@ -675,7 +703,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "clean":
 
             surfaces = sorted(self._sim.get_surface_names())
-            surface, robot_state = csp.variables
+            surface, robot_state = csp.variables[:2]
 
             def _sample_surface(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -733,7 +761,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _robot_state_sampler, csp, {robot_state}
             )
 
-            return [surface_sampler, robot_state_sampler]
+            samplers = [surface_sampler, robot_state_sampler]
+
+            if obs.held_object is not None:
+                assert len(csp.variables) == 4
+                placement, surface = csp.variables[2], csp.variables[3]
+                placement_samplers = self._generate_placement_samplers(obs, csp, placement, surface)
+                samplers.extend(placement_samplers)
+
+            return samplers
 
         raise NotImplementedError
 
