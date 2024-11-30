@@ -416,7 +416,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                         self._sim.get_object_id_from_name(init_book)
                     )
                 )
-                get_target_base_pose(obs, init_surface, self._sim)
+                init_grasp_base_pose = get_target_base_pose(
+                    obs, init_surface, self._sim
+                )
             initialization = {
                 book: init_book,
                 book_grasp: np.array([-np.pi / 2]),
