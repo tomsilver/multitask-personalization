@@ -64,16 +64,20 @@ class PyBulletCannedLLM(LargeLanguageModel):
         assert num_completions == 1
         rng = np.random.default_rng(seed)
 
-        if prompt.startswith(
-            "Generate a list of 3 real English-language book titles and authors."
-        ):
+        if prompt.startswith("Generate a list of "):
             # pylint: disable=line-too-long
-            book_nums = rng.choice(list(range(1, 101)), size=3, replace=False)
+            pattern = r"Generate a list of (\d+) real English-language book titles and authors"
+            matches = re.findall(pattern, prompt)
+            assert len(matches) == 1
+            num_books = int(matches[0])
+            assert num_books >= 1
+            book_nums = rng.choice(list(range(1, 101)), size=num_books, replace=False)
             books = [
                 f"1. [The user would love] Title: Book {book_nums[0]}. Author: Love.",
-                f"2. [The user would hate] Title: Book {book_nums[1]}. Author: Hate.",
-                f"3. [The user would hate] Title: Book {book_nums[2]}. Author: Hate.",
             ]
+            for i in range(1, num_books):
+                book = f"{i+1}. [The user would hate] Title: Book {book_nums[i]}. Author: Hate."
+                books.append(book)
             resp = "\n".join(books)
             return [resp]
 

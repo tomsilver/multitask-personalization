@@ -63,12 +63,12 @@ class PyBulletSceneSpec(PublicSceneSpec):
     camera_distance: float = 2.0
 
     shelf_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
-    shelf_width: float = 1.0
+    shelf_width: float = 0.8
     shelf_height: float = 0.1
     shelf_depth: float = 0.3
-    shelf_spacing: float = 0.4
+    shelf_spacing: float = 0.3
     shelf_support_width: float = 0.05
-    shelf_num_layers: int = 4
+    shelf_num_layers: int = 3
     shelf_support_height = (shelf_num_layers - 1) * shelf_spacing + (
         shelf_num_layers - 1
     ) * shelf_height
@@ -136,17 +136,19 @@ class PyBulletSceneSpec(PublicSceneSpec):
     surface_dust_height: float = 1e-3
     dust_color: tuple[float, float, float] = (0.7, 0.5, 0.2)
 
-    duster_head_half_extents: tuple[float, float, float] = (0.04, 0.075, 0.04)
+    duster_head_forward_length: float = 0.04
+    duster_head_long_length: float = 0.075
+    duster_head_up_down_length: float = 0.04
     duster_head_rgba: tuple[float, float, float, float] = (0.4, 0.8, 0.8, 1.0)
     duster_pole_radius: float = 0.01
-    duster_pole_height: float = 0.15
+    duster_pole_height: float = 0.35
     duster_pole_rgba: tuple[float, float, float, float] = (0.0, 0.3, 0.3, 1.0)
     duster_pole_offset: tuple[float, float, float] = (
-        duster_head_half_extents[0] - duster_pole_radius,
+        duster_head_forward_length - duster_pole_radius,
         0,
-        duster_head_half_extents[2] + duster_pole_height / 2,
+        duster_head_up_down_length + duster_pole_height / 2,
     )
-    duster_pose: Pose = Pose(position=(-0.5, 0.2, duster_head_half_extents[2]))
+    duster_pose: Pose = Pose(position=(-0.5, 0.2, duster_head_up_down_length))
 
     @property
     def tray_pose(self) -> Pose:
