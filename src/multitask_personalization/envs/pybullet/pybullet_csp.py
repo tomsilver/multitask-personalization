@@ -803,7 +803,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "put away held object":
             placement, surface, placement_base_pose = csp.variables
-            placement_sample = self._generate_placement_sampler(
+            placement_sampler = self._generate_placement_sampler(
                 obs, csp, placement, surface, placement_base_pose
             )
             return [placement_sampler]
@@ -983,9 +983,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             surface_name, surface_link_id = surface_name_and_link
             max_mp_candidates = self._max_motion_planning_candidates
             self._sim.robot.set_base(base_pose)
+            obs_after_base_move = self._sim.get_state()
             plan = get_plan_to_place_object(
-                obs,
-                obs.held_object,
+                obs_after_base_move,
+                obs_after_base_move.held_object,
                 surface_name,
                 placement_pose,
                 self._sim,
