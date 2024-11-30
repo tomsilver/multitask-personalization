@@ -241,7 +241,10 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
                 # that a motion plan exists.
                 max_motion_planning_iters=1_000,
             )
-            assert plan is not None
+            try:
+                assert plan is not None
+            except:
+                import ipdb; ipdb.set_trace()
             # Indicate done.
             plan.append((2, None))
             return plan
@@ -565,7 +568,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 yaw: NDArray,
                 base_pose: Pose,
             ) -> bool:
-                self._sim.robot.set_base(base_pose)
+                self._sim.set_robot_base(base_pose)
                 book_id = self._sim.get_object_id_from_name(book_description)
                 end_effector_pose = _handover_position_to_pose(position)
                 grasp_pose = _book_grasp_to_pose(yaw)
@@ -652,44 +655,23 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ) -> bool:
                 surface_name, surface_link_id = surface_name_and_link
                 base_pose, robot_joint_arr = candidate_robot_state
+                joint_state = robot_joint_arr.tolist()
                 num_rots = 1 if surface_name == "table" else 0
 
                 # Set the simulation so that the robot is holding the duster.
                 # We assume that this is always feasible.
                 self._sim.set_state(obs)
                 self._sim.set_robot_base(base_pose)
-                self._sim.robot.set_joints(robot_joint_arr.tolist())
+                self._sim.robot.set_joints(joint_state)
                 self._snap_duster_to_end_effector()  # need to set grasp TF
                 grasping_state = self._sim.get_state()
-                collision_ids = self._sim.get_collision_ids() - {
-                    self._sim.current_held_object_id
-                }
-
-                # Start by determining the initial end effector pose.
-                ee_init_pose = self._get_prewipe_end_effector_pose(
-                    surface_name, surface_link_id, num_rots
-                )
-
-                try:
-                    joint_state_candidate = next(
-                        sample_collision_free_inverse_kinematics(
-                            self._sim.robot,
-                            ee_init_pose,
-                            collision_ids,
-                            self._rng,
-                            held_object=self._sim.current_held_object_id,
-                            base_link_to_held_obj=self._sim.current_grasp_transform,
-                        )
-                    )
-                except StopIteration:
-                    return False
 
                 wipe_plan = get_plan_to_wipe_surface(
                     grasping_state,
                     "duster",
                     surface_name,
                     base_pose,
-                    joint_state_candidate,
+                    joint_state,
                     num_rots,
                     self._sim,
                     surface_link_id=surface_link_id,
@@ -979,7 +961,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             assert obs.held_object is not None
             surface_name, surface_link_id = surface_name_and_link
             max_mp_candidates = self._max_motion_planning_candidates
-            self._sim.robot.set_base(base_pose)
+            self._sim.set_robot_base(base_pose)
             obs_after_base_move = self._sim.get_state()
             plan = get_plan_to_place_object(
                 obs_after_base_move,
