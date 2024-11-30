@@ -96,6 +96,7 @@ class HandOverBookMission(PyBulletMission):
         return text, 1.0
 
     def _check_reachable(self, state: PyBulletState) -> bool:
+        self._robot.set_base(state.robot_base)
         end_effector_pose = self._robot.forward_kinematics(state.robot_joints)
         return self._rom_model.check_position_reachable(
             np.array(end_effector_pose.position)
