@@ -1,11 +1,12 @@
 """Specific missions for the robot in the PyBullet environment."""
 
+from functools import partial
+
 import numpy as np
-from pybullet_helpers.motion_planning import get_joint_positions_distance
 from pybullet_helpers.joint import get_joint_infos
+from pybullet_helpers.motion_planning import get_joint_positions_distance
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from tomsutils.llm import LargeLanguageModel
-from functools import partial
 
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -136,7 +137,7 @@ class StoreHeldObjectMission(PyBulletMission):
             return False
         joint_action = action[1]
         joint_angle_delta = joint_action[3:]  # type: ignore
-        new_arm_joints = np.add(state.robot_joints[:7], joint_angle_delta)  # type: ignore
+        new_arm_joints = np.add(state.robot_joints[:7], joint_angle_delta)
         new_joints = list(state.robot_joints)
         new_joints[:7] = new_arm_joints
         retract_dist = self._joint_distance_fn(
