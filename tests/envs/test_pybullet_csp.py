@@ -63,7 +63,7 @@ def test_pybullet_csp():
     # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
@@ -84,11 +84,13 @@ def test_pybullet_csp():
     )
 
     # Uncomment to test specific missions.
-    # mission_id_to_mission = {m.get_id(): m for m in unused_missions}
-    # unused_missions = [
-    #     mission_id_to_mission["book handover"],
-    #     mission_id_to_mission["clean"],
-    # ]
+    mission_id_to_mission = {m.get_id(): m for m in unused_missions}
+    unused_missions = [
+        mission_id_to_mission["book handover"],
+        mission_id_to_mission["clean"],
+        # mission_id_to_mission["book handover"],
+        # mission_id_to_mission["clean"],
+    ]
 
     # Force considering each mission once.
     def _get_new_mission(self):

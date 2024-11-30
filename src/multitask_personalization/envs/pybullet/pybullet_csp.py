@@ -249,6 +249,13 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         placement_pose = self._get_value("placement")
         surface_name, surface_link_id = self._get_value("placement_surface")
         assert obs.held_object is not None
+        placement_base_pose = self._get_value("placement_base_pose")
+        assert isinstance(placement_base_pose, Pose)
+        # Move to the placement base pose.
+        if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+            return get_plan_to_move_to_pose(
+                obs, placement_base_pose, self._sim, seed=self._seed
+            )
         return get_plan_to_place_object(
             obs,
             obs.held_object,
@@ -983,6 +990,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             assert obs.held_object is not None
             surface_name, surface_link_id = surface_name_and_link
             max_mp_candidates = self._max_motion_planning_candidates
+            self._sim.set_state(obs)
             self._sim.set_robot_base(base_pose)
             obs_after_base_move = self._sim.get_state()
             plan = get_plan_to_place_object(
