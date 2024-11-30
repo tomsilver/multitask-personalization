@@ -518,11 +518,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        target = get_link_pose(
-            self.human.body,
-            self.human.right_wrist,
-            self.physics_client_id,
-        ).position
+        target = self.robot.get_base_pose().position
         img = capture_image(
             self.physics_client_id,
             camera_target=target,
