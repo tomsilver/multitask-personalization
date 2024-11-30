@@ -25,12 +25,13 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
-from tomsutils.utils import render_textbox_on_image
+from tomsutils.utils import render_textbox_on_image, sample_seed_from_rng
 
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
 )
 from multitask_personalization.envs.pybullet.pybullet_missions import (
+    CleanSurfacesMission,
     HandOverBookMission,
     StoreHeldObjectMission,
 )
@@ -172,20 +173,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
             self.book_ids.append(book_id)
 
-        # Create side table.
-        self.side_table_id = create_pybullet_block(
-            self.scene_spec.side_table_rgba,
-            half_extents=self.scene_spec.side_table_half_extents,
-            physics_client_id=self.physics_client_id,
-        )
-
-        # Create tray.
-        self.tray_id = create_pybullet_block(
-            self.scene_spec.tray_rgba,
-            half_extents=self.scene_spec.tray_half_extents,
-            physics_client_id=self.physics_client_id,
-        )
-
         # Track whether the object is held, and if so, with what grasp.
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
@@ -271,10 +258,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def set_state(self, state: PyBulletState) -> None:
         """Sync the simulator with the given state."""
-        set_pose(self.robot.robot_id, state.robot_base, self.physics_client_id)
+        self.set_robot_base(state.robot_base)
         self.robot.set_joints(state.robot_joints)
-        stand_pose = multiply_poses(state.robot_base, self.robot_base_to_stand)
-        set_pose(self.robot_stand_id, stand_pose, self.physics_client_id)
         set_pose(self.human.body, state.human_base, self.physics_client_id)
         self.human.set_joint_angles(
             self.human.right_arm_joints,
@@ -346,14 +331,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         ):
             set_pose(book_id, book_pose, self.physics_client_id)
 
-        # Reset side table.
-        set_pose(
-            self.side_table_id, self.scene_spec.side_table_pose, self.physics_client_id
-        )
-
-        # Reset tray.
-        set_pose(self.tray_id, self.scene_spec.tray_pose, self.physics_client_id)
-
         # Reset held object statuses.
         self.current_grasp_transform = None
         self.current_held_object_id = None
@@ -381,7 +358,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Randomize book descriptions.
         self.book_descriptions = self._generate_book_descriptions(
             num_books=len(self.book_ids),
-            seed=int(self._book_llm_rng.integers(0, 2**31 - 1)),
+            seed=sample_seed_from_rng(self._book_llm_rng),
         )
 
         # Randomize robot mission.
@@ -389,6 +366,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Tell the robot its mission.
         self.current_human_text = self._current_mission.get_mission_command()
+
+        if self.current_human_text:
+            logging.info(f"Human says: {self.current_human_text}")
 
         return self.get_state(), self._get_info()
 
@@ -469,9 +449,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         x, y, z = world_to_base.position
         roll, pitch, yaw = world_to_base.rpy
         next_base = Pose.from_rpy((x + dx, y + dy, z), (roll, pitch, yaw + dyaw))
-        self.robot.set_base(next_base)
-        next_stand_pose = multiply_poses(next_base, self.robot_base_to_stand)
-        set_pose(self.robot_stand_id, next_stand_pose, self.physics_client_id)
+        self.set_robot_base(next_base)
         # Update the robot arm angles.
         current_joints = self.robot.get_joint_positions()
         # Only update the arm, assuming the first 7 entries are the arm.
@@ -540,11 +518,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        target = get_link_pose(
-            self.human.body,
-            self.human.right_wrist,
-            self.physics_client_id,
-        ).position
+        target = self.robot.get_base_pose().position
         img = capture_image(
             self.physics_client_id,
             camera_target=target,
@@ -566,22 +540,30 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
         return img  # type: ignore
 
-    def get_object_id_from_name(self, object_name: str) -> int:
-        """Get the PyBullet object ID given a name."""
-        if object_name in self.book_descriptions:
-            idx = self.book_descriptions.index(object_name)
-            return self.book_ids[idx]
+    def _object_name_to_id(self) -> dict[str, int]:
+        book_name_to_id = dict(zip(self.book_descriptions, self.book_ids))
         return {
             "cup": self.cup_id,
             "table": self.table_id,
-            "tray": self.tray_id,
             "shelf": self.shelf_id,
             "duster": self.duster_id,
-        }[object_name]
+            "wheelchair": self.wheelchair.body,
+            **book_name_to_id,
+        }
+
+    def get_object_id_from_name(self, object_name: str) -> int:
+        """Get the PyBullet object ID given a name."""
+        return self._object_name_to_id()[object_name]
+
+    def get_name_from_object_id(self, object_id: int) -> str:
+        """Inverse of get_object_id_from_name()."""
+        obj_name_to_id = self._object_name_to_id()
+        obj_id_to_name = {v: k for k, v in obj_name_to_id.items()}
+        return obj_id_to_name[object_id]
 
     def get_surface_names(self) -> set[str]:
         """Get all possible surfaces in the environment."""
-        return {"table", "tray", "shelf"}
+        return {"table", "shelf"}
 
     def get_surface_ids(self) -> set[int]:
         """Get all possible surfaces in the environment."""
@@ -619,10 +601,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.human.body,
             self.wheelchair.body,
             self.shelf_id,
-            self.tray_id,
             self.duster_id,
             self.cup_id,
-            self.side_table_id,
         }
 
     def get_surface_link_ids(self, object_id: int) -> set[int]:
@@ -637,6 +617,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             object_id, -1, self.physics_client_id
         )
         return (max_x - min_x, max_y - min_y, max_z - min_z)
+
+    def set_robot_base(self, base_pose: Pose) -> None:
+        """Update the robot and stand pose."""
+        self.robot.set_base(base_pose)
+        next_stand_pose = multiply_poses(base_pose, self.robot_base_to_stand)
+        set_pose(self.robot_stand_id, next_stand_pose, self.physics_client_id)
 
     def _create_robot(
         self, scene_spec: PyBulletSceneSpec, physics_client_id: int
@@ -654,7 +640,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def _generate_mission(self) -> PyBulletMission:
         state = self.get_state()
-        seed = int(self._mission_rng.integers(0, 2**31 - 1))
+        possible_missions = self._create_possible_missions()
+        self._rng.shuffle(possible_missions)  # type: ignore
+        for mission in possible_missions:
+            if mission.check_initiable(state):
+                return mission
+        raise NotImplementedError
+
+    def _create_possible_missions(self) -> list[PyBulletMission]:
+        seed = sample_seed_from_rng(self._mission_rng)
         assert self._hidden_spec is not None
         # NOTE: don't use the real robot / real environment inside the missions
         # in case they want to do things like use robot FK.
@@ -669,12 +663,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._llm,
                 seed=seed,
             ),
-            StoreHeldObjectMission(),
+            StoreHeldObjectMission(sim_robot),
+            CleanSurfacesMission(),
         ]
-        for mission in possible_missions:
-            if mission.check_initiable(state):
-                return mission
-        raise NotImplementedError
+        return possible_missions
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
         assert self._hidden_spec is not None

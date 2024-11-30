@@ -7,7 +7,8 @@ env:
     desired_distance: 2.5
     distance_threshold: 0.5
   # note: seed is excluded because it varies for train/eval envs
-
+train_env: {}
+eval_env: {}
 max_environment_steps: 50000
 eval_frequency: 5000
 max_eval_episode_length: 100

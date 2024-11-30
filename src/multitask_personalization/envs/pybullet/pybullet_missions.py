@@ -1,6 +1,10 @@
 """Specific missions for the robot in the PyBullet environment."""
 
+from functools import partial
+
 import numpy as np
+from pybullet_helpers.joint import get_joint_infos
+from pybullet_helpers.motion_planning import get_joint_positions_distance
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from tomsutils.llm import LargeLanguageModel
 
@@ -41,7 +45,7 @@ class HandOverBookMission(PyBulletMission):
         return "Please bring me a book to read"
 
     def check_initiable(self, state: PyBulletState) -> bool:
-        return state.held_object is None
+        return True
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
         robot_indicated_done = bool(np.isclose(action[0], 2))
@@ -92,6 +96,7 @@ class HandOverBookMission(PyBulletMission):
         return text, 1.0
 
     def _check_reachable(self, state: PyBulletState) -> bool:
+        self._robot.set_base(state.robot_base)
         end_effector_pose = self._robot.forward_kinematics(state.robot_joints)
         return self._rom_model.check_position_reachable(
             np.array(end_effector_pose.position)
@@ -100,6 +105,23 @@ class HandOverBookMission(PyBulletMission):
 
 class StoreHeldObjectMission(PyBulletMission):
     """Put away the thing the robot is holding."""
+
+    def __init__(
+        self,
+        sim_robot: FingeredSingleArmPyBulletRobot,
+        retract_joint_distance_atol: float = 1e-3,
+    ) -> None:
+        super().__init__()
+        self._retract_joint_positions = sim_robot.home_joint_positions
+        joint_infos = get_joint_infos(
+            sim_robot.robot_id, sim_robot.arm_joints, sim_robot.physics_client_id
+        )
+        self._joint_distance_fn = partial(
+            get_joint_positions_distance,
+            sim_robot,
+            joint_infos,
+        )
+        self._retract_joint_distance_atol = retract_joint_distance_atol
 
     def get_id(self) -> str:
         return "store held object"
@@ -112,11 +134,49 @@ class StoreHeldObjectMission(PyBulletMission):
         return state.held_object is not None
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
-        return state.held_object is None
+        if action[0] != 0:
+            return False
+        joint_action = action[1]
+        joint_angle_delta = joint_action[3:]  # type: ignore
+        new_arm_joints = np.add(state.robot_joints[:7], joint_angle_delta)
+        new_joints = list(state.robot_joints)
+        new_joints[:7] = new_arm_joints
+        retract_dist = self._joint_distance_fn(
+            new_joints, self._retract_joint_positions
+        )
+        return (
+            state.held_object is None
+            and retract_dist < self._retract_joint_distance_atol
+        )
 
     def step(
         self, state: PyBulletState, action: PyBulletAction
     ) -> tuple[str | None, float]:
+        return None, 0.0
+
+
+class CleanSurfacesMission(PyBulletMission):
+    """Clean some dirty surfaces."""
+
+    def get_id(self) -> str:
+        return "clean"
+
+    def get_mission_command(self) -> str:
+        # Could add some variation with an LLM later.
+        return "Clean the dirty surfaces"
+
+    def check_initiable(self, state: PyBulletState) -> bool:
+        return True
+
+    def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
+        robot_indicated_done = bool(np.isclose(action[0], 2))
+        return robot_indicated_done
+
+    def step(
+        self, state: PyBulletState, action: PyBulletAction
+    ) -> tuple[str | None, float]:
+        # Coming soon: penalty and feedback if the robot tries to touch an object
+        # that it should not touch.
         return None, 0.0
 
 

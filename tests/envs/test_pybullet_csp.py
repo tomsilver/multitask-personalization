@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from tomsutils.llm import OpenAILLM
@@ -55,14 +56,11 @@ def test_pybullet_csp():
         use_gui=False,
         seed=seed,
     )
+    env.action_space.seed(seed)
 
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo
     # env = RecordVideo(env, "videos/test-pybullet-csp")
-
-    env.action_space.seed(seed)
-    obs, _ = env.reset()
-    assert isinstance(obs, PyBulletState)
 
     # Create a simulator.
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
@@ -80,31 +78,66 @@ def test_pybullet_csp():
         seed, min_num_satisfying_solutions=1, show_progress_bar=False
     )
 
-    # Generate and solve CSPs twice in a row. The first time will be a book
-    # handover and the second time will be a placement.
-    for _ in range(2):
-        csp, samplers, policy, initialization = csp_generator.generate(obs)
+    # Generate and solve CSPs once per possible mission.
+    unused_missions = (
+        env._create_possible_missions()  # pylint: disable=protected-access
+    )
 
-        # Solve the CSP.
-        sol = solver.solve(
-            csp,
-            initialization,
-            samplers,
-        )
-        assert sol is not None
-        policy.reset(sol)
+    # Uncomment to test specific missions.
+    # mission_id_to_mission = {m.get_id(): m for m in unused_missions}
+    # unused_missions = [
+    #     mission_id_to_mission["book handover"],
+    #     mission_id_to_mission["clean"],
+    # ]
 
-        # Run the policy.
-        for _ in range(1000):
-            act = policy.step(obs)
-            obs, reward, terminated, truncated, _ = env.step(act)
-            assert isinstance(obs, PyBulletState)
-            assert np.isclose(reward, 0.0)
-            if policy.check_termination(obs):
+    # Force considering each mission once.
+    def _get_new_mission(self):
+        state = self.get_state()
+        for mission in unused_missions:
+            if mission.check_initiable(state):
+                selected_mission = mission
                 break
-            assert not terminated
-            assert not truncated
         else:
-            assert False, "Policy did not terminate."
+            raise RuntimeError("Ran out of missions")
+        unused_missions.remove(selected_mission)
+        return selected_mission
+
+    with patch.object(
+        PyBulletEnv, "_generate_mission", side_effect=_get_new_mission, autospec=True
+    ):
+
+        obs, _ = env.reset()
+        assert isinstance(obs, PyBulletState)
+
+        missions_incomplete = True
+        while missions_incomplete:
+            csp, samplers, policy, initialization = csp_generator.generate(obs)
+
+            # Solve the CSP.
+            sol = solver.solve(
+                csp,
+                initialization,
+                samplers,
+            )
+            assert sol is not None
+            policy.reset(sol)
+
+            # Run the policy.
+            for _ in range(1000):
+                act = policy.step(obs)
+                try:
+                    obs, reward, terminated, truncated, _ = env.step(act)
+                except RuntimeError as e:
+                    assert "Ran out of missions" in str(e)
+                    missions_incomplete = False
+                    break
+                assert isinstance(obs, PyBulletState)
+                assert np.isclose(reward, 0.0)
+                if policy.check_termination(obs):
+                    break
+                assert not terminated
+                assert not truncated
+            else:
+                assert False, "Policy did not terminate."
 
     env.close()
