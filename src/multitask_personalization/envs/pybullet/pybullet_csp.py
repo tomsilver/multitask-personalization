@@ -667,7 +667,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 num_rots = 1 if surface_name == "table" else 0
 
                 self._sim.set_state(obs)
-                if self._sim.current_held_object_id:
+                if (
+                    self._sim.current_held_object_id is not None
+                    and self._sim.current_held_object_id != self._sim.duster_id
+                ):
                     assert held_object_relative_placement is not None
                     assert held_object_placement_surface is not None
                     placement_surface_id = self._sim.get_object_id_from_name(
@@ -687,11 +690,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                         absolute_placement,
                         self._sim.physics_client_id,
                     )
-                self._sim.current_held_object_id = None
-                self._sim.current_grasp_transform = None
-                free_hand_state = self._sim.get_state()
+                    self._sim.current_held_object_id = None
+                    self._sim.current_grasp_transform = None
+                pre_wipe_state = self._sim.get_state()
                 wipe_plan = get_plan_to_wipe_surface(
-                    free_hand_state,
+                    pre_wipe_state,
                     "duster",
                     surface_name,
                     grasp_base_pose,
