@@ -88,6 +88,8 @@ def test_pybullet_csp():
     # unused_missions = [
     #     mission_id_to_mission["book handover"],
     #     mission_id_to_mission["clean"],
+    #     # mission_id_to_mission["book handover"],
+    #     # mission_id_to_mission["clean"],
     # ]
 
     # Force considering each mission once.

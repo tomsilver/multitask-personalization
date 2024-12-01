@@ -212,34 +212,17 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         assert isinstance(grasp_base_pose, Pose)
         joint_state = joint_arr.tolist()
         num_rots = 1 if surface_name == "table" else 0
-        if obs.held_object is None:
-            # Move to the grasp base pose.
-            if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
-                return get_plan_to_move_to_pose(
-                    obs, grasp_base_pose, self._sim, seed=self._seed
-                )
-            # Pick up the duster.
-            return get_plan_to_pick_object(
-                obs,
-                "duster",
-                self._sim.scene_spec.duster_grasp,
-                self._sim,
-                max_motion_planning_candidates=self._max_motion_planning_candidates,
-            )
-        if obs.held_object == "duster":
-            # Wipe.
+        if obs.held_object is None or obs.held_object == "duster":
             plan = get_plan_to_wipe_surface(
                 obs,
                 "duster",
                 surface_name,
+                grasp_base_pose,
                 base_pose,
                 joint_state,
                 num_rots,
                 self._sim,
                 surface_link_id=link_id,
-                # Use a very high number here because we should be guaranteed
-                # that a motion plan exists.
-                max_motion_planning_iters=1_000,
             )
             assert plan is not None
             # Indicate done.
@@ -249,6 +232,13 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         placement_pose = self._get_value("placement")
         surface_name, surface_link_id = self._get_value("placement_surface")
         assert obs.held_object is not None
+        placement_base_pose = self._get_value("placement_base_pose")
+        assert isinstance(placement_base_pose, Pose)
+        # Move to the placement base pose.
+        if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+            return get_plan_to_move_to_pose(
+                obs, placement_base_pose, self._sim, seed=self._seed
+            )
         return get_plan_to_place_object(
             obs,
             obs.held_object,
@@ -667,57 +657,69 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             def _wipe_plan_exists(
                 surface_name_and_link: tuple[str, int],
                 candidate_robot_state: tuple[Pose, NDArray],
+                grasp_base_pose: Pose,
+                held_object_relative_placement: Pose | None = None,
+                held_object_placement_surface: tuple[str, int] | None = None,
             ) -> bool:
                 surface_name, surface_link_id = surface_name_and_link
                 base_pose, robot_joint_arr = candidate_robot_state
                 joint_state = robot_joint_arr.tolist()
                 num_rots = 1 if surface_name == "table" else 0
 
-                # Set the simulation so that the robot is holding the duster.
-                # We assume that this is always feasible.
                 self._sim.set_state(obs)
-                self._sim.set_robot_base(base_pose)
-                self._sim.robot.set_joints(joint_state)
-                self._snap_duster_to_end_effector()  # need to set grasp TF
-                grasping_state = self._sim.get_state()
-
+                if (
+                    self._sim.current_held_object_id is not None
+                    and self._sim.current_held_object_id != self._sim.duster_id
+                ):
+                    assert held_object_relative_placement is not None
+                    assert held_object_placement_surface is not None
+                    placement_surface_id = self._sim.get_object_id_from_name(
+                        held_object_placement_surface[0]
+                    )
+                    placement_surface_link_id = held_object_placement_surface[1]
+                    placement_surface_link_pose = get_link_pose(
+                        placement_surface_id,
+                        placement_surface_link_id,
+                        self._sim.physics_client_id,
+                    )
+                    absolute_placement = multiply_poses(
+                        placement_surface_link_pose, held_object_relative_placement
+                    )
+                    set_pose(
+                        self._sim.current_held_object_id,
+                        absolute_placement,
+                        self._sim.physics_client_id,
+                    )
+                    self._sim.current_held_object_id = None
+                    self._sim.current_grasp_transform = None
+                pre_wipe_state = self._sim.get_state()
                 wipe_plan = get_plan_to_wipe_surface(
-                    grasping_state,
+                    pre_wipe_state,
                     "duster",
                     surface_name,
+                    grasp_base_pose,
                     base_pose,
                     joint_state,
                     num_rots,
                     self._sim,
                     surface_link_id=surface_link_id,
+                    max_motion_planning_time=1e-1,
                 )
                 return wipe_plan is not None
 
+            wipe_plan_exists_vars = [surface, robot_state, grasp_base_pose]
+            if obs.held_object is not None and obs.held_object != "duster":
+                placement, placement_surface = variables[3:5]
+                wipe_plan_exists_vars.extend([placement, placement_surface])
             wipe_plan_exists = FunctionalCSPConstraint(
                 "wipe_plan_exists",
-                [surface, robot_state],
+                wipe_plan_exists_vars,
                 _wipe_plan_exists,
-            )
-
-            rel_grasp_pose = self._sim.scene_spec.duster_grasp
-            duster_grasp = multiply_poses(
-                obs.duster_pose,
-                rel_grasp_pose,
-            )
-
-            def _duster_grasp_is_reachable(base_pose: Pose) -> bool:
-                return _pose_is_reachable(duster_grasp, base_pose, self._sim)
-
-            duster_grasp_reachable_constraint = FunctionalCSPConstraint(
-                "duster_reachable",
-                [grasp_base_pose],
-                _duster_grasp_is_reachable,
             )
 
             constraints = [
                 prewipe_pose_is_valid,
                 wipe_plan_exists,
-                duster_grasp_reachable_constraint,
             ]
 
             if obs.held_object is not None:
@@ -983,6 +985,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             assert obs.held_object is not None
             surface_name, surface_link_id = surface_name_and_link
             max_mp_candidates = self._max_motion_planning_candidates
+            self._sim.set_state(obs)
             self._sim.set_robot_base(base_pose)
             obs_after_base_move = self._sim.get_state()
             plan = get_plan_to_place_object(
@@ -995,7 +998,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 max_motion_planning_candidates=max_mp_candidates,
                 surface_link_id=surface_link_id,
             )
-            return plan is not None
+            result = plan is not None
+            return result
 
         plan_to_place_exists = FunctionalCSPConstraint(
             constraint_name,
