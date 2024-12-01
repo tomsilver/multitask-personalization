@@ -112,7 +112,6 @@ class CSP:
         """Check whether all constraints hold given values of the variables."""
         for constraint in self.constraints:
             if not constraint.check_solution(sol):
-                print("failed:", constraint.name)
                 return False
         return True
 

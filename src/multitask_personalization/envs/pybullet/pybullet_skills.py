@@ -322,6 +322,17 @@ def get_plan_to_wipe_surface(
     duster_id = sim.get_object_id_from_name(duster_name)
     collision_ids = sim.get_collision_ids() - {duster_id}
 
+    # Make a plan for the duster head.
+    duster_head_plan = get_duster_head_frame_wiping_plan(
+        state,
+        duster_name,
+        surface_name,
+        wipe_direction_num_rotations,
+        sim,
+        surface_link_id=surface_link_id,
+        off_surface_padding=off_surface_padding,
+    )
+
     kinematic_plan: list[KinematicState] = []
     if state.held_object is None:
         # Make a plan to pick the duster.
@@ -348,7 +359,7 @@ def get_plan_to_wipe_surface(
         assert kinematic_state.robot_base_pose is not None
         sim.set_robot_base(kinematic_state.robot_base_pose)
 
-        # Now make plan to grasp.    
+        # Now make plan to grasp.
         surface_id = sim.get_surface_that_object_is_on(duster_id)
         grasp_pose = sim.scene_spec.duster_grasp
         grasp_generator = iter([grasp_pose])
@@ -361,7 +372,7 @@ def get_plan_to_wipe_surface(
             grasp_generator=grasp_generator,
             max_motion_planning_time=max_motion_planning_time,
             max_motion_planning_candidates=max_motion_planning_candidates,
-            max_smoothing_iters_per_step=max_motion_planning_iters,
+            max_smoothing_iters_per_step=max_motion_planning_candidates,
             postgrasp_translation_magnitude=1e-3,
         )
         if kinematic_pick_plan is None:
@@ -372,18 +383,8 @@ def get_plan_to_wipe_surface(
 
     assert duster_id in kinematic_state.attachments
 
-    # Make a plan for the duster head.
-    duster_head_plan = get_duster_head_frame_wiping_plan(
-        state,
-        duster_name,
-        surface_name,
-        wipe_direction_num_rotations,
-        sim,
-        surface_link_id=surface_link_id,
-        off_surface_padding=off_surface_padding,
-    )
-
     # First motion plan in SE2 to the robot base pose.
+    assert kinematic_state.robot_base_pose is not None
     base_motion_plan = run_base_motion_planning(
         sim.robot,
         kinematic_state.robot_base_pose,

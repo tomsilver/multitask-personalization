@@ -52,7 +52,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     wheelchair_base_pose: Pose = Pose(position=(2.0, 0.5, -0.46))
 
-    table_pose: Pose = Pose(position=(-0.5, 0.0, -0.2))
+    table_pose: Pose = Pose(position=(-0.75, 0.0, -0.2))
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.2)
 
@@ -141,7 +141,9 @@ class PyBulletSceneSpec(PublicSceneSpec):
         0,
         duster_head_up_down_length + duster_pole_height / 2,
     )
-    duster_pose: Pose = Pose(position=(-0.5, 0.2, duster_head_up_down_length))
+    duster_pose: Pose = Pose(
+        position=(table_pose.position[0], 0.2, duster_head_up_down_length)
+    )
 
     @property
     def duster_grasp(self) -> Pose:
