@@ -303,16 +303,74 @@ def get_plan_to_wipe_surface(
     state: PyBulletState,
     duster_name: str,
     surface_name: str,
-    robot_base_pose: Pose,
-    robot_joint_state: JointPositions,
+    grasp_robot_base_pose: Pose,
+    wipe_robot_base_pose: Pose,
+    wipe_robot_joint_state: JointPositions,
     wipe_direction_num_rotations: int,
     sim: PyBulletEnv,
     surface_link_id: int = -1,
     seed: int = 0,
     off_surface_padding: float = 1e-3,
     max_motion_planning_iters: int = 10,
+    max_motion_planning_candidates: int = 1,
+    max_motion_planning_time: float = np.inf,
 ) -> list[PyBulletAction] | None:
-    """Assuming a surface is clear of objects and the duster is held."""
+    """Assuming a surface is clear of objects and the robot hand is empty."""
+
+    sim.set_state(state)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    duster_id = sim.get_object_id_from_name(duster_name)
+    collision_ids = sim.get_collision_ids() - {duster_id}
+
+    kinematic_plan: list[KinematicState] = []
+    if state.held_object is None:
+        # Make a plan to pick the duster.
+        # First motion plan in SE2 to the robot base pose.
+        base_motion_plan = run_base_motion_planning(
+            sim.robot,
+            state.robot_base,
+            grasp_robot_base_pose,
+            position_lower_bounds=sim.scene_spec.world_lower_bounds[:2],
+            position_upper_bounds=sim.scene_spec.world_upper_bounds[:2],
+            collision_bodies=collision_ids | {duster_id},
+            seed=seed,
+            physics_client_id=sim.physics_client_id,
+            platform=sim.robot_stand_id,
+        )
+        if base_motion_plan is None:
+            return None
+        for base_pose in base_motion_plan:
+            kinematic_plan.append(kinematic_state.copy_with(robot_base_pose=base_pose))
+        kinematic_state = kinematic_plan[-1]
+        kinematic_state.set_pybullet(sim.robot)
+        # Very unfortunate workaround to deal with the fact that set_pybullet()
+        # does not know about robot platform.
+        assert kinematic_state.robot_base_pose is not None
+        sim.set_robot_base(kinematic_state.robot_base_pose)
+
+        # Now make plan to grasp.    
+        surface_id = sim.get_surface_that_object_is_on(duster_id)
+        grasp_pose = sim.scene_spec.duster_grasp
+        grasp_generator = iter([grasp_pose])
+        kinematic_pick_plan = get_kinematic_plan_to_pick_object(
+            kinematic_state,
+            sim.robot,
+            duster_id,
+            surface_id,
+            collision_ids,
+            grasp_generator=grasp_generator,
+            max_motion_planning_time=max_motion_planning_time,
+            max_motion_planning_candidates=max_motion_planning_candidates,
+            max_smoothing_iters_per_step=max_motion_planning_iters,
+            postgrasp_translation_magnitude=1e-3,
+        )
+        if kinematic_pick_plan is None:
+            return None
+        kinematic_plan.extend(kinematic_pick_plan)
+        kinematic_state = kinematic_plan[-1]
+        kinematic_state.set_pybullet(sim.robot)
+
+    assert duster_id in kinematic_state.attachments
 
     # Make a plan for the duster head.
     duster_head_plan = get_duster_head_frame_wiping_plan(
@@ -325,17 +383,11 @@ def get_plan_to_wipe_surface(
         off_surface_padding=off_surface_padding,
     )
 
-    sim.set_state(state)
-    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    duster_id = sim.get_object_id_from_name(duster_name)
-    assert duster_id in kinematic_state.attachments
-    collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
-
     # First motion plan in SE2 to the robot base pose.
     base_motion_plan = run_base_motion_planning(
         sim.robot,
-        state.robot_base,
-        robot_base_pose,
+        kinematic_state.robot_base_pose,
+        wipe_robot_base_pose,
         position_lower_bounds=sim.scene_spec.world_lower_bounds[:2],
         position_upper_bounds=sim.scene_spec.world_upper_bounds[:2],
         collision_bodies=collision_ids,
@@ -348,7 +400,6 @@ def get_plan_to_wipe_surface(
     if base_motion_plan is None:
         return None
 
-    kinematic_plan: list[KinematicState] = []
     for base_pose in base_motion_plan:
         kinematic_plan.append(kinematic_state.copy_with(robot_base_pose=base_pose))
     kinematic_state = kinematic_plan[-1]
@@ -359,15 +410,10 @@ def get_plan_to_wipe_surface(
     sim.set_robot_base(kinematic_state.robot_base_pose)
 
     # Now motion plan in joint space to the initial pre-wiping pose.
-    # TODO: joints are the problem
-    print("starting with joints:", kinematic_state.robot_joints)
-    print("starting with base:", kinematic_state.robot_base_pose)
-    print("target:", robot_joint_state)
-    print("attachment:", kinematic_state.attachments[duster_id])
     robot_joint_plan = run_motion_planning(
         sim.robot,
         kinematic_state.robot_joints,
-        robot_joint_state,
+        wipe_robot_joint_state,
         collision_bodies=collision_ids,
         seed=seed,
         physics_client_id=sim.physics_client_id,
