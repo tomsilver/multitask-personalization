@@ -30,6 +30,9 @@ def _main(cfg: DictConfig) -> None:
     model_dir = Path(cfg.model_dir)
     model_dir.mkdir(exist_ok=True)
     logging.info(f"Created model directory at {cfg.model_dir}")
+    saved_state_dir = Path(cfg.saved_state_dir)
+    saved_state_dir.mkdir(exist_ok=True)
+    logging.info(f"Created saved state directory at {cfg.saved_state_dir}")
 
     # Sanity check config.
     assert cfg.env.max_environment_steps % cfg.env.eval_frequency == 0
@@ -89,68 +92,78 @@ def _main(cfg: DictConfig) -> None:
     train_metrics: list[dict[str, float]] = []
     eval_metrics: list[dict[str, float]] = []
 
-    # Reset the training environment, one time only.
-    obs, info = train_env.reset()
-    # Reset the training approach, one time only.
-    train_approach.reset(obs, info)
-    # Main training and eval loop.
-    for t in range(cfg.env.max_environment_steps + 1):
-        if t % cfg.train_logging_interval == 0:
-            logging.info(f"Starting training step {t}")
-        # Check if it's time to eval.
-        if cfg.env.eval_frequency > 0 and t % cfg.env.eval_frequency == 0:
-            # Save the models from the training approach and load them into the
-            # eval approach.
-            step_model_dir = model_dir / str(t)
-            step_model_dir.mkdir(exist_ok=True)
-            train_approach.save(step_model_dir)
-            eval_approach.load(step_model_dir)
-            # Run evaluation.
-            step_eval_metrics = _evaluate_approach(eval_approach, eval_env, cfg, t)
+    # Catch any exceptions so we can debug from the last saved state.
+    try:
+
+        # Reset the training environment, one time only.
+        obs, info = train_env.reset()
+        # Reset the training approach, one time only.
+        train_approach.reset(obs, info)
+        # Main training and eval loop.
+        for t in range(cfg.env.max_environment_steps + 1):
+            if t % cfg.train_logging_interval == 0:
+                logging.info(f"Starting training step {t}")
+            # Check if it's time to eval.
+            if cfg.env.eval_frequency > 0 and t % cfg.env.eval_frequency == 0:
+                # Save the models from the training approach and load them into the
+                # eval approach.
+                step_model_dir = model_dir / str(t)
+                step_model_dir.mkdir(exist_ok=True)
+                train_approach.save(step_model_dir)
+                eval_approach.load(step_model_dir)
+                # Run evaluation.
+                step_eval_metrics = _evaluate_approach(eval_approach, eval_env, cfg, t)
+                if cfg.wandb.enable:
+                    wandb_metrics = {
+                        f"eval/{k}": v for k, v in step_eval_metrics.items()
+                    }
+                    del wandb_metrics["eval/training_step"]
+                    wandb.log(wandb_metrics, step=t)
+                eval_metrics.append(step_eval_metrics)
+            # Eval on the last time step but don't train anymore.
+            if t >= cfg.env.max_environment_steps:
+                break
+            # Continue training.
+            try:
+                act = train_approach.step()
+            except ApproachFailure as e:
+                logging.info(e)
+            obs, rew, _, _, info = train_env.step(act)
+            assert np.isclose(rew, 0.0)
+            # During training, there is no such thing as termination.
+            terminated = False
+            train_approach.update(obs, float(rew), terminated, info)
+            user_satisfaction = info.get("user_satisfaction", np.nan)
+            step_train_metrics = {
+                "step": t,
+                "execution_time": t * cfg.env.dt,
+                "user_satisfaction": user_satisfaction,
+                **train_approach.get_step_metrics(),
+            }
             if cfg.wandb.enable:
-                wandb_metrics = {f"eval/{k}": v for k, v in step_eval_metrics.items()}
-                del wandb_metrics["eval/training_step"]
+                wandb_metrics = {f"train/{k}": v for k, v in step_train_metrics.items()}
+                del wandb_metrics["train/step"]
                 wandb.log(wandb_metrics, step=t)
-            eval_metrics.append(step_eval_metrics)
-        # Eval on the last time step but don't train anymore.
-        if t >= cfg.env.max_environment_steps:
-            break
-        # Continue training.
-        try:
-            act = train_approach.step()
-        except ApproachFailure as e:
-            logging.info(e)
-        obs, rew, _, _, info = train_env.step(act)
-        assert np.isclose(rew, 0.0)
-        # During training, there is no such thing as termination.
-        terminated = False
-        train_approach.update(obs, float(rew), terminated, info)
-        user_satisfaction = info.get("user_satisfaction", np.nan)
-        step_train_metrics = {
-            "step": t,
-            "execution_time": t * cfg.env.dt,
-            "user_satisfaction": user_satisfaction,
-            **train_approach.get_step_metrics(),
-        }
+            train_metrics.append(step_train_metrics)
+        train_env.close()
+        eval_env.close()
+
+        # Aggregate and save results.
+        train_df = pd.DataFrame(train_metrics)
+        train_df.to_csv(cfg.train_results_file)
+        logging.info(f"Wrote out training results to {cfg.train_results_file}")
+
+        eval_df = pd.DataFrame(eval_metrics)
+        eval_df.to_csv(cfg.eval_results_file)
+        logging.info(f"Wrote out eval results to {cfg.eval_results_file}")
+
         if cfg.wandb.enable:
-            wandb_metrics = {f"train/{k}": v for k, v in step_train_metrics.items()}
-            del wandb_metrics["train/step"]
-            wandb.log(wandb_metrics, step=t)
-        train_metrics.append(step_train_metrics)
-    train_env.close()
-    eval_env.close()
+            wandb.finish()
 
-    # Aggregate and save results.
-    train_df = pd.DataFrame(train_metrics)
-    train_df.to_csv(cfg.train_results_file)
-    logging.info(f"Wrote out training results to {cfg.train_results_file}")
-
-    eval_df = pd.DataFrame(eval_metrics)
-    eval_df.to_csv(cfg.eval_results_file)
-    logging.info(f"Wrote out eval results to {cfg.eval_results_file}")
-
-    if cfg.wandb.enable:
-        wandb.finish()
+    except BaseException as e:
+        logging.info(f"CRASHED with exception: {e}")
+        train_env.save(saved_state_dir / "crash_train_env_state.p")
+        eval_env.save(saved_state_dir / "crash_eval_env_state.p")
 
 
 def _evaluate_approach(
