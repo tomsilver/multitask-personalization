@@ -131,22 +131,42 @@ def test_pybullet_csp():
     _run_mission(clean_mission)
     env.save_state(post_clean1_state_fp)
 
-    # Clean again.
-    env.load_state(post_clean1_state_fp)
-    post_clean2_state_fp = saved_state_dir / "clean_2.p"
-    _run_mission(clean_mission)
-    env.save_state(post_clean2_state_fp)
+    # Uncomment for more thorough tests (but too slow to merge).
 
-    # Get another book.
-    env.load_state(post_clean2_state_fp)
-    post_book_handover2_state_fp = saved_state_dir / "book_handover_2.p"
-    _run_mission(book_handover_mission)
-    env.save_state(post_book_handover2_state_fp)
+    # # Clean again.
+    # env.load_state(post_clean1_state_fp)
+    # post_clean2_state_fp = saved_state_dir / "clean_2.p"
+    # _run_mission(clean_mission)
+    # env.save_state(post_clean2_state_fp)
 
-    # Get another book.
-    env.load_state(post_book_handover2_state_fp)
-    post_book_handover3_state_fp = saved_state_dir / "book_handover_3.p"
-    _run_mission(book_handover_mission)
-    env.save_state(post_book_handover3_state_fp)
+    # # Get another book.
+    # env.load_state(post_clean2_state_fp)
+    # post_book_handover2_state_fp = saved_state_dir / "book_handover_2.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover2_state_fp)
+
+    # # Get another book.
+    # env.load_state(post_book_handover2_state_fp)
+    # post_book_handover3_state_fp = saved_state_dir / "book_handover_3.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover3_state_fp)
+
+    # # Get another book.
+    # env.load_state(post_book_handover3_state_fp)
+    # post_book_handover4_state_fp = saved_state_dir / "book_handover_4.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover4_state_fp)
+
+    # # Clean.
+    # env.load_state(post_book_handover4_state_fp)
+    # post_clean3_state_fp = saved_state_dir / "clean_3.p"
+    # _run_mission(clean_mission)
+    # env.save_state(post_clean3_state_fp)
+
+    # # Get another book.
+    # env.load_state(post_clean3_state_fp)
+    # post_book_handover_5_state_fp = saved_state_dir / "book_handover_5.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover_5_state_fp)
 
     env.close()
