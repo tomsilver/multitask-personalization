@@ -15,6 +15,7 @@ wandb:
 
 video_dir: ${hydra:runtime.output_dir}/videos
 model_dir: ${hydra:runtime.output_dir}/models
+saved_state_dir: ${hydra:runtime.output_dir}/saved_states
 train_results_file: ${hydra:runtime.output_dir}/train_results.csv
 eval_results_file: ${hydra:runtime.output_dir}/eval_results.csv
 config_file: ${hydra:runtime.output_dir}/config.yaml
