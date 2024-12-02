@@ -84,6 +84,7 @@ def test_pybullet_csp():
 
     def _run_mission(mission):
         # Override the mission and regenerate the observation.
+        env.current_human_text = None
         env._reset_mission(mission)  # pylint: disable=protected-access
         obs = env.get_state()
 
@@ -119,6 +120,11 @@ def test_pybullet_csp():
 
     # Reset environment once.
     env.reset()
+
+    # Uncomment to test from custom saved state.
+    # custom_saved_state_fp = Path("...")
+    # env.load_state(custom_saved_state_fp)
+    # _run_mission(clean_mission)
 
     # Start with book handover.
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
