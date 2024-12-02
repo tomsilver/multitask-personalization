@@ -362,7 +362,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Randomize robot mission.
-        self._current_mission = self._generate_mission()
+        if options is not None and "initial_mission" in options:
+            self._current_mission = options["initial_mission"]
+        else:
+            self._current_mission = self._generate_mission()
 
         # Tell the robot its mission.
         self.current_human_text = self._current_mission.get_mission_command()
@@ -493,13 +496,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Start a new mission if the current one is complete.
         if self._current_mission.check_complete(state, action):
-            self._current_mission = self._generate_mission()
-            # Tell the robot its new mission.
-            mission_description = self._current_mission.get_mission_command()
-            if self.current_human_text is None:
-                self.current_human_text = mission_description
-            else:
-                self.current_human_text += "\n" + mission_description
+            next_mission = self._generate_mission()
+            self._reset_mission(next_mission)
 
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
@@ -637,6 +635,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         return robot
+
+    def _reset_mission(self, next_mission: PyBulletMission) -> None:
+        self._current_mission = next_mission
+        # Tell the robot its new mission.
+        mission_description = self._current_mission.get_mission_command()
+        if self.current_human_text is None:
+            self.current_human_text = mission_description
+        else:
+            self.current_human_text += "\n" + mission_description
 
     def _generate_mission(self) -> PyBulletMission:
         state = self.get_state()
