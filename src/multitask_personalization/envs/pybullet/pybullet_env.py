@@ -542,16 +542,28 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def save_state(self, filepath: Path) -> None:
         """Save the current state to disk."""
-        state = self.get_state()
+        state_dict = {
+            "state": self.get_state(),
+            "mission": self._current_mission,
+            "user_satisfaction": self._user_satisfaction,
+            "rng": self._rng,
+            "mission_rng": self._mission_rng,
+            "book_llm_rng": self._book_llm_rng,
+        }
         with open(filepath, "wb") as f:
-            pkl.dump(state, f)
+            pkl.dump(state_dict, f)
         logging.info(f"Saved state to {filepath}")
 
     def load_state(self, filepath: Path) -> None:
         """Reset the current environment state from a saved state."""
         with open(filepath, "rb") as f:
-            state = pkl.load(f)
-        self.set_state(state)
+            state_dict = pkl.load(f)
+        self.set_state(state_dict["state"])
+        self._current_mission = state_dict["mission"]
+        self._user_satisfaction = state_dict["user_satisfaction"]
+        self._rng = state_dict["rng"]
+        self._mission_rng = state_dict["mission_rng"]
+        self._book_llm_rng = state_dict["book_llm_rng"]
         logging.info(f"Loaded state from {filepath}")
 
     def _object_name_to_id(self) -> dict[str, int]:
