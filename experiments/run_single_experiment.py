@@ -162,8 +162,8 @@ def _main(cfg: DictConfig) -> None:
 
     except BaseException as e:
         logging.info(f"CRASHED with exception: {e}")
-        train_env.save(saved_state_dir / "crash_train_env_state.p")
-        eval_env.save(saved_state_dir / "crash_eval_env_state.p")
+        train_env.save_state(saved_state_dir / "crash_train_env_state.p")
+        eval_env.save_state(saved_state_dir / "crash_eval_env_state.p")
 
 
 def _evaluate_approach(
