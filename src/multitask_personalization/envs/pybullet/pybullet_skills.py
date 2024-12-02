@@ -120,7 +120,7 @@ def get_plan_to_pick_object(
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
         max_smoothing_iters_per_step=max_motion_planning_candidates,
-        postgrasp_translation_magnitude=1e-3,
+        postgrasp_translation_magnitude=1e-2,
     )
     assert kinematic_pick_plan is not None
     kinematic_plan.extend(kinematic_pick_plan)

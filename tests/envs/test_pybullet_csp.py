@@ -79,6 +79,8 @@ def test_pybullet_csp():
 
     all_missions = env._create_possible_missions()  # pylint: disable=protected-access
     mission_id_to_mission = {m.get_id(): m for m in all_missions}
+    book_handover_mission = mission_id_to_mission["book handover"]
+    clean_mission = mission_id_to_mission["clean"]
 
     def _run_mission(mission):
         # Override the mission and regenerate the observation.
@@ -119,16 +121,32 @@ def test_pybullet_csp():
     env.reset()
 
     # Start with book handover.
-    book_handover_mission = mission_id_to_mission["book handover"]
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
     _run_mission(book_handover_mission)
     env.save_state(post_book_handover1_state_fp)
 
-    # Continue with cleaning.
+    # Clean.
     env.load_state(post_book_handover1_state_fp)
-    clean_mission = mission_id_to_mission["clean"]
     post_clean1_state_fp = saved_state_dir / "clean_1.p"
     _run_mission(clean_mission)
     env.save_state(post_clean1_state_fp)
+
+    # Clean again.
+    env.load_state(post_clean1_state_fp)
+    post_clean2_state_fp = saved_state_dir / "clean_2.p"
+    _run_mission(clean_mission)
+    env.save_state(post_clean2_state_fp)
+
+    # Get another book.
+    env.load_state(post_clean2_state_fp)
+    post_book_handover2_state_fp = saved_state_dir / "book_handover_2.p"
+    _run_mission(book_handover_mission)
+    env.save_state(post_book_handover2_state_fp)
+
+    # Get another book.
+    env.load_state(post_book_handover2_state_fp)
+    post_book_handover3_state_fp = saved_state_dir / "book_handover_3.p"
+    _run_mission(book_handover_mission)
+    env.save_state(post_book_handover3_state_fp)
 
     env.close()
