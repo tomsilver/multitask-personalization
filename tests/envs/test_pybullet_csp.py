@@ -52,7 +52,7 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=True,
+        use_gui=False,
         seed=seed,
     )
     env.action_space.seed(seed)
@@ -119,13 +119,12 @@ def test_pybullet_csp():
     env.reset()
 
     # Start with book handover.
-    # book_handover_mission = mission_id_to_mission["book handover"]
+    book_handover_mission = mission_id_to_mission["book handover"]
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
-    # _run_mission(book_handover_mission)
-    # env.save_state(post_book_handover1_state_fp)
+    _run_mission(book_handover_mission)
+    env.save_state(post_book_handover1_state_fp)
 
     # Continue with cleaning.
-    # TODO fix loading...
     env.load_state(post_book_handover1_state_fp)
     clean_mission = mission_id_to_mission["clean"]
     post_clean1_state_fp = saved_state_dir / "clean_1.p"
