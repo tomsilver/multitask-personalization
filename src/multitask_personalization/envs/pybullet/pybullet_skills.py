@@ -478,6 +478,22 @@ def get_plan_to_wipe_surface(
             ):
                 return None
 
+    # Motion plan back to home joint positions.
+    robot_joint_plan = run_motion_planning(
+        sim.robot,
+        kinematic_state.robot_joints,
+        sim.robot.home_joint_positions,
+        collision_bodies=collision_ids,
+        seed=seed,
+        physics_client_id=sim.physics_client_id,
+    )
+    if robot_joint_plan is None:
+        return None
+    for robot_joints in robot_joint_plan:
+        kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
+    kinematic_state = kinematic_plan[-1]
+    kinematic_state.set_pybullet(sim.robot)
+
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 

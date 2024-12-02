@@ -26,13 +26,13 @@ class PyBulletSceneSpec(PublicSceneSpec):
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
     initial_joints: JointPositions = field(
         default_factory=lambda: [
+            1.0,
+            -0.71,
+            -np.pi,
+            -2.3,
             0.0,
-            -0.34903602299465675,
-            -3.141591055693139,
-            -2.5482592711638783,
             0.0,
-            -0.872688061814757,
-            1.57075917569769,
+            -np.pi / 2,
             0.0,
             0.0,
             0.0,
