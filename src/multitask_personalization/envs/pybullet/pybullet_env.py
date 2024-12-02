@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import pickle as pkl
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -362,7 +363,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Randomize robot mission.
-        self._current_mission = self._generate_mission()
+        if options is not None and "initial_mission" in options:
+            self._current_mission = options["initial_mission"]
+            assert self._current_mission is not None
+        else:
+            self._current_mission = self._generate_mission()
 
         # Tell the robot its mission.
         self.current_human_text = self._current_mission.get_mission_command()
@@ -493,13 +498,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Start a new mission if the current one is complete.
         if self._current_mission.check_complete(state, action):
-            self._current_mission = self._generate_mission()
-            # Tell the robot its new mission.
-            mission_description = self._current_mission.get_mission_command()
-            if self.current_human_text is None:
-                self.current_human_text = mission_description
-            else:
-                self.current_human_text += "\n" + mission_description
+            next_mission = self._generate_mission()
+            self._reset_mission(next_mission)
 
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
@@ -539,6 +539,32 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 max_chars_per_line=100,
             )
         return img  # type: ignore
+
+    def save_state(self, filepath: Path) -> None:
+        """Save the current state to disk."""
+        state_dict = {
+            "state": self.get_state(),
+            "mission": self._current_mission,
+            "user_satisfaction": self._user_satisfaction,
+            "rng": self._rng,
+            "mission_rng": self._mission_rng,
+            "book_llm_rng": self._book_llm_rng,
+        }
+        with open(filepath, "wb") as f:
+            pkl.dump(state_dict, f)
+        logging.info(f"Saved state to {filepath}")
+
+    def load_state(self, filepath: Path) -> None:
+        """Reset the current environment state from a saved state."""
+        with open(filepath, "rb") as f:
+            state_dict = pkl.load(f)
+        self.set_state(state_dict["state"])
+        self._current_mission = state_dict["mission"]
+        self._user_satisfaction = state_dict["user_satisfaction"]
+        self._rng = state_dict["rng"]
+        self._mission_rng = state_dict["mission_rng"]
+        self._book_llm_rng = state_dict["book_llm_rng"]
+        logging.info(f"Loaded state from {filepath}")
 
     def _object_name_to_id(self) -> dict[str, int]:
         book_name_to_id = dict(zip(self.book_descriptions, self.book_ids))
@@ -637,6 +663,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         return robot
+
+    def _reset_mission(self, next_mission: PyBulletMission) -> None:
+        self._current_mission = next_mission
+        # Tell the robot its new mission.
+        mission_description = self._current_mission.get_mission_command()
+        if self.current_human_text is None:
+            self.current_human_text = mission_description
+        else:
+            self.current_human_text += "\n" + mission_description
 
     def _generate_mission(self) -> PyBulletMission:
         state = self.get_state()
