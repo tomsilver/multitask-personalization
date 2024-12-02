@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import pickle as pkl
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -538,6 +539,20 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 max_chars_per_line=100,
             )
         return img  # type: ignore
+
+    def save_state(self, filepath: Path) -> None:
+        """Save the current state to disk."""
+        state = self.get_state()
+        with open(filepath, "wb") as f:
+            pkl.dump(state, f)
+        logging.info(f"Saved state to {filepath}")
+
+    def load_state(self, filepath: Path) -> None:
+        """Reset the current environment state from a saved state."""
+        with open(filepath, "rb") as f:
+            state = pkl.load(f)
+        self.set_state(state)
+        logging.info(f"Loaded state from {filepath}")
 
     def _object_name_to_id(self) -> dict[str, int]:
         book_name_to_id = dict(zip(self.book_descriptions, self.book_ids))

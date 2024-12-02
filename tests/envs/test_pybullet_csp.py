@@ -77,10 +77,7 @@ def test_pybullet_csp():
         seed, min_num_satisfying_solutions=1, show_progress_bar=False
     )
 
-    # Generate and solve CSPs once per possible mission.
     all_missions = env._create_possible_missions()  # pylint: disable=protected-access
-
-    # Uncomment to test specific missions.
     mission_id_to_mission = {m.get_id(): m for m in all_missions}
 
     def _run_mission(mission):
@@ -114,13 +111,24 @@ def test_pybullet_csp():
         else:
             assert False, "Mission did not complete."
 
+    # Save states to unit-test directory.
+    saved_state_dir = Path(__file__).parents[1] / "unit_test_saved_states"
+    assert saved_state_dir.exists()
+
+    # Reset environment once.
+    env.reset()
+
     # Start with book handover.
     book_handover_mission = mission_id_to_mission["book handover"]
-    env.reset()
+    post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
     _run_mission(book_handover_mission)
+    env.save_state(post_book_handover1_state_fp)
 
     # Continue with cleaning.
+    env.load_state(post_book_handover1_state_fp)
     clean_mission = mission_id_to_mission["clean"]
+    post_clean1_state_fp = saved_state_dir / "clean_1.p"
     _run_mission(clean_mission)
+    env.save_state(post_clean1_state_fp)
 
     env.close()
