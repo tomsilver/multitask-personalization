@@ -363,7 +363,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:
-            self._current_mission: PyBulletMission = options["initial_mission"]
+            self._current_mission = options["initial_mission"]
+            assert self._current_mission is not None
         else:
             self._current_mission = self._generate_mission()
 
