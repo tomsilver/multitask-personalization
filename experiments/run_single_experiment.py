@@ -160,10 +160,11 @@ def _main(cfg: DictConfig) -> None:
         if cfg.wandb.enable:
             wandb.finish()
 
-    except BaseException as e:
-        logging.info(f"CRASHED with exception: {e}")
+    except BaseException as _err:
+        logging.warning("Crashed! Saving environment states before finishing.")
         train_env.save_state(saved_state_dir / "crash_train_env_state.p")
         eval_env.save_state(saved_state_dir / "crash_eval_env_state.p")
+        raise _err
 
 
 def _evaluate_approach(
