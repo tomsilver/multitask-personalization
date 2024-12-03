@@ -69,6 +69,10 @@ If this is your first time using _this repo_ on G2, do the following:
 6. Test that it worked: `pytest -s tests/methods/test_csp_approach.py`
 7. Install the hydra SLURM launcher: `pip install hydra-submitit-launcher`
 8. Install magic-wormhole for downloading results: `pip install magic-wormhole` (on both G2 and your local machine)
+9. Set up IKFast:
+    1. Start an interactive session: `salloc -N1 --mem=32G --time=00:30:00`
+    2. `export BLAS_DIR=/usr/lib/x86_64-linux-gnu`
+    3. `python experiments/run_single_experiment.py env=pybullet approach=ours` (IKFast will automatically install when IK is called for the first time.)
 
 If everything is installed and you're ready to run jobs:
 
