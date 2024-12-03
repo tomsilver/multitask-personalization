@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 from tomsutils.llm import OpenAILLM
@@ -78,68 +77,102 @@ def test_pybullet_csp():
         seed, min_num_satisfying_solutions=1, show_progress_bar=False
     )
 
-    # Generate and solve CSPs once per possible mission.
-    unused_missions = (
-        env._create_possible_missions()  # pylint: disable=protected-access
-    )
+    all_missions = env._create_possible_missions()  # pylint: disable=protected-access
+    mission_id_to_mission = {m.get_id(): m for m in all_missions}
+    book_handover_mission = mission_id_to_mission["book handover"]
+    clean_mission = mission_id_to_mission["clean"]
 
-    # Uncomment to test specific missions.
-    # mission_id_to_mission = {m.get_id(): m for m in unused_missions}
-    # unused_missions = [
-    #     mission_id_to_mission["book handover"],
-    #     mission_id_to_mission["clean"],
-    #     # mission_id_to_mission["book handover"],
-    #     # mission_id_to_mission["clean"],
-    # ]
+    def _run_mission(mission):
+        # Override the mission and regenerate the observation.
+        env.current_human_text = None
+        env._reset_mission(mission)  # pylint: disable=protected-access
+        obs = env.get_state()
 
-    # Force considering each mission once.
-    def _get_new_mission(self):
-        state = self.get_state()
-        for mission in unused_missions:
-            if mission.check_initiable(state):
-                selected_mission = mission
+        # Generate CSP.
+        csp, samplers, policy, initialization = csp_generator.generate(obs)
+
+        # Solve the CSP.
+        sol = solver.solve(
+            csp,
+            initialization,
+            samplers,
+        )
+        assert sol is not None
+        policy.reset(sol)
+
+        # Run the policy.
+        for _ in range(1000):  # should be more than enough
+            act = policy.step(obs)
+            if mission.check_complete(obs, act):
                 break
+            obs, reward, terminated, truncated, _ = env.step(act)
+            assert isinstance(obs, PyBulletState)
+            assert np.isclose(reward, 0.0)
+            assert not policy.check_termination(obs)
+            assert not terminated
+            assert not truncated
         else:
-            raise RuntimeError("Ran out of missions")
-        unused_missions.remove(selected_mission)
-        return selected_mission
+            assert False, "Mission did not complete."
 
-    with patch.object(
-        PyBulletEnv, "_generate_mission", side_effect=_get_new_mission, autospec=True
-    ):
+    # Save states to unit-test directory.
+    saved_state_dir = Path(__file__).parents[1] / "unit_test_saved_states"
+    assert saved_state_dir.exists()
 
-        obs, _ = env.reset()
-        assert isinstance(obs, PyBulletState)
+    # Reset environment once.
+    env.reset()
 
-        missions_incomplete = True
-        while missions_incomplete:
-            csp, samplers, policy, initialization = csp_generator.generate(obs)
+    # Uncomment to test from custom saved state.
+    # custom_saved_state_fp = Path("...")
+    # env.load_state(custom_saved_state_fp)
+    # _run_mission(clean_mission)
 
-            # Solve the CSP.
-            sol = solver.solve(
-                csp,
-                initialization,
-                samplers,
-            )
-            assert sol is not None
-            policy.reset(sol)
+    # Start with book handover.
+    post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
+    _run_mission(book_handover_mission)
+    env.save_state(post_book_handover1_state_fp)
 
-            # Run the policy.
-            for _ in range(1000):
-                act = policy.step(obs)
-                try:
-                    obs, reward, terminated, truncated, _ = env.step(act)
-                except RuntimeError as e:
-                    assert "Ran out of missions" in str(e)
-                    missions_incomplete = False
-                    break
-                assert isinstance(obs, PyBulletState)
-                assert np.isclose(reward, 0.0)
-                if policy.check_termination(obs):
-                    break
-                assert not terminated
-                assert not truncated
-            else:
-                assert False, "Policy did not terminate."
+    # Clean.
+    env.load_state(post_book_handover1_state_fp)
+    post_clean1_state_fp = saved_state_dir / "clean_1.p"
+    _run_mission(clean_mission)
+    env.save_state(post_clean1_state_fp)
+
+    # Uncomment for more thorough tests (but too slow to merge).
+
+    # # Clean again.
+    # env.load_state(post_clean1_state_fp)
+    # post_clean2_state_fp = saved_state_dir / "clean_2.p"
+    # _run_mission(clean_mission)
+    # env.save_state(post_clean2_state_fp)
+
+    # # Get another book.
+    # env.load_state(post_clean2_state_fp)
+    # post_book_handover2_state_fp = saved_state_dir / "book_handover_2.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover2_state_fp)
+
+    # # Get another book.
+    # env.load_state(post_book_handover2_state_fp)
+    # post_book_handover3_state_fp = saved_state_dir / "book_handover_3.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover3_state_fp)
+
+    # # Get another book.
+    # env.load_state(post_book_handover3_state_fp)
+    # post_book_handover4_state_fp = saved_state_dir / "book_handover_4.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover4_state_fp)
+
+    # # Clean.
+    # env.load_state(post_book_handover4_state_fp)
+    # post_clean3_state_fp = saved_state_dir / "clean_3.p"
+    # _run_mission(clean_mission)
+    # env.save_state(post_clean3_state_fp)
+
+    # # Get another book.
+    # env.load_state(post_clean3_state_fp)
+    # post_book_handover_5_state_fp = saved_state_dir / "book_handover_5.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover_5_state_fp)
 
     env.close()

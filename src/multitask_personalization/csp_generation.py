@@ -66,6 +66,9 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
     ]:
         """Generate a CSP, samplers, policy, and initialization."""
+        # Reset the RNG for each generate call. This is useful for deterministic
+        # behavior between saving and loading, for example.
+        self._rng = np.random.default_rng(self._seed)
         variables, initialization = self._generate_variables(obs)
         constraints = self._generate_constraints(obs, variables)
         cost = self._generate_cost(obs, variables)

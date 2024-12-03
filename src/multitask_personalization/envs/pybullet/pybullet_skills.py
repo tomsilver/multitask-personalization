@@ -120,7 +120,7 @@ def get_plan_to_pick_object(
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
         max_smoothing_iters_per_step=max_motion_planning_candidates,
-        postgrasp_translation_magnitude=1e-3,
+        postgrasp_translation_magnitude=1e-2,
     )
     assert kinematic_pick_plan is not None
     kinematic_plan.extend(kinematic_pick_plan)
@@ -368,7 +368,7 @@ def get_plan_to_wipe_surface(
             sim.robot,
             duster_id,
             surface_id,
-            collision_ids,
+            collision_ids | {duster_id},
             grasp_generator=grasp_generator,
             max_motion_planning_time=max_motion_planning_time,
             max_motion_planning_candidates=max_motion_planning_candidates,
@@ -380,6 +380,8 @@ def get_plan_to_wipe_surface(
         kinematic_plan.extend(kinematic_pick_plan)
         kinematic_state = kinematic_plan[-1]
         kinematic_state.set_pybullet(sim.robot)
+        sim.current_held_object_id = duster_id
+        sim.current_grasp_transform = grasp_pose.invert()
 
     assert duster_id in kinematic_state.attachments
 
@@ -462,8 +464,8 @@ def get_plan_to_wipe_surface(
             sim.robot,
             collision_ids,
             sim.physics_client_id,
-            held_object=sim.current_held_object_id,
-            base_link_to_held_obj=sim.current_grasp_transform,
+            held_object=duster_id,
+            base_link_to_held_obj=kinematic_state.attachments[duster_id],
             joint_state=sim.robot.get_joint_positions(),
         ):
             return None
@@ -475,6 +477,22 @@ def get_plan_to_wipe_surface(
                 perform_collision_detection=False,
             ):
                 return None
+
+    # Motion plan back to home joint positions.
+    robot_joint_plan = run_motion_planning(
+        sim.robot,
+        kinematic_state.robot_joints,
+        sim.robot.home_joint_positions,
+        collision_bodies=collision_ids,
+        seed=seed,
+        physics_client_id=sim.physics_client_id,
+    )
+    if robot_joint_plan is None:
+        return None
+    for robot_joints in robot_joint_plan:
+        kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
+    kinematic_state = kinematic_plan[-1]
+    kinematic_state.set_pybullet(sim.robot)
 
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
