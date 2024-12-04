@@ -521,6 +521,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
 
+        if self._user_satisfaction != 0:
+            logging.info(f"User satisfaction: {self._user_satisfaction}")
+
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, done, False, self._get_info()
 

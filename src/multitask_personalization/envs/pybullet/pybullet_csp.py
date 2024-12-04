@@ -326,6 +326,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             for surface in sim.get_surface_names()
             for l in sim.get_surface_link_ids(sim.get_object_id_from_name(surface))
         }
+        self._steps_since_last_cleaning_admonishment: int | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._current_mission: str | None = None
 
@@ -1168,6 +1169,13 @@ Return this description and nothing else. Do not explain anything."""
         # Only update when holding the duster.
         if obs.held_object != "duster":
             return
+        # Wait while retraction happens.
+        if (
+            self._steps_since_last_cleaning_admonishment is not None
+            and self._steps_since_last_cleaning_admonishment
+            <= self._sim.scene_spec.cleaning_admonishment_min_time_interval
+        ):
+            return
         # Figure out which surface, if any, was touched based on patch change.
         surface_wiped: tuple[str, int] | None = None
         for surf in obs.surface_dust_patches:
@@ -1183,6 +1191,10 @@ Return this description and nothing else. Do not explain anything."""
         )
         if human_admonished:
             assert surface_wiped is not None
+            self._steps_since_last_cleaning_admonishment = 0
+        else:
+            if self._steps_since_last_cleaning_admonishment is not None:
+                self._steps_since_last_cleaning_admonishment += 1
         if surface_wiped is not None:
             # If the human complained, we should not clean anymore.
             can_clean = not human_admonished
