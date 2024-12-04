@@ -36,8 +36,16 @@ def test_pybullet_csp():
     rom_model = SphericalROMModel(
         scene_spec.human_spec, min_possible_radius=0.49, max_possible_radius=0.51
     )
+    surfaces_robot_can_clean = [
+        ("table", -1),
+        ("shelf", 0),
+        ("shelf", 1),
+        ("shelf", 2),
+    ]
     hidden_spec = HiddenSceneSpec(
-        book_preferences=book_preferences, rom_model=rom_model
+        book_preferences=book_preferences,
+        rom_model=rom_model,
+        surfaces_robot_can_clean=surfaces_robot_can_clean,
     )
 
     llm = OpenAILLM(

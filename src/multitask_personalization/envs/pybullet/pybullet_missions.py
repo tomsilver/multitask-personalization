@@ -175,9 +175,12 @@ class CleanSurfacesMission(PyBulletMission):
     def step(
         self, state: PyBulletState, action: PyBulletAction
     ) -> tuple[str | None, float]:
-        # Coming soon: penalty and feedback if the robot tries to touch an object
-        # that it should not touch.
-        return None, 0.0
+        # Penalize if we have to tell the robot not to touch something.
+        if state.human_text is not None and "Don't clean" in state.human_text:
+            user_satisfaction = -1.0
+        else:
+            user_satisfaction = 0.0
+        return None, user_satisfaction
 
 
 def _explain_user_book_preference(
