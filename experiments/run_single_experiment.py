@@ -134,10 +134,12 @@ def _main(cfg: DictConfig) -> None:
             terminated = False
             train_approach.update(obs, float(rew), terminated, info)
             user_satisfaction = info.get("user_satisfaction", np.nan)
+            env_video_should_pause = info.get("env_video_should_pause", False)
             step_train_metrics = {
                 "step": t,
                 "execution_time": t * cfg.env.dt,
                 "user_satisfaction": user_satisfaction,
+                "env_video_should_pause": env_video_should_pause,
                 **train_approach.get_step_metrics(),
             }
             if cfg.wandb.enable:
