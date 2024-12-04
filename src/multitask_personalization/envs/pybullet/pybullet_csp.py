@@ -357,7 +357,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         with open(user_feedback_file, "r", encoding="utf-8") as f:
             user_feedback_dict = json.load(f)
         self._all_user_feedback = [
-            user_feedback_dict[i] for i in range(len(user_feedback_dict))
+            user_feedback_dict[str(i)] for i in range(len(user_feedback_dict))
         ]
 
     def _generate_variables(

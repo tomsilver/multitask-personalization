@@ -567,7 +567,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         logging.info(f"Loaded state from {filepath}")
 
     def _object_name_to_id(self) -> dict[str, int]:
-        book_name_to_id = dict(zip(self.book_descriptions, self.book_ids))
+        # If book descriptions have not been generated yet, use placeholder.
+        if not self.book_descriptions:
+            book_descriptions = ["NOT SET"] * len(self.book_ids)
+        else:
+            book_descriptions = self.book_descriptions
+        book_name_to_id = dict(zip(book_descriptions, self.book_ids, strict=True))
         return {
             "cup": self.cup_id,
             "table": self.table_id,
