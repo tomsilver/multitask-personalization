@@ -222,17 +222,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         book_poses = [
             get_pose(book_id, self.physics_client_id) for book_id in self.book_ids
         ]
-        obj_to_obj_name = {
-            None: None,
-            self.cup_id: "cup",
-            self.duster_id: "duster",
-        }
-        for book_id, book_description in zip(
-            self.book_ids, self.book_descriptions, strict=True
-        ):
-            obj_to_obj_name[book_id] = book_description
-
-        held_object = obj_to_obj_name[self.current_held_object_id]
+        held_object = (
+            None
+            if self.current_held_object_id is None
+            else self.get_name_from_object_id(self.current_held_object_id)
+        )
         # Convert PyBullet dust patch object colors into numpy array of levels.
         np_dust_patches = {
             k: np.empty(v.shape, dtype=np.float_) for k, v in self._dust_patches.items()
@@ -273,16 +267,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.book_descriptions = state.book_descriptions
         self.current_grasp_transform = state.grasp_transform
         self.current_human_text = state.human_text
-        obj_name_to_obj = {
-            None: None,
-            "cup": self.cup_id,
-            "duster": self.duster_id,
-        }
-        for book_id, book_description in zip(
-            self.book_ids, self.book_descriptions, strict=True
-        ):
-            obj_name_to_obj[book_description] = book_id
-        self.current_held_object_id = obj_name_to_obj[state.held_object]
+        self.current_held_object_id = (
+            None
+            if state.held_object is None
+            else self.get_object_id_from_name(state.held_object)
+        )
         # Set PyBullet dust patch object colors from numpy array of levels.
         for surf, np_dust_patch_array in state.surface_dust_patches.items():
             for r in range(np_dust_patch_array.shape[0]):
@@ -378,6 +367,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return self.get_state(), self._get_info()
 
     def _step_simulator(self, action: PyBulletAction) -> None:
+        # Reset current human text.
+        self.current_human_text = None
         # Handle dust: increase for any dust not touched, zero out dust that is
         # touched by the duster.
         wiper_overlap_obj_ids = set()
@@ -389,7 +380,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             wiper_overlap_obj_ids = {o for o, _ in wiper_overlap_obj_links}
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
-        for pybullet_id_arr in self._dust_patches.values():
+        report_surface_should_not_be_cleaned = False
+        for surf, pybullet_id_arr in self._dust_patches.items():
             for patch_id in pybullet_id_arr.flat:
                 level = self._get_dust_level(patch_id)
                 new_level = np.clip(level + dust_delta, 0, max_dust)
@@ -397,7 +389,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 # the duster and any patches and remove dust accordingly.
                 if patch_id in wiper_overlap_obj_ids:
                     new_level = 0.0
+                    # Check if this surface should not be cleaned.
+                    assert self._hidden_spec is not None
+                    if (
+                        not np.isclose(level, 0.0)
+                        and surf not in self._hidden_spec.surfaces_robot_can_clean
+                    ):
+                        report_surface_should_not_be_cleaned = True
                 self._set_dust_level(patch_id, new_level)
+        if report_surface_should_not_be_cleaned:
+            self.current_human_text = "Don't clean there -- I can do it myself."
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
@@ -488,9 +489,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Advance the mission.
         assert self._current_mission is not None
-        self.current_human_text, mission_satisfaction = self._current_mission.step(
-            state, action
-        )
+        mission_text, mission_satisfaction = self._current_mission.step(state, action)
+        if mission_text is not None:
+            if self.current_human_text is None:
+                self.current_human_text = mission_text
+            else:
+                self.current_human_text += "\n" + mission_text
         self._user_satisfaction = mission_satisfaction
         # NOTE: the done bit is only used during evaluation. Do not assume
         # that the environment will be reset after done=True.

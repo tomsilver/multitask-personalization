@@ -253,6 +253,11 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
     def _policy_can_handle_mission(self, mission: str) -> bool:
         return mission == "clean"
 
+    def check_termination(self, obs: PyBulletState) -> bool:
+        if obs.human_text is not None and "Don't clean" in obs.human_text:
+            return True
+        return super().check_termination(obs)
+
 
 def _book_grasp_to_relative_pose(yaw: NDArray) -> Pose:
     assert len(yaw) == 1
@@ -316,6 +321,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._current_book_preference = book_preference_initialization
         self._all_user_feedback: list[str] = []
         self._llm = llm
+        self._surface_can_be_cleaned: dict[tuple[str, int], bool | str] = {
+            (surface, l): "unknown"
+            for surface in sim.get_surface_names()
+            for l in sim.get_surface_link_ids(sim.get_object_id_from_name(surface))
+        }
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._current_mission: str | None = None
 
@@ -516,8 +526,28 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return []
 
         if self._current_mission == "clean":
-            # Coming soon: personal constraints about do-not-touch objects.
-            return []
+            # The user may prefer to clean certain surfaces themselves (e.g,.
+            # for the sake of feeling empowered, or because they do it better).
+
+            # TODO make sure that we don't crash if no surfaces should be cleaned.
+            surface = variables[0]
+
+            def _robot_can_clean_surface_logprob(surface: tuple[str, int]) -> float:
+                status = self._surface_can_be_cleaned[surface]
+                assert status in (True, False, "unknown")
+                if status == "unknown":
+                    return np.log(0.5)
+                if status:
+                    return 0.0
+                return -np.inf
+
+            surfaces_to_clean_constraint = LogProbCSPConstraint(
+                "surfaces_to_clean_constraint",
+                [surface],
+                _robot_can_clean_surface_logprob,
+                threshold=np.log(0.5) - 1e-3,
+            )
+            return [surfaces_to_clean_constraint]
 
         raise NotImplementedError
 
@@ -933,6 +963,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if not self._disable_learning:
             self._update_rom_model(obs, act, next_obs)
             self._update_book_preferences(act, next_obs)
+            self._update_surface_can_be_cleaned(obs, next_obs)
         self._update_current_mission(obs)
 
     def _generate_surface_variable(
@@ -1131,6 +1162,37 @@ Return this description and nothing else. Do not explain anything."""
         )[0]
         self._current_book_preference = response
         logging.info(f"Updated learned user book preferences: {response}")
+
+    def _update_surface_can_be_cleaned(
+        self, obs: PyBulletState, next_obs: PyBulletState
+    ) -> None:
+        # Only update when holding the duster.
+        if obs.held_object != "duster":
+            return
+        # Figure out which surface, if any, was touched based on patch change.
+        surface_wiped: tuple[str, int] | None = None
+        for surf in obs.surface_dust_patches:
+            old_patch_arr = obs.surface_dust_patches[surf]
+            new_patch_arr = next_obs.surface_dust_patches[surf]
+            old_clean = np.isclose(old_patch_arr, 0.0)
+            new_clean = np.isclose(new_patch_arr, 0.0)
+            if np.any(new_clean & ~old_clean):
+                assert surface_wiped is None
+                surface_wiped = surf
+        human_admonished = (
+            next_obs.human_text is not None and "Don't clean" in next_obs.human_text
+        )
+        if human_admonished:
+            assert surface_wiped is not None
+        if surface_wiped is not None:
+            # If the human complained, we should not clean anymore.
+            can_clean = not human_admonished
+            if self._surface_can_be_cleaned[surface_wiped] == "unknown":
+                self._surface_can_be_cleaned[surface_wiped] = can_clean
+                logging.info(
+                    f"Updated can-clean status for {surface_wiped}: " f"{can_clean}"
+                )
+            assert self._surface_can_be_cleaned[surface_wiped] == can_clean
 
     def _update_current_mission(self, obs: PyBulletState) -> None:
         mission = _infer_mission_from_obs(obs)

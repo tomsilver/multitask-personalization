@@ -57,8 +57,16 @@ def test_pybullet_skills():
     )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
+    surfaces_robot_can_clean = [
+        ("table", -1),
+        ("shelf", 0),
+        ("shelf", 1),
+        ("shelf", 2),
+    ]
     hidden_spec = HiddenSceneSpec(
-        book_preferences=book_preferences, rom_model=rom_model
+        book_preferences=book_preferences,
+        rom_model=rom_model,
+        surfaces_robot_can_clean=surfaces_robot_can_clean,
     )
 
     # Create a real environment.
@@ -114,8 +122,16 @@ def test_wiping_all_surfaces():
     )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
+    surfaces_robot_can_clean = [
+        ("table", -1),
+        ("shelf", 0),
+        ("shelf", 1),
+        ("shelf", 2),
+    ]
     hidden_spec = HiddenSceneSpec(
-        book_preferences=book_preferences, rom_model=rom_model
+        book_preferences=book_preferences,
+        rom_model=rom_model,
+        surfaces_robot_can_clean=surfaces_robot_can_clean,
     )
 
     # Create a real environment.

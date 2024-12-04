@@ -6,6 +6,9 @@ env:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     book_preferences: "I enjoy some fiction, especially science fiction, but not historical fiction. I like certain nonfiction genres like true crime. But I find most biographies to be boring."
     rom_model: ${rom_model}
+    surfaces_robot_can_clean:
+      - ["shelf", 0]
+      - ["shelf", 2]
   use_gui: False  # need to define, but will be override by train/eval
   llm: ${llm}
   # note: seed is excluded because it varies for train/eval envs

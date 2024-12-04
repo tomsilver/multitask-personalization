@@ -164,3 +164,4 @@ class HiddenSceneSpec:
 
     book_preferences: str  # a natural language description
     rom_model: ROMModel
+    surfaces_robot_can_clean: list[tuple[str, int]]
