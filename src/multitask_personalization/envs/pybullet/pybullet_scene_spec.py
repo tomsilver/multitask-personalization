@@ -145,6 +145,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
         position=(table_pose.position[0], 0.2, duster_head_up_down_length)
     )
 
+    cleaning_admonishment_min_time_interval: int = 25
+
     @property
     def duster_grasp(self) -> Pose:
         """Hardcode a good relative grasp for the duster."""

@@ -73,6 +73,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
         self._llm = llm
+        # Prevent accidentally admonishing the robot while it's trying to retract
+        # after just cleaning a bad surface.
+        self._steps_since_last_cleaning_admonishment: int | None = None
 
         # Create action space.
         self.action_space = gym.spaces.OneOf(
@@ -397,8 +400,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     ):
                         report_surface_should_not_be_cleaned = True
                 self._set_dust_level(patch_id, new_level)
+        if self._steps_since_last_cleaning_admonishment is not None:
+            self._steps_since_last_cleaning_admonishment += 1
         if report_surface_should_not_be_cleaned:
-            self.current_human_text = "Don't clean there -- I can do it myself."
+            # Give the robot a chance to get away from the surface or else it
+            # might be admonished again just for retracting.
+            if (
+                self._steps_since_last_cleaning_admonishment is None
+                or self._steps_since_last_cleaning_admonishment
+                > self.scene_spec.cleaning_admonishment_min_time_interval
+            ):
+                self.current_human_text = "Don't clean there -- I can do it myself."
+                self._steps_since_last_cleaning_admonishment = 0
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
@@ -546,6 +559,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def save_state(self, filepath: Path) -> None:
         """Save the current state to disk."""
+        admonish_steps = self._steps_since_last_cleaning_admonishment
         state_dict = {
             "state": self.get_state(),
             "mission": self._current_mission,
@@ -553,6 +567,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "rng": self._rng,
             "mission_rng": self._mission_rng,
             "book_llm_rng": self._book_llm_rng,
+            "steps_since_last_cleaning_admonishment": admonish_steps,
         }
         with open(filepath, "wb") as f:
             pkl.dump(state_dict, f)
@@ -568,6 +583,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._rng = state_dict["rng"]
         self._mission_rng = state_dict["mission_rng"]
         self._book_llm_rng = state_dict["book_llm_rng"]
+        self._steps_since_last_cleaning_admonishment = state_dict[
+            "steps_since_last_cleaning_admonishment"
+        ]
         logging.info(f"Loaded state from {filepath}")
 
     def _object_name_to_id(self) -> dict[str, int]:
