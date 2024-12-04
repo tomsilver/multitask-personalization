@@ -23,7 +23,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     world_lower_bounds: tuple[float, float, float] = (-0.5, -0.5, 0.0)
     world_upper_bounds: tuple[float, float, float] = (0.5, 0.5, 0.0)
 
-    floor_position: tuple[float, float, float] = (0, 0, -1)
+    floor_position: tuple[float, float, float] = (0, 0, -0.4)
     floor_urdf: Path = Path(__file__).parent / "assets" / "wood_floor.urdf"
 
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
@@ -54,7 +54,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     human_spec: HumanSpec = HumanSpec()
 
-    wheelchair_base_pose: Pose = Pose(position=(2.0, 0.5, -0.46))
+    wheelchair_base_pose: Pose = Pose(position=(1.5, 0.5, -0.33))
 
     table_pose: Pose = Pose(position=(-0.75, 0.0, -0.2))
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
