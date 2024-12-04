@@ -1,6 +1,7 @@
 """Defines the specification of tasks in the pybullet environment."""
 
 from __future__ import annotations
+from pathlib import Path
 
 from dataclasses import dataclass, field
 
@@ -21,6 +22,9 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     world_lower_bounds: tuple[float, float, float] = (-0.5, -0.5, 0.0)
     world_upper_bounds: tuple[float, float, float] = (0.5, 0.5, 0.0)
+
+    floor_position: tuple[float, float, float] = (0, 0, -1)
+    floor_urdf: Path = Path(__file__).parent / "assets" / "wood_floor.urdf"
 
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))

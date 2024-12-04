@@ -92,6 +92,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         else:
             self.physics_client_id = p.connect(p.DIRECT)
 
+        # Create floor.
+        self.floor_id = p.loadURDF(str(self.scene_spec.floor_urdf),
+                                   self.scene_spec.floor_position,
+                   useFixedBase=True,
+                   physicsClientId=self.physics_client_id)
+
         # Create robot.
         self.robot = self._create_robot(self.scene_spec, self.physics_client_id)
 
@@ -210,9 +216,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Uncomment for debug / development.
-        # while True:
-        #     self._step_simulator((1, GripperAction.OPEN))
-        #     p.stepSimulation(self.physics_client_id)
+        if use_gui:
+            while True:
+                self._step_simulator((1, GripperAction.OPEN))
+                p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
