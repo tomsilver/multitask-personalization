@@ -529,7 +529,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             # The user may prefer to clean certain surfaces themselves (e.g,.
             # for the sake of feeling empowered, or because they do it better).
 
-            # TODO make sure that we don't crash if no surfaces should be cleaned.
             surface = variables[0]
 
             def _robot_can_clean_surface_logprob(surface: tuple[str, int]) -> float:
