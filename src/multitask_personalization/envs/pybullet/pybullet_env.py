@@ -100,12 +100,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         
         # Create walls.
         self.wall_ids = [
-            p.loadURDF(str(self.scene_spec.wall_urdf),
-                                   pose.position, pose.orientation,
-                   useFixedBase=True,
-                   physicsClientId=self.physics_client_id)
-                   for pose in self.scene_spec.wall_poses
+            create_pybullet_block((1.0, 1.0, 1.0), self.scene_spec.wall_half_extents,
+                                   self.physics_client_id)
+                                   for _ in self.scene_spec.wall_poses
         ]
+        wall_texture_id = p.loadTexture(str(self.scene_spec.wall_texture), self.physics_client_id)
+        for wall_id, pose in zip(self.wall_ids, self.scene_spec.wall_poses, strict=True):
+            p.changeVisualShape(
+                wall_id, -1, textureUniqueId=wall_texture_id, physicsClientId=self.physics_client_id
+            )
+            set_pose(wall_id, pose, self.physics_client_id)
 
         # Create robot.
         self.robot = self._create_robot(self.scene_spec, self.physics_client_id)

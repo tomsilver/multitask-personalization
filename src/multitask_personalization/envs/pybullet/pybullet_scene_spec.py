@@ -28,9 +28,13 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     wall_poses: list[Pose] = field(
         default_factory=lambda: [
-            Pose.from_rpy((0.0, 3.0, 0.0), (0.0, np.pi / 2, np.pi / 2)),
+            Pose.from_rpy((0.0, 1.25, 0.0), (np.pi / 2, 0.0, np.pi / 2)),
+            Pose.from_rpy((-1.25, 0.0, 0.0), (np.pi / 2, 0.0, 0.0)),
+            Pose.from_rpy((4.25, 0.0, 0.0), (np.pi / 2, 0.0, np.pi)),
+            Pose.from_rpy((0.0, 0.0, 3.0), (0.0, np.pi / 2, 0.0)),
     ])
-    wall_urdf: Path = Path(__file__).parent / "assets" / "wall.urdf"
+    wall_half_extents: tuple[float, float, float] = (0.1, 3.0, 5.0)
+    wall_texture: Path = Path(__file__).parent / "assets" / "tiled_wall_texture.jpg"
 
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
