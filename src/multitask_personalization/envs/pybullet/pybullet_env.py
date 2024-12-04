@@ -148,6 +148,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             half_extents=self.scene_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
         )
+        surface_texture_id = p.loadTexture(str(self.scene_spec.surface_texture), self.physics_client_id)
+        p.changeVisualShape(
+            self.table_id, -1, textureUniqueId=surface_texture_id, physicsClientId=self.physics_client_id
+        )
 
         # Create cup.
         self.cup_id = create_pybullet_cylinder(
@@ -181,6 +185,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             spacing=self.scene_spec.shelf_spacing,
             support_width=self.scene_spec.shelf_support_width,
             num_layers=self.scene_spec.shelf_num_layers,
+            shelf_texture_id=surface_texture_id,
             physics_client_id=self.physics_client_id,
         )
 
@@ -1035,6 +1040,7 @@ def _create_shelf(
     spacing: float,
     support_width: float,
     num_layers: int,
+    shelf_texture_id: int,
     physics_client_id: int,
 ) -> tuple[int, set[int]]:
     """Returns the shelf ID and the link IDs of the individual shelves."""
@@ -1124,5 +1130,9 @@ def _create_shelf(
         linkUpperLimits=[-1] * len(collision_shape_ids),
         physicsClientId=physics_client_id,
     )
+    for link_id in range(p.getNumJoints(shelf_id, physicsClientId=physics_client_id)):
+        p.changeVisualShape(
+            shelf_id, link_id, textureUniqueId=shelf_texture_id, physicsClientId=physics_client_id
+        )
 
     return shelf_id, shelf_link_ids
