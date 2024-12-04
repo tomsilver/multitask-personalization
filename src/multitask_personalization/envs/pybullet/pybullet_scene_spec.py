@@ -26,6 +26,12 @@ class PyBulletSceneSpec(PublicSceneSpec):
     floor_position: tuple[float, float, float] = (0, 0, -0.4)
     floor_urdf: Path = Path(__file__).parent / "assets" / "wood_floor.urdf"
 
+    wall_poses: list[Pose] = field(
+        default_factory=lambda: [
+            Pose.from_rpy((0.0, 3.0, 0.0), (0.0, np.pi / 2, np.pi / 2)),
+    ])
+    wall_urdf: Path = Path(__file__).parent / "assets" / "wall.urdf"
+
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
     initial_joints: JointPositions = field(
@@ -48,13 +54,14 @@ class PyBulletSceneSpec(PublicSceneSpec):
     robot_max_joint_delta: float = 0.5
 
     robot_stand_pose: Pose = Pose((0.0, 0.0, -0.2))
-    robot_stand_rgba: tuple[float, float, float, float] = (0.3, 0.1, 0.1, 1.0)
+    robot_stand_rgba: tuple[float, float, float, float] = (0.3, 0.3, 0.3, 1.0)
     robot_stand_radius: float = 0.1
     robot_stand_length: float = 0.4
 
     human_spec: HumanSpec = HumanSpec()
 
     wheelchair_base_pose: Pose = Pose(position=(1.5, 0.5, -0.33))
+    wheelchair_rgba: tuple[float, float, float, float] = (0.7, 0.7, 0.7, 1.0)
 
     table_pose: Pose = Pose(position=(-0.75, 0.0, -0.2))
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
@@ -136,10 +143,10 @@ class PyBulletSceneSpec(PublicSceneSpec):
     duster_head_forward_length: float = 0.04
     duster_head_long_length: float = 0.075
     duster_head_up_down_length: float = 0.04
-    duster_head_rgba: tuple[float, float, float, float] = (0.4, 0.8, 0.8, 1.0)
+    duster_head_rgba: tuple[float, float, float, float] = (155 / 255, 126 / 255, 189 / 255, 1.0)
     duster_pole_radius: float = 0.01
     duster_pole_height: float = 0.35
-    duster_pole_rgba: tuple[float, float, float, float] = (0.0, 0.3, 0.3, 1.0)
+    duster_pole_rgba: tuple[float, float, float, float] = (59 / 255, 30 / 255, 84 / 255, 1.0)
     duster_pole_offset: tuple[float, float, float] = (
         duster_head_forward_length - duster_pole_radius,
         0,

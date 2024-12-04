@@ -97,6 +97,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                                    self.scene_spec.floor_position,
                    useFixedBase=True,
                    physicsClientId=self.physics_client_id)
+        
+        # Create walls.
+        self.wall_ids = [
+            p.loadURDF(str(self.scene_spec.wall_urdf),
+                                   pose.position, pose.orientation,
+                   useFixedBase=True,
+                   physicsClientId=self.physics_client_id)
+                   for pose in self.scene_spec.wall_poses
+        ]
 
         # Create robot.
         self.robot = self._create_robot(self.scene_spec, self.physics_client_id)
@@ -124,6 +133,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.physics_client_id,
             self._rng,
             wheelchair_mounted=False,
+        )
+        p.changeVisualShape(
+            self.wheelchair.body, -1, rgbaColor=self.scene_spec.wheelchair_rgba, physicsClientId=self.physics_client_id
         )
 
         # Create table.

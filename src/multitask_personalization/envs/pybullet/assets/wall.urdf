@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<robot name="wall">
+  <link name="wall_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/> <!-- Rotates the wall to face the viewer -->
+      <geometry>
+        <mesh filename="wall.obj" scale="2 1 1"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="10 10 0.1"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.0"/>
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0"/>
+    </inertial>
+  </link>
+</robot>
