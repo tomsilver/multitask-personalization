@@ -108,7 +108,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Create walls.
         self.wall_ids = [
             create_pybullet_block(
-                (1.0, 1.0, 1.0),
+                (1.0, 1.0, 1.0, 1.0),
                 self.scene_spec.wall_half_extents,
                 self.physics_client_id,
             )
@@ -217,11 +217,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Create books.
         self.book_ids: list[int] = []
         self.book_descriptions: list[str] = []  # created in reset()
-        for book_rgba, book_half_extents in zip(
-            self.scene_spec.book_rgbas,
-            self.scene_spec.book_half_extents,
-            strict=True,
-        ):
+        for book_half_extents in self.scene_spec.book_half_extents:
             book_id = create_pybullet_block(
                 (1.0, 1.0, 1.0, 1.0),
                 half_extents=book_half_extents,

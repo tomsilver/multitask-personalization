@@ -1,9 +1,9 @@
 """Defines the specification of tasks in the pybullet environment."""
 
 from __future__ import annotations
-from pathlib import Path
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 from pybullet_helpers.geometry import Pose
@@ -97,11 +97,6 @@ class PyBulletSceneSpec(PublicSceneSpec):
     shelf_pose: Pose = Pose(position=(0.0, 0.75, -shelf_support_height / 2))
     surface_texture: Path = Path(__file__).parent / "assets" / "dark_wood_texture.jpg"
 
-    book_rgbas: tuple[tuple[float, float, float, float], ...] = (
-        (0.8, 0.2, 0.2, 1.0),
-        (0.2, 0.8, 0.2, 1.0),
-        (0.2, 0.2, 0.8, 1.0),
-    )
     book_half_extents: tuple[tuple[float, float, float], ...] = (
         (0.02, 0.05, 0.08),
         (0.02, 0.05, 0.08),

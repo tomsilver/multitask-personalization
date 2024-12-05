@@ -3,8 +3,10 @@ pybullet."""
 
 import argparse
 from pathlib import Path
+
 import imageio.v2 as iio
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 
 
@@ -20,14 +22,14 @@ def _main(
 ) -> None:
 
     # Read the front and back cover images
-    front_cover_img = iio.imread(front_cover_file)
-    back_cover_img = iio.imread(back_cover_file)
-    spine_img = iio.imread(spine_file)
+    front_cover = iio.imread(front_cover_file)
+    back_cover = iio.imread(back_cover_file)
+    spine = iio.imread(spine_file)
 
     # Normalize the height of the front and back covers to match
-    front_cover_img = _resize_image(front_cover_img, scale, scale)
-    back_cover_img = _resize_image(back_cover_img, scale, scale)
-    spine_img = _resize_image(spine_img, scale, scale)
+    front_cover_img = _resize_image(front_cover, scale, scale)
+    back_cover_img = _resize_image(back_cover, scale, scale)
+    spine_img = _resize_image(spine, scale, scale)
 
     # Create pages.
     pages_img = np.zeros_like(front_cover_img)
@@ -65,7 +67,7 @@ def _main(
     print(f"Book cover texture saved to {outfile}")
 
 
-def _resize_image(image: np.ndarray, height: int, width: int) -> np.ndarray:
+def _resize_image(image: NDArray, height: int, width: int) -> NDArray:
     """Resize an image to match the specified height while keeping aspect
     ratio."""
     img = Image.fromarray(image)

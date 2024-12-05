@@ -30,7 +30,6 @@ def test_pybullet_csp():
     scene_spec = PyBulletSceneSpec(
         book_half_extents=default_scene_spec.book_half_extents[:3],
         book_poses=default_scene_spec.book_poses[:3],
-        book_rgbas=default_scene_spec.book_rgbas[:3],
     )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
