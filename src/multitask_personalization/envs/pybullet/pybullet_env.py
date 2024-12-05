@@ -88,26 +88,43 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create the PyBullet client.
         if use_gui:
-            self.physics_client_id = create_gui_connection(camera_yaw=0)
+            self.physics_client_id = create_gui_connection(
+                camera_target=self.scene_spec.camera_target,
+                camera_distance=self.scene_spec.camera_distance,
+                camera_pitch=self.scene_spec.camera_pitch,
+                camera_yaw=self.scene_spec.camera_yaw,
+            )
         else:
             self.physics_client_id = p.connect(p.DIRECT)
 
         # Create floor.
-        self.floor_id = p.loadURDF(str(self.scene_spec.floor_urdf),
-                                   self.scene_spec.floor_position,
-                   useFixedBase=True,
-                   physicsClientId=self.physics_client_id)
-        
+        self.floor_id = p.loadURDF(
+            str(self.scene_spec.floor_urdf),
+            self.scene_spec.floor_position,
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+
         # Create walls.
         self.wall_ids = [
-            create_pybullet_block((1.0, 1.0, 1.0), self.scene_spec.wall_half_extents,
-                                   self.physics_client_id)
-                                   for _ in self.scene_spec.wall_poses
+            create_pybullet_block(
+                (1.0, 1.0, 1.0),
+                self.scene_spec.wall_half_extents,
+                self.physics_client_id,
+            )
+            for _ in self.scene_spec.wall_poses
         ]
-        wall_texture_id = p.loadTexture(str(self.scene_spec.wall_texture), self.physics_client_id)
-        for wall_id, pose in zip(self.wall_ids, self.scene_spec.wall_poses, strict=True):
+        wall_texture_id = p.loadTexture(
+            str(self.scene_spec.wall_texture), self.physics_client_id
+        )
+        for wall_id, pose in zip(
+            self.wall_ids, self.scene_spec.wall_poses, strict=True
+        ):
             p.changeVisualShape(
-                wall_id, -1, textureUniqueId=wall_texture_id, physicsClientId=self.physics_client_id
+                wall_id,
+                -1,
+                textureUniqueId=wall_texture_id,
+                physicsClientId=self.physics_client_id,
             )
             set_pose(wall_id, pose, self.physics_client_id)
 
@@ -139,7 +156,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             wheelchair_mounted=False,
         )
         p.changeVisualShape(
-            self.wheelchair.body, -1, rgbaColor=self.scene_spec.wheelchair_rgba, physicsClientId=self.physics_client_id
+            self.wheelchair.body,
+            -1,
+            rgbaColor=self.scene_spec.wheelchair_rgba,
+            physicsClientId=self.physics_client_id,
         )
 
         # Create table.
@@ -148,9 +168,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             half_extents=self.scene_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
         )
-        surface_texture_id = p.loadTexture(str(self.scene_spec.surface_texture), self.physics_client_id)
+        surface_texture_id = p.loadTexture(
+            str(self.scene_spec.surface_texture), self.physics_client_id
+        )
         p.changeVisualShape(
-            self.table_id, -1, textureUniqueId=surface_texture_id, physicsClientId=self.physics_client_id
+            self.table_id,
+            -1,
+            textureUniqueId=surface_texture_id,
+            physicsClientId=self.physics_client_id,
         )
 
         # Create cup.
@@ -383,16 +408,17 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Update the book covers.
-        for book_description, book_id in zip(self.book_descriptions, self.book_ids, strict=True):
+        for book_description, book_id in zip(
+            self.book_descriptions, self.book_ids, strict=True
+        ):
             texture_id = self._get_texture_from_book_description(book_description)
             if texture_id is not None:
                 p.changeVisualShape(
-                    book_id, -1, textureUniqueId=texture_id, physicsClientId=self.physics_client_id
+                    book_id,
+                    -1,
+                    textureUniqueId=texture_id,
+                    physicsClientId=self.physics_client_id,
                 )
-
-        while True:
-            self._step_simulator((1, GripperAction.OPEN))
-            p.stepSimulation(self.physics_client_id)
 
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:
@@ -578,11 +604,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        target = self.robot.get_base_pose().position
         img = capture_image(
             self.physics_client_id,
-            camera_target=target,
+            camera_target=self.scene_spec.camera_target,
             camera_distance=self.scene_spec.camera_distance,
+            camera_pitch=self.scene_spec.camera_pitch,
+            camera_yaw=self.scene_spec.camera_yaw,
         )
         # In non-render mode, PyBullet does not render background correctly.
         # We want the background to be black instead of white. Here, make the
@@ -810,7 +837,7 @@ Return that list and nothing else. Do not explain anything."""
             if len(book_descriptions) == num_books:  # success
                 return book_descriptions
         raise RuntimeError("LLM book description generation failed")
-    
+
     def _get_texture_from_book_description(self, book_description: str) -> int | None:
         book_dir = Path(__file__).parent / "assets" / "books"
         if book_description == "Title: Book 36. Author: Love.":
@@ -1156,7 +1183,10 @@ def _create_shelf(
     )
     for link_id in range(p.getNumJoints(shelf_id, physicsClientId=physics_client_id)):
         p.changeVisualShape(
-            shelf_id, link_id, textureUniqueId=shelf_texture_id, physicsClientId=physics_client_id
+            shelf_id,
+            link_id,
+            textureUniqueId=shelf_texture_id,
+            physicsClientId=physics_client_id,
         )
 
     return shelf_id, shelf_link_ids

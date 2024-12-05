@@ -1,4 +1,5 @@
-"""Script to help create book cover textures that can be loaded into pybullet."""
+"""Script to help create book cover textures that can be loaded into
+pybullet."""
 
 import argparse
 from pathlib import Path
@@ -7,9 +8,16 @@ import numpy as np
 from PIL import Image
 
 
-def _main(front_cover_file: Path, back_cover_file: Path, spine_file: Path, outfile: Path,
-          scale: int = 250, page_width: int = 2, page_gray_color: float = 80,
-          page_white_color: float = 225) -> None:
+def _main(
+    front_cover_file: Path,
+    back_cover_file: Path,
+    spine_file: Path,
+    outfile: Path,
+    scale: int = 250,
+    page_width: int = 2,
+    page_gray_color: float = 80,
+    page_white_color: float = 225,
+) -> None:
 
     # Read the front and back cover images
     front_cover_img = iio.imread(front_cover_file)
@@ -23,9 +31,9 @@ def _main(front_cover_file: Path, back_cover_file: Path, spine_file: Path, outfi
 
     # Create pages.
     pages_img = np.zeros_like(front_cover_img)
-    for c in range(0, pages_img.shape[1], 2*page_width):
-        pages_img[:, c:c+page_width] = page_gray_color
-        pages_img[:, c+page_width:c+2*page_width] = page_white_color
+    for c in range(0, pages_img.shape[1], 2 * page_width):
+        pages_img[:, c : c + page_width] = page_gray_color
+        pages_img[:, c + page_width : c + 2 * page_width] = page_white_color
 
     # Create an empty canvas for the texture
     canvas = 255 * np.ones((scale * 4, scale * 4, 3), dtype=np.uint8)
@@ -42,12 +50,14 @@ def _main(front_cover_file: Path, back_cover_file: Path, spine_file: Path, outfi
     spine_img = np.rot90(spine_img, k=2)
 
     # Place the images on the texture map
-    canvas[scale*2:scale*3, 0:scale, :] = front_cover_img  # Front cover
-    canvas[scale*3:scale*4, scale*2:scale*3, :] = back_cover_img  # Back cover
-    canvas[scale*2:scale*3, scale:scale*2, :] = spine_img  # spine
-    canvas[scale*3:scale*4, 0:scale, :] = pages_img
-    canvas[scale*3:scale*4, scale:scale*2, :] = pages_img
-    canvas[scale*3:scale*4, scale*3:scale*4, :] = pages_img
+    canvas[scale * 2 : scale * 3, 0:scale, :] = front_cover_img  # Front cover
+    canvas[scale * 3 : scale * 4, scale * 2 : scale * 3, :] = (
+        back_cover_img  # Back cover
+    )
+    canvas[scale * 2 : scale * 3, scale : scale * 2, :] = spine_img  # spine
+    canvas[scale * 3 : scale * 4, 0:scale, :] = pages_img
+    canvas[scale * 3 : scale * 4, scale : scale * 2, :] = pages_img
+    canvas[scale * 3 : scale * 4, scale * 3 : scale * 4, :] = pages_img
 
     # Save the final texture map to the specified file
     texture_img = Image.fromarray(canvas)
@@ -56,7 +66,8 @@ def _main(front_cover_file: Path, back_cover_file: Path, spine_file: Path, outfi
 
 
 def _resize_image(image: np.ndarray, height: int, width: int) -> np.ndarray:
-    """Resize an image to match the specified height while keeping aspect ratio."""
+    """Resize an image to match the specified height while keeping aspect
+    ratio."""
     img = Image.fromarray(image)
     resized_img = img.resize((width, height), Image.Resampling.LANCZOS)
     return np.array(resized_img)[..., :3]

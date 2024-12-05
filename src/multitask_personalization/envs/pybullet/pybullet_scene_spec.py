@@ -32,7 +32,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
             Pose.from_rpy((-1.25, 0.0, 0.0), (np.pi / 2, 0.0, 0.0)),
             Pose.from_rpy((4.25, 0.0, 0.0), (np.pi / 2, 0.0, np.pi)),
             Pose.from_rpy((0.0, 0.0, 3.0), (0.0, np.pi / 2, 0.0)),
-    ])
+        ]
+    )
     wall_half_extents: tuple[float, float, float] = (0.1, 3.0, 5.0)
     wall_texture: Path = Path(__file__).parent / "assets" / "tiled_wall_texture.jpg"
 
@@ -76,7 +77,10 @@ class PyBulletSceneSpec(PublicSceneSpec):
     object_radius: float = 0.025
     object_length: float = 0.1
 
+    camera_target: tuple[float, float, float] = (0.0, 0.0, 0.0)
     camera_distance: float = 2.0
+    camera_pitch: float = -35
+    camera_yaw: float = -35
 
     shelf_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     shelf_width: float = 0.8
@@ -148,10 +152,20 @@ class PyBulletSceneSpec(PublicSceneSpec):
     duster_head_forward_length: float = 0.04
     duster_head_long_length: float = 0.075
     duster_head_up_down_length: float = 0.04
-    duster_head_rgba: tuple[float, float, float, float] = (155 / 255, 126 / 255, 189 / 255, 1.0)
+    duster_head_rgba: tuple[float, float, float, float] = (
+        155 / 255,
+        126 / 255,
+        189 / 255,
+        1.0,
+    )
     duster_pole_radius: float = 0.01
     duster_pole_height: float = 0.35
-    duster_pole_rgba: tuple[float, float, float, float] = (59 / 255, 30 / 255, 84 / 255, 1.0)
+    duster_pole_rgba: tuple[float, float, float, float] = (
+        59 / 255,
+        30 / 255,
+        84 / 255,
+        1.0,
+    )
     duster_pole_offset: tuple[float, float, float] = (
         duster_head_forward_length - duster_pole_radius,
         0,
