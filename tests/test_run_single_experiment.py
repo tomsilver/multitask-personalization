@@ -26,6 +26,7 @@ def test_run_single_experiment():
         "env.max_environment_steps=10",
         "env.eval_frequency=5",
         "env.num_eval_trials=1",
+        "csp_solver=random_walk",
         "csp_solver.min_num_satisfying_solutions=1",
         "csp_solver.max_iters=1000",
     ]

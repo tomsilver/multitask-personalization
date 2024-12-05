@@ -52,7 +52,7 @@ def test_solve_csp():
     # Test LifelongCSPSolverWrapper(RandomWalkCSPSolver()).
     # The lifelong solver should still work after deleting the samplers because
     # it should use its own memory-based samplers.
-    lifelong_solver = LifelongCSPSolverWrapper(solver)
+    lifelong_solver = LifelongCSPSolverWrapper(solver, seed=123)
     sol = lifelong_solver.solve(csp, initialization, samplers)
     assert sol is not None
     # Regenerate the CSP to make sure that equality checking is based on names.

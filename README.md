@@ -40,6 +40,7 @@ python experiments/run_single_experiment.py -m \
     env.max_environment_steps=100 \
     env.eval_frequency=50 \
     env.num_eval_trials=1 \
+    csp_solver=random_walk \
     csp_solver.min_num_satisfying_solutions=1 \
     csp_solver.max_iters=100
 ```
