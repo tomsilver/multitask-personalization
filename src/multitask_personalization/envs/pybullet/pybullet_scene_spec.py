@@ -77,10 +77,12 @@ class PyBulletSceneSpec(PublicSceneSpec):
     object_radius: float = 0.025
     object_length: float = 0.1
 
-    camera_target: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    camera_target: tuple[float, float, float] = (0.0, 0.0, 0.2)
     camera_distance: float = 2.0
     camera_pitch: float = -35
     camera_yaw: float = -35
+    image_height: int = 1024
+    image_width: int = 1600
 
     shelf_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     shelf_width: float = 0.8

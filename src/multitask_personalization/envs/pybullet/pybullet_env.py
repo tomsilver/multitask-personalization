@@ -610,6 +610,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             camera_distance=self.scene_spec.camera_distance,
             camera_pitch=self.scene_spec.camera_pitch,
             camera_yaw=self.scene_spec.camera_yaw,
+            image_width=self.scene_spec.image_width,
+            image_height=self.scene_spec.image_height,
         )
         # In non-render mode, PyBullet does not render background correctly.
         # We want the background to be black instead of white. Here, make the
