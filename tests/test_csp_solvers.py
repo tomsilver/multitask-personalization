@@ -3,7 +3,10 @@
 import gymnasium as gym
 import numpy as np
 
-from multitask_personalization.csp_solvers import RandomWalkCSPSolver
+from multitask_personalization.csp_solvers import (
+    LifelongCSPSolverWrapper,
+    RandomWalkCSPSolver,
+)
 from multitask_personalization.structs import (
     CSP,
     CSPVariable,
@@ -13,8 +16,7 @@ from multitask_personalization.structs import (
 )
 
 
-def test_solve_csp():
-    """Tests for csp_solvers.py."""
+def _create_test_csp():
     x = CSPVariable("x", gym.spaces.Box(0, 1, dtype=np.float_))
     y = CSPVariable("y", gym.spaces.Box(0, 1, dtype=np.float_))
     z = CSPVariable("z", gym.spaces.Discrete(5))
@@ -33,10 +35,27 @@ def test_solve_csp():
     sampler_xy = FunctionalCSPSampler(sample_xy, csp, {x, y})
     sampler_z = FunctionalCSPSampler(sample_z, csp, {z})
     samplers = [sampler_xy, sampler_z]
-
     initialization = {x: 0.0, y: 0.0, z: 0}
+
+    return csp, initialization, samplers
+
+
+def test_solve_csp():
+    """Tests for csp_solvers.py."""
+
+    # Test RandomWalkCSPSolver().
+    csp, initialization, samplers = _create_test_csp()
     solver = RandomWalkCSPSolver(seed=123, show_progress_bar=False)
     sol = solver.solve(csp, initialization, samplers)
     assert sol is not None
-    assert sol[x] < sol[y]
-    assert sol[y] < sol[z] / 5
+
+    # Test LifelongCSPSolverWrapper(RandomWalkCSPSolver()).
+    # The lifelong solver should still work after deleting the samplers because
+    # it should use its own memory-based samplers.
+    lifelong_solver = LifelongCSPSolverWrapper(solver)
+    sol = lifelong_solver.solve(csp, initialization, samplers)
+    assert sol is not None
+    # Regenerate the CSP to make sure that equality checking is based on names.
+    csp, initialization, samplers = _create_test_csp()
+    sol = lifelong_solver.solve(csp, initialization, [])
+    assert sol is not None

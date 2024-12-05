@@ -1,12 +1,19 @@
 """Different methods for solving CSPs."""
 
 import abc
+from collections import defaultdict, deque
 from typing import Any
 
 import numpy as np
 from tqdm import tqdm
 
-from multitask_personalization.structs import CSP, CSPSampler, CSPVariable
+from multitask_personalization.structs import (
+    CSP,
+    CSPConstraint,
+    CSPSampler,
+    CSPVariable,
+    FunctionalCSPSampler,
+)
 
 
 class CSPSolver(abc.ABC):
@@ -83,3 +90,71 @@ class RandomWalkCSPSolver(CSPSolver):
             sol = sol.copy()
             sol.update(partial_sol)
         return best_satisfying_sol
+
+
+class LifelongCSPSolverWrapper(CSPSolver):
+    """A wrapper that samples from past constraint solutions."""
+
+    def __init__(self, base_solver: CSPSolver, memory_size: int = 100) -> None:
+        self._base_solver = base_solver
+        self._memory_size = memory_size
+        self._constraint_to_recent_solutions: dict[
+            CSPConstraint, deque[dict[CSPVariable, Any]]
+        ] = defaultdict(lambda: deque(maxlen=self._memory_size))
+
+    def solve(
+        self,
+        csp: CSP,
+        initialization: dict[CSPVariable, Any],
+        samplers: list[CSPSampler],
+    ) -> dict[CSPVariable, Any] | None:
+        # Create the samplers from past experience.
+        memory_based_samplers = self._create_memory_based_samplers(csp)
+        samplers = samplers + memory_based_samplers
+        # Need to wrap the constraints so that we can memorize solutions.
+        # Note that we could also just take the output of solve() and memorize,
+        # but that would miss out on the opportunity to memorize intermediates.
+        wrapped_csp = self._wrap_csp(csp)
+        return self._base_solver.solve(wrapped_csp, initialization, samplers)
+
+    def _create_memory_based_samplers(self, csp: CSP) -> list[CSPSampler]:
+        new_samplers: list[CSPSampler] = []
+        for constraint in csp.constraints:
+            if constraint in self._constraint_to_recent_solutions:
+                sampler = self._create_memory_based_sampler(constraint, csp)
+                new_samplers.append(sampler)
+        return new_samplers
+
+    def _create_memory_based_sampler(
+        self, constraint: CSPConstraint, csp: CSP
+    ) -> CSPSampler:
+        recent_solutions = self._constraint_to_recent_solutions[constraint]
+        num_recent_solutions = len(recent_solutions)
+
+        def _sample(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any] | None:
+            idx = rng.choice(num_recent_solutions)
+            return recent_solutions[idx]
+
+        return FunctionalCSPSampler(_sample, csp, set(constraint.variables))
+
+    def _wrap_csp(self, csp: CSP) -> CSP:
+        new_constraints = [self._wrap_constraint(c) for c in csp.constraints]
+        return CSP(csp.variables, new_constraints, csp.cost)
+
+    def _wrap_constraint(self, constraint: CSPConstraint) -> CSPConstraint:
+        # Make sure not to modify original constraint.
+        new_constraint = constraint.copy()
+
+        # Memorize solutions.
+        def _wrapped_check_solution(sol: dict[CSPVariable, Any]) -> bool:
+            result = constraint.check_solution(sol)
+            if result:
+                partial_sol = {v: sol[v] for v in constraint.variables}
+                self._constraint_to_recent_solutions[constraint].append(partial_sol)
+            return result
+
+        # Overwrite check_solution method.
+        new_constraint.check_solution = _wrapped_check_solution
+        return new_constraint
