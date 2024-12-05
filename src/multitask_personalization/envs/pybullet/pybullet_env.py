@@ -404,10 +404,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Update the book covers.
-        for idx, (book_description, book_id) in enumerate(zip(
+        for book_description, book_id in zip(
             self.book_descriptions, self.book_ids, strict=True
-        )):
-            texture_id = self._get_texture_from_book_description(book_description, idx)
+        ):
+            texture_id = self._get_texture_from_book_description(book_description)
             if texture_id is not None:
                 p.changeVisualShape(
                     book_id,
@@ -805,7 +805,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "Title: The Lord of the Rings. Author: J. R. R. Tolkien.",
         ]
 
-    def _get_texture_from_book_description(self, book_description: str, idx: int) -> int | None:
+    def _get_texture_from_book_description(self, book_description: str) -> int | None:
         book_dir = Path(__file__).parent / "assets" / "books"
         if book_description == "Title: Moby Dick. Author: Herman Melville.":
             filepath = book_dir / "moby_dick" / "combined.jpg"
