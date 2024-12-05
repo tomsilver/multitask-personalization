@@ -1,6 +1,7 @@
 """An approach that generates and solves a CSP to make decisions."""
 
 import logging
+import time
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,7 @@ from multitask_personalization.structs import (
     CSPVariable,
     PublicSceneSpec,
 )
+from multitask_personalization.utils import visualize_csp_graph
 
 
 class CSPApproach(BaseApproach[_ObsType, _ActType]):
@@ -43,6 +45,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         max_motion_planning_candidates: int = 1,
         explore_method: str = "nothing-personal",
         disable_learning: bool = False,
+        csp_save_dir: str | None = None,
         seed: int = 0,
     ):
         super().__init__(scene_spec, action_space, seed)
@@ -53,6 +56,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._explore_method = explore_method
         self._disable_learning = disable_learning
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._csp_save_dir = Path(csp_save_dir) if csp_save_dir else None
         self._csp_generator = self._create_csp_generator()
 
     def reset(
@@ -69,6 +73,17 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         csp, samplers, policy, initialization = self._csp_generator.generate(
             obs,
         )
+        # Save the generated CSP.
+        if self._csp_save_dir is not None:
+            self._csp_save_dir.mkdir(exist_ok=True)
+            while True:
+                time_str = time.strftime("%Y%m%d-%H%M%S")
+                viz_file = self._csp_save_dir / f"csp_{time_str}.png"
+                if viz_file.exists():
+                    time.sleep(1)
+                else:
+                    break
+            visualize_csp_graph(csp, viz_file)
         self._current_sol = self._csp_solver.solve(csp, initialization, samplers)
         if self._current_sol is None:
             raise ApproachFailure("No solution found for generated CSP")

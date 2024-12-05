@@ -1,13 +1,16 @@
 """General utility functions."""
 
+import os
+from pathlib import Path
 from typing import Any
 
+import graphviz
 import numpy as np
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose3D
 from scipy.spatial.transform import Rotation as R
 
-from multitask_personalization.structs import CSPVariable
+from multitask_personalization.structs import CSP, CSPVariable
 
 DIMENSION_NAMES = ("shoulder_aa", "shoulder_fe", "shoulder_rot", "elbow_flexion")
 DIMENSION_LIMITS = {
@@ -101,3 +104,23 @@ def print_csp_sol(sol: dict[CSPVariable, Any]) -> None:
     for v in sorted(sol, key=lambda v: v.name):
         print(f"{v.name}: {sol[v]}")
     print()
+
+
+def visualize_csp_graph(csp: CSP, outfile: Path, dpi: int = 250) -> None:
+    """Save an image of the structure of the CSP."""
+    intermediate_dot_file = outfile.parent / outfile.stem
+    assert not intermediate_dot_file.exists()
+    dot = graphviz.Graph(format=outfile.suffix[1:])
+    variable_nodes = {v.name for v in csp.variables}
+    constraint_nodes = {c.name for c in csp.constraints}
+    for node in variable_nodes:
+        dot.node(node, shape="circle")
+    for node in constraint_nodes:
+        dot.node(node, shape="box")
+    for constraint in csp.constraints:
+        for variable in constraint.variables:
+            dot.edge(constraint.name, variable.name)
+    dot.attr(dpi=str(dpi))
+    dot.render(outfile.stem, directory=outfile.parent)
+    os.remove(intermediate_dot_file)
+    print(f"Wrote out to {outfile}")
