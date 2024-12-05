@@ -53,7 +53,7 @@ python experiments/run_single_experiment.py \
     seed=0 \
     llm=openai \
     approach.max_motion_planning_candidates=50 \
-    csp_solver.min_num_satisfying_solutions=100 \
+    csp_solver.base_solver.min_num_satisfying_solutions=100 \
     env.env.scene_spec.surface_dust_patch_size=4 \
     env.env.scene_spec.use_standard_books=true \
     env.env.hidden_spec.book_preferences='I only like science fiction. I do not like any other kinds of fiction or nonfiction.' \
