@@ -5,3 +5,4 @@ base_solver:
   max_iters: 100000
   min_num_satisfying_solutions: 50
   show_progress_bar: True
+seed: ${seed}

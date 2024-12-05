@@ -95,7 +95,10 @@ class RandomWalkCSPSolver(CSPSolver):
 class LifelongCSPSolverWrapper(CSPSolver):
     """A wrapper that samples from past constraint solutions."""
 
-    def __init__(self, base_solver: CSPSolver, memory_size: int = 100) -> None:
+    def __init__(
+        self, base_solver: CSPSolver, seed: int, memory_size: int = 100
+    ) -> None:
+        super().__init__(seed)
         self._base_solver = base_solver
         self._memory_size = memory_size
         self._constraint_to_recent_solutions: dict[

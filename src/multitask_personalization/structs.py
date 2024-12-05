@@ -28,7 +28,9 @@ class CSPVariable:
 
     def __eq__(self, other: Any) -> bool:
         assert isinstance(other, CSPVariable)
-        return self.name == other.name
+        # Example where domain checking matters: books in pybullet that may
+        # have different titles between evaluation episodes.
+        return self.name == other.name and str(self.domain) == str(other.domain)
 
 
 class CSPConstraint(abc.ABC):
