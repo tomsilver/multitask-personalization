@@ -97,6 +97,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     shelf_pose: Pose = Pose(position=(0.0, 0.75, -shelf_support_height / 2))
     surface_texture: Path = Path(__file__).parent / "assets" / "dark_wood_texture.jpg"
 
+    use_standard_books: bool = False
     book_half_extents: tuple[tuple[float, float, float], ...] = (
         (0.02, 0.05, 0.08),
         (0.02, 0.05, 0.08),

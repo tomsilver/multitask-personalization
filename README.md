@@ -44,6 +44,23 @@ python experiments/run_single_experiment.py -m \
     csp_solver.max_iters=100
 ```
 
+Here's an example to generate a nice training video in pybullet:
+```
+python experiments/run_single_experiment.py \
+    env=pybullet \
+    approach=ours \
+    seed=0 \
+    llm=openai \
+    approach.max_motion_planning_candidates=50 \
+    csp_solver.min_num_satisfying_solutions=100 \
+    env.env.scene_spec.surface_dust_patch_size=4 \
+    env.env.scene_spec.use_standard_books=true \
+    env.env.hidden_spec.book_preferences='I only like science fiction. I do not like any other kinds of fiction or nonfiction.' \
+    env.max_environment_steps=1500 \
+    env.eval_frequency=-1 \
+    record_train_videos=true
+```
+
 ### G2 (SLURM cluster)
 
 If this is your first time ever using G2, do the following after sshing in:
