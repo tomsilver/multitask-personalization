@@ -818,7 +818,7 @@ Return that list and nothing else. Do not explain anything."""
         elif book_description == "Title: Book 69. Author: Hate.":
             filepath = book_dir / "hitchhikers" / "combined.jpg"
         elif book_description == "Title: Book 97. Author: Hate.":
-            import ipdb; ipdb.set_trace()
+            filepath = book_dir / "lor" / "combined.jpg"
         else:
             return None
         return p.loadTexture(str(filepath), self.physics_client_id)
