@@ -32,4 +32,4 @@ defaults:
   - env: tiny
   - csp_solver: random_walk
   - rom_model: spherical
-  - llm: canned  # change to openai for final experiments
+  - llm: openai

@@ -4,7 +4,7 @@ env:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PyBulletSceneSpec"
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
-    book_preferences: "I enjoy some fiction, especially science fiction, but not historical fiction. I like certain nonfiction genres like true crime. But I find most biographies to be boring."
+    book_preferences: "I only like science fiction. I don't like any other kinds of fiction or nonfiction."
     rom_model: ${rom_model}
     surfaces_robot_can_clean:
       - ["shelf", 0]
