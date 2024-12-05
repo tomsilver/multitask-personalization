@@ -384,10 +384,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Update the book covers.
         for book_description, book_id in zip(self.book_descriptions, self.book_ids, strict=True):
-            if book_description == 'Title: Book 36. Author: Love.':
-                book_texture_id = p.loadTexture("/Users/tom/Desktop/moby_dick.jpg", self.physics_client_id)
+            texture_id = self._get_texture_from_book_description(book_description)
+            if texture_id is not None:
                 p.changeVisualShape(
-                    book_id, -1, textureUniqueId=book_texture_id, physicsClientId=self.physics_client_id
+                    book_id, -1, textureUniqueId=texture_id, physicsClientId=self.physics_client_id
                 )
 
         while True:
@@ -810,6 +810,18 @@ Return that list and nothing else. Do not explain anything."""
             if len(book_descriptions) == num_books:  # success
                 return book_descriptions
         raise RuntimeError("LLM book description generation failed")
+    
+    def _get_texture_from_book_description(self, book_description: str) -> int | None:
+        book_dir = Path(__file__).parent / "assets" / "books"
+        if book_description == "Title: Book 36. Author: Love.":
+            filepath = book_dir / "moby_dick" / "combined.jpg"
+        elif book_description == "Title: Book 69. Author: Hate.":
+            import ipdb; ipdb.set_trace()
+        elif book_description == "Title: Book 97. Author: Hate.":
+            import ipdb; ipdb.set_trace()
+        else:
+            return None
+        return p.loadTexture(str(filepath), self.physics_client_id)
 
     def _create_dust_patch_array(self, surface_name: str, link_id: int) -> NDArray:
         """Create an array of PyBullet IDs."""
