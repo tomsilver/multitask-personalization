@@ -17,7 +17,7 @@ class HumanSpec:
     gender: str = "male"
     subject_id: int = 1
     condition: str = "limit_4"
-    base_pose: Pose = Pose(position=(1.5, 0.53, 0.51))
+    base_pose: Pose = Pose(position=(2.0, 0.53, 0.51))
     init_joints: JointPositions = field(
         default_factory=lambda: [
             0.0,

@@ -65,7 +65,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     human_spec: HumanSpec = HumanSpec()
 
-    wheelchair_base_pose: Pose = Pose(position=(1.5, 0.5, -0.33))
+    wheelchair_base_pose: Pose = Pose(position=(2.0, 0.5, -0.33))
     wheelchair_rgba: tuple[float, float, float, float] = (0.7, 0.7, 0.7, 1.0)
 
     table_pose: Pose = Pose(position=(-0.75, 0.0, -0.2))
