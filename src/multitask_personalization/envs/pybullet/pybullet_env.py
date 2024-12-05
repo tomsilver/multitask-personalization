@@ -799,22 +799,66 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return possible_missions
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
-        return [
-            "Title: Moby Dick. Author: Herman Melville.",
-            "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams.",
-            "Title: The Lord of the Rings. Author: J. R. R. Tolkien.",
-        ]
+        if self.scene_spec.use_standard_books:
+            assert num_books == 3
+            return [
+                "Title: Moby Dick. Author: Herman Melville.",
+                "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams.",
+                "Title: The Lord of the Rings. Author: J. R. R. Tolkien.",
+            ]
+        assert self._hidden_spec is not None
+        user_preferences = self._hidden_spec.book_preferences
+        # pylint: disable=line-too-long
+        prompt = f"""Generate a list of {num_books} real English-language book titles and authors. Be creative.
+
+Generate one book that the user would love and other books that the user would hate, based on the following user preferences: "{user_preferences}"
+        
+Return the list in the following format:
+
+1. [The user would love] Title: <title>. Author: <author>.
+2. [The user would hate] Title: <title>. Author: <author>.
+3. [The user would hate] Title: <title>. Author: <author>.
+etc.
+
+Return that list and nothing else. Do not explain anything."""
+        for _ in range(100):  # retry until parsing works
+            response = self._llm.sample_completions(
+                prompt,
+                imgs=None,
+                temperature=1.0,
+                seed=seed,
+            )[0]
+            book_descriptions: list[str] = []
+            for i, line in enumerate(response.split("\n")):
+                prefixes = (
+                    f"{i+1}. [The user would love] ",
+                    f"{i+1}. [The user would hate] ",
+                )
+                for prefix in prefixes:
+                    if line.startswith(prefix):
+                        book_description = line[len(prefix) :]
+                        book_descriptions.append(book_description)
+                        break
+            if len(book_descriptions) == num_books:  # success
+                return book_descriptions
+        raise RuntimeError("LLM book description generation failed")
 
     def _get_texture_from_book_description(self, book_description: str) -> int | None:
         book_dir = Path(__file__).parent / "assets" / "books"
         if book_description == "Title: Moby Dick. Author: Herman Melville.":
             filepath = book_dir / "moby_dick" / "combined.jpg"
-        elif book_description == "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams.":
+        elif (
+            book_description
+            == "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams."
+        ):
             filepath = book_dir / "hitchhikers" / "combined.jpg"
-        elif book_description == "Title: The Lord of the Rings. Author: J. R. R. Tolkien.":
+        elif (
+            book_description
+            == "Title: The Lord of the Rings. Author: J. R. R. Tolkien."
+        ):
             filepath = book_dir / "lor" / "combined.jpg"
         else:
-            assert False
+            return None
         return p.loadTexture(str(filepath), self.physics_client_id)
 
     def _create_dust_patch_array(self, surface_name: str, link_id: int) -> NDArray:

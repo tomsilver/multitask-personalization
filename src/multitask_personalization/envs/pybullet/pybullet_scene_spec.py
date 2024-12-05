@@ -97,6 +97,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     shelf_pose: Pose = Pose(position=(0.0, 0.75, -shelf_support_height / 2))
     surface_texture: Path = Path(__file__).parent / "assets" / "dark_wood_texture.jpg"
 
+    use_standard_books: bool = False
     book_half_extents: tuple[tuple[float, float, float], ...] = (
         (0.02, 0.05, 0.08),
         (0.02, 0.05, 0.08),
@@ -138,7 +139,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
         ),
     )
 
-    surface_dust_patch_size: int = 4  # dust arrays will be this number ^ 2
+    surface_dust_patch_size: int = 2  # dust arrays will be this number ^ 2
     surface_max_dust: float = 1.0
     max_dust_clean_threshold: float = 0.5
     dirty_patch_penalty: float = -0.5

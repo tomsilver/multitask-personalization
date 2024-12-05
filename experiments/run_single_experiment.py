@@ -166,8 +166,21 @@ def _main(cfg: DictConfig) -> None:
         logging.warning("Crashed! Saving environment states before finishing.")
         train_env.unwrapped.save_state(saved_state_dir / "crash_train_env_state.p")
         eval_env.unwrapped.save_state(saved_state_dir / "crash_eval_env_state.p")
+
         train_env.close()
         eval_env.close()
+
+        # Aggregate and save results.
+        train_df = pd.DataFrame(train_metrics)
+        train_df.to_csv(cfg.train_results_file)
+        logging.info(
+            f"Wrote out INCOMPLETE training results to {cfg.train_results_file}"
+        )
+
+        eval_df = pd.DataFrame(eval_metrics)
+        eval_df.to_csv(cfg.eval_results_file)
+        logging.info(f"Wrote out INCOMPLETE eval results to {cfg.eval_results_file}")
+
         logging.critical(e, exc_info=True)
 
 
