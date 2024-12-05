@@ -8,12 +8,8 @@ from PIL import Image
 
 
 def _main(front_cover_file: Path, back_cover_file: Path, spine_file: Path, outfile: Path,
-          spine_color_str: str,
           scale: int = 250, page_width: int = 2, page_gray_color: float = 80,
           page_white_color: float = 225) -> None:
-    
-    assert spine_color_str.count(",") == 2
-    spine_color = tuple(map(int, spine_color_str.split(",")))
 
     # Read the front and back cover images
     front_cover_img = iio.imread(front_cover_file)
@@ -32,7 +28,7 @@ def _main(front_cover_file: Path, back_cover_file: Path, spine_file: Path, outfi
         pages_img[:, c+page_width:c+2*page_width] = page_white_color
 
     # Create an empty canvas for the texture
-    canvas = np.full((scale * 4, scale * 4, 3), spine_color, dtype=np.uint8)
+    canvas = 255 * np.ones((scale * 4, scale * 4, 3), dtype=np.uint8)
 
     # Horizontal flip both covers
     front_cover_img = front_cover_img[:, ::-1, :]
@@ -72,6 +68,5 @@ if __name__ == "__main__":
     parser.add_argument("back_cover", type=Path)
     parser.add_argument("spine", type=Path)
     parser.add_argument("outfile", type=Path)
-    parser.add_argument("--spine_color", type=str, default="200,200,200")
     args = parser.parse_args()
-    _main(args.front_cover, args.back_cover, args.spine, args.outfile, args.spine_color)
+    _main(args.front_cover, args.back_cover, args.spine, args.outfile)

@@ -816,7 +816,7 @@ Return that list and nothing else. Do not explain anything."""
         if book_description == "Title: Book 36. Author: Love.":
             filepath = book_dir / "moby_dick" / "combined.jpg"
         elif book_description == "Title: Book 69. Author: Hate.":
-            import ipdb; ipdb.set_trace()
+            filepath = book_dir / "hitchhikers" / "combined.jpg"
         elif book_description == "Title: Book 97. Author: Hate.":
             import ipdb; ipdb.set_trace()
         else:
