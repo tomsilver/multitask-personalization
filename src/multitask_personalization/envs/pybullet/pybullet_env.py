@@ -88,9 +88,45 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create the PyBullet client.
         if use_gui:
-            self.physics_client_id = create_gui_connection(camera_yaw=0)
+            self.physics_client_id = create_gui_connection(
+                camera_target=self.scene_spec.camera_target,
+                camera_distance=self.scene_spec.camera_distance,
+                camera_pitch=self.scene_spec.camera_pitch,
+                camera_yaw=self.scene_spec.camera_yaw,
+            )
         else:
             self.physics_client_id = p.connect(p.DIRECT)
+
+        # Create floor.
+        self.floor_id = p.loadURDF(
+            str(self.scene_spec.floor_urdf),
+            self.scene_spec.floor_position,
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Create walls.
+        self.wall_ids = [
+            create_pybullet_block(
+                (1.0, 1.0, 1.0, 1.0),
+                self.scene_spec.wall_half_extents,
+                self.physics_client_id,
+            )
+            for _ in self.scene_spec.wall_poses
+        ]
+        wall_texture_id = p.loadTexture(
+            str(self.scene_spec.wall_texture), self.physics_client_id
+        )
+        for wall_id, pose in zip(
+            self.wall_ids, self.scene_spec.wall_poses, strict=True
+        ):
+            p.changeVisualShape(
+                wall_id,
+                -1,
+                textureUniqueId=wall_texture_id,
+                physicsClientId=self.physics_client_id,
+            )
+            set_pose(wall_id, pose, self.physics_client_id)
 
         # Create robot.
         self.robot = self._create_robot(self.scene_spec, self.physics_client_id)
@@ -119,12 +155,27 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self._rng,
             wheelchair_mounted=False,
         )
+        p.changeVisualShape(
+            self.wheelchair.body,
+            -1,
+            rgbaColor=self.scene_spec.wheelchair_rgba,
+            physicsClientId=self.physics_client_id,
+        )
 
         # Create table.
         self.table_id = create_pybullet_block(
             self.scene_spec.table_rgba,
             half_extents=self.scene_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
+        )
+        surface_texture_id = p.loadTexture(
+            str(self.scene_spec.surface_texture), self.physics_client_id
+        )
+        p.changeVisualShape(
+            self.table_id,
+            -1,
+            textureUniqueId=surface_texture_id,
+            physicsClientId=self.physics_client_id,
         )
 
         # Create cup.
@@ -159,19 +210,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             spacing=self.scene_spec.shelf_spacing,
             support_width=self.scene_spec.shelf_support_width,
             num_layers=self.scene_spec.shelf_num_layers,
+            shelf_texture_id=surface_texture_id,
             physics_client_id=self.physics_client_id,
         )
 
         # Create books.
         self.book_ids: list[int] = []
         self.book_descriptions: list[str] = []  # created in reset()
-        for book_rgba, book_half_extents in zip(
-            self.scene_spec.book_rgbas,
-            self.scene_spec.book_half_extents,
-            strict=True,
-        ):
+        for book_half_extents in self.scene_spec.book_half_extents:
             book_id = create_pybullet_block(
-                book_rgba,
+                (1.0, 1.0, 1.0, 1.0),
                 half_extents=book_half_extents,
                 physics_client_id=self.physics_client_id,
             )
@@ -210,9 +258,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Uncomment for debug / development.
-        # while True:
-        #     self._step_simulator((1, GripperAction.OPEN))
-        #     p.stepSimulation(self.physics_client_id)
+        # if use_gui:
+        #     while True:
+        #         self._step_simulator((1, GripperAction.OPEN))
+        #         p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
@@ -353,6 +402,19 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             num_books=len(self.book_ids),
             seed=sample_seed_from_rng(self._book_llm_rng),
         )
+
+        # Update the book covers.
+        for book_description, book_id in zip(
+            self.book_descriptions, self.book_ids, strict=True
+        ):
+            texture_id = self._get_texture_from_book_description(book_description)
+            if texture_id is not None:
+                p.changeVisualShape(
+                    book_id,
+                    -1,
+                    textureUniqueId=texture_id,
+                    physicsClientId=self.physics_client_id,
+                )
 
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:
@@ -538,11 +600,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        target = self.robot.get_base_pose().position
         img = capture_image(
             self.physics_client_id,
-            camera_target=target,
+            camera_target=self.scene_spec.camera_target,
             camera_distance=self.scene_spec.camera_distance,
+            camera_pitch=self.scene_spec.camera_pitch,
+            camera_yaw=self.scene_spec.camera_yaw,
+            image_width=self.scene_spec.image_width,
+            image_height=self.scene_spec.image_height,
         )
         # In non-render mode, PyBullet does not render background correctly.
         # We want the background to be black instead of white. Here, make the
@@ -770,6 +835,18 @@ Return that list and nothing else. Do not explain anything."""
             if len(book_descriptions) == num_books:  # success
                 return book_descriptions
         raise RuntimeError("LLM book description generation failed")
+
+    def _get_texture_from_book_description(self, book_description: str) -> int | None:
+        book_dir = Path(__file__).parent / "assets" / "books"
+        if book_description == "Title: Book 36. Author: Love.":
+            filepath = book_dir / "moby_dick" / "combined.jpg"
+        elif book_description == "Title: Book 69. Author: Hate.":
+            filepath = book_dir / "hitchhikers" / "combined.jpg"
+        elif book_description == "Title: Book 97. Author: Hate.":
+            filepath = book_dir / "lor" / "combined.jpg"
+        else:
+            return None
+        return p.loadTexture(str(filepath), self.physics_client_id)
 
     def _create_dust_patch_array(self, surface_name: str, link_id: int) -> NDArray:
         """Create an array of PyBullet IDs."""
@@ -1012,6 +1089,7 @@ def _create_shelf(
     spacing: float,
     support_width: float,
     num_layers: int,
+    shelf_texture_id: int,
     physics_client_id: int,
 ) -> tuple[int, set[int]]:
     """Returns the shelf ID and the link IDs of the individual shelves."""
@@ -1101,5 +1179,12 @@ def _create_shelf(
         linkUpperLimits=[-1] * len(collision_shape_ids),
         physicsClientId=physics_client_id,
     )
+    for link_id in range(p.getNumJoints(shelf_id, physicsClientId=physics_client_id)):
+        p.changeVisualShape(
+            shelf_id,
+            link_id,
+            textureUniqueId=shelf_texture_id,
+            physicsClientId=physics_client_id,
+        )
 
     return shelf_id, shelf_link_ids

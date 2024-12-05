@@ -47,7 +47,6 @@ def test_pybullet_skills():
     scene_spec = PyBulletSceneSpec(
         book_half_extents=default_scene_spec.book_half_extents[:3],
         book_poses=default_scene_spec.book_poses[:3],
-        book_rgbas=default_scene_spec.book_rgbas[:3],
     )
     llm = OpenAILLM(
         model_name="gpt-4o-mini",
@@ -115,7 +114,6 @@ def test_wiping_all_surfaces():
         # NOTE: disable books.
         book_half_extents=default_scene_spec.book_half_extents[:1],
         book_poses=[Pose((-1000, -1000, -1000))],
-        book_rgbas=default_scene_spec.book_rgbas[:1],
     )
     llm = PyBulletCannedLLM(
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",

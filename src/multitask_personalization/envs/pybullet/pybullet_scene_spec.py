@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 from pybullet_helpers.geometry import Pose
@@ -21,6 +22,20 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     world_lower_bounds: tuple[float, float, float] = (-0.5, -0.5, 0.0)
     world_upper_bounds: tuple[float, float, float] = (0.5, 0.5, 0.0)
+
+    floor_position: tuple[float, float, float] = (0, 0, -0.4)
+    floor_urdf: Path = Path(__file__).parent / "assets" / "wood_floor.urdf"
+
+    wall_poses: list[Pose] = field(
+        default_factory=lambda: [
+            Pose.from_rpy((0.0, 1.25, 0.0), (np.pi / 2, 0.0, np.pi / 2)),
+            Pose.from_rpy((-1.25, 0.0, 0.0), (np.pi / 2, 0.0, 0.0)),
+            Pose.from_rpy((4.25, 0.0, 0.0), (np.pi / 2, 0.0, np.pi)),
+            Pose.from_rpy((0.0, 0.0, 3.0), (0.0, np.pi / 2, 0.0)),
+        ]
+    )
+    wall_half_extents: tuple[float, float, float] = (0.1, 3.0, 5.0)
+    wall_texture: Path = Path(__file__).parent / "assets" / "tiled_wall_texture.jpg"
 
     robot_name: str = "kinova-gen3"  # must be 7-dof and have fingers
     robot_base_pose: Pose = Pose((0.0, 0.0, 0.0))
@@ -44,13 +59,14 @@ class PyBulletSceneSpec(PublicSceneSpec):
     robot_max_joint_delta: float = 0.5
 
     robot_stand_pose: Pose = Pose((0.0, 0.0, -0.2))
-    robot_stand_rgba: tuple[float, float, float, float] = (0.3, 0.1, 0.1, 1.0)
+    robot_stand_rgba: tuple[float, float, float, float] = (0.3, 0.3, 0.3, 1.0)
     robot_stand_radius: float = 0.1
     robot_stand_length: float = 0.4
 
     human_spec: HumanSpec = HumanSpec()
 
-    wheelchair_base_pose: Pose = Pose(position=(2.0, 0.5, -0.46))
+    wheelchair_base_pose: Pose = Pose(position=(2.0, 0.5, -0.33))
+    wheelchair_rgba: tuple[float, float, float, float] = (0.7, 0.7, 0.7, 1.0)
 
     table_pose: Pose = Pose(position=(-0.75, 0.0, -0.2))
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
@@ -61,7 +77,12 @@ class PyBulletSceneSpec(PublicSceneSpec):
     object_radius: float = 0.025
     object_length: float = 0.1
 
+    camera_target: tuple[float, float, float] = (0.0, 0.0, 0.2)
     camera_distance: float = 2.0
+    camera_pitch: float = -35
+    camera_yaw: float = -35
+    image_height: int = 1024
+    image_width: int = 1600
 
     shelf_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     shelf_width: float = 0.8
@@ -74,12 +95,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
         shelf_num_layers - 1
     ) * shelf_height
     shelf_pose: Pose = Pose(position=(0.0, 0.75, -shelf_support_height / 2))
+    surface_texture: Path = Path(__file__).parent / "assets" / "dark_wood_texture.jpg"
 
-    book_rgbas: tuple[tuple[float, float, float, float], ...] = (
-        (0.8, 0.2, 0.2, 1.0),
-        (0.2, 0.8, 0.2, 1.0),
-        (0.2, 0.2, 0.8, 1.0),
-    )
     book_half_extents: tuple[tuple[float, float, float], ...] = (
         (0.02, 0.05, 0.08),
         (0.02, 0.05, 0.08),
@@ -132,10 +149,20 @@ class PyBulletSceneSpec(PublicSceneSpec):
     duster_head_forward_length: float = 0.04
     duster_head_long_length: float = 0.075
     duster_head_up_down_length: float = 0.04
-    duster_head_rgba: tuple[float, float, float, float] = (0.4, 0.8, 0.8, 1.0)
+    duster_head_rgba: tuple[float, float, float, float] = (
+        155 / 255,
+        126 / 255,
+        189 / 255,
+        1.0,
+    )
     duster_pole_radius: float = 0.01
     duster_pole_height: float = 0.35
-    duster_pole_rgba: tuple[float, float, float, float] = (0.0, 0.3, 0.3, 1.0)
+    duster_pole_rgba: tuple[float, float, float, float] = (
+        59 / 255,
+        30 / 255,
+        84 / 255,
+        1.0,
+    )
     duster_pole_offset: tuple[float, float, float] = (
         duster_head_forward_length - duster_pole_radius,
         0,
