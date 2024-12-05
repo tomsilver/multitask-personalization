@@ -198,7 +198,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             strict=True,
         ):
             book_id = create_pybullet_block(
-                book_rgba,
+                (1.0, 1.0, 1.0, 1.0),
                 half_extents=book_half_extents,
                 physics_client_id=self.physics_client_id,
             )
@@ -237,10 +237,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Uncomment for debug / development.
-        if use_gui:
-            while True:
-                self._step_simulator((1, GripperAction.OPEN))
-                p.stepSimulation(self.physics_client_id)
+        # if use_gui:
+        #     while True:
+        #         self._step_simulator((1, GripperAction.OPEN))
+        #         p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
@@ -381,6 +381,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             num_books=len(self.book_ids),
             seed=sample_seed_from_rng(self._book_llm_rng),
         )
+
+        # Update the book covers.
+        for book_description, book_id in zip(self.book_descriptions, self.book_ids, strict=True):
+            if book_description == 'Title: Book 36. Author: Love.':
+                book_texture_id = p.loadTexture("/Users/tom/Desktop/moby_dick.jpg", self.physics_client_id)
+                p.changeVisualShape(
+                    book_id, -1, textureUniqueId=book_texture_id, physicsClientId=self.physics_client_id
+                )
+
+        while True:
+            self._step_simulator((1, GripperAction.OPEN))
+            p.stepSimulation(self.physics_client_id)
 
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:

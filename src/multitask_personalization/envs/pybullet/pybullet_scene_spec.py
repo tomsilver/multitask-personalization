@@ -110,7 +110,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
                 + (shelf_num_layers - 2) * shelf_spacing
                 + (shelf_num_layers - 2) * shelf_height
                 + book_half_extents[0][2]
-                + shelf_support_width,
+                + shelf_support_width + 0.05,
             )
         ),
         Pose(
