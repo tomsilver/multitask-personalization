@@ -1,0 +1,7 @@
+_target_: "multitask_personalization.csp_solvers.LifelongCSPSolverWrapper"
+base_solver:
+  _target_: "multitask_personalization.csp_solvers.RandomWalkCSPSolver"
+  seed: ${seed}
+  max_iters: 100000
+  min_num_satisfying_solutions: 50
+  show_progress_bar: True
