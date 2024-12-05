@@ -57,6 +57,7 @@ python experiments/run_single_experiment.py \
     env.env.scene_spec.use_standard_books=true \
     env.env.hidden_spec.book_preferences='I only like science fiction. I do not like any other kinds of fiction or nonfiction.' \
     env.max_environment_steps=1500 \
+    env.eval_frequency=-1 \
     record_train_videos=true
 ```
 

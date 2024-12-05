@@ -22,6 +22,7 @@ from pybullet_helpers.inverse_kinematics import (
 )
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
+from pybullet_helpers.robots.kinova import KinovaGen3RobotiqGripperPyBulletRobot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import LargeLanguageModel
@@ -324,6 +325,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if state.held_object is None
             else self.get_object_id_from_name(state.held_object)
         )
+        if self.current_held_object_id:
+            self._close_robot_fingers()
+        else:
+            self._open_robot_fingers()
         # Set PyBullet dust patch object colors from numpy array of levels.
         for surf, np_dust_patch_array in state.surface_dust_patches.items():
             for r in range(np_dust_patch_array.shape[0]):
@@ -513,9 +518,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                         world_to_robot.invert(), world_to_object
                     )
                     self.current_held_object_id = object_id
+                    self._close_robot_fingers()
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
+                self._open_robot_fingers()
             return
         # Robot indicating done.
         if np.isclose(action[0], 2):
@@ -1011,6 +1018,19 @@ Return that list and nothing else. Do not explain anything."""
                 pass
         assert len(color) == 4
         return color[-1]
+
+    def _close_robot_fingers(self) -> None:
+        # Very specific finger change logic, just for videos.
+        assert isinstance(self.robot, KinovaGen3RobotiqGripperPyBulletRobot)
+        assert self.current_held_object_id is not None
+        if self.current_held_object_id == self.duster_id:
+            closed_finger_state = 0.6
+        else:
+            closed_finger_state = 0.3
+        self.robot.set_finger_state(closed_finger_state)
+
+    def _open_robot_fingers(self) -> None:
+        return self.robot.open_fingers()
 
 
 def _create_duster(
