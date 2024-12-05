@@ -164,8 +164,10 @@ def _main(cfg: DictConfig) -> None:
 
     except BaseException as e:
         logging.warning("Crashed! Saving environment states before finishing.")
-        train_env.save_state(saved_state_dir / "crash_train_env_state.p")
-        eval_env.save_state(saved_state_dir / "crash_eval_env_state.p")
+        train_env.unwrapped.save_state(saved_state_dir / "crash_train_env_state.p")
+        eval_env.unwrapped.save_state(saved_state_dir / "crash_eval_env_state.p")
+        train_env.close()
+        eval_env.close()
         logging.critical(e, exc_info=True)
 
 
