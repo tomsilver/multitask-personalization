@@ -6,7 +6,7 @@ hydra:
     subdir: ${hydra.job.num}
 
 wandb:
-  enable: False
+  enable: false
   project: "multitask_personalization"
   entity: null
   group: null

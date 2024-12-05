@@ -79,5 +79,6 @@ module = [
     "seaborn.*",
     "moviepy.*",
     "sklearn.*",
+    "graphviz.*",
 ]
 ignore_missing_imports = true

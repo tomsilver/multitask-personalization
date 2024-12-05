@@ -26,6 +26,11 @@ def _create_test_csp():
 
     csp = CSP([x, y, z], [c1, c2])
 
+    # Uncomment to visualize the CSP.
+    # from multitask_personalization.utils import visualize_csp_graph
+    # from pathlib import Path
+    # visualize_csp_graph(csp, Path("test_csp.png"))
+
     sample_xy = lambda _, rng: {
         x: rng.uniform(0, 1, size=(1,)),
         y: rng.uniform(0, 1, size=(1,)),
