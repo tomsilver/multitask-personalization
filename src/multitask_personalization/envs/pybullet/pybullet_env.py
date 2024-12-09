@@ -25,8 +25,12 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
-from tomsutils.utils import render_textbox_on_image, sample_seed_from_rng
+from tomsutils.utils import render_textbox_on_image, sample_seed_from_rng, get_signed_angle_distance, wrap_angle
 
+from multitask_personalization.rom.models import (
+    set_human_arm_joints,
+    get_human_arm_joints,
+)
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
 )
@@ -508,6 +512,27 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             return
         # Robot indicating done.
         if np.isclose(action[0], 2):
+
+            # TODO...
+            assert self.current_held_object_id is not None
+            handover_position = get_pose(
+                self.current_held_object_id, self.physics_client_id
+            ).position
+            target_human_joints = self._hidden_spec.rom_model.run_inverse_kinematics(
+                handover_position
+            )
+            current_human_joints = get_human_arm_joints(self.human)
+            joint_dists = [np.degrees(get_signed_angle_distance(wrap_angle(np.radians(i)), wrap_angle(np.radians(j)))) for i, j in zip(target_human_joints, current_human_joints)]
+            for waypoint in np.linspace(
+                current_human_joints, np.add(current_human_joints, joint_dists), num=1000, endpoint=True
+            ):
+                set_human_arm_joints(self.human, waypoint)
+                import time
+
+                time.sleep(0.01)
+            while True:
+                p.stepSimulation(self.physics_client_id)
+
             return
         # Moving the robot.
         joint_action = list(action[1])  # type: ignore

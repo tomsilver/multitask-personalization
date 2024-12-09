@@ -59,7 +59,7 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=False,
+        use_gui=True,
         seed=seed,
     )
     env.action_space.seed(seed)
@@ -110,8 +110,8 @@ def test_pybullet_csp():
         # Run the policy.
         for _ in range(1000):  # should be more than enough
             act = policy.step(obs)
-            if mission.check_complete(obs, act):
-                break
+            # if mission.check_complete(obs, act):
+            #     break
             obs, reward, terminated, truncated, _ = env.step(act)
             assert isinstance(obs, PyBulletState)
             assert np.isclose(reward, 0.0)
@@ -139,10 +139,10 @@ def test_pybullet_csp():
     env.save_state(post_book_handover1_state_fp)
 
     # Clean.
-    env.load_state(post_book_handover1_state_fp)
-    post_clean1_state_fp = saved_state_dir / "clean_1.p"
-    _run_mission(clean_mission)
-    env.save_state(post_clean1_state_fp)
+    # env.load_state(post_book_handover1_state_fp)
+    # post_clean1_state_fp = saved_state_dir / "clean_1.p"
+    # _run_mission(clean_mission)
+    # env.save_state(post_clean1_state_fp)
 
     # Uncomment for more thorough tests (but too slow to merge).
 

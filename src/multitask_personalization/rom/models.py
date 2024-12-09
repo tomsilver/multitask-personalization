@@ -24,6 +24,7 @@ from multitask_personalization.utils import (
     DIMENSION_LIMITS,
     DIMENSION_NAMES,
     denormalize_samples,
+    euler2rotmat,
     rotation_matrix_x,
     rotation_matrix_y,
     rotmat2euler,
@@ -463,10 +464,9 @@ class LearnedROMModel(TrainableROMModel):
         raise NotImplementedError("Figure this out in a future PR...")
 
 
-def set_human_arm_joints(human: Human, joint_positions: NDArray) -> None:
-    """Directly modify the human state given 4D joint positions."""
-    # Transform from collected data angle space into pybullet angle space.
-    shoulder_aa, shoulder_fe, shoulder_rot, elbow_flexion = joint_positions
+def ot_angles_to_pybullet_angles(ot_angles: NDArray) -> NDArray:
+    """Transform from data collection space into pybullet space, both 4D."""
+    shoulder_aa, shoulder_fe, shoulder_rot, elbow_flexion = ot_angles
     shoulder_aa = -shoulder_aa
     shoulder_rot -= 90
     shoulder_rot = -shoulder_rot
@@ -481,18 +481,82 @@ def set_human_arm_joints(human: Human, joint_positions: NDArray) -> None:
     shoulder_y = transformed_angles[1]
     shoulder_z = 180 - transformed_angles[2]
     elbow = elbow_flexion
+    return np.radians([shoulder_x, shoulder_y, shoulder_z, elbow])
 
+
+def pybullet_angles_to_ot_angles(pybullet_angles: NDArray) -> NDArray:
+    """Inverse of ot_angles_to_pybullet_angles()."""
+    # Convert from radians to degrees
+    pb_deg = np.degrees(pybullet_angles)
+    shoulder_x, shoulder_y, shoulder_z, elbow = pb_deg
+
+    # From forward transform relationships:
+    # angle_Y = shoulder_x + 90
+    # angle_Z = shoulder_y
+    # angle_X = 180 - shoulder_z
+    angle_Y = shoulder_x + 90
+    angle_Z = shoulder_y
+    angle_X = 180 - shoulder_z
+
+    # Reconstruct the local rotation matrix using the inverse intermediate angles
+    # The forward function used `rotmat2euler(local_rot_mat, seq="YZX")`
+    # so we do the inverse with `euler2rotmat` to get local_rot_mat back:
+    local_rot_mat = euler2rotmat(np.array([angle_Y, angle_Z, angle_X]), seq="YZX")
+
+    # Recall from forward:
+    # local_rot_mat = R_y(90)*R_x(-o_aa)*R_y(o_fe)*R_x(90 - o_rot)
+    # Let's isolate the inner rotations:
+    # Multiply on the left by R_y(-90) to remove the initial R_y(90):
+    inv_first = rotation_matrix_y(-90) @ local_rot_mat
+
+    # Now inv_first = R_x(-o_aa)*R_y(o_fe)*R_x(90 - o_rot)
+    # This is an 'X Y X' Euler sequence.
+    # We can directly recover these angles by decomposing inv_first using the 'XYX' sequence:
+    angles_xyx = rotmat2euler(inv_first, seq="XYX")  # returns [X1, Y, X2]
+
+    # angles_xyx correspond to [-o_aa, o_fe, (90 - o_rot)]
+    minus_o_aa, o_fe, ninety_minus_o_rot = angles_xyx
+    o_aa = -minus_o_aa
+    o_rot = 90 - ninety_minus_o_rot
+    o_elbow = elbow  # elbow_flexion was unchanged
+
+    # Return the OT angles in degrees
+    return np.array([o_aa, o_fe, o_rot, o_elbow])
+
+
+def get_human_arm_joints(human: Human) -> NDArray:
+    """Get the current 4D joint positions of the human arm."""
     current_right_arm_joint_angles = human.get_joint_angles(human.right_arm_joints)
-    target_right_arm_angles = np.copy(current_right_arm_joint_angles)
     shoulder_x_index = human.j_right_shoulder_x
     shoulder_y_index = human.j_right_shoulder_y
     shoulder_z_index = human.j_right_shoulder_z
     elbow_index = human.j_right_elbow
+    pybullet_angles = np.array(
+        [
+            current_right_arm_joint_angles[shoulder_x_index],
+            current_right_arm_joint_angles[shoulder_y_index],
+            current_right_arm_joint_angles[shoulder_z_index],
+            current_right_arm_joint_angles[elbow_index],
+        ]
+    )
+    return pybullet_angles_to_ot_angles(pybullet_angles)
 
-    target_right_arm_angles[shoulder_x_index] = np.radians(shoulder_x)
-    target_right_arm_angles[shoulder_y_index] = np.radians(shoulder_y)
-    target_right_arm_angles[shoulder_z_index] = np.radians(shoulder_z)
-    target_right_arm_angles[elbow_index] = np.radians(elbow)
+
+def set_human_arm_joints(human: Human, joint_positions: NDArray) -> None:
+    """Directly modify the human state given 4D joint positions."""
+    shoulder_x, shoulder_y, shoulder_z, elbow = ot_angles_to_pybullet_angles(
+        joint_positions
+    )
+    shoulder_x_index = human.j_right_shoulder_x
+    shoulder_y_index = human.j_right_shoulder_y
+    shoulder_z_index = human.j_right_shoulder_z
+    elbow_index = human.j_right_elbow
+    current_right_arm_joint_angles = human.get_joint_angles(human.right_arm_joints)
+    target_right_arm_angles = np.copy(current_right_arm_joint_angles)
+    target_right_arm_angles[shoulder_x_index] = shoulder_x
+    target_right_arm_angles[shoulder_y_index] = shoulder_y
+    target_right_arm_angles[shoulder_z_index] = shoulder_z
+    target_right_arm_angles[elbow_index] = elbow
     other_idxs = set(human.right_arm_joints) - {
         shoulder_x_index,
         shoulder_y_index,

@@ -62,6 +62,12 @@ def rotmat2euler(rot_matrix: NDArray, seq: str = "ZXY") -> NDArray:
     return rotation.as_euler(seq, degrees=True)
 
 
+def euler2rotmat(euler: NDArray, seq: str = "ZXY") -> NDArray:
+    """Inverse of rotmat2euler."""
+    rotation = R.from_euler(seq, euler, degrees=True)
+    return rotation.as_matrix()
+
+
 def sample_within_sphere(
     center: Pose3D, radius: float, rng: np.random.Generator
 ) -> Pose3D:
