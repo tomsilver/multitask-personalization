@@ -524,7 +524,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             current_human_joints = get_human_arm_joints(self.human)
             joint_dists = [np.degrees(get_signed_angle_distance(wrap_angle(np.radians(i)), wrap_angle(np.radians(j)))) for i, j in zip(target_human_joints, current_human_joints)]
             for waypoint in np.linspace(
-                current_human_joints, np.add(current_human_joints, joint_dists), num=1000, endpoint=True
+                current_human_joints,
+                np.add(current_human_joints, joint_dists),
+                num=1000,
+                endpoint=True
             ):
                 set_human_arm_joints(self.human, waypoint)
                 import time

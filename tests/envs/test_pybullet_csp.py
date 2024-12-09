@@ -1,15 +1,14 @@
 """Tests for pybullet_csp.py."""
 
-import os
 from pathlib import Path
 
 import numpy as np
-from tomsutils.llm import OpenAILLM
 
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.pybullet.pybullet_csp import (
     PyBulletCSPGenerator,
 )
+from multitask_personalization.envs.pybullet.pybullet_utils import PyBulletCannedLLM
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     HiddenSceneSpec,
@@ -23,8 +22,6 @@ from multitask_personalization.rom.models import SphericalROMModel
 
 def test_pybullet_csp():
     """Tests for pybullet_csp.py."""
-    if "OPENAI_API_KEY" not in os.environ:
-        os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
     default_scene_spec = PyBulletSceneSpec()
     scene_spec = PyBulletSceneSpec(
@@ -47,11 +44,8 @@ def test_pybullet_csp():
         surfaces_robot_can_clean=surfaces_robot_can_clean,
     )
 
-    llm = OpenAILLM(
-        model_name="gpt-4o-mini",
+    llm = PyBulletCannedLLM(
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
-        max_tokens=700,
-        use_cache_only=True,
     )
 
     # Create a real environment.

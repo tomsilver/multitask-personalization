@@ -108,12 +108,16 @@ class ROMModel(abc.ABC):
         for _ in range(max_retries):
             init = rng.uniform(lower, upper)
             result = minimize(_f, init, method="Nelder-Mead", tol=tol)
+            if any(not (l <= v <= u) for l, v, u in zip(lower, result.x, upper)):
+                continue
             if result.success and result.fun < tol:
                 return result.x
             if result.fun < best_value:
                 best_value = result.fun
                 best_answer = result.x
-        assert best_answer is not None
+        if best_answer is None:
+            logging.warning("Human IK failed completely")
+            return np.add(lower, upper) / 2
         return best_answer
 
     def _visualize_reachable_points(
