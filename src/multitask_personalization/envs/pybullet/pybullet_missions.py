@@ -48,14 +48,14 @@ class HandOverBookMission(PyBulletMission):
         return True
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
-        robot_indicated_done = bool(np.isclose(action[0], 2))
-        reachable = self._check_reachable(state)
-        return reachable and robot_indicated_done
+        robot_indicated_done = bool(np.isclose(action[0], 3))
+        human_holding_object = state.human_held_object is not None
+        return human_holding_object and robot_indicated_done
 
     def step(
         self, state: PyBulletState, action: PyBulletAction
     ) -> tuple[str | None, float]:
-        robot_indicated_done = np.isclose(action[0], 2)
+        robot_indicated_done = np.isclose(action[0], 3)
         # Robot needs to indicate done for the handover task.
         if not robot_indicated_done:
             return None, 0.0
@@ -169,7 +169,7 @@ class CleanSurfacesMission(PyBulletMission):
         return True
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
-        robot_indicated_done = bool(np.isclose(action[0], 2))
+        robot_indicated_done = bool(np.isclose(action[0], 3))
         return robot_indicated_done
 
     def step(

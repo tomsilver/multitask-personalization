@@ -35,6 +35,7 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_place_object,
     get_plan_to_wipe_surface,
     get_target_base_pose,
+    get_plan_to_retract,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -118,6 +119,14 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         handover_base_pose = self._get_value("handover_base_pose")
         assert isinstance(handover_base_pose, Pose)
 
+        # Retract after transfer.
+        if obs.human_held_object is not None:
+            assert obs.human_held_object == book_description
+            plan = get_plan_to_retract(obs, self._sim, obs.human_held_object,
+                                       max_motion_planning_time=self._max_motion_planning_time)
+            # Indicate done.
+            plan.append((3, None))
+            return plan
         if obs.held_object is None:
             # First move next to the object.
             if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
@@ -147,7 +156,8 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
-            plan.append((2, None))
+            # Tell the human to take the book.
+            plan.append((2, "Here you go!"))
             return plan
         # Need to place held object.
         placement_pose = self._get_value("placement")
@@ -226,7 +236,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
             )
             assert plan is not None
             # Indicate done.
-            plan.append((2, None))
+            plan.append((3, None))
             return plan
         # Need to place held object.
         placement_pose = self._get_value("placement")

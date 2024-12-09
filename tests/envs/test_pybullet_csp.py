@@ -104,8 +104,8 @@ def test_pybullet_csp():
         # Run the policy.
         for _ in range(1000):  # should be more than enough
             act = policy.step(obs)
-            # if mission.check_complete(obs, act):
-            #     break
+            if mission.check_complete(obs, act):
+                break
             obs, reward, terminated, truncated, _ = env.step(act)
             assert isinstance(obs, PyBulletState)
             assert np.isclose(reward, 0.0)

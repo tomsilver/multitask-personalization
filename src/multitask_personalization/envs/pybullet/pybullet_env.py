@@ -30,6 +30,7 @@ from tomsutils.utils import render_textbox_on_image, sample_seed_from_rng, get_s
 from multitask_personalization.rom.models import (
     set_human_arm_joints,
     get_human_arm_joints,
+    get_human_hand_pose,
 )
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
@@ -223,6 +224,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_grasp_transform: Pose | None = None
         self.current_held_object_id: int | None = None
 
+        # Track what the human is holding and whether a handover is happening.
+        self.current_human_grasp_transform: Pose | None = None
+        self.current_human_held_object_id: int | None = None
+
         # Create and track dust patches.
         self._dust_patches = {
             (surface, link_id): self._create_dust_patch_array(surface, link_id)
@@ -273,6 +278,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if self.current_held_object_id is None
             else self.get_name_from_object_id(self.current_held_object_id)
         )
+        human_held_object = (
+            None
+            if self.current_human_held_object_id is None
+            else self.get_name_from_object_id(self.current_human_held_object_id)
+        )
         # Convert PyBullet dust patch object colors into numpy array of levels.
         np_dust_patches = {
             k: np.empty(v.shape, dtype=np.float_) for k, v in self._dust_patches.items()
@@ -295,6 +305,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             np_dust_patches,
             held_object,
             self.current_human_text,
+            human_held_object,
+            self.current_human_grasp_transform,
         )
 
     def set_state(self, state: PyBulletState) -> None:
@@ -322,6 +334,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self._close_robot_fingers()
         else:
             self._open_robot_fingers()
+        self.current_human_held_object_id = (
+            None
+            if state.human_held_object is None
+            else self.get_object_id_from_name(state.human_held_object)
+        )
+        self.current_human_grasp_transform = state.human_grasp_transform
         # Set PyBullet dust patch object colors from numpy array of levels.
         for surf, np_dust_patch_array in state.surface_dust_patches.items():
             for r in range(np_dust_patch_array.shape[0]):
@@ -367,6 +385,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Reset held object statuses.
         self.current_grasp_transform = None
         self.current_held_object_id = None
+        self.current_human_grasp_transform = None
+        self.current_human_held_object_id = None
 
         # Reset dust patches.
         for surface, link_id in self._dust_patches:
@@ -510,10 +530,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.current_held_object_id = None
                 self._open_robot_fingers()
             return
-        # Robot indicating done.
+        # Robot indicating hand over.
         if np.isclose(action[0], 2):
-
-            # TODO...
+            assert action[1] == "Here you go!"
             assert self.current_held_object_id is not None
             handover_position = get_pose(
                 self.current_held_object_id, self.physics_client_id
@@ -521,21 +540,35 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             target_human_joints = self._hidden_spec.rom_model.run_inverse_kinematics(
                 handover_position
             )
-            current_human_joints = get_human_arm_joints(self.human)
-            joint_dists = [np.degrees(get_signed_angle_distance(wrap_angle(np.radians(i)), wrap_angle(np.radians(j)))) for i, j in zip(target_human_joints, current_human_joints)]
-            for waypoint in np.linspace(
-                current_human_joints,
-                np.add(current_human_joints, joint_dists),
-                num=1000,
-                endpoint=True
-            ):
-                set_human_arm_joints(self.human, waypoint)
-                import time
+            set_human_arm_joints(self.human, target_human_joints)
+            self.current_human_held_object_id = self.current_held_object_id
+            world_to_object = get_pose(self.current_human_held_object_id, self.physics_client_id)
+            world_to_human = get_human_hand_pose(self.human)
+            self.current_human_grasp_transform = multiply_poses(
+                world_to_human.invert(), world_to_object
+            )
+            self.current_held_object_id = None
+            self.current_grasp_transform = None
 
-                time.sleep(0.01)
-            while True:
-                p.stepSimulation(self.physics_client_id)
+            # TODO...
+            # current_human_joints = get_human_arm_joints(self.human)
+            # joint_dists = [np.degrees(get_signed_angle_distance(wrap_angle(np.radians(i)), wrap_angle(np.radians(j)))) for i, j in zip(target_human_joints, current_human_joints)]
+            # for waypoint in np.linspace(
+            #     current_human_joints,
+            #     np.add(current_human_joints, joint_dists),
+            #     num=1000,
+            #     endpoint=True
+            # ):
+            #     set_human_arm_joints(self.human, waypoint)
+            #     import time
 
+            #     time.sleep(0.01)
+            # while True:
+            #     p.stepSimulation(self.physics_client_id)
+
+            return
+        # Robot indicated done.
+        if np.isclose(action[0], 3):
             return
         # Moving the robot.
         joint_action = list(action[1])  # type: ignore

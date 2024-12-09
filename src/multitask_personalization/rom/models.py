@@ -14,6 +14,7 @@ from assistive_gym.envs.agents.human import Human
 from numpy.typing import NDArray
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
+from pybullet_helpers.geometry import Pose
 
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     HumanSpec,
@@ -526,6 +527,13 @@ def pybullet_angles_to_ot_angles(pybullet_angles: NDArray) -> NDArray:
 
     # Return the OT angles in degrees
     return np.array([o_aa, o_fe, o_rot, o_elbow])
+
+
+
+def get_human_hand_pose(human: Human) -> Pose:
+    """Get the pose of the human right hand."""
+    position, orientation = human.get_pos_orient(human.right_wrist)
+    return Pose(tuple(position), tuple(orientation))
 
 
 def get_human_arm_joints(human: Human) -> NDArray:

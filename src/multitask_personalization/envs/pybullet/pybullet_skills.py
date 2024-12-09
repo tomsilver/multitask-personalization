@@ -12,6 +12,7 @@ from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
+    get_kinematic_plan_to_retract,
 )
 from pybullet_helpers.motion_planning import (
     MotionPlanningHyperparameters,
@@ -92,6 +93,31 @@ def get_actions_from_kinematic_transition(
     elif state.attachments and not next_state.attachments:
         actions.append((1, GripperAction.OPEN))
     return actions
+
+
+def get_plan_to_retract(state: PyBulletState,
+    sim: PyBulletEnv,
+    previously_held_object: str | None = None,
+    translation_magnitude: float = 0.125,
+    max_motion_planning_time: float = np.inf,
+    ) -> list[PyBulletAction]:
+    """Get a plan to retract in the opposite direction of the robot fingers."""
+    sim.set_state(state)
+    collision_ids = sim.get_collision_ids()
+    if previously_held_object is not None:
+        object_id = sim.get_object_id_from_name(previously_held_object)
+        collision_ids.discard(object_id)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    kinematic_plan = get_kinematic_plan_to_retract(
+        kinematic_state,
+        sim.robot,
+        collision_ids,
+        translation_magnitude=translation_magnitude,
+        max_motion_planning_time=max_motion_planning_time,
+        max_smoothing_iters_per_step=1,
+    )
+    assert kinematic_plan is not None
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
 def get_plan_to_pick_object(
