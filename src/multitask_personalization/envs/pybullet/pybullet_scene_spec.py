@@ -175,6 +175,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     cleaning_admonishment_min_time_interval: int = 25
     handover_num_waypoints: int = 25
+    handover_human_num_wait_steps: int = 20
 
     @property
     def duster_grasp(self) -> Pose:

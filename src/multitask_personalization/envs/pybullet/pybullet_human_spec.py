@@ -42,8 +42,11 @@ class HumanSpec:
             "left_knee": 0,
             "head_x": 0,
             "head_y": 0,
-            "head_z": 0,
+            "head_z": -60,
         }
+    )
+    reading_joints: JointPositions = field(
+       default_factory=lambda: [0, 5, -90, -90]
     )
 
 
