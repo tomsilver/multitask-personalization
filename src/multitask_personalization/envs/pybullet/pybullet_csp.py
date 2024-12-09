@@ -96,7 +96,7 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             assert plan is not None
             self._current_plan = plan
         action = self._current_plan.pop(0)
-        self._terminated = action[1] is None
+        self._terminated = np.isclose(action[0], 2) and action[1] == "Done"
         return action
 
     def check_termination(self, obs: PyBulletState) -> bool:
@@ -125,7 +125,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
             plan = get_plan_to_retract(obs, self._sim, obs.human_held_object,
                                        max_motion_planning_time=self._max_motion_planning_time)
             # Indicate done.
-            plan.append((3, None))
+            plan.append((2, "Done"))
             return plan
         if obs.held_object is None:
             # First move next to the object.
@@ -142,6 +142,12 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
         if obs.held_object == book_description:
+            # If the book is already ready for handover, we are waiting for the
+            # human to grasp it.
+            self._sim.set_robot_base(obs.robot_base)
+            ee_pose = self._sim.robot.forward_kinematics(obs.robot_joints)
+            if ee_pose.allclose(handover_pose, atol=1e-3):
+                return [(3, None)]  # waiting
             # Move to the handover base pose.
             if not handover_base_pose.allclose(obs.robot_base, atol=1e-3):
                 return get_plan_to_move_to_pose(
@@ -236,7 +242,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
             )
             assert plan is not None
             # Indicate done.
-            plan.append((3, None))
+            plan.append((2, "Done"))
             return plan
         # Need to place held object.
         placement_pose = self._get_value("placement")
