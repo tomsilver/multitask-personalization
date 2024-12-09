@@ -131,10 +131,10 @@ def test_pybullet_csp():
     env.save_state(post_book_handover1_state_fp)
 
     # Clean.
-    # env.load_state(post_book_handover1_state_fp)
-    # post_clean1_state_fp = saved_state_dir / "clean_1.p"
-    # _run_mission(clean_mission)
-    # env.save_state(post_clean1_state_fp)
+    env.load_state(post_book_handover1_state_fp)
+    post_clean1_state_fp = saved_state_dir / "clean_1.p"
+    _run_mission(clean_mission)
+    env.save_state(post_clean1_state_fp)
 
     # Uncomment for more thorough tests (but too slow to merge).
 
