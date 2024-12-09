@@ -1114,10 +1114,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Don't learn from duster, which is not handed over.
         if obs.held_object == "duster":
             return
-        # Only learn from cases where the robot triggered "done".
+        # Only learn from cases where the robot triggered "hand over".
         if not np.isclose(act[0], 2):
             return
-        assert act[1] is None
+        assert act[1] is "Here you go!"
         # Check if the trigger was successful.
         label = next_obs.human_text != "I can't reach there"
         # Get the current position.
@@ -1142,10 +1142,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Only learn from attempted handovers, not cleaning.
         if next_obs.held_object == "duster":
             return
-        # For now, only learn when the robot triggered "done".
+        # For now, only learn when the robot triggered hand over.
         if not np.isclose(act[0], 2):
             return
-        assert act[1] is None
+        assert act[1] == "Here you go!"
         assert next_obs.held_object is not None
         # Update the history of things the user has told the robot.
         new_feedback = f'When I gave the user the book: "{next_obs.held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long

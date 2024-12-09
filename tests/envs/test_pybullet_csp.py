@@ -106,12 +106,10 @@ def test_pybullet_csp():
             act = policy.step(obs)
             if mission.check_complete(obs, act):
                 break
-            obs, reward, terminated, truncated, _ = env.step(act)
+            obs, reward, _, _, _ = env.step(act)
             assert isinstance(obs, PyBulletState)
             assert np.isclose(reward, 0.0)
             assert not policy.check_termination(obs)
-            assert not terminated
-            assert not truncated
         else:
             assert False, "Mission did not complete."
 

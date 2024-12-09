@@ -55,9 +55,8 @@ class HandOverBookMission(PyBulletMission):
     def step(
         self, state: PyBulletState, action: PyBulletAction
     ) -> tuple[str | None, float]:
-        robot_indicated_done = np.isclose(action[0], 3)
-        # Robot needs to indicate done for the handover task.
-        if not robot_indicated_done:
+        robot_indicated_handover = np.isclose(action[0], 2) and action[1] == "Here you go!"
+        if not robot_indicated_handover:
             return None, 0.0
         # Must be holding a book.
         if state.held_object not in self._book_descriptions:
@@ -66,7 +65,7 @@ class HandOverBookMission(PyBulletMission):
         # Check if the book is reachable.
         if not self._check_reachable(state):
             return "I can't reach there", -1.0
-        # Should be holding a preferred book.
+        # Give feedback about the book.
         if not user_would_enjoy_book(
             book_description,
             self._hidden_book_preferences,
