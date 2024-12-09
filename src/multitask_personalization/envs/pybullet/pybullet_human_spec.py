@@ -35,11 +35,11 @@ class HumanSpec:
     setup_joints: dict[str, float] = field(
         default_factory=lambda: {
             "right_elbow": -90,
-            "left_elbow": -90,
+            "left_elbow": -30,
             "right_hip_x": -90,
-            "right_knee": 80,
+            "right_knee": 0,
             "left_hip_x": -90,
-            "left_knee": 80,
+            "left_knee": 0,
             "head_x": 0,
             "head_y": 0,
             "head_z": 0,

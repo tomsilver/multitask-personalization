@@ -7,11 +7,9 @@ import pickle as pkl
 from pathlib import Path
 from typing import Any, Iterable
 
-import assistive_gym.envs
 import gymnasium as gym
 import numpy as np
 import pybullet as p
-from assistive_gym.envs.agents.furniture import Furniture
 from gymnasium.core import RenderFrame
 from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
@@ -140,27 +138,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             physics_client_id=self.physics_client_id,
         )
 
+        # Create bed.
+        self.bed_id = p.loadURDF(
+            str(self.scene_spec.bed_urdf),
+            self.scene_spec.bed_pose.position,
+            self.scene_spec.bed_pose.orientation,
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+
         # Create human.
         self.human = create_human_from_spec(
             self.scene_spec.human_spec, self._rng, self.physics_client_id
-        )
-
-        # Create wheelchair.
-        self.wheelchair = Furniture()
-        directory = Path(assistive_gym.envs.__file__).parent / "assets"
-        assert directory.exists()
-        self.wheelchair.init(
-            "wheelchair",
-            directory,
-            self.physics_client_id,
-            self._rng,
-            wheelchair_mounted=False,
-        )
-        p.changeVisualShape(
-            self.wheelchair.body,
-            -1,
-            rgbaColor=self.scene_spec.wheelchair_rgba,
-            physicsClientId=self.physics_client_id,
         )
 
         # Create table.
@@ -348,13 +337,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         set_pose(
             self.robot_stand_id,
             self.scene_spec.robot_stand_pose,
-            self.physics_client_id,
-        )
-
-        # Reset wheelchair.
-        set_pose(
-            self.wheelchair.body,
-            self.scene_spec.wheelchair_base_pose,
             self.physics_client_id,
         )
 
@@ -675,7 +657,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "table": self.table_id,
             "shelf": self.shelf_id,
             "duster": self.duster_id,
-            "wheelchair": self.wheelchair.body,
+            "bed": self.bed_id,
             **book_name_to_id,
         }
 
@@ -726,8 +708,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         """Get all collision IDs for the environment."""
         return set(self.book_ids) | {
             self.table_id,
+            self.bed_id,
             self.human.body,
-            self.wheelchair.body,
             self.shelf_id,
             self.duster_id,
             self.cup_id,
