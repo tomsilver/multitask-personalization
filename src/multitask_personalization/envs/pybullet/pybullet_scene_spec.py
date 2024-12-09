@@ -26,6 +26,9 @@ class PyBulletSceneSpec(PublicSceneSpec):
     floor_position: tuple[float, float, float] = (0, 0, -0.4)
     floor_urdf: Path = Path(__file__).parent / "assets" / "wood_floor.urdf"
 
+    bed_pose: Pose = Pose.from_rpy((3.5, 0, -0.45), (np.pi / 2, 0.0, 0.0))
+    bed_urdf: Path = Path(__file__).parent / "assets" / "bed" / "bed.urdf"
+
     wall_poses: list[Pose] = field(
         default_factory=lambda: [
             Pose.from_rpy((0.0, 1.25, 0.0), (np.pi / 2, 0.0, np.pi / 2)),

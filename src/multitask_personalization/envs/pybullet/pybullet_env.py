@@ -140,6 +140,17 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             physics_client_id=self.physics_client_id,
         )
 
+        # Create bed.
+        print("Loading bed...")
+        self.bed_id = p.loadURDF(
+            str(self.scene_spec.bed_urdf),
+            self.scene_spec.bed_pose.position,
+            self.scene_spec.bed_pose.orientation,
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+        print("Done.")
+
         # Create human.
         self.human = create_human_from_spec(
             self.scene_spec.human_spec, self._rng, self.physics_client_id
@@ -259,10 +270,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Uncomment for debug / development.
-        # if use_gui:
-        #     while True:
-        #         self._step_simulator((1, GripperAction.OPEN))
-        #         p.stepSimulation(self.physics_client_id)
+        if use_gui:
+            while True:
+                self._step_simulator((1, GripperAction.OPEN))
+                p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
