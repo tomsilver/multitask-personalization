@@ -138,7 +138,7 @@ def get_target_base_pose(
 
     if object_name == "shelf":
         return sim.scene_spec.robot_base_pose  # initial base pose
-    if object_name == "wheelchair":
+    if object_name == "bed":
         return Pose((1.0, 0.0, 0.0))
     if object_name == "table":
         return Pose(

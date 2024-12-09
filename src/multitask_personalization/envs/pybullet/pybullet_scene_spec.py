@@ -26,7 +26,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     floor_position: tuple[float, float, float] = (0, 0, -0.4)
     floor_urdf: Path = Path(__file__).parent / "assets" / "wood_floor.urdf"
 
-    bed_pose: Pose = Pose.from_rpy((3.5, 0, -0.45), (np.pi / 2, 0.0, 0.0))
+    bed_pose: Pose = Pose.from_rpy((2.4, 0, -0.45), (np.pi / 2, 0.0, 0.0))
     bed_urdf: Path = Path(__file__).parent / "assets" / "bed" / "bed.urdf"
 
     wall_poses: list[Pose] = field(
@@ -67,9 +67,6 @@ class PyBulletSceneSpec(PublicSceneSpec):
     robot_stand_length: float = 0.4
 
     human_spec: HumanSpec = HumanSpec()
-
-    wheelchair_base_pose: Pose = Pose(position=(2.0, 0.5, -0.33))
-    wheelchair_rgba: tuple[float, float, float, float] = (0.7, 0.7, 0.7, 1.0)
 
     table_pose: Pose = Pose(position=(-0.75, 0.0, -0.2))
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)

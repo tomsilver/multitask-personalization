@@ -427,7 +427,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 book_grasp: np.array([-np.pi / 2]),
                 handover_position: np.zeros((3,)),
                 grasp_base_pose: init_grasp_base_pose,
-                handover_base_pose: get_target_base_pose(obs, "wheelchair", self._sim),
+                handover_base_pose: get_target_base_pose(obs, "bed", self._sim),
             }
 
             if obs.held_object is not None:

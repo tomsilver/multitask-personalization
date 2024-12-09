@@ -24,12 +24,12 @@ if "OPENAI_API_KEY" not in os.environ:
 @pytest.mark.parametrize(
     "llm",
     [
-        # OpenAILLM(
-        #     model_name="gpt-4o-mini",
-        #     cache_dir=_LLM_CACHE_DIR,
-        #     max_tokens=700,
-        #     use_cache_only=True,
-        # ),
+        OpenAILLM(
+            model_name="gpt-4o-mini",
+            cache_dir=_LLM_CACHE_DIR,
+            max_tokens=700,
+            use_cache_only=True,
+        ),
         PyBulletCannedLLM(_LLM_CACHE_DIR),
     ],
 )
@@ -59,7 +59,7 @@ def test_pybullet(llm):
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=True,
+        use_gui=False,
         seed=seed,
     )
     env.action_space.seed(seed)
