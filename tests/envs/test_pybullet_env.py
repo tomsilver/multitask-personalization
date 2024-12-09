@@ -33,8 +33,8 @@ if "OPENAI_API_KEY" not in os.environ:
         PyBulletCannedLLM(_LLM_CACHE_DIR),
     ],
 )
-def test_pybullet(llm):
-    """Tests for pybullet.py."""
+def test_pybullet_env(llm):
+    """Tests for pybullet_env.py."""
     seed = 123
 
     default_scene_spec = PyBulletSceneSpec()

@@ -10,7 +10,9 @@ from typing import Any
 import numpy as np
 import pybullet as p
 import torch
+from assistive_gym.envs.agents.human import Human
 from numpy.typing import NDArray
+from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
@@ -76,51 +78,42 @@ class ROMModel(abc.ABC):
     ) -> float:
         """Get the log probability that the position is reachable."""
 
-    def _run_human_fk(self, joint_positions: NDArray) -> NDArray:
+    def run_forward_kinematics(self, joint_positions: NDArray) -> NDArray:
         """Run forward kinematics for the human given joint positions."""
-
-        # Transform from collected data angle space into pybullet angle space.
-        shoulder_aa, shoulder_fe, shoulder_rot, elbow_flexion = joint_positions
-        shoulder_aa = -shoulder_aa
-        shoulder_rot -= 90
-        shoulder_rot = -shoulder_rot
-        local_rot_mat = (
-            rotation_matrix_y(90)
-            @ rotation_matrix_x(shoulder_aa)
-            @ rotation_matrix_y(shoulder_fe)
-            @ rotation_matrix_x(shoulder_rot)
-        )
-        transformed_angles = rotmat2euler(local_rot_mat, seq="YZX")
-        shoulder_x = transformed_angles[0] - 90
-        shoulder_y = transformed_angles[1]
-        shoulder_z = 180 - transformed_angles[2]
-        elbow = elbow_flexion
-
-        current_right_arm_joint_angles = self._human.get_joint_angles(
-            self._human.right_arm_joints
-        )
-        target_right_arm_angles = np.copy(current_right_arm_joint_angles)
-        shoulder_x_index = self._human.j_right_shoulder_x
-        shoulder_y_index = self._human.j_right_shoulder_y
-        shoulder_z_index = self._human.j_right_shoulder_z
-        elbow_index = self._human.j_right_elbow
-
-        target_right_arm_angles[shoulder_x_index] = np.radians(shoulder_x)
-        target_right_arm_angles[shoulder_y_index] = np.radians(shoulder_y)
-        target_right_arm_angles[shoulder_z_index] = np.radians(shoulder_z)
-        target_right_arm_angles[elbow_index] = np.radians(elbow)
-        other_idxs = set(self._human.right_arm_joints) - {
-            shoulder_x_index,
-            shoulder_y_index,
-            shoulder_z_index,
-            elbow_index,
-        }
-        assert np.allclose([target_right_arm_angles[i] for i in other_idxs], 0.0)
-        self._human.set_joint_angles(
-            self._human.right_arm_joints, target_right_arm_angles, use_limits=False
-        )
+        set_human_arm_joints(self._human, joint_positions)
         right_wrist_pos, _ = self._human.get_pos_orient(self._human.right_wrist)
         return right_wrist_pos
+
+    def run_inverse_kinematics(
+        self,
+        position: NDArray,
+        max_retries: int = 100,
+        seed: int = 0,
+        tol: float = 1e-3,
+    ) -> NDArray:
+        """Get 4D joint positions from a target 3D position."""
+
+        # Hopefully 4D is low-dimensional enough that this works.
+        def _f(candidate: NDArray) -> float:
+            recovered_position = self.run_forward_kinematics(candidate)
+            return np.sum(np.subtract(recovered_position, position) ** 2)
+
+        rng = np.random.default_rng(seed)
+
+        lower = [DIMENSION_LIMITS[n][0] for n in DIMENSION_NAMES]
+        upper = [DIMENSION_LIMITS[n][1] for n in DIMENSION_NAMES]
+        best_answer = None
+        best_value = np.inf
+        for _ in range(max_retries):
+            init = rng.uniform(lower, upper)
+            result = minimize(_f, init, method="Nelder-Mead", tol=tol)
+            if result.success and result.fun < tol:
+                return result.x
+            if result.fun < best_value:
+                best_value = result.fun
+                best_answer = result.x
+        assert best_answer is not None
+        return best_answer
 
     def _visualize_reachable_points(
         self,
@@ -191,7 +184,7 @@ class GroundTruthROMModel(ROMModel):
         else:
             # Create reachable point cloud using human FK.
             self._reachable_points = [
-                self._run_human_fk(point) for point in self._reachable_joints
+                self.run_forward_kinematics(point) for point in self._reachable_joints
             ]
             cache_dir.mkdir(exist_ok=True)
             # Cache reachable points
@@ -457,7 +450,7 @@ class LearnedROMModel(TrainableROMModel):
             self._dense_joint_samples[preds == 1]
         )
         self._reachable_points = [
-            self._run_human_fk(point) for point in self._reachable_joints
+            self.run_forward_kinematics(point) for point in self._reachable_joints
         ]
         assert len(self._reachable_points) != 0, "No reachable points."
         self._reachable_kd_tree = KDTree(self._reachable_points)
@@ -468,3 +461,45 @@ class LearnedROMModel(TrainableROMModel):
 
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         raise NotImplementedError("Figure this out in a future PR...")
+
+
+def set_human_arm_joints(human: Human, joint_positions: NDArray) -> None:
+    """Directly modify the human state given 4D joint positions."""
+    # Transform from collected data angle space into pybullet angle space.
+    shoulder_aa, shoulder_fe, shoulder_rot, elbow_flexion = joint_positions
+    shoulder_aa = -shoulder_aa
+    shoulder_rot -= 90
+    shoulder_rot = -shoulder_rot
+    local_rot_mat = (
+        rotation_matrix_y(90)
+        @ rotation_matrix_x(shoulder_aa)
+        @ rotation_matrix_y(shoulder_fe)
+        @ rotation_matrix_x(shoulder_rot)
+    )
+    transformed_angles = rotmat2euler(local_rot_mat, seq="YZX")
+    shoulder_x = transformed_angles[0] - 90
+    shoulder_y = transformed_angles[1]
+    shoulder_z = 180 - transformed_angles[2]
+    elbow = elbow_flexion
+
+    current_right_arm_joint_angles = human.get_joint_angles(human.right_arm_joints)
+    target_right_arm_angles = np.copy(current_right_arm_joint_angles)
+    shoulder_x_index = human.j_right_shoulder_x
+    shoulder_y_index = human.j_right_shoulder_y
+    shoulder_z_index = human.j_right_shoulder_z
+    elbow_index = human.j_right_elbow
+
+    target_right_arm_angles[shoulder_x_index] = np.radians(shoulder_x)
+    target_right_arm_angles[shoulder_y_index] = np.radians(shoulder_y)
+    target_right_arm_angles[shoulder_z_index] = np.radians(shoulder_z)
+    target_right_arm_angles[elbow_index] = np.radians(elbow)
+    other_idxs = set(human.right_arm_joints) - {
+        shoulder_x_index,
+        shoulder_y_index,
+        shoulder_z_index,
+        elbow_index,
+    }
+    assert np.allclose([target_right_arm_angles[i] for i in other_idxs], 0.0)
+    human.set_joint_angles(
+        human.right_arm_joints, target_right_arm_angles, use_limits=False
+    )
