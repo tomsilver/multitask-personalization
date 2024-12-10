@@ -13,10 +13,14 @@ def _main(infile: Path, results_file: Path, outfile: Path, pause_duration: float
     video = VideoFileClip(str(infile))
     dt = 1 / video.fps
     clips = []
-    for step in range(1, max(df.step) + 1):
-        row = df[df.step == step - 1]
+    for step in range(max(df.step) + 1):
+        if step == 0:
+            pause = True
+        else:
+            row = df[df.step == step - 1]
+            pause = row.env_video_should_pause.item()
         clip = video.subclip(step * dt, (step + 1) * dt)
-        if row.env_video_should_pause.item():
+        if pause:
             clip = freeze(clip, freeze_duration=pause_duration)
         clips.append(clip)
 

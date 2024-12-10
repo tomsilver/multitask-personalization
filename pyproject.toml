@@ -65,6 +65,7 @@ split_on_trailing_comma = true
 [tool.mypy]
 strict_equality = true
 disallow_untyped_calls = true
+disable_error_code = ["method-assign"]
 warn_unreachable = true
 exclude = ["venv/*"]
 
@@ -78,5 +79,6 @@ module = [
     "seaborn.*",
     "moviepy.*",
     "sklearn.*",
+    "graphviz.*",
 ]
 ignore_missing_imports = true

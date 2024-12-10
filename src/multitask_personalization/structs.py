@@ -1,5 +1,7 @@
 """Common data structures."""
 
+from __future__ import annotations
+
 import abc
 from dataclasses import dataclass
 from typing import Any, Callable, Generic
@@ -26,7 +28,9 @@ class CSPVariable:
 
     def __eq__(self, other: Any) -> bool:
         assert isinstance(other, CSPVariable)
-        return self.name == other.name
+        # Example where domain checking matters: books in pybullet that may
+        # have different titles between evaluation episodes.
+        return self.name == other.name and str(self.domain) == str(other.domain)
 
 
 class CSPConstraint(abc.ABC):
@@ -36,9 +40,21 @@ class CSPConstraint(abc.ABC):
         self.name = name
         self.variables = variables
 
+    def __hash__(self) -> int:
+        return hash((self.name, tuple(self.variables)))
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, CSPConstraint):
+            return False
+        return self.name == other.name and self.variables == other.variables
+
     @abc.abstractmethod
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether the constraint holds given values of the variables."""
+
+    @abc.abstractmethod
+    def copy(self) -> CSPConstraint:
+        """Create a copy of this constraint."""
 
 
 class FunctionalCSPConstraint(CSPConstraint):
@@ -56,6 +72,9 @@ class FunctionalCSPConstraint(CSPConstraint):
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         vals = [sol[v] for v in self.variables]
         return self.constraint_fn(*vals)
+
+    def copy(self) -> CSPConstraint:
+        return FunctionalCSPConstraint(self.name, self.variables, self.constraint_fn)
 
 
 class LogProbCSPConstraint(CSPConstraint):
@@ -84,6 +103,11 @@ class LogProbCSPConstraint(CSPConstraint):
         """Get the log probability of the constraint holding."""
         vals = [sol[v] for v in self.variables]
         return self.constraint_logprob_fn(*vals)
+
+    def copy(self) -> CSPConstraint:
+        return LogProbCSPConstraint(
+            self.name, self.variables, self.constraint_logprob_fn, self.threshold
+        )
 
 
 @dataclass(frozen=True)

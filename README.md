@@ -40,8 +40,26 @@ python experiments/run_single_experiment.py -m \
     env.max_environment_steps=100 \
     env.eval_frequency=50 \
     env.num_eval_trials=1 \
+    csp_solver=random_walk \
     csp_solver.min_num_satisfying_solutions=1 \
     csp_solver.max_iters=100
+```
+
+Here's an example to generate a nice training video in pybullet:
+```
+python experiments/run_single_experiment.py \
+    env=pybullet \
+    approach=ours \
+    seed=0 \
+    llm=openai \
+    approach.max_motion_planning_candidates=50 \
+    csp_solver.base_solver.min_num_satisfying_solutions=100 \
+    env.env.scene_spec.surface_dust_patch_size=4 \
+    env.env.scene_spec.use_standard_books=true \
+    env.env.hidden_spec.book_preferences='I only like science fiction. I do not like any other kinds of fiction or nonfiction.' \
+    env.max_environment_steps=1500 \
+    env.eval_frequency=-1 \
+    record_train_videos=true
 ```
 
 ### G2 (SLURM cluster)
@@ -69,6 +87,10 @@ If this is your first time using _this repo_ on G2, do the following:
 6. Test that it worked: `pytest -s tests/methods/test_csp_approach.py`
 7. Install the hydra SLURM launcher: `pip install hydra-submitit-launcher`
 8. Install magic-wormhole for downloading results: `pip install magic-wormhole` (on both G2 and your local machine)
+9. Set up IKFast:
+    1. Start an interactive session: `salloc -N1 --mem=32G --time=00:30:00`
+    2. `export BLAS_DIR=/usr/lib/x86_64-linux-gnu`
+    3. `python experiments/run_single_experiment.py env=pybullet approach=ours` (IKFast will automatically install when IK is called for the first time.)
 
 If everything is installed and you're ready to run jobs:
 

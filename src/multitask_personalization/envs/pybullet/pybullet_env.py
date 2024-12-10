@@ -7,11 +7,9 @@ import pickle as pkl
 from pathlib import Path
 from typing import Any, Iterable
 
-import assistive_gym.envs
 import gymnasium as gym
 import numpy as np
 import pybullet as p
-from assistive_gym.envs.agents.furniture import Furniture
 from gymnasium.core import RenderFrame
 from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
@@ -22,6 +20,7 @@ from pybullet_helpers.inverse_kinematics import (
 )
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
+from pybullet_helpers.robots.kinova import KinovaGen3RobotiqGripperPyBulletRobot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import LargeLanguageModel
@@ -73,6 +72,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
         self._llm = llm
+        # Prevent accidentally admonishing the robot while it's trying to retract
+        # after just cleaning a bad surface.
+        self._steps_since_last_cleaning_admonishment: int | None = None
 
         # Create action space.
         self.action_space = gym.spaces.OneOf(
@@ -85,9 +87,45 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create the PyBullet client.
         if use_gui:
-            self.physics_client_id = create_gui_connection(camera_yaw=0)
+            self.physics_client_id = create_gui_connection(
+                camera_target=self.scene_spec.camera_target,
+                camera_distance=self.scene_spec.camera_distance,
+                camera_pitch=self.scene_spec.camera_pitch,
+                camera_yaw=self.scene_spec.camera_yaw,
+            )
         else:
             self.physics_client_id = p.connect(p.DIRECT)
+
+        # Create floor.
+        self.floor_id = p.loadURDF(
+            str(self.scene_spec.floor_urdf),
+            self.scene_spec.floor_position,
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Create walls.
+        self.wall_ids = [
+            create_pybullet_block(
+                (1.0, 1.0, 1.0, 1.0),
+                self.scene_spec.wall_half_extents,
+                self.physics_client_id,
+            )
+            for _ in self.scene_spec.wall_poses
+        ]
+        wall_texture_id = p.loadTexture(
+            str(self.scene_spec.wall_texture), self.physics_client_id
+        )
+        for wall_id, pose in zip(
+            self.wall_ids, self.scene_spec.wall_poses, strict=True
+        ):
+            p.changeVisualShape(
+                wall_id,
+                -1,
+                textureUniqueId=wall_texture_id,
+                physicsClientId=self.physics_client_id,
+            )
+            set_pose(wall_id, pose, self.physics_client_id)
 
         # Create robot.
         self.robot = self._create_robot(self.scene_spec, self.physics_client_id)
@@ -100,21 +138,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             physics_client_id=self.physics_client_id,
         )
 
+        # Create bed.
+        self.bed_id = p.loadURDF(
+            str(self.scene_spec.bed_urdf),
+            self.scene_spec.bed_pose.position,
+            self.scene_spec.bed_pose.orientation,
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+
         # Create human.
         self.human = create_human_from_spec(
             self.scene_spec.human_spec, self._rng, self.physics_client_id
-        )
-
-        # Create wheelchair.
-        self.wheelchair = Furniture()
-        directory = Path(assistive_gym.envs.__file__).parent / "assets"
-        assert directory.exists()
-        self.wheelchair.init(
-            "wheelchair",
-            directory,
-            self.physics_client_id,
-            self._rng,
-            wheelchair_mounted=False,
         )
 
         # Create table.
@@ -122,6 +157,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.scene_spec.table_rgba,
             half_extents=self.scene_spec.table_half_extents,
             physics_client_id=self.physics_client_id,
+        )
+        surface_texture_id = p.loadTexture(
+            str(self.scene_spec.surface_texture), self.physics_client_id
+        )
+        p.changeVisualShape(
+            self.table_id,
+            -1,
+            textureUniqueId=surface_texture_id,
+            physicsClientId=self.physics_client_id,
         )
 
         # Create cup.
@@ -156,19 +200,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             spacing=self.scene_spec.shelf_spacing,
             support_width=self.scene_spec.shelf_support_width,
             num_layers=self.scene_spec.shelf_num_layers,
+            shelf_texture_id=surface_texture_id,
             physics_client_id=self.physics_client_id,
         )
 
         # Create books.
         self.book_ids: list[int] = []
         self.book_descriptions: list[str] = []  # created in reset()
-        for book_rgba, book_half_extents in zip(
-            self.scene_spec.book_rgbas,
-            self.scene_spec.book_half_extents,
-            strict=True,
-        ):
+        for book_half_extents in self.scene_spec.book_half_extents:
             book_id = create_pybullet_block(
-                book_rgba,
+                (1.0, 1.0, 1.0, 1.0),
                 half_extents=book_half_extents,
                 physics_client_id=self.physics_client_id,
             )
@@ -207,9 +248,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Uncomment for debug / development.
-        # while True:
-        #     self._step_simulator((1, GripperAction.OPEN))
-        #     p.stepSimulation(self.physics_client_id)
+        # if use_gui:
+        #     while True:
+        #         self._step_simulator((1, GripperAction.OPEN))
+        #         p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
@@ -222,17 +264,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         book_poses = [
             get_pose(book_id, self.physics_client_id) for book_id in self.book_ids
         ]
-        obj_to_obj_name = {
-            None: None,
-            self.cup_id: "cup",
-            self.duster_id: "duster",
-        }
-        for book_id, book_description in zip(
-            self.book_ids, self.book_descriptions, strict=True
-        ):
-            obj_to_obj_name[book_id] = book_description
-
-        held_object = obj_to_obj_name[self.current_held_object_id]
+        held_object = (
+            None
+            if self.current_held_object_id is None
+            else self.get_name_from_object_id(self.current_held_object_id)
+        )
         # Convert PyBullet dust patch object colors into numpy array of levels.
         np_dust_patches = {
             k: np.empty(v.shape, dtype=np.float_) for k, v in self._dust_patches.items()
@@ -273,16 +309,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.book_descriptions = state.book_descriptions
         self.current_grasp_transform = state.grasp_transform
         self.current_human_text = state.human_text
-        obj_name_to_obj = {
-            None: None,
-            "cup": self.cup_id,
-            "duster": self.duster_id,
-        }
-        for book_id, book_description in zip(
-            self.book_ids, self.book_descriptions, strict=True
-        ):
-            obj_name_to_obj[book_description] = book_id
-        self.current_held_object_id = obj_name_to_obj[state.held_object]
+        self.current_held_object_id = (
+            None
+            if state.held_object is None
+            else self.get_object_id_from_name(state.held_object)
+        )
+        if self.current_held_object_id:
+            self._close_robot_fingers()
+        else:
+            self._open_robot_fingers()
         # Set PyBullet dust patch object colors from numpy array of levels.
         for surf, np_dust_patch_array in state.surface_dust_patches.items():
             for r in range(np_dust_patch_array.shape[0]):
@@ -302,13 +337,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         set_pose(
             self.robot_stand_id,
             self.scene_spec.robot_stand_pose,
-            self.physics_client_id,
-        )
-
-        # Reset wheelchair.
-        set_pose(
-            self.wheelchair.body,
-            self.scene_spec.wheelchair_base_pose,
             self.physics_client_id,
         )
 
@@ -362,6 +390,19 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             seed=sample_seed_from_rng(self._book_llm_rng),
         )
 
+        # Update the book covers.
+        for book_description, book_id in zip(
+            self.book_descriptions, self.book_ids, strict=True
+        ):
+            texture_id = self._get_texture_from_book_description(book_description)
+            if texture_id is not None:
+                p.changeVisualShape(
+                    book_id,
+                    -1,
+                    textureUniqueId=texture_id,
+                    physicsClientId=self.physics_client_id,
+                )
+
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:
             self._current_mission = options["initial_mission"]
@@ -378,6 +419,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return self.get_state(), self._get_info()
 
     def _step_simulator(self, action: PyBulletAction) -> None:
+        # Reset current human text.
+        self.current_human_text = None
         # Handle dust: increase for any dust not touched, zero out dust that is
         # touched by the duster.
         wiper_overlap_obj_ids = set()
@@ -389,7 +432,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             wiper_overlap_obj_ids = {o for o, _ in wiper_overlap_obj_links}
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
-        for pybullet_id_arr in self._dust_patches.values():
+        report_surface_should_not_be_cleaned = False
+        for surf, pybullet_id_arr in self._dust_patches.items():
             for patch_id in pybullet_id_arr.flat:
                 level = self._get_dust_level(patch_id)
                 new_level = np.clip(level + dust_delta, 0, max_dust)
@@ -397,7 +441,26 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 # the duster and any patches and remove dust accordingly.
                 if patch_id in wiper_overlap_obj_ids:
                     new_level = 0.0
+                    # Check if this surface should not be cleaned.
+                    assert self._hidden_spec is not None
+                    if (
+                        not np.isclose(level, 0.0)
+                        and surf not in self._hidden_spec.surfaces_robot_can_clean
+                    ):
+                        report_surface_should_not_be_cleaned = True
                 self._set_dust_level(patch_id, new_level)
+        if self._steps_since_last_cleaning_admonishment is not None:
+            self._steps_since_last_cleaning_admonishment += 1
+        if report_surface_should_not_be_cleaned:
+            # Give the robot a chance to get away from the surface or else it
+            # might be admonished again just for retracting.
+            if (
+                self._steps_since_last_cleaning_admonishment is None
+                or self._steps_since_last_cleaning_admonishment
+                > self.scene_spec.cleaning_admonishment_min_time_interval
+            ):
+                self.current_human_text = "Don't clean there -- I can do it myself."
+                self._steps_since_last_cleaning_admonishment = 0
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
@@ -437,9 +500,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                         world_to_robot.invert(), world_to_object
                     )
                     self.current_held_object_id = object_id
+                    self._close_robot_fingers()
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
+                self._open_robot_fingers()
             return
         # Robot indicating done.
         if np.isclose(action[0], 2):
@@ -488,9 +553,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Advance the mission.
         assert self._current_mission is not None
-        self.current_human_text, mission_satisfaction = self._current_mission.step(
-            state, action
-        )
+        mission_text, mission_satisfaction = self._current_mission.step(state, action)
+        if mission_text is not None:
+            if self.current_human_text is None:
+                self.current_human_text = mission_text
+            else:
+                self.current_human_text += "\n" + mission_text
         self._user_satisfaction = mission_satisfaction
         # NOTE: the done bit is only used during evaluation. Do not assume
         # that the environment will be reset after done=True.
@@ -503,6 +571,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
+
+        if self._user_satisfaction != 0:
+            logging.info(f"User satisfaction: {self._user_satisfaction}")
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, done, False, self._get_info()
@@ -518,11 +589,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
-        target = self.robot.get_base_pose().position
         img = capture_image(
             self.physics_client_id,
-            camera_target=target,
+            camera_target=self.scene_spec.camera_target,
             camera_distance=self.scene_spec.camera_distance,
+            camera_pitch=self.scene_spec.camera_pitch,
+            camera_yaw=self.scene_spec.camera_yaw,
+            image_width=self.scene_spec.image_width,
+            image_height=self.scene_spec.image_height,
         )
         # In non-render mode, PyBullet does not render background correctly.
         # We want the background to be black instead of white. Here, make the
@@ -542,6 +616,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def save_state(self, filepath: Path) -> None:
         """Save the current state to disk."""
+        admonish_steps = self._steps_since_last_cleaning_admonishment
         state_dict = {
             "state": self.get_state(),
             "mission": self._current_mission,
@@ -549,6 +624,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "rng": self._rng,
             "mission_rng": self._mission_rng,
             "book_llm_rng": self._book_llm_rng,
+            "steps_since_last_cleaning_admonishment": admonish_steps,
         }
         with open(filepath, "wb") as f:
             pkl.dump(state_dict, f)
@@ -564,16 +640,24 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._rng = state_dict["rng"]
         self._mission_rng = state_dict["mission_rng"]
         self._book_llm_rng = state_dict["book_llm_rng"]
+        self._steps_since_last_cleaning_admonishment = state_dict[
+            "steps_since_last_cleaning_admonishment"
+        ]
         logging.info(f"Loaded state from {filepath}")
 
     def _object_name_to_id(self) -> dict[str, int]:
-        book_name_to_id = dict(zip(self.book_descriptions, self.book_ids))
+        # If book descriptions have not been generated yet, use placeholder.
+        if not self.book_descriptions:
+            book_descriptions = ["NOT SET"] * len(self.book_ids)
+        else:
+            book_descriptions = self.book_descriptions
+        book_name_to_id = dict(zip(book_descriptions, self.book_ids, strict=True))
         return {
             "cup": self.cup_id,
             "table": self.table_id,
             "shelf": self.shelf_id,
             "duster": self.duster_id,
-            "wheelchair": self.wheelchair.body,
+            "bed": self.bed_id,
             **book_name_to_id,
         }
 
@@ -624,8 +708,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         """Get all collision IDs for the environment."""
         return set(self.book_ids) | {
             self.table_id,
+            self.bed_id,
             self.human.body,
-            self.wheelchair.body,
             self.shelf_id,
             self.duster_id,
             self.cup_id,
@@ -704,6 +788,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return possible_missions
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
+        if self.scene_spec.use_standard_books:
+            assert num_books == 3
+            return [
+                "Title: Moby Dick. Author: Herman Melville.",
+                "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams.",
+                "Title: The Lord of the Rings. Author: J. R. R. Tolkien.",
+            ]
         assert self._hidden_spec is not None
         user_preferences = self._hidden_spec.book_preferences
         # pylint: disable=line-too-long
@@ -740,6 +831,24 @@ Return that list and nothing else. Do not explain anything."""
             if len(book_descriptions) == num_books:  # success
                 return book_descriptions
         raise RuntimeError("LLM book description generation failed")
+
+    def _get_texture_from_book_description(self, book_description: str) -> int | None:
+        book_dir = Path(__file__).parent / "assets" / "books"
+        if book_description == "Title: Moby Dick. Author: Herman Melville.":
+            filepath = book_dir / "moby_dick" / "combined.jpg"
+        elif (
+            book_description
+            == "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams."
+        ):
+            filepath = book_dir / "hitchhikers" / "combined.jpg"
+        elif (
+            book_description
+            == "Title: The Lord of the Rings. Author: J. R. R. Tolkien."
+        ):
+            filepath = book_dir / "lor" / "combined.jpg"
+        else:
+            return None
+        return p.loadTexture(str(filepath), self.physics_client_id)
 
     def _create_dust_patch_array(self, surface_name: str, link_id: int) -> NDArray:
         """Create an array of PyBullet IDs."""
@@ -892,6 +1001,19 @@ Return that list and nothing else. Do not explain anything."""
         assert len(color) == 4
         return color[-1]
 
+    def _close_robot_fingers(self) -> None:
+        # Very specific finger change logic, just for videos.
+        assert isinstance(self.robot, KinovaGen3RobotiqGripperPyBulletRobot)
+        assert self.current_held_object_id is not None
+        if self.current_held_object_id == self.duster_id:
+            closed_finger_state = 0.6
+        else:
+            closed_finger_state = 0.3
+        self.robot.set_finger_state(closed_finger_state)
+
+    def _open_robot_fingers(self) -> None:
+        return self.robot.open_fingers()
+
 
 def _create_duster(
     duster_head_forward_length: float,
@@ -982,6 +1104,7 @@ def _create_shelf(
     spacing: float,
     support_width: float,
     num_layers: int,
+    shelf_texture_id: int,
     physics_client_id: int,
 ) -> tuple[int, set[int]]:
     """Returns the shelf ID and the link IDs of the individual shelves."""
@@ -1071,5 +1194,12 @@ def _create_shelf(
         linkUpperLimits=[-1] * len(collision_shape_ids),
         physicsClientId=physics_client_id,
     )
+    for link_id in range(p.getNumJoints(shelf_id, physicsClientId=physics_client_id)):
+        p.changeVisualShape(
+            shelf_id,
+            link_id,
+            textureUniqueId=shelf_texture_id,
+            physicsClientId=physics_client_id,
+        )
 
     return shelf_id, shelf_link_ids

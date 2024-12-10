@@ -47,7 +47,6 @@ def test_pybullet_skills():
     scene_spec = PyBulletSceneSpec(
         book_half_extents=default_scene_spec.book_half_extents[:3],
         book_poses=default_scene_spec.book_poses[:3],
-        book_rgbas=default_scene_spec.book_rgbas[:3],
     )
     llm = OpenAILLM(
         model_name="gpt-4o-mini",
@@ -57,8 +56,16 @@ def test_pybullet_skills():
     )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
+    surfaces_robot_can_clean = [
+        ("table", -1),
+        ("shelf", 0),
+        ("shelf", 1),
+        ("shelf", 2),
+    ]
     hidden_spec = HiddenSceneSpec(
-        book_preferences=book_preferences, rom_model=rom_model
+        book_preferences=book_preferences,
+        rom_model=rom_model,
+        surfaces_robot_can_clean=surfaces_robot_can_clean,
     )
 
     # Create a real environment.
@@ -107,15 +114,22 @@ def test_wiping_all_surfaces():
         # NOTE: disable books.
         book_half_extents=default_scene_spec.book_half_extents[:1],
         book_poses=[Pose((-1000, -1000, -1000))],
-        book_rgbas=default_scene_spec.book_rgbas[:1],
     )
     llm = PyBulletCannedLLM(
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
     )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
+    surfaces_robot_can_clean = [
+        ("table", -1),
+        ("shelf", 0),
+        ("shelf", 1),
+        ("shelf", 2),
+    ]
     hidden_spec = HiddenSceneSpec(
-        book_preferences=book_preferences, rom_model=rom_model
+        book_preferences=book_preferences,
+        rom_model=rom_model,
+        surfaces_robot_can_clean=surfaces_robot_can_clean,
     )
 
     # Create a real environment.

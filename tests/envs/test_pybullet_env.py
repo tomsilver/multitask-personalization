@@ -41,12 +41,19 @@ def test_pybullet(llm):
     scene_spec = PyBulletSceneSpec(
         book_half_extents=default_scene_spec.book_half_extents[:3],
         book_poses=default_scene_spec.book_poses[:3],
-        book_rgbas=default_scene_spec.book_rgbas[:3],
     )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
+    surfaces_robot_can_clean = [
+        ("table", -1),
+        ("shelf", 0),
+        ("shelf", 1),
+        ("shelf", 2),
+    ]
     hidden_spec = HiddenSceneSpec(
-        book_preferences=book_preferences, rom_model=rom_model
+        book_preferences=book_preferences,
+        rom_model=rom_model,
+        surfaces_robot_can_clean=surfaces_robot_can_clean,
     )
     env = PyBulletEnv(
         scene_spec,

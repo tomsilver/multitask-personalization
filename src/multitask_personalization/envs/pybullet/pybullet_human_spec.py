@@ -17,7 +17,7 @@ class HumanSpec:
     gender: str = "male"
     subject_id: int = 1
     condition: str = "limit_4"
-    base_pose: Pose = Pose(position=(2.0, 0.53, 0.39))
+    base_pose: Pose = Pose(position=(2.0, 0.53, 0.51))
     init_joints: JointPositions = field(
         default_factory=lambda: [
             0.0,
@@ -35,11 +35,11 @@ class HumanSpec:
     setup_joints: dict[str, float] = field(
         default_factory=lambda: {
             "right_elbow": -90,
-            "left_elbow": -90,
+            "left_elbow": -30,
             "right_hip_x": -90,
-            "right_knee": 80,
+            "right_knee": 0,
             "left_hip_x": -90,
-            "left_knee": 80,
+            "left_knee": 0,
             "head_x": 0,
             "head_y": 0,
             "head_z": 0,

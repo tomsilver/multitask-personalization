@@ -119,7 +119,7 @@ def get_plan_to_pick_object(
         grasp_generator=grasp_generator,
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
-        max_smoothing_iters_per_step=max_motion_planning_candidates,
+        max_smoothing_iters_per_step=1,
         postgrasp_translation_magnitude=1e-2,
     )
     assert kinematic_pick_plan is not None
@@ -138,7 +138,7 @@ def get_target_base_pose(
 
     if object_name == "shelf":
         return sim.scene_spec.robot_base_pose  # initial base pose
-    if object_name == "wheelchair":
+    if object_name == "bed":
         return Pose((1.0, 0.0, 0.0))
     if object_name == "table":
         return Pose(
@@ -274,7 +274,7 @@ def get_plan_to_place_object(
         preplace_translation_magnitude=object_extents[2],
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
-        max_smoothing_iters_per_step=max_motion_planning_candidates,
+        max_smoothing_iters_per_step=1,
         retract_after=True,
     )
     if kinematic_plan is None:
@@ -372,7 +372,7 @@ def get_plan_to_wipe_surface(
             grasp_generator=grasp_generator,
             max_motion_planning_time=max_motion_planning_time,
             max_motion_planning_candidates=max_motion_planning_candidates,
-            max_smoothing_iters_per_step=max_motion_planning_candidates,
+            max_smoothing_iters_per_step=1,
             postgrasp_translation_magnitude=1e-3,
         )
         if kinematic_pick_plan is None:

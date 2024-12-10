@@ -6,7 +6,7 @@ hydra:
     subdir: ${hydra.job.num}
 
 wandb:
-  enable: False
+  enable: false
   project: "multitask_personalization"
   entity: null
   group: null
@@ -30,6 +30,6 @@ defaults:
   - _self_
   - approach: random
   - env: tiny
-  - csp_solver: random_walk
+  - csp_solver: lifelong_random_walk
   - rom_model: spherical
   - llm: canned  # change to openai for final experiments

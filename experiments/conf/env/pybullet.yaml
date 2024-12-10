@@ -2,17 +2,22 @@ env:
   _target_: "multitask_personalization.envs.pybullet.pybullet_env.PyBulletEnv"
   scene_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PyBulletSceneSpec"
+    surface_dust_patch_size: 2
+    use_standard_books: false
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     book_preferences: "I enjoy some fiction, especially science fiction, but not historical fiction. I like certain nonfiction genres like true crime. But I find most biographies to be boring."
     rom_model: ${rom_model}
-  use_gui: False  # need to define, but will be override by train/eval
+    surfaces_robot_can_clean:
+      - ["shelf", 0]
+      - ["shelf", 2]
+  use_gui: false  # need to define, but will be override by train/eval
   llm: ${llm}
   # note: seed is excluded because it varies for train/eval envs
 train_env:
-  use_gui: False
+  use_gui: false
 eval_env:
-  use_gui: False
+  use_gui: false
 max_environment_steps: 1000
 eval_frequency: 100
 max_eval_episode_length: 250
