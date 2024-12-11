@@ -271,6 +271,47 @@ def get_plan_to_handover_object(
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
+def get_plan_to_reverse_handover_object(
+    state: PyBulletState,
+    object_name: str,
+    handover_pose: Pose,
+    sim: PyBulletEnv,
+    max_motion_planning_candidates: int = 1,
+    max_motion_planning_time: float = np.inf,
+) -> list[PyBulletAction]:
+    """Get a plan to grasp an object held by a person."""
+    sim.set_state(state)
+    object_id = sim.get_object_id_from_name(object_name)
+    assert sim.current_human_held_object_id == object_id
+    assert sim.current_held_object_id is None
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    collision_ids = sim.get_collision_ids()
+
+    from pybullet_helpers.gui import visualize_pose
+    visualize_pose(handover_pose, sim.physics_client_id)
+
+    grasp_generator = iter([handover_pose])
+    postgrasp_translation = Pose((0, 0, 0.1), handover_pose.orientation)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    kinematic_plan: list[KinematicState] = []
+    kinematic_pick_plan = get_kinematic_plan_to_pick_object(
+        kinematic_state,
+        sim.robot,
+        object_id,
+        sim.human.body,  # used for toggled collision checking
+        set(),
+        grasp_generator=grasp_generator,
+        max_motion_planning_time=max_motion_planning_time,
+        max_motion_planning_candidates=max_motion_planning_candidates,
+        max_smoothing_iters_per_step=1,
+        postgrasp_translation=postgrasp_translation,
+    )
+    assert kinematic_pick_plan is not None
+    kinematic_plan.extend(kinematic_pick_plan)
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+
+
+
 def get_plan_to_place_object(
     state: PyBulletState,
     object_name: str,

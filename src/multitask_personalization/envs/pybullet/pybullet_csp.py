@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, multiply_poses, set_pose
+from pybullet_helpers.geometry import Pose, multiply_poses, set_pose, get_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
@@ -36,6 +36,7 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_retract,
     get_plan_to_wipe_surface,
     get_target_base_pose,
+    get_plan_to_reverse_handover_object,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -275,7 +276,16 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
             return get_plan_to_move_to_pose(
                 obs, grasp_base_pose, self._sim, seed=self._seed
             )
-        import ipdb; ipdb.set_trace()
+        # Do the reverse handover.
+        held_obj_id = self._sim.get_object_id_from_name(obs.human_held_object)
+        obj_pose = get_pose(held_obj_id, self._sim.physics_client_id)
+        grasp_yaw = np.array([-np.pi / 2])
+        relative_pose = _book_grasp_to_relative_pose(grasp_yaw)
+        handover_pose = multiply_poses(obj_pose, relative_pose)
+        return get_plan_to_reverse_handover_object(obs, obs.human_held_object,
+                                            handover_pose, self._sim,
+                                            max_motion_planning_candidates=self._max_motion_planning_candidates,
+                                            max_motion_planning_time=self._max_motion_planning_time)
 
 
     def _policy_can_handle_mission(self, mission: str) -> bool:
