@@ -274,7 +274,7 @@ def get_plan_to_handover_object(
 def get_plan_to_reverse_handover_object(
     state: PyBulletState,
     object_name: str,
-    handover_pose: Pose,
+    relative_grasp: Pose,
     sim: PyBulletEnv,
     max_motion_planning_candidates: int = 1,
     max_motion_planning_time: float = np.inf,
@@ -287,11 +287,8 @@ def get_plan_to_reverse_handover_object(
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     collision_ids = sim.get_collision_ids()
 
-    from pybullet_helpers.gui import visualize_pose
-    visualize_pose(handover_pose, sim.physics_client_id)
-
-    grasp_generator = iter([handover_pose])
-    postgrasp_translation = Pose((0, 0, 0.1), handover_pose.orientation)
+    grasp_generator = iter([relative_grasp])
+    postgrasp_translation = Pose((0, 0, 0), relative_grasp.orientation)  # TODO
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan: list[KinematicState] = []
     kinematic_pick_plan = get_kinematic_plan_to_pick_object(

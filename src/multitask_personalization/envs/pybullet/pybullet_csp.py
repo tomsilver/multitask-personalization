@@ -278,12 +278,10 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
             )
         # Do the reverse handover.
         held_obj_id = self._sim.get_object_id_from_name(obs.human_held_object)
-        obj_pose = get_pose(held_obj_id, self._sim.physics_client_id)
         grasp_yaw = np.array([-np.pi / 2])
-        relative_pose = _book_grasp_to_relative_pose(grasp_yaw)
-        handover_pose = multiply_poses(obj_pose, relative_pose)
+        relative_grasp = _book_grasp_to_relative_pose(grasp_yaw)
         return get_plan_to_reverse_handover_object(obs, obs.human_held_object,
-                                            handover_pose, self._sim,
+                                            relative_grasp, self._sim,
                                             max_motion_planning_candidates=self._max_motion_planning_candidates,
                                             max_motion_planning_time=self._max_motion_planning_time)
 
