@@ -33,9 +33,9 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_move_to_pose,
     get_plan_to_pick_object,
     get_plan_to_place_object,
+    get_plan_to_retract,
     get_plan_to_wipe_surface,
     get_target_base_pose,
-    get_plan_to_retract,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -122,8 +122,12 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         # Retract after transfer.
         if obs.human_held_object is not None:
             assert obs.human_held_object == book_description
-            plan = get_plan_to_retract(obs, self._sim, obs.human_held_object,
-                                       max_motion_planning_time=self._max_motion_planning_time)
+            plan = get_plan_to_retract(
+                obs,
+                self._sim,
+                obs.human_held_object,
+                max_motion_planning_time=self._max_motion_planning_time,
+            )
             # Indicate done.
             plan.append((2, "Done"))
             return plan
@@ -472,8 +476,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             grasp = CSPVariable("grasp", Box(-np.pi, np.pi, dtype=np.float_))
 
             # Choose a base pose for placing the human held object.
-            placement_variables, placement_initialization = self._generate_placement_variables(
-                obs.robot_base
+            placement_variables, placement_initialization = (
+                self._generate_placement_variables(obs.robot_base)
             )
 
             variables = [
@@ -487,17 +491,19 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             initialization = {
                 grasp_base_pose: init_grasp_base_pose,
                 grasp: init_grasp,
-                **placement_initialization
+                **placement_initialization,
             }
 
             if obs.held_object is not None:
                 # If the user is holding something, we'll need to place it, and
                 # we'll need to determine a placement for it as part of the CSP.
-                first_placement_vars, first_placement_init = self._generate_placement_variables(
-                    obs.robot_base,
-                    placement_name="first_placement",
-                    surface_name="first_surface",
-                    placement_base_pose_name="first_placement_base_pose",
+                first_placement_vars, first_placement_init = (
+                    self._generate_placement_variables(
+                        obs.robot_base,
+                        placement_name="first_placement",
+                        surface_name="first_surface",
+                        placement_base_pose_name="first_placement_base_pose",
+                    )
                 )
                 variables.extend(first_placement_vars)
                 initialization.update(first_placement_init)
@@ -582,8 +588,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "put away robot held object":
             # Nothing personal about putting away an object.
             return []
-        
-        elif self._current_mission == "put away human held object":
+
+        if self._current_mission == "put away human held object":
             return []
 
         if self._current_mission == "clean":
@@ -715,10 +721,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 obs, placement, surface, placement_base_pose
             )
             return [plan_to_place_exists]
-        
-        elif self._current_mission == "put away human held object":
 
-            import ipdb; ipdb.set_trace()
+        if self._current_mission == "put away human held object":
+
+            import ipdb
+
+            ipdb.set_trace()
 
         if self._current_mission == "clean":
 
@@ -904,10 +912,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 obs, csp, placement, surface, placement_base_pose
             )
             return [placement_sampler]
-        
-        elif self._current_mission == "put away human held object":
 
-            import ipdb; ipdb.set_trace()
+        if self._current_mission == "put away human held object":
+
+            import ipdb
+
+            ipdb.set_trace()
 
         if self._current_mission == "clean":
 
@@ -1008,10 +1018,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
-        
-        elif self._current_mission == "put away human held object":
 
-            import ipdb; ipdb.set_trace()
+        if self._current_mission == "put away human held object":
+
+            import ipdb
+
+            ipdb.set_trace()
 
         if self._current_mission == "clean":
 
@@ -1179,7 +1191,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Only learn from cases where the robot triggered "hand over".
         if not np.isclose(act[0], 2):
             return
-        assert act[1] is "Here you go!"
+        assert act[1] == "Here you go!"
         # Check if the trigger was successful.
         label = next_obs.human_text != "I can't reach there"
         # Get the current position.

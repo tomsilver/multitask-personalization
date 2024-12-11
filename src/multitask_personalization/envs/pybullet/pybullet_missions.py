@@ -56,7 +56,9 @@ class HandOverBookMission(PyBulletMission):
     def step(
         self, state: PyBulletState, action: PyBulletAction
     ) -> tuple[str | None, float]:
-        robot_indicated_handover = np.isclose(action[0], 2) and action[1] == "Here you go!"
+        robot_indicated_handover = (
+            np.isclose(action[0], 2) and action[1] == "Here you go!"
+        )
         if not robot_indicated_handover:
             return None, 0.0
         # Must be holding a book.
@@ -153,7 +155,7 @@ class StoreRobotHeldObjectMission(PyBulletMission):
         self, state: PyBulletState, action: PyBulletAction
     ) -> tuple[str | None, float]:
         return None, 0.0
-    
+
 
 class StoreHumanHeldObjectMission(PyBulletMission):
     """Put away the thing the human is holding."""
@@ -197,7 +199,8 @@ class StoreHumanHeldObjectMission(PyBulletMission):
             new_joints, self._retract_joint_positions
         )
         return (
-            state.human_held_object is None and state.held_object is None
+            state.human_held_object is None
+            and state.held_object is None
             and retract_dist < self._retract_joint_distance_atol
         )
 

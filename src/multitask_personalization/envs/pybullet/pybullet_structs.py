@@ -39,7 +39,9 @@ class GripperAction(Enum):
     CLOSE = 2
 
 
-PyBulletAction: TypeAlias = tuple[int, JointPositions | GripperAction | str | None]  # OneOf
+PyBulletAction: TypeAlias = tuple[
+    int, JointPositions | GripperAction | str | None
+]  # OneOf
 
 
 class PyBulletMission(abc.ABC):

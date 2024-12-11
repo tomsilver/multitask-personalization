@@ -45,11 +45,9 @@ class HumanSpec:
             "head_z": -60,
         }
     )
-    reading_joints: JointPositions = field(
-       default_factory=lambda: [0, 5, -90, -90]
-    )
+    reading_joints: JointPositions = field(default_factory=lambda: [0, 5, -90, -90])
     reverse_handover_joints: JointPositions = field(
-       default_factory=lambda: [11.25, 45, 45, 0]
+        default_factory=lambda: [11.25, 45, 45, 0]
     )
 
 

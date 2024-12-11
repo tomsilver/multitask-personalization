@@ -8,7 +8,6 @@ from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.pybullet.pybullet_csp import (
     PyBulletCSPGenerator,
 )
-from multitask_personalization.envs.pybullet.pybullet_utils import PyBulletCannedLLM
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     HiddenSceneSpec,
@@ -17,6 +16,7 @@ from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
 )
+from multitask_personalization.envs.pybullet.pybullet_utils import PyBulletCannedLLM
 from multitask_personalization.rom.models import SphericalROMModel
 
 

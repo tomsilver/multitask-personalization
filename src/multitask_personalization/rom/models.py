@@ -12,10 +12,10 @@ import pybullet as p
 import torch
 from assistive_gym.envs.agents.human import Human
 from numpy.typing import NDArray
-from scipy.optimize import minimize
-from scipy.spatial import KDTree
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
+from scipy.optimize import minimize
+from scipy.spatial import KDTree
 
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     HumanSpec,
@@ -81,7 +81,9 @@ class ROMModel(abc.ABC):
     ) -> float:
         """Get the log probability that the position is reachable."""
 
-    def run_forward_kinematics(self, joint_positions: JointPositions | NDArray) -> NDArray:
+    def run_forward_kinematics(
+        self, joint_positions: JointPositions | NDArray
+    ) -> NDArray:
         """Run forward kinematics for the human given joint positions."""
         set_human_arm_joints(self._human, joint_positions)
         right_wrist_pos, _ = self._human.get_pos_orient(self._human.right_wrist)
@@ -530,7 +532,6 @@ def pybullet_angles_to_ot_angles(pybullet_angles: NDArray) -> NDArray:
     return np.array([o_aa, o_fe, o_rot, o_elbow])
 
 
-
 def get_human_hand_pose(human: Human) -> Pose:
     """Get the pose of the human right hand."""
     position, orientation = human.get_pos_orient(human.right_wrist)
@@ -555,7 +556,9 @@ def get_human_arm_joints(human: Human) -> JointPositions:
     return pybullet_angles_to_ot_angles(pybullet_angles).tolist()
 
 
-def set_human_arm_joints(human: Human, joint_positions: JointPositions | NDArray) -> None:
+def set_human_arm_joints(
+    human: Human, joint_positions: JointPositions | NDArray
+) -> None:
     """Directly modify the human state given 4D joint positions."""
     shoulder_x, shoulder_y, shoulder_z, elbow = ot_angles_to_pybullet_angles(
         joint_positions

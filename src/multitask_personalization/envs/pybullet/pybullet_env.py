@@ -26,21 +26,21 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
-from tomsutils.utils import render_textbox_on_image, sample_seed_from_rng, get_signed_angle_distance, wrap_angle
-
-from multitask_personalization.rom.models import (
-    set_human_arm_joints,
-    get_human_arm_joints,
-    get_human_hand_pose,
+from tomsutils.utils import (
+    get_signed_angle_distance,
+    render_textbox_on_image,
+    sample_seed_from_rng,
+    wrap_angle,
 )
+
 from multitask_personalization.envs.pybullet.pybullet_human_spec import (
     create_human_from_spec,
 )
 from multitask_personalization.envs.pybullet.pybullet_missions import (
     CleanSurfacesMission,
     HandOverBookMission,
-    StoreRobotHeldObjectMission,
     StoreHumanHeldObjectMission,
+    StoreRobotHeldObjectMission,
 )
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     HiddenSceneSpec,
@@ -51,6 +51,11 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletMission,
     PyBulletState,
+)
+from multitask_personalization.rom.models import (
+    get_human_arm_joints,
+    get_human_hand_pose,
+    set_human_arm_joints,
 )
 
 
@@ -497,15 +502,22 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 assert not self._human_action_queue
             else:
                 set_human_arm_joints(self.human, human_action)
-            if self.current_held_object_id is not None and self.current_human_held_object_id is None:
+            if (
+                self.current_held_object_id is not None
+                and self.current_human_held_object_id is None
+            ):
                 # Check for contact between the human and the object that the robot
                 # is holding. Terminate handover early in this case.
-                if check_body_collisions(self.human.body, self.current_held_object_id, self.physics_client_id):
+                if check_body_collisions(
+                    self.human.body, self.current_held_object_id, self.physics_client_id
+                ):
                     self._human_action_queue = []
                 # If there is no plan left, execute the transfer.
                 if not self._human_action_queue:
                     self.current_human_held_object_id = self.current_held_object_id
-                    world_to_object = get_pose(self.current_human_held_object_id, self.physics_client_id)
+                    world_to_object = get_pose(
+                        self.current_human_held_object_id, self.physics_client_id
+                    )
                     world_to_human = get_human_hand_pose(self.human)
                     self.current_human_grasp_transform = multiply_poses(
                         world_to_human.invert(), world_to_object
@@ -518,7 +530,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     # This is really hacky but we need the human to wait a bit
                     # before the robot has moved back.
                     current_human_joints = get_human_arm_joints(self.human)
-                    human_wait_plan: list[JointPositions | None] = [current_human_joints] * self.scene_spec.handover_human_num_wait_steps
+                    human_wait_plan: list[JointPositions | None] = [
+                        current_human_joints
+                    ] * self.scene_spec.handover_human_num_wait_steps
                     self._human_action_queue = human_wait_plan + human_retract_plan
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
@@ -571,11 +585,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if self.current_held_object_id is None:
                 return
             # If the handover position is unreachable, do nothing.
-            handover_position = np.array(get_pose(
-                self.current_held_object_id, self.physics_client_id
-            ).position)
+            handover_position = np.array(
+                get_pose(self.current_held_object_id, self.physics_client_id).position
+            )
             assert self._hidden_spec is not None
-            if not self._hidden_spec.rom_model.check_position_reachable(handover_position):
+            if not self._hidden_spec.rom_model.check_position_reachable(
+                handover_position
+            ):
                 return
             # Otherwise, initiate the handover.
             target_human_joints = self._hidden_spec.rom_model.run_inverse_kinematics(
@@ -633,7 +649,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
             assert self.current_human_held_object_id is not None
             set_pose(
-                self.current_human_held_object_id, world_to_object, self.physics_client_id
+                self.current_human_held_object_id,
+                world_to_object,
+                self.physics_client_id,
             )
 
         return
@@ -854,7 +872,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.current_human_text += "\n" + mission_description
         # Move the human arm to prepare for reverse handover.
         if self._current_mission.get_id() == "store human held object":
-            self._human_action_queue = self._get_human_arm_plan(self.scene_spec.human_spec.reverse_handover_joints)
+            self._human_action_queue = self._get_human_arm_plan(
+                self.scene_spec.human_spec.reverse_handover_joints
+            )
 
     def _generate_mission(self) -> PyBulletMission:
         state = self.get_state()
@@ -1113,15 +1133,24 @@ Return that list and nothing else. Do not explain anything."""
 
     def _open_robot_fingers(self) -> None:
         return self.robot.open_fingers()
-    
-    def _get_human_arm_plan(self, target_human_joints: JointPositions) -> list[JointPositions | None]:
+
+    def _get_human_arm_plan(
+        self, target_human_joints: JointPositions
+    ) -> list[JointPositions | None]:
         current_human_joints = get_human_arm_joints(self.human)
-        joint_dists = [np.degrees(get_signed_angle_distance(wrap_angle(np.radians(i)), wrap_angle(np.radians(j)))) for i, j in zip(target_human_joints, current_human_joints)]
+        joint_dists = [
+            np.degrees(
+                get_signed_angle_distance(
+                    wrap_angle(np.radians(i)), wrap_angle(np.radians(j))
+                )
+            )
+            for i, j in zip(target_human_joints, current_human_joints)
+        ]
         return np.linspace(
             current_human_joints,
             np.add(current_human_joints, joint_dists),
             num=self.scene_spec.handover_num_waypoints,
-            endpoint=True
+            endpoint=True,
         ).tolist()
 
 
