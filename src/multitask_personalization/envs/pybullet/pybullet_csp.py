@@ -191,7 +191,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         return mission == "hand over book"
 
 
-class _PutAwayHeldObjectCSPPolicy(_PyBulletCSPPolicy):
+class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         placement_pose = self._get_value("placement")
@@ -216,7 +216,7 @@ class _PutAwayHeldObjectCSPPolicy(_PyBulletCSPPolicy):
         )
 
     def _policy_can_handle_mission(self, mission: str) -> bool:
-        return mission == "put away held object"
+        return mission == "put away robot held object"
 
 
 class _CleanCSPPolicy(_PyBulletCSPPolicy):
@@ -312,7 +312,9 @@ def _infer_mission_from_obs(obs: PyBulletState) -> str | None:
     if "Please bring me a book to read" in obs.human_text:
         return "hand over book"
     if "Put away the thing you're holding" in obs.human_text:
-        return "put away held object"
+        return "put away robot held object"
+    if "Put this away" in obs.human_text:
+        return "put away human held object"
     if "Clean the dirty surfaces" in obs.human_text:
         return "clean"
     return None
@@ -455,11 +457,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 variables.extend(placement_vars)
                 initialization.update(placement_init)
 
-        elif self._current_mission == "put away held object":
+        elif self._current_mission == "put away robot held object":
 
             variables, initialization = self._generate_placement_variables(
                 obs.robot_base
             )
+
+        elif self._current_mission == "put away human held object":
+
+            import ipdb; ipdb.set_trace()
 
         elif self._current_mission == "clean":
 
@@ -538,8 +544,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             )
             return [book_preference_constraint, handover_rom_constraint]
 
-        if self._current_mission == "put away held object":
+        if self._current_mission == "put away robot held object":
             # Nothing personal about putting away an object.
+            return []
+        
+        elif self._current_mission == "put away human held object":
             return []
 
         if self._current_mission == "clean":
@@ -665,12 +674,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return constraints
 
-        if self._current_mission == "put away held object":
+        if self._current_mission == "put away robot held object":
             placement, surface, placement_base_pose = variables
             plan_to_place_exists = self._generate_plan_to_place_exists_constraint(
                 obs, placement, surface, placement_base_pose
             )
             return [plan_to_place_exists]
+        
+        elif self._current_mission == "put away human held object":
+
+            import ipdb; ipdb.set_trace()
 
         if self._current_mission == "clean":
 
@@ -850,12 +863,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return samplers
 
-        if self._current_mission == "put away held object":
+        if self._current_mission == "put away robot held object":
             placement, surface, placement_base_pose = csp.variables
             placement_sampler = self._generate_placement_sampler(
                 obs, csp, placement, surface, placement_base_pose
             )
             return [placement_sampler]
+        
+        elif self._current_mission == "put away human held object":
+
+            import ipdb; ipdb.set_trace()
 
         if self._current_mission == "clean":
 
@@ -948,14 +965,18 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
 
-        if self._current_mission == "put away held object":
+        if self._current_mission == "put away robot held object":
 
-            return _PutAwayHeldObjectCSPPolicy(
+            return _PutAwayRobotHeldObjectCSPPolicy(
                 self._sim,
                 csp,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
+        
+        elif self._current_mission == "put away human held object":
+
+            import ipdb; ipdb.set_trace()
 
         if self._current_mission == "clean":
 

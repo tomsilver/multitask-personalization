@@ -82,6 +82,7 @@ def test_pybullet_csp():
     mission_id_to_mission = {m.get_id(): m for m in all_missions}
     book_handover_mission = mission_id_to_mission["book handover"]
     clean_mission = mission_id_to_mission["clean"]
+    store_human_mission = mission_id_to_mission["store human held object"]
 
     def _run_mission(mission):
         # Override the mission and regenerate the observation.
@@ -129,6 +130,7 @@ def test_pybullet_csp():
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
     _run_mission(book_handover_mission)
     env.save_state(post_book_handover1_state_fp)
+    assert not store_human_mission.check_initiable(env.get_state())
 
     # Clean.
     env.load_state(post_book_handover1_state_fp)
@@ -136,10 +138,16 @@ def test_pybullet_csp():
     _run_mission(clean_mission)
     env.save_state(post_clean1_state_fp)
 
+    # Store human held book.
+    env.load_state(post_clean1_state_fp)
+    post_store1_state_fp = saved_state_dir / "store_1.p"
+    _run_mission(store_human_mission)
+    env.save_state(post_store1_state_fp)
+
     # Uncomment for more thorough tests (but too slow to merge).
 
     # # Clean again.
-    # env.load_state(post_clean1_state_fp)
+    # env.load_state(post_store1_state_fp)
     # post_clean2_state_fp = saved_state_dir / "clean_2.p"
     # _run_mission(clean_mission)
     # env.save_state(post_clean2_state_fp)

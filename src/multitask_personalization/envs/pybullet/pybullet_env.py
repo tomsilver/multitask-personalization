@@ -38,7 +38,8 @@ from multitask_personalization.envs.pybullet.pybullet_human_spec import (
 from multitask_personalization.envs.pybullet.pybullet_missions import (
     CleanSurfacesMission,
     HandOverBookMission,
-    StoreHeldObjectMission,
+    StoreRobotHeldObjectMission,
+    StoreHumanHeldObjectMission,
 )
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     HiddenSceneSpec,
@@ -891,7 +892,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._llm,
                 seed=seed,
             ),
-            StoreHeldObjectMission(sim_robot),
+            StoreRobotHeldObjectMission(sim_robot),
+            StoreHumanHeldObjectMission(sim_robot),
             CleanSurfacesMission(),
         ]
         return possible_missions
