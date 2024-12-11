@@ -528,6 +528,32 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                     self.scene_spec.pots[pot_id].radius,
                 )
                 circ.plot(ax, facecolor=color, edgecolor="black")
+                # Plot ingredient name and quantity and temperature.
+                if pot.ingredient_in_pot is not None:
+                    # Plot text with white background.
+                    ax.text(
+                        pot.position[0],
+                        pot.position[1],
+                        f"{pot_id}\n"
+                        + f"{pot.ingredient_in_pot}\n"
+                        + f"num: {pot.ingredient_quantity_in_pot:.2f}\n"
+                        + f"temp: {pot.ingredient_in_pot_temperature:.2f}\n"
+                        + f"done: {pot.ingredient_done}",
+                        ha="center",
+                        va="center",
+                        fontsize=50,
+                        bbox={"facecolor": "white"},
+                    )
+        # Plot meal temperature
+        if self._current_state.meal_temperature is not None:
+            ax.text(
+                max_x - pad,
+                max_y - pad,
+                f"meal temp: {self._current_state.meal_temperature:.2f}",
+                ha="right",
+                va="top",
+                fontsize=100,
+            )
 
         ax.set_xlim(min_x + pad, max_x - pad)
         ax.set_ylim(min_y + pad, max_y - pad)
