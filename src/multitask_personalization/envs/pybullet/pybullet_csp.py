@@ -96,7 +96,7 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
             assert plan is not None
             self._current_plan = plan
         action = self._current_plan.pop(0)
-        self._terminated = np.isclose(action[0], 2) and action[1] == "Done"
+        self._terminated = bool(np.isclose(action[0], 2) and action[1] == "Done")
         return action
 
     def check_termination(self, obs: PyBulletState) -> bool:
@@ -465,7 +465,42 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         elif self._current_mission == "put away human held object":
 
-            import ipdb; ipdb.set_trace()
+            # Choose a base pose for grasping the human held object.
+            grasp_base_pose = CSPVariable("grasp_base_pose", PoseSpace())
+
+            # Choose a grasp on the held object. Only the grasp yaw is unknown.
+            grasp = CSPVariable("grasp", Box(-np.pi, np.pi, dtype=np.float_))
+
+            # Choose a base pose for placing the human held object.
+            placement_variables, placement_initialization = self._generate_placement_variables(
+                obs.robot_base
+            )
+
+            variables = [
+                grasp_base_pose,
+                grasp,
+            ] + placement_variables
+
+            init_grasp_base_pose = get_target_base_pose(obs, "bed", self._sim)
+            init_grasp = np.array([-np.pi / 2])
+
+            initialization = {
+                grasp_base_pose: init_grasp_base_pose,
+                grasp: init_grasp,
+                **placement_initialization
+            }
+
+            if obs.held_object is not None:
+                # If the user is holding something, we'll need to place it, and
+                # we'll need to determine a placement for it as part of the CSP.
+                first_placement_vars, first_placement_init = self._generate_placement_variables(
+                    obs.robot_base,
+                    placement_name="first_placement",
+                    surface_name="first_surface",
+                    placement_base_pose_name="first_placement_base_pose",
+                )
+                variables.extend(first_placement_vars)
+                initialization.update(first_placement_init)
 
         elif self._current_mission == "clean":
 
