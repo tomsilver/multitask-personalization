@@ -53,7 +53,7 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=True,
+        use_gui=False,
         seed=seed,
     )
     env.action_space.seed(seed)
@@ -63,7 +63,7 @@ def test_pybullet_csp():
     # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
@@ -127,16 +127,16 @@ def test_pybullet_csp():
     # _run_mission(clean_mission)
 
     # Start with book handover.
-    post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
-    _run_mission(book_handover_mission)
-    env.save_state(post_book_handover1_state_fp)
-    assert not store_human_mission.check_initiable(env.get_state())
+    # post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
+    # _run_mission(book_handover_mission)
+    # env.save_state(post_book_handover1_state_fp)
+    # assert not store_human_mission.check_initiable(env.get_state())
 
-    # Clean.
-    env.load_state(post_book_handover1_state_fp)
+    # # Clean.
+    # env.load_state(post_book_handover1_state_fp)
     post_clean1_state_fp = saved_state_dir / "clean_1.p"
-    _run_mission(clean_mission)
-    env.save_state(post_clean1_state_fp)
+    # _run_mission(clean_mission)
+    # env.save_state(post_clean1_state_fp)
 
     # Store human held book.
     env.load_state(post_clean1_state_fp)

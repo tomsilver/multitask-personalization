@@ -13,7 +13,7 @@ import pybullet as p
 from gymnasium.core import RenderFrame
 from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
+from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose, get_half_extents_from_aabb
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
@@ -264,6 +264,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.robot_base_to_stand = multiply_poses(
             world_to_base.invert(), world_to_stand
         )
+
+        # Save the default half extents.
+        obj_links_to_save = [
+            (self.duster_id, self.duster_head_link_id),
+        ] + [
+            (book_id, -1) for book_id in self.book_ids
+        ]
+        self._default_half_extents = { (o, l): get_half_extents_from_aabb(o, self.physics_client_id,
+                                                                   link_id=l) 
+                                                                   for o, l in obj_links_to_save}
 
         # Uncomment for debug / development.
         # if use_gui:
@@ -1152,6 +1162,10 @@ Return that list and nothing else. Do not explain anything."""
             num=self.scene_spec.handover_num_waypoints,
             endpoint=True,
         ).tolist()
+    
+    def get_default_half_extents(self, object_id: int, link_id: int) -> tuple[float, float, float]:
+        """Get half extents for object and link id in default pose."""
+        return self._default_half_extents[(object_id, link_id)]
 
 
 def _create_duster(

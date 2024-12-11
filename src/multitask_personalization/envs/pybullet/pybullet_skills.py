@@ -301,6 +301,7 @@ def get_plan_to_place_object(
         preplace_translation_magnitude=object_extents[2],
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
+        birrt_num_iters=10,
         max_smoothing_iters_per_step=1,
         retract_after=True,
     )
