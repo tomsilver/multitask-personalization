@@ -226,7 +226,57 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
+        # Put away the main object.
+        if obs.held_object is not None and obs.human_held_object is None:
+            placement_pose = self._get_value("placement")
+            surface_name, surface_link_id = self._get_value("surface")
+            placement_base_pose = self._get_value("placement_base_pose")
+            assert isinstance(placement_base_pose, Pose)
+            # Move to the placement base pose.
+            if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+                return get_plan_to_move_to_pose(
+                    obs, placement_base_pose, self._sim, seed=self._seed
+                )
+            return get_plan_to_place_object(
+                obs,
+                obs.held_object,
+                surface_name,
+                placement_pose,
+                self._sim,
+                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+                surface_link_id=surface_link_id,
+            )
+        # Put away the object that we're holding at first.
+        if obs.held_object is not None:
+            placement_pose = self._get_value("first_placement")
+            surface_name, surface_link_id = self._get_value("first_surface")
+            placement_base_pose = self._get_value("first_placement_base_pose")
+            assert isinstance(placement_base_pose, Pose)
+            # Move to the placement base pose.
+            if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+                return get_plan_to_move_to_pose(
+                    obs, placement_base_pose, self._sim, seed=self._seed
+                )
+            return get_plan_to_place_object(
+                obs,
+                obs.held_object,
+                surface_name,
+                placement_pose,
+                self._sim,
+                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+                surface_link_id=surface_link_id,
+            )
+        # Reverse handover.
+        grasp_base_pose = self._get_value("grasp_base_pose")
+        # First move next to the object.
+        if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
+            return get_plan_to_move_to_pose(
+                obs, grasp_base_pose, self._sim, seed=self._seed
+            )
         import ipdb; ipdb.set_trace()
+
 
     def _policy_can_handle_mission(self, mission: str) -> bool:
         return mission == "put away human held object"
