@@ -59,8 +59,8 @@ def test_pybullet_csp():
     env.action_space.seed(seed)
 
     # Uncomment to create video.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "videos/test-pybullet-csp")
+    from gymnasium.wrappers import RecordVideo
+    env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
@@ -84,7 +84,7 @@ def test_pybullet_csp():
         seed, min_num_satisfying_solutions=1, show_progress_bar=False
     )
 
-    all_missions = env._create_possible_missions()  # pylint: disable=protected-access
+    all_missions = env.unwrapped._create_possible_missions()  # pylint: disable=protected-access
     mission_id_to_mission = {m.get_id(): m for m in all_missions}
     book_handover_mission = mission_id_to_mission["book handover"]
     clean_mission = mission_id_to_mission["clean"]
@@ -92,9 +92,9 @@ def test_pybullet_csp():
 
     def _run_mission(mission):
         # Override the mission and regenerate the observation.
-        env.current_human_text = None
-        env._reset_mission(mission)  # pylint: disable=protected-access
-        obs = env.get_state()
+        env.unwrapped.current_human_text = None
+        env.unwrapped._reset_mission(mission)  # pylint: disable=protected-access
+        obs = env.unwrapped.get_state()
 
         # Generate CSP.
         csp, samplers, policy, initialization = csp_generator.generate(obs)
@@ -133,22 +133,22 @@ def test_pybullet_csp():
     # _run_mission(clean_mission)
 
     # Start with book handover.
-    # post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
-    # _run_mission(book_handover_mission)
-    # env.save_state(post_book_handover1_state_fp)
-    # assert not store_human_mission.check_initiable(env.get_state())
+    post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
+    _run_mission(book_handover_mission)
+    env.unwrapped.save_state(post_book_handover1_state_fp)
+    assert not store_human_mission.check_initiable(env.unwrapped.get_state())
 
     # # Clean.
-    # env.load_state(post_book_handover1_state_fp)
+    env.unwrapped.load_state(post_book_handover1_state_fp)
     post_clean1_state_fp = saved_state_dir / "clean_1.p"
-    # _run_mission(clean_mission)
-    # env.save_state(post_clean1_state_fp)
+    _run_mission(clean_mission)
+    env.unwrapped.save_state(post_clean1_state_fp)
 
     # Store human held book.
-    env.load_state(post_clean1_state_fp)
+    env.unwrapped.load_state(post_clean1_state_fp)
     post_store1_state_fp = saved_state_dir / "store_1.p"
     _run_mission(store_human_mission)
-    env.save_state(post_store1_state_fp)
+    env.unwrapped.save_state(post_store1_state_fp)
 
     # Uncomment for more thorough tests (but too slow to merge).
 
