@@ -58,6 +58,15 @@ def test_pybullet_csp():
     )
     env.action_space.seed(seed)
 
+    from pybullet_helpers.export import create_urdf_from_body_id
+
+    urdf = create_urdf_from_body_id(
+        env.human.body, env.physics_client_id, name="assistive-human-extracted"
+    )
+    import ipdb
+
+    ipdb.set_trace()
+
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo
     # env = RecordVideo(env, "videos/test-pybullet-csp")

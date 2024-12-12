@@ -309,7 +309,6 @@ def get_plan_to_reverse_handover_object(
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
-
 def get_plan_to_place_object(
     state: PyBulletState,
     object_name: str,
