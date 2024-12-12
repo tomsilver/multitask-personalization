@@ -53,26 +53,23 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=False,
+        use_gui=True,
         seed=seed,
     )
     env.action_space.seed(seed)
-
-    from pybullet_helpers.export import create_urdf_from_body_id
-
-    urdf = create_urdf_from_body_id(
-        env.human.body, env.physics_client_id, name="assistive-human-extracted"
-    )
-    import ipdb
-
-    ipdb.set_trace()
 
     # Uncomment to create video.
     # from gymnasium.wrappers import RecordVideo
     # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
+
+    # from multitask_personalization.rom.models import set_human_arm_joints
+    # import pybullet as p
+    # set_human_arm_joints(sim.human, sim.scene_spec.human_spec.reverse_handover_joints)
+    # while True:
+    #     p.stepSimulation(sim.physics_client_id)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(

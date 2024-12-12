@@ -166,7 +166,7 @@ def get_target_base_pose(
     if object_name == "shelf":
         return sim.scene_spec.robot_base_pose  # initial base pose
     if object_name == "bed":
-        return Pose((1.0, 0.0, 0.0))
+        return Pose((1.0, 0.2, 0.0))
     if object_name == "table":
         return Pose(
             (
@@ -297,7 +297,7 @@ def get_plan_to_reverse_handover_object(
         sim.robot,
         object_id,
         sim.human.body,  # used for toggled collision checking
-        set(),
+        set(),  # TODO
         grasp_generator=grasp_generator,
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
