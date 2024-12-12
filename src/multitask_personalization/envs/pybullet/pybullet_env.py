@@ -241,7 +241,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Track what the human is holding and whether a handover is happening.
         self.current_human_grasp_transform: Pose | None = None
         self.current_human_held_object_id: int | None = None
-        self._human_action_queue: list[JointPositions | None] = []
+        self._human_action_queue: list[tuple[str, JointPositions]] = []
 
         # Create and track dust patches.
         self._dust_patches = {
@@ -512,15 +512,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._steps_since_last_cleaning_admonishment = 0
         # Continue moving the human if there is a plan to do so.
         if self._human_action_queue:
-            human_action = self._human_action_queue.pop(0)
-            if human_action is None:
-                assert not self._human_action_queue
-            else:
-                set_human_arm_joints(self.human, human_action)
-            if (
-                self.current_held_object_id is not None
-                and self.current_human_held_object_id is None
-            ):
+            human_action_name, human_joint_action = self._human_action_queue.pop(0)
+            if human_action_name != "wait":
+                set_human_arm_joints(self.human, human_joint_action)
+            if human_action_name == "handover":
                 # Check for contact between the human and the object that the robot
                 # is holding. Terminate handover early in this case.
                 if check_body_collisions(
@@ -541,12 +536,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     self.current_grasp_transform = None
                     # Make a plan for the human back to resting position.
                     target_human_joints = self.scene_spec.human_spec.reading_joints
-                    human_retract_plan = self._get_human_arm_plan(target_human_joints)
+                    human_retract_plan = self._get_human_arm_plan(target_human_joints, "reset")
                     # This is really hacky but we need the human to wait a bit
                     # before the robot has moved back.
                     current_human_joints = get_human_arm_joints(self.human)
-                    human_wait_plan: list[JointPositions | None] = [
-                        current_human_joints
+                    human_wait_plan = [
+                        ("wait", current_human_joints)
                     ] * self.scene_spec.handover_human_num_wait_steps
                     self._human_action_queue = human_wait_plan + human_retract_plan
         # Opening or closing the gripper.
@@ -590,8 +585,19 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     self.current_held_object_id = object_id
                     self._close_robot_fingers()
                     if object_id == self.current_human_held_object_id:
+                        # Reverse hand over. Move human back to rest position
+                        # after waiting a bit for robot to finish.
                         self.current_human_held_object_id = None
                         self.current_human_grasp_transform = None
+                        human_retract_plan = self._get_human_arm_plan(
+                            self.scene_spec.human_spec.reading_joints,
+                            "reverse-handover"
+                        )
+                        current_human_joints = get_human_arm_joints(self.human)
+                        human_wait_plan = [
+                            ("wait", current_human_joints)
+                        ] * self.scene_spec.handover_human_num_wait_steps
+                        self._human_action_queue = human_wait_plan + human_retract_plan
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
@@ -616,7 +622,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 handover_position
             )
             # Make a plan for the human to grab the object.
-            self._human_action_queue = self._get_human_arm_plan(target_human_joints)
+            self._human_action_queue = self._get_human_arm_plan(target_human_joints, "handover")
             self._human_action_queue.append(None)  # indicates handover trigger
             return
         # Robot indicated done.
@@ -891,7 +897,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Move the human arm to prepare for reverse handover.
         if self._current_mission.get_id() == "store human held object":
             self._human_action_queue = self._get_human_arm_plan(
-                self.scene_spec.human_spec.reverse_handover_joints
+                self.scene_spec.human_spec.reverse_handover_joints,
+                "prepare-reverse-handover",
             )
 
     def _generate_mission(self) -> PyBulletMission:
@@ -1153,8 +1160,8 @@ Return that list and nothing else. Do not explain anything."""
         return self.robot.open_fingers()
 
     def _get_human_arm_plan(
-        self, target_human_joints: JointPositions
-    ) -> list[JointPositions | None]:
+        self, target_human_joints: JointPositions, name: str,
+    ) -> list[tuple[str, JointPositions]]:
         current_human_joints = get_human_arm_joints(self.human)
         joint_dists = [
             np.degrees(
@@ -1164,12 +1171,13 @@ Return that list and nothing else. Do not explain anything."""
             )
             for i, j in zip(target_human_joints, current_human_joints)
         ]
-        return np.linspace(
+        joint_lst = np.linspace(
             current_human_joints,
             np.add(current_human_joints, joint_dists),
             num=self.scene_spec.handover_num_waypoints,
             endpoint=True,
         ).tolist()
+        return [(name, j) for j in joint_lst]
 
     def get_default_half_extents(
         self, object_id: int, link_id: int
