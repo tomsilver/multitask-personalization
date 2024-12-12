@@ -150,9 +150,6 @@ def test_pybullet_csp():
     _run_mission(store_human_mission)
     env.save_state(post_store1_state_fp)
 
-    # TODO NEXT: implement the logic for reverse handover in the env itself.
-    # Everything up until then should work.
-
     # Uncomment for more thorough tests (but too slow to merge).
 
     # # Clean again.

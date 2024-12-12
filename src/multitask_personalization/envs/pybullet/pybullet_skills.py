@@ -2,7 +2,7 @@
 
 import numpy as np
 import pybullet as p
-from pybullet_helpers.geometry import Pose, iter_between_poses, multiply_poses
+from pybullet_helpers.geometry import Pose, iter_between_poses, multiply_poses, matrix_from_quat
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
     check_collisions_with_held_object,
@@ -287,9 +287,9 @@ def get_plan_to_reverse_handover_object(
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     collision_ids = sim.get_collision_ids()
 
+    # Retract upwards after.
+    postgrasp_translation = Pose((0.0, 0.0, 0.1))
     grasp_generator = iter([relative_grasp])
-    # postgrasp_translation = Pose((0, 0, 0.1), relative_grasp.orientation)  # TODO
-    postgrasp_translation = Pose.identity()
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan: list[KinematicState] = []
     kinematic_pick_plan = get_kinematic_plan_to_pick_object(

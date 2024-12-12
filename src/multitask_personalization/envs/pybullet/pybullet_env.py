@@ -589,6 +589,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     )
                     self.current_held_object_id = object_id
                     self._close_robot_fingers()
+                    if object_id == self.current_human_held_object_id:
+                        self.current_human_held_object_id = None
+                        self.current_human_grasp_transform = None
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
