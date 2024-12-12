@@ -297,7 +297,7 @@ def get_plan_to_reverse_handover_object(
         sim.robot,
         object_id,
         sim.human.body,  # used for toggled collision checking
-        set(),  # TODO
+        collision_ids,
         grasp_generator=grasp_generator,
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
