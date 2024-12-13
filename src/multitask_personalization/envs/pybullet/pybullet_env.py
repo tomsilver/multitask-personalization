@@ -19,6 +19,7 @@ from pybullet_helpers.geometry import (
     multiply_poses,
     set_pose,
     get_half_extents_from_aabb,
+    rotate_pose,
 )
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
@@ -57,10 +58,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
     PyBulletMission,
     PyBulletState,
-)
-from multitask_personalization.rom.models import (
-    get_human_arm_joints,
-    get_human_hand_pose,
 )
 
 
@@ -169,6 +166,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.human = create_human_from_spec(
             self.scene_spec.human_spec, self.physics_client_id
         )
+
+        if self._hidden_spec:
+            from pybullet_helpers.gui import visualize_pose
+            visualize_pose(Pose(self._hidden_spec.rom_model._sphere_center), self.physics_client_id)
+
 
         # Create table.
         self.table_id = create_pybullet_block(
@@ -280,17 +282,17 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
         # Uncomment for debug / development.
-        if use_gui:
-            while True:
-                self._step_simulator((1, GripperAction.OPEN))
-                p.stepSimulation(self.physics_client_id)
+        # if use_gui:
+        #     while True:
+        #         self._step_simulator((1, GripperAction.OPEN))
+        #         p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
         robot_base = self.robot.get_base_pose()
         robot_joints = self.robot.get_joint_positions()
-        human_base = get_link_pose(self.human.body, -1, self.physics_client_id)
-        human_joints = self.human.get_joint_angles(self.human.right_arm_joints)
+        human_base = self.human.get_base_pose()
+        human_joints = self.human.get_joint_positions()
         cup_pose = get_pose(self.cup_id, self.physics_client_id)
         duster_pose = get_pose(self.duster_id, self.physics_client_id)
         book_poses = [
@@ -336,11 +338,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         """Sync the simulator with the given state."""
         self.set_robot_base(state.robot_base)
         self.robot.set_joints(state.robot_joints)
-        set_pose(self.human.body, state.human_base, self.physics_client_id)
-        self.human.set_joint_angles(
-            self.human.right_arm_joints,
-            state.human_joints,
-        )
+        assert self.human.get_base_pose().allclose(state.human_base)
+        self.human.set_joints(state.human_joints)
         set_pose(self.cup_id, state.cup_pose, self.physics_client_id)
         set_pose(self.duster_id, state.duster_pose, self.physics_client_id)
         for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
@@ -516,7 +515,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self._human_action_queue:
             human_action_name, human_joint_action = self._human_action_queue.pop(0)
             if human_action_name != "wait":
-                set_human_arm_joints(self.human, human_joint_action)
+                self.human.set_joints(human_joint_action)
             if human_action_name == "handover":
                 # Check for contact between the human and the object that the robot
                 # is holding. Terminate handover early in this case.
@@ -530,7 +529,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     world_to_object = get_pose(
                         self.current_human_held_object_id, self.physics_client_id
                     )
-                    world_to_human = get_human_hand_pose(self.human)
+                    world_to_human = self.human.get_end_effector_pose()
                     self.current_human_grasp_transform = multiply_poses(
                         world_to_human.invert(), world_to_object
                     )
@@ -541,7 +540,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     human_retract_plan = self._get_human_arm_plan(target_human_joints, "reset")
                     # This is really hacky but we need the human to wait a bit
                     # before the robot has moved back.
-                    current_human_joints = get_human_arm_joints(self.human)
+                    current_human_joints = self.human.get_joint_positions()
                     human_wait_plan = [
                         ("wait", current_human_joints)
                     ] * self.scene_spec.handover_human_num_wait_steps
@@ -595,7 +594,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                             self.scene_spec.human_spec.reading_joints,
                             "reverse-handover"
                         )
-                        current_human_joints = get_human_arm_joints(self.human)
+                        current_human_joints = self.human.get_joint_positions()
                         human_wait_plan = [
                             ("wait", current_human_joints)
                         ] * self.scene_spec.handover_human_num_wait_steps
@@ -611,9 +610,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if self.current_held_object_id is None:
                 return
             # If the handover position is unreachable, do nothing.
-            handover_position = np.array(
-                get_pose(self.current_held_object_id, self.physics_client_id).position
-            )
+            # TODO next: use rotate_pose from pybullet geometry to choose handover pose.
+            # Remove the "contact based" code at the top also.
+            handover_pose = rotate_pose(self.robot.get_end_effector_pose(), roll=np.pi)
+
+            from pybullet_helpers.gui import visualize_pose
+            visualize_pose(handover_pose, self.physics_client_id)
+
+            while True:
+                p.stepSimulation(self.physics_client_id)
+
             assert self._hidden_spec is not None
             if not self._hidden_spec.rom_model.check_position_reachable(
                 handover_position
@@ -849,7 +855,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return set(self.book_ids) | {
             self.table_id,
             self.bed_id,
-            self.human.body,
+            self.human.robot_id,
             self.shelf_id,
             self.duster_id,
             self.cup_id,

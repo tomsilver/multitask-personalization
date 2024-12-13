@@ -12,7 +12,7 @@ import pybullet as p
 import torch
 from assistive_gym.envs.agents.human import Human
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, multiply_poses
 from pybullet_helpers.joint import JointPositions
 from scipy.spatial import KDTree
 
@@ -216,12 +216,16 @@ class SphericalROMModel(TrainableROMModel):
         seed: int = 0,
         min_possible_radius: float = 0.25,
         max_possible_radius: float = 1.25,
+        origin_distance: float = 0.2,
     ) -> None:
         super().__init__(human_spec, seed=seed)
         self._min_possible_radius = min_possible_radius
         self._max_possible_radius = max_possible_radius
-        origin = self._human.get_end_effector_pose().position
-        self._sphere_center = origin
+        # Set the origin to be in front of the hand.
+        ee_pose = self._human.get_end_effector_pose()
+        origin_tf = Pose([0.0, 0.0, origin_distance])
+        origin_pose = multiply_poses(ee_pose, origin_tf)
+        self._sphere_center = origin_pose.position
 
         # Uncomment for debugging.
         # self._reachable_points = self._sample_spherical_points(n=500)
@@ -510,33 +514,3 @@ def get_human_arm_joints(human: Human) -> JointPositions:
         ]
     )
     return pybullet_angles_to_ot_angles(pybullet_angles).tolist()
-
-
-# TODO remove
-# def set_human_arm_joints(
-#     human: Human, joint_positions: JointPositions | NDArray
-# ) -> None:
-#     """Directly modify the human state given 4D joint positions."""
-#     shoulder_x, shoulder_y, shoulder_z, elbow = ot_angles_to_pybullet_angles(
-#         joint_positions
-#     )
-#     shoulder_x_index = human.j_right_shoulder_x
-#     shoulder_y_index = human.j_right_shoulder_y
-#     shoulder_z_index = human.j_right_shoulder_z
-#     elbow_index = human.j_right_elbow
-#     current_right_arm_joint_angles = human.get_joint_angles(human.right_arm_joints)
-#     target_right_arm_angles = np.copy(current_right_arm_joint_angles)
-#     target_right_arm_angles[shoulder_x_index] = shoulder_x
-#     target_right_arm_angles[shoulder_y_index] = shoulder_y
-#     target_right_arm_angles[shoulder_z_index] = shoulder_z
-#     target_right_arm_angles[elbow_index] = elbow
-#     other_idxs = set(human.right_arm_joints) - {
-#         shoulder_x_index,
-#         shoulder_y_index,
-#         shoulder_z_index,
-#         elbow_index,
-#     }
-#     assert np.allclose([target_right_arm_angles[i] for i in other_idxs], 0.0)
-#     human.set_joint_angles(
-#         human.right_arm_joints, target_right_arm_angles, use_limits=False
-#     )

@@ -30,7 +30,7 @@ def test_pybullet_csp():
     )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
-        scene_spec.human_spec, min_possible_radius=0.49, max_possible_radius=0.51
+        scene_spec.human_spec, min_possible_radius=0.29, max_possible_radius=0.31
     )
     surfaces_robot_can_clean = [
         ("table", -1),
@@ -59,8 +59,8 @@ def test_pybullet_csp():
     env.action_space.seed(seed)
 
     # Uncomment to create video.
-    from gymnasium.wrappers import RecordVideo
-    env = RecordVideo(env, "videos/test-pybullet-csp")
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)

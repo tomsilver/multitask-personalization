@@ -361,13 +361,8 @@ def _book_grasp_to_relative_pose(yaw: NDArray) -> Pose:
 
 
 def _handover_position_to_pose(position: NDArray) -> Pose:
-    handover_orientation = (
-        0.8522037863731384,
-        0.4745013415813446,
-        -0.01094298530369997,
-        0.22017613053321838,
-    )
-    return Pose(tuple(position), handover_orientation)
+    handover_rpy = (-np.pi / 4, np.pi / 2, 0.0)
+    return Pose.from_rpy(tuple(position), handover_rpy)
 
 
 def _pose_is_reachable(pose: Pose, robot_base_pose, sim: PyBulletEnv) -> bool:
