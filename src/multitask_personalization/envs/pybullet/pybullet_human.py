@@ -17,10 +17,20 @@ class HumanSpec:
     """Defines the spec for a human user in the pybullet environment."""
 
     base_pose: Pose = Pose(position=(2.0, 0.53, 0.51))
-    # Arm joints. TODO update.
+
+    # Default arm joints.
     init_joints: JointPositions = field(
         default_factory=lambda: [0.0, 0.0, 0.0, np.pi / 10, 0.0, 0.0, -np.pi / 2]
     )
+    # Arm joints during reading.
+    reading_joints: JointPositions = field(
+        default_factory=lambda: [0.0, 0.0, 0.0, np.pi / 10, 0.0, 0.0, -np.pi / 2]
+    )
+    # Arm joints for reverse handover.
+    reverse_handover_joints: JointPositions = field(
+        default_factory=lambda: [0.0, 0.0, 0.0, np.pi / 10, 0.0, -np.pi / 4, -np.pi / 2]
+    )
+
     # Joints for the rest of the human body that remain static.
     setup_joints: dict[str, float] = field(
         default_factory=lambda: {
@@ -29,11 +39,6 @@ class HumanSpec:
             "left_hip_x": -np.pi / 2,
             "head_z": -np.pi / 3,
         }
-    )
-    # TODO move and update.
-    reading_joints: JointPositions = field(default_factory=lambda: [0, 5, -90, -90])
-    reverse_handover_joints: JointPositions = field(
-        default_factory=lambda: [30, 60, 45, 0]
     )
 
     def get_joint_urdf_name(self, human_readable_name: str) -> str:
@@ -49,7 +54,6 @@ class HumanSpec:
             "shoulder_y": "joint2",
             "shoulder_z": "joint3",
             "right_elbow": "joint14",
-
         }
         return known_names[human_readable_name]
 

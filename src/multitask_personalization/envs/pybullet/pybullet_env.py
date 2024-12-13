@@ -25,7 +25,7 @@ from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
 )
-from pybullet_helpers.joint import JointPositions
+from pybullet_helpers.joint import JointPositions, iter_between_joint_positions
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.inverse_kinematics import inverse_kinematics
@@ -519,14 +519,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if human_action_name != "wait":
                 self.human.set_joints(human_joint_action)
             if human_action_name == "handover":
-                # Check for contact between the human and the object that the robot
-                # is holding. Terminate handover early in this case.
-                if check_body_collisions(
-                    self.human.body, self.current_held_object_id, self.physics_client_id
-                ):
-                    self._human_action_queue = []
                 # If there is no plan left, execute the transfer.
                 if not self._human_action_queue:
+                    # TODO use a fixed transform here instead, to guarantee that
+                    # reverse handover will work.
                     self.current_human_held_object_id = self.current_held_object_id
                     world_to_object = get_pose(
                         self.current_human_held_object_id, self.physics_client_id
@@ -617,6 +613,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             handover_pose = rotate_pose(self.robot.get_end_effector_pose(), roll=np.pi)
 
             from pybullet_helpers.gui import visualize_pose
+            visualize_pose(self.human.get_end_effector_pose(), self.physics_client_id)
             visualize_pose(handover_pose, self.physics_client_id)
 
             # while True:
@@ -629,11 +626,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 return
             # Otherwise, initiate the handover.
             self._sim_human.set_joints(self.human.get_joint_positions())
-            target_human_joints = inverse_kinematics(self._sim_human, handover_pose)
-            import ipdb; ipdb.set_trace()
+            target_human_joints = inverse_kinematics(self._sim_human, handover_pose, best_effort=True, validate=False)
+            # target_human_joints = inverse_kinematics(self.human, handover_pose,
+            #                                          best_effort=True,
+            #                                          validate=False)
             # Make a plan for the human to grab the object.
             self._human_action_queue = self._get_human_arm_plan(target_human_joints, "handover")
-            self._human_action_queue.append(None)  # indicates handover trigger
             return
         # Robot indicated done.
         if np.isclose(action[0], 2) and action[1] == "Done":
@@ -677,7 +675,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             )
         # Do the same for the human.
         if self.current_human_grasp_transform:
-            world_to_human = get_human_hand_pose(self.human)
+            world_to_human = self.human.get_end_effector_pose()
             world_to_object = multiply_poses(
                 world_to_human, self.current_human_grasp_transform
             )
@@ -1172,21 +1170,17 @@ Return that list and nothing else. Do not explain anything."""
     def _get_human_arm_plan(
         self, target_human_joints: JointPositions, name: str,
     ) -> list[tuple[str, JointPositions]]:
-        current_human_joints = get_human_arm_joints(self.human)
-        joint_dists = [
-            np.degrees(
-                get_signed_angle_distance(
-                    wrap_angle(np.radians(i)), wrap_angle(np.radians(j))
-                )
-            )
-            for i, j in zip(target_human_joints, current_human_joints)
-        ]
-        joint_lst = np.linspace(
+        current_human_joints = self.human.get_joint_positions()
+        joint_infos = [self.human.joint_info_from_name(j) for j in self.human.arm_joint_names]
+        
+        joint_lst = iter_between_joint_positions(
+            joint_infos,
             current_human_joints,
-            np.add(current_human_joints, joint_dists),
-            num=self.scene_spec.handover_num_waypoints,
-            endpoint=True,
-        ).tolist()
+            target_human_joints,
+            num_interp_per_unit=self.scene_spec.handover_num_waypoints,
+            include_start=False,
+        )
+
         return [(name, j) for j in joint_lst]
 
     def get_default_half_extents(
