@@ -337,7 +337,7 @@ def get_plan_to_place_object(
         collision_ids,
         placement_generator,
         surface_link_id=surface_link_id,
-        preplace_translation_magnitude=object_extents[2],
+        preplace_translation_magnitude=(1.25 * object_extents[2]),
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
         birrt_num_iters=10,
@@ -358,6 +358,8 @@ def get_plan_to_place_object(
         seed=seed,
         physics_client_id=sim.physics_client_id,
     )
+    if debug and robot_joint_plan is None:
+        import ipdb; ipdb.set_trace()
     if robot_joint_plan is None:
         return None
     for robot_joints in robot_joint_plan:
