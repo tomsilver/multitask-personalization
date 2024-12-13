@@ -170,6 +170,23 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.human = create_human_from_spec(
             self.scene_spec.human_spec, self._rng, self.physics_client_id
         )
+        # TODO switch out.
+        # Use https://gkjohnson.github.io/urdf-loaders/javascript/example/bundle/
+        # or another online URDF viewer for help.
+        self.human2 = create_pybullet_robot("assistive-human", self.physics_client_id)
+        set_pose(self.human2.robot_id, Pose((2.75, 0.53, 0.51)), self.physics_client_id)
+        right_leg = self.human2.joint_from_name("joint29")
+        p.resetJointState(self.human2.robot_id, right_leg, -np.pi / 2,
+                          physicsClientId=self.physics_client_id)
+        left_leg = self.human2.joint_from_name("joint36")
+        p.resetJointState(self.human2.robot_id, left_leg, -np.pi / 2,
+                          physicsClientId=self.physics_client_id)
+        left_elbow = self.human2.joint_from_name("joint21")
+        p.resetJointState(self.human2.robot_id, left_elbow, -np.pi / 3,
+                          physicsClientId=self.physics_client_id)
+        head_z = self.human2.joint_from_name("joint10")
+        p.resetJointState(self.human2.robot_id, head_z, -np.pi / 3,
+                          physicsClientId=self.physics_client_id)
 
         # Create table.
         self.table_id = create_pybullet_block(
@@ -281,10 +298,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
         # Uncomment for debug / development.
-        # if use_gui:
-        #     while True:
-        #         self._step_simulator((1, GripperAction.OPEN))
-        #         p.stepSimulation(self.physics_client_id)
+        if use_gui:
+            while True:
+                self._step_simulator((1, GripperAction.OPEN))
+                p.stepSimulation(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
