@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
-from pybullet_helpers.geometry import Pose, set_pose
+from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 import pybullet as p
 
@@ -19,18 +19,7 @@ class HumanSpec:
     base_pose: Pose = Pose(position=(2.0, 0.53, 0.51))
     # Arm joints. TODO update.
     init_joints: JointPositions = field(
-        default_factory=lambda: [
-            0.0,
-            0.0,
-            0.0,
-            0.08726646,
-            0.0,
-            0.0,
-            -1.57079633,
-            0.0,
-            0.0,
-            0.0,
-        ]
+        default_factory=lambda: [0.0, 0.0, 0.0, np.pi / 10, 0.0, 0.0, -np.pi / 2]
     )
     # Joints for the rest of the human body that remain static.
     setup_joints: dict[str, float] = field(
@@ -56,6 +45,11 @@ class HumanSpec:
             "left_hip_x": "joint36",
             "left_elbow": "joint21",
             "head_z": "joint10",
+            "shoulder_x": "joint1",
+            "shoulder_y": "joint2",
+            "shoulder_z": "joint3",
+            "right_elbow": "joint14",
+
         }
         return known_names[human_readable_name]
 
@@ -64,8 +58,8 @@ def create_human_from_spec(
     human_spec: HumanSpec, physics_client_id: int
 ) -> SingleArmPyBulletRobot:
     """Create a human in pybullet from a specification."""
-    human = create_pybullet_robot("assistive-human", physics_client_id)
-    set_pose(human.robot_id, human_spec.base_pose, physics_client_id)
+    human = create_pybullet_robot("assistive-human", physics_client_id, base_pose=human_spec.base_pose)
+    human.set_joints(human_spec.init_joints)
     for joint_name, joint_value in human_spec.setup_joints.items():
         urdf_name = human_spec.get_joint_urdf_name(joint_name)
         joint_idx = human.joint_from_name(urdf_name)

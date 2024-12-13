@@ -378,6 +378,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.robot.set_joints(self.scene_spec.initial_joints)
         self.robot.open_fingers()
 
+        # Reset human.
+        self.human.set_joints(self.scene_spec.human_spec.init_joints)
+
         # Reset robot stand.
         set_pose(
             self.robot_stand_id,
