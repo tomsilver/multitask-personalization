@@ -794,19 +794,42 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "put away human held object":
             _, grasp_yaw, placement, surface, placement_base_pose = variables[:5]
 
-            # TODO need to update this function to take in extra args like
-            # _wipe_plan_exists does
-            import ipdb; ipdb.set_trace()
-
             def _placement_after_grasp_exists(
                 yaw: NDArray,
                 placement_pose: Pose,
                 surface_name_and_link: tuple[str, int],
                 base_pose: Pose,
+                held_object_relative_placement: Pose | None = None,
+                held_object_placement_surface: tuple[str, int] | None = None,
             ) -> bool:
 
-                # Snap object to grasp.
                 self._sim.set_state(obs)
+                if (
+                    self._sim.current_held_object_id is not None
+                ):
+                    assert held_object_relative_placement is not None
+                    assert held_object_placement_surface is not None
+                    placement_surface_id = self._sim.get_object_id_from_name(
+                        held_object_placement_surface[0]
+                    )
+                    placement_surface_link_id = held_object_placement_surface[1]
+                    placement_surface_link_pose = get_link_pose(
+                        placement_surface_id,
+                        placement_surface_link_id,
+                        self._sim.physics_client_id,
+                    )
+                    absolute_placement = multiply_poses(
+                        placement_surface_link_pose, held_object_relative_placement
+                    )
+                    set_pose(
+                        self._sim.current_held_object_id,
+                        absolute_placement,
+                        self._sim.physics_client_id,
+                    )
+                    self._sim.current_held_object_id = None
+                    self._sim.current_grasp_transform = None
+
+                # Snap object to grasp.
                 self._sim.set_robot_base(base_pose)
                 grasp_pose = _book_grasp_to_relative_pose(yaw)
                 end_effector_pose = self._sim.robot.get_end_effector_pose()
@@ -833,9 +856,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 result = plan is not None
                 return result
 
+            plan_to_place_exists_vars = [grasp_yaw, placement, surface, placement_base_pose]
+            if obs.held_object is not None:
+                first_placement, first_placement_surface = variables[5:7]
+                plan_to_place_exists_vars.extend([first_placement, first_placement_surface])
+
             plan_to_place_after_pick_exists = FunctionalCSPConstraint(
                 "place-after-pick",
-                [grasp_yaw, placement, surface, placement_base_pose],
+                plan_to_place_exists_vars,
                 _placement_after_grasp_exists,
             )
 
