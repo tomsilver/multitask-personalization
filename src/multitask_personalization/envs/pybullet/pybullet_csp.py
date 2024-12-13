@@ -247,6 +247,7 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
                 max_motion_planning_time=self._max_motion_planning_time,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 surface_link_id=surface_link_id,
+                debug=True,
             )
             assert place_plan is not None
             return place_plan

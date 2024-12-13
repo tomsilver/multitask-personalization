@@ -319,6 +319,7 @@ def get_plan_to_place_object(
     max_motion_planning_candidates: int = 1,
     max_motion_planning_time: float = np.inf,
     surface_link_id: int = -1,
+    debug: bool = False,
 ) -> list[PyBulletAction] | None:
     """Get a plan to place a held object on a given surface."""
     sim.set_state(state)
@@ -342,6 +343,7 @@ def get_plan_to_place_object(
         birrt_num_iters=10,
         max_smoothing_iters_per_step=1,
         retract_after=True,
+        debug=debug,
     )
     if kinematic_plan is None:
         return None
