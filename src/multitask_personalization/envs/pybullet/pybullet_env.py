@@ -28,6 +28,7 @@ from pybullet_helpers.inverse_kinematics import (
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
+from pybullet_helpers.inverse_kinematics import inverse_kinematics
 from pybullet_helpers.robots.kinova import KinovaGen3RobotiqGripperPyBulletRobot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
@@ -167,10 +168,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.scene_spec.human_spec, self.physics_client_id
         )
 
-        if self._hidden_spec:
-            from pybullet_helpers.gui import visualize_pose
-            visualize_pose(Pose(self._hidden_spec.rom_model._sphere_center), self.physics_client_id)
-
+        # Create a sim human on which we will do motion planning, IK, etc.
+        self._sim_human_physics_client_id = p.connect(p.DIRECT)
+        self._sim_human = create_human_from_spec(
+            self.scene_spec.human_spec, self._sim_human_physics_client_id
+        )
 
         # Create table.
         self.table_id = create_pybullet_block(
@@ -617,18 +619,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             from pybullet_helpers.gui import visualize_pose
             visualize_pose(handover_pose, self.physics_client_id)
 
-            while True:
-                p.stepSimulation(self.physics_client_id)
+            # while True:
+            #     p.stepSimulation(self.physics_client_id)
 
             assert self._hidden_spec is not None
             if not self._hidden_spec.rom_model.check_position_reachable(
-                handover_position
+                handover_pose.position
             ):
                 return
             # Otherwise, initiate the handover.
-            target_human_joints = self._hidden_spec.rom_model.run_inverse_kinematics(
-                handover_position
-            )
+            self._sim_human.set_joints(self.human.get_joint_positions())
+            target_human_joints = inverse_kinematics(self._sim_human, handover_pose)
+            import ipdb; ipdb.set_trace()
             # Make a plan for the human to grab the object.
             self._human_action_queue = self._get_human_arm_plan(target_human_joints, "handover")
             self._human_action_queue.append(None)  # indicates handover trigger
