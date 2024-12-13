@@ -14,10 +14,9 @@ from assistive_gym.envs.agents.human import Human
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
-from scipy.optimize import minimize
 from scipy.spatial import KDTree
 
-from multitask_personalization.envs.pybullet.pybullet_human_spec import (
+from multitask_personalization.envs.pybullet.pybullet_human import (
     HumanSpec,
     create_human_from_spec,
 )
@@ -49,7 +48,7 @@ class ROMModel(abc.ABC):
         self._physics_client_id = p.connect(p.DIRECT)
         self._rng = np.random.default_rng(seed)
         self._human = create_human_from_spec(
-            human_spec, self._rng, self._physics_client_id
+            human_spec, self._physics_client_id
         )
 
         self._reachable_points: list[NDArray] = []
@@ -80,49 +79,6 @@ class ROMModel(abc.ABC):
         position: NDArray,
     ) -> float:
         """Get the log probability that the position is reachable."""
-
-    def run_forward_kinematics(
-        self, joint_positions: JointPositions | NDArray
-    ) -> NDArray:
-        """Run forward kinematics for the human given joint positions."""
-        set_human_arm_joints(self._human, joint_positions)
-        right_wrist_pos, _ = self._human.get_pos_orient(self._human.right_wrist)
-        return right_wrist_pos
-
-    def run_inverse_kinematics(
-        self,
-        position: NDArray,
-        max_retries: int = 100,
-        seed: int = 0,
-        tol: float = 1e-3,
-    ) -> JointPositions:
-        """Get 4D joint positions from a target 3D position."""
-
-        # Hopefully 4D is low-dimensional enough that this works.
-        def _f(candidate: NDArray) -> float:
-            recovered_position = self.run_forward_kinematics(candidate)
-            return np.sum(np.subtract(recovered_position, position) ** 2)
-
-        rng = np.random.default_rng(seed)
-
-        lower = [DIMENSION_LIMITS[n][0] for n in DIMENSION_NAMES]
-        upper = [DIMENSION_LIMITS[n][1] for n in DIMENSION_NAMES]
-        best_answer = None
-        best_value = np.inf
-        for _ in range(max_retries):
-            init = rng.uniform(lower, upper)
-            result = minimize(_f, init, method="Nelder-Mead", tol=tol)
-            if any(not (l <= v <= u) for l, v, u in zip(lower, result.x, upper)):
-                continue
-            if result.success and result.fun < tol:
-                return result.x.tolist()
-            if result.fun < best_value:
-                best_value = result.fun
-                best_answer = result.x.tolist()
-        if best_answer is None:
-            logging.warning("Human IK failed completely")
-            return (np.add(lower, upper) / 2).tolist()
-        return best_answer
 
     def _visualize_reachable_points(
         self,
@@ -264,7 +220,7 @@ class SphericalROMModel(TrainableROMModel):
         super().__init__(human_spec, seed=seed)
         self._min_possible_radius = min_possible_radius
         self._max_possible_radius = max_possible_radius
-        origin, _ = self._human.get_pos_orient(self._human.right_wrist)
+        origin = self._human.get_end_effector_pose().position
         self._sphere_center = origin
 
         # Uncomment for debugging.
@@ -556,30 +512,31 @@ def get_human_arm_joints(human: Human) -> JointPositions:
     return pybullet_angles_to_ot_angles(pybullet_angles).tolist()
 
 
-def set_human_arm_joints(
-    human: Human, joint_positions: JointPositions | NDArray
-) -> None:
-    """Directly modify the human state given 4D joint positions."""
-    shoulder_x, shoulder_y, shoulder_z, elbow = ot_angles_to_pybullet_angles(
-        joint_positions
-    )
-    shoulder_x_index = human.j_right_shoulder_x
-    shoulder_y_index = human.j_right_shoulder_y
-    shoulder_z_index = human.j_right_shoulder_z
-    elbow_index = human.j_right_elbow
-    current_right_arm_joint_angles = human.get_joint_angles(human.right_arm_joints)
-    target_right_arm_angles = np.copy(current_right_arm_joint_angles)
-    target_right_arm_angles[shoulder_x_index] = shoulder_x
-    target_right_arm_angles[shoulder_y_index] = shoulder_y
-    target_right_arm_angles[shoulder_z_index] = shoulder_z
-    target_right_arm_angles[elbow_index] = elbow
-    other_idxs = set(human.right_arm_joints) - {
-        shoulder_x_index,
-        shoulder_y_index,
-        shoulder_z_index,
-        elbow_index,
-    }
-    assert np.allclose([target_right_arm_angles[i] for i in other_idxs], 0.0)
-    human.set_joint_angles(
-        human.right_arm_joints, target_right_arm_angles, use_limits=False
-    )
+# TODO remove
+# def set_human_arm_joints(
+#     human: Human, joint_positions: JointPositions | NDArray
+# ) -> None:
+#     """Directly modify the human state given 4D joint positions."""
+#     shoulder_x, shoulder_y, shoulder_z, elbow = ot_angles_to_pybullet_angles(
+#         joint_positions
+#     )
+#     shoulder_x_index = human.j_right_shoulder_x
+#     shoulder_y_index = human.j_right_shoulder_y
+#     shoulder_z_index = human.j_right_shoulder_z
+#     elbow_index = human.j_right_elbow
+#     current_right_arm_joint_angles = human.get_joint_angles(human.right_arm_joints)
+#     target_right_arm_angles = np.copy(current_right_arm_joint_angles)
+#     target_right_arm_angles[shoulder_x_index] = shoulder_x
+#     target_right_arm_angles[shoulder_y_index] = shoulder_y
+#     target_right_arm_angles[shoulder_z_index] = shoulder_z
+#     target_right_arm_angles[elbow_index] = elbow
+#     other_idxs = set(human.right_arm_joints) - {
+#         shoulder_x_index,
+#         shoulder_y_index,
+#         shoulder_z_index,
+#         elbow_index,
+#     }
+#     assert np.allclose([target_right_arm_angles[i] for i in other_idxs], 0.0)
+#     human.set_joint_angles(
+#         human.right_arm_joints, target_right_arm_angles, use_limits=False
+#     )

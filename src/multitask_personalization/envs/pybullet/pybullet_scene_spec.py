@@ -9,7 +9,7 @@ import numpy as np
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
-from multitask_personalization.envs.pybullet.pybullet_human_spec import HumanSpec
+from multitask_personalization.envs.pybullet.pybullet_human import HumanSpec
 from multitask_personalization.rom.models import ROMModel
 from multitask_personalization.structs import PublicSceneSpec
 

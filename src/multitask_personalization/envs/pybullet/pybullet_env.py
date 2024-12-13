@@ -39,7 +39,7 @@ from tomsutils.utils import (
     wrap_angle,
 )
 
-from multitask_personalization.envs.pybullet.pybullet_human_spec import (
+from multitask_personalization.envs.pybullet.pybullet_human import (
     create_human_from_spec,
 )
 from multitask_personalization.envs.pybullet.pybullet_missions import (
@@ -61,7 +61,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
 from multitask_personalization.rom.models import (
     get_human_arm_joints,
     get_human_hand_pose,
-    set_human_arm_joints,
 )
 
 
@@ -168,25 +167,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create human.
         self.human = create_human_from_spec(
-            self.scene_spec.human_spec, self._rng, self.physics_client_id
+            self.scene_spec.human_spec, self.physics_client_id
         )
-        # TODO switch out.
-        # Use https://gkjohnson.github.io/urdf-loaders/javascript/example/bundle/
-        # or another online URDF viewer for help.
-        self.human2 = create_pybullet_robot("assistive-human", self.physics_client_id)
-        set_pose(self.human2.robot_id, Pose((2.75, 0.53, 0.51)), self.physics_client_id)
-        right_leg = self.human2.joint_from_name("joint29")
-        p.resetJointState(self.human2.robot_id, right_leg, -np.pi / 2,
-                          physicsClientId=self.physics_client_id)
-        left_leg = self.human2.joint_from_name("joint36")
-        p.resetJointState(self.human2.robot_id, left_leg, -np.pi / 2,
-                          physicsClientId=self.physics_client_id)
-        left_elbow = self.human2.joint_from_name("joint21")
-        p.resetJointState(self.human2.robot_id, left_elbow, -np.pi / 3,
-                          physicsClientId=self.physics_client_id)
-        head_z = self.human2.joint_from_name("joint10")
-        p.resetJointState(self.human2.robot_id, head_z, -np.pi / 3,
-                          physicsClientId=self.physics_client_id)
 
         # Create table.
         self.table_id = create_pybullet_block(

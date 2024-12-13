@@ -3,7 +3,7 @@
 import numpy as np
 import pybullet as p
 
-from multitask_personalization.envs.pybullet.pybullet_human_spec import (
+from multitask_personalization.envs.pybullet.pybullet_human import (
     create_human_from_spec,
 )
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
