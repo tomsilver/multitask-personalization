@@ -238,7 +238,7 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
                 return get_plan_to_move_to_pose(
                     obs, placement_base_pose, self._sim, seed=self._seed
                 )
-            return get_plan_to_place_object(
+            place_plan = get_plan_to_place_object(
                 obs,
                 obs.held_object,
                 surface_name,
@@ -248,6 +248,8 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 surface_link_id=surface_link_id,
             )
+            assert place_plan is not None
+            return place_plan
         # Put away the object that we're holding at first.
         if obs.held_object is not None:
             placement_pose = self._get_value("first_placement")
@@ -259,7 +261,7 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
                 return get_plan_to_move_to_pose(
                     obs, placement_base_pose, self._sim, seed=self._seed
                 )
-            return get_plan_to_place_object(
+            place_plan = get_plan_to_place_object(
                 obs,
                 obs.held_object,
                 surface_name,
@@ -269,6 +271,8 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 surface_link_id=surface_link_id,
             )
+            assert place_plan is not None
+            return place_plan
         # Reverse handover.
         grasp_base_pose = self._get_value("grasp_base_pose")
         # First move next to the object.
@@ -789,6 +793,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "put away human held object":
             _, grasp_yaw, placement, surface, placement_base_pose = variables[:5]
+
+            # TODO need to update this function to take in extra args like
+            # _wipe_plan_exists does
+            import ipdb; ipdb.set_trace()
 
             def _placement_after_grasp_exists(
                 yaw: NDArray,
