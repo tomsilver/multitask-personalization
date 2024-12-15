@@ -38,12 +38,12 @@ def test_spherical_rom_model():
     # Check check_position_reachable().
     for _ in range(100):
         point = sample_within_sphere(sphere_center, sphere_radius, rng)
-        distance = np.linalg.norm(point - sphere_center)
+        distance = np.linalg.norm(np.subtract(point, sphere_center))
         assert spherical_rom_model.check_position_reachable(point)
     # Check sample_reachable_position().
     for _ in range(100):
         point = spherical_rom_model.sample_reachable_position(rng)
-        distance = np.linalg.norm(point - sphere_center)
+        distance = np.linalg.norm(np.subtract(point, sphere_center))
         assert distance < sphere_radius + 1e-6
     # Check get_position_reachable_logprob().
     for _ in range(100):

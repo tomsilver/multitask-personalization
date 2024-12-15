@@ -624,6 +624,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Robot indicated done.
         if np.isclose(action[0], 2) and action[1] == "Done":
             return
+        # Not used.
+        if np.isclose(action[0], 2):
+            return
         # Robot is waiting.
         if np.isclose(action[0], 3):
             return
