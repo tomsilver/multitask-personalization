@@ -1431,7 +1431,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if next_obs.held_object == "duster":
             return
         # For now, only learn when the robot triggered hand over.
-        if not np.isclose(act[0], 2):
+        if not np.isclose(act[0], 2) or act[1] == "Done":
             return
         assert act[1] == "Here you go!"
         assert next_obs.held_object is not None
