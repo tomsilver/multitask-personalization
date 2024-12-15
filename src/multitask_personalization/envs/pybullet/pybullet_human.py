@@ -3,11 +3,11 @@
 from dataclasses import dataclass, field
 
 import numpy as np
-from pybullet_helpers.robots import create_pybullet_robot
-from pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
+import pybullet as p
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
-import pybullet as p
+from pybullet_helpers.robots import create_pybullet_robot
+from pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 
 # TODO remove assistive-gym dependency and change pybullet version
 
@@ -47,7 +47,6 @@ class HumanSpec:
     subject_id: int = 1
     condition: str = "limit_4"
 
-
     def get_joint_urdf_name(self, human_readable_name: str) -> str:
         """Look up known joints in the URDF."""
         # Use https://gkjohnson.github.io/urdf-loaders/javascript/example/bundle/
@@ -69,11 +68,14 @@ def create_human_from_spec(
     human_spec: HumanSpec, physics_client_id: int
 ) -> SingleArmPyBulletRobot:
     """Create a human in pybullet from a specification."""
-    human = create_pybullet_robot("assistive-human", physics_client_id, base_pose=human_spec.base_pose)
+    human = create_pybullet_robot(
+        "assistive-human", physics_client_id, base_pose=human_spec.base_pose
+    )
     human.set_joints(human_spec.init_joints)
     for joint_name, joint_value in human_spec.setup_joints.items():
         urdf_name = human_spec.get_joint_urdf_name(joint_name)
         joint_idx = human.joint_from_name(urdf_name)
-        p.resetJointState(human.robot_id, joint_idx, joint_value,
-                            physicsClientId=physics_client_id)
+        p.resetJointState(
+            human.robot_id, joint_idx, joint_value, physicsClientId=physics_client_id
+        )
     return human

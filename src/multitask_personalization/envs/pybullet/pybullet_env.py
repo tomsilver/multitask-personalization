@@ -15,20 +15,20 @@ from numpy.typing import NDArray
 from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import (
     Pose,
+    get_half_extents_from_aabb,
     get_pose,
     multiply_poses,
-    set_pose,
-    get_half_extents_from_aabb,
     rotate_pose,
+    set_pose,
 )
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
+    inverse_kinematics,
 )
 from pybullet_helpers.joint import JointPositions, iter_between_joint_positions
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
-from pybullet_helpers.inverse_kinematics import inverse_kinematics
 from pybullet_helpers.robots.kinova import KinovaGen3RobotiqGripperPyBulletRobot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
@@ -535,7 +535,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     self.current_grasp_transform = None
                     # Make a plan for the human back to resting position.
                     target_human_joints = self.scene_spec.human_spec.reading_joints
-                    human_retract_plan = self._get_human_arm_plan(target_human_joints, "reset")
+                    human_retract_plan = self._get_human_arm_plan(
+                        target_human_joints, "reset"
+                    )
                     # This is really hacky but we need the human to wait a bit
                     # before the robot has moved back.
                     current_human_joints = self.human.get_joint_positions()
@@ -590,7 +592,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                         self.current_human_grasp_transform = None
                         human_retract_plan = self._get_human_arm_plan(
                             self.scene_spec.human_spec.reading_joints,
-                            "reverse-handover"
+                            "reverse-handover",
                         )
                         current_human_joints = self.human.get_joint_positions()
                         human_wait_plan = [
@@ -613,6 +615,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             handover_pose = rotate_pose(self.robot.get_end_effector_pose(), roll=np.pi)
 
             from pybullet_helpers.gui import visualize_pose
+
             visualize_pose(self.human.get_end_effector_pose(), self.physics_client_id)
             visualize_pose(handover_pose, self.physics_client_id)
 
@@ -626,12 +629,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 return
             # Otherwise, initiate the handover.
             self._sim_human.set_joints(self.human.get_joint_positions())
-            target_human_joints = inverse_kinematics(self._sim_human, handover_pose, best_effort=True, validate=False)
+            target_human_joints = inverse_kinematics(
+                self._sim_human, handover_pose, best_effort=True, validate=False
+            )
             # target_human_joints = inverse_kinematics(self.human, handover_pose,
             #                                          best_effort=True,
             #                                          validate=False)
             # Make a plan for the human to grab the object.
-            self._human_action_queue = self._get_human_arm_plan(target_human_joints, "handover")
+            self._human_action_queue = self._get_human_arm_plan(
+                target_human_joints, "handover"
+            )
             return
         # Robot indicated done.
         if np.isclose(action[0], 2) and action[1] == "Done":
@@ -1168,11 +1175,15 @@ Return that list and nothing else. Do not explain anything."""
         return self.robot.open_fingers()
 
     def _get_human_arm_plan(
-        self, target_human_joints: JointPositions, name: str,
+        self,
+        target_human_joints: JointPositions,
+        name: str,
     ) -> list[tuple[str, JointPositions]]:
         current_human_joints = self.human.get_joint_positions()
-        joint_infos = [self.human.joint_info_from_name(j) for j in self.human.arm_joint_names]
-        
+        joint_infos = [
+            self.human.joint_info_from_name(j) for j in self.human.arm_joint_names
+        ]
+
         joint_lst = iter_between_joint_positions(
             joint_infos,
             current_human_joints,

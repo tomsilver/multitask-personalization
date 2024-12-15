@@ -2,7 +2,12 @@
 
 import numpy as np
 import pybullet as p
-from pybullet_helpers.geometry import Pose, iter_between_poses, multiply_poses, matrix_from_quat
+from pybullet_helpers.geometry import (
+    Pose,
+    iter_between_poses,
+    matrix_from_quat,
+    multiply_poses,
+)
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
     check_collisions_with_held_object,
@@ -357,7 +362,9 @@ def get_plan_to_place_object(
         physics_client_id=sim.physics_client_id,
     )
     if debug and robot_joint_plan is None:
-        import ipdb; ipdb.set_trace()
+        import ipdb
+
+        ipdb.set_trace()
     if robot_joint_plan is None:
         return None
     for robot_joints in robot_joint_plan:

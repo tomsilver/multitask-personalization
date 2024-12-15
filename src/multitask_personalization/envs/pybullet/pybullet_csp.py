@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, multiply_poses, set_pose, get_pose
+from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
@@ -34,9 +34,9 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_pick_object,
     get_plan_to_place_object,
     get_plan_to_retract,
+    get_plan_to_reverse_handover_object,
     get_plan_to_wipe_surface,
     get_target_base_pose,
-    get_plan_to_reverse_handover_object,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -804,9 +804,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ) -> bool:
 
                 self._sim.set_state(obs)
-                if (
-                    self._sim.current_held_object_id is not None
-                ):
+                if self._sim.current_held_object_id is not None:
                     assert held_object_relative_placement is not None
                     assert held_object_placement_surface is not None
                     placement_surface_id = self._sim.get_object_id_from_name(
@@ -856,10 +854,17 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 result = plan is not None
                 return result
 
-            plan_to_place_exists_vars = [grasp_yaw, placement, surface, placement_base_pose]
+            plan_to_place_exists_vars = [
+                grasp_yaw,
+                placement,
+                surface,
+                placement_base_pose,
+            ]
             if obs.held_object is not None:
                 first_placement, first_placement_surface = variables[5:7]
-                plan_to_place_exists_vars.extend([first_placement, first_placement_surface])
+                plan_to_place_exists_vars.extend(
+                    [first_placement, first_placement_surface]
+                )
 
             plan_to_place_after_pick_exists = FunctionalCSPConstraint(
                 "place-after-pick",

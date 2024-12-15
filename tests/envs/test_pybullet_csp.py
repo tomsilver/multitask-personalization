@@ -60,6 +60,7 @@ def test_pybullet_csp():
 
     # Uncomment to create video.
     from gymnasium.wrappers import RecordVideo
+
     env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
@@ -84,7 +85,9 @@ def test_pybullet_csp():
         seed, min_num_satisfying_solutions=1, show_progress_bar=False
     )
 
-    all_missions = env.unwrapped._create_possible_missions()  # pylint: disable=protected-access
+    all_missions = (
+        env.unwrapped._create_possible_missions()
+    )  # pylint: disable=protected-access
     mission_id_to_mission = {m.get_id(): m for m in all_missions}
     book_handover_mission = mission_id_to_mission["book handover"]
     clean_mission = mission_id_to_mission["clean"]
