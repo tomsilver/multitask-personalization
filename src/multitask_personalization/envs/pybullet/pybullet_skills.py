@@ -331,7 +331,8 @@ def get_plan_to_place_object(
     collision_ids = sim.get_collision_ids()
     placement_generator = iter([placement_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    object_extents = sim.get_aabb_dimensions(object_id)
+    held_link_id = sim.duster_head_link_id if object_name == "duster" else -1
+    object_extents = sim.get_default_half_extents(object_id, held_link_id)
     kinematic_plan = get_kinematic_plan_to_place_object(
         kinematic_state,
         sim.robot,
@@ -356,7 +357,7 @@ def get_plan_to_place_object(
         sim.robot,
         kinematic_state.robot_joints,
         sim.robot.home_joint_positions,
-        collision_bodies=collision_ids,
+        collision_bodies=collision_ids - {object_id},
         seed=seed,
         physics_client_id=sim.physics_client_id,
     )

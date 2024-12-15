@@ -845,7 +845,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         """Get all collision IDs for the environment."""
         return set(self.book_ids) | {
             self.table_id,
-            self.bed_id,
             self.human.robot_id,
             self.shelf_id,
             self.duster_id,
