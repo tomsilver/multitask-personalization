@@ -9,8 +9,6 @@ from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 
-# TODO remove assistive-gym dependency and change pybullet version
-
 
 @dataclass(frozen=True)
 class HumanSpec:

@@ -1,11 +1,7 @@
 """Tests for rom/models.py."""
 
 import numpy as np
-import pybullet as p
 
-from multitask_personalization.envs.pybullet.pybullet_human import (
-    create_human_from_spec,
-)
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     PyBulletSceneSpec,
 )
@@ -32,11 +28,9 @@ def test_spherical_rom_model():
     )
 
     # Create human.
-    physics_client_id = p.connect(p.DIRECT)
-    human = create_human_from_spec(scene_spec.human_spec, rng, physics_client_id)
     sphere_center = (
-        spherical_rom_model._sphere_center
-    )  # pylint: disable=protected-access
+        spherical_rom_model._sphere_center  # pylint: disable=protected-access
+    )
 
     # Test SphereROMModel().
     assert spherical_rom_model.check_position_reachable(sphere_center)

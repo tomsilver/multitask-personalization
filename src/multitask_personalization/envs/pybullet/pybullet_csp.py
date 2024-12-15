@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, get_pose, multiply_poses, set_pose
+from pybullet_helpers.geometry import Pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,

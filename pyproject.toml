@@ -28,8 +28,6 @@ dependencies = [
    "gymnasium==1.0.0",
    "tomsutils@git+https://github.com/tomsilver/toms-utils.git",
    "tomsgeoms2d@git+https://github.com/tomsilver/toms-geoms-2d.git",
-   "pybullet@git+https://github.com/tomsilver/bullet3.git@link-limit-extension",
-   "assistive_gym@git+https://github.com/tomsilver/assistive-gym.git",
    "task_then_motion_planning@git+https://github.com/tomsilver/task-then-motion-planning.git",
 ]
 

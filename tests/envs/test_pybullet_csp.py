@@ -59,18 +59,11 @@ def test_pybullet_csp():
     env.action_space.seed(seed)
 
     # Uncomment to create video.
-    from gymnasium.wrappers import RecordVideo
-
-    env = RecordVideo(env, "videos/test-pybullet-csp")
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
     sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
-
-    # from multitask_personalization.rom.models import set_human_arm_joints
-    # import pybullet as p
-    # set_human_arm_joints(sim.human, sim.scene_spec.human_spec.reverse_handover_joints)
-    # while True:
-    #     p.stepSimulation(sim.physics_client_id)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
@@ -86,8 +79,8 @@ def test_pybullet_csp():
     )
 
     all_missions = (
-        env.unwrapped._create_possible_missions()
-    )  # pylint: disable=protected-access
+        env.unwrapped._create_possible_missions()  # pylint: disable=protected-access
+    )
     mission_id_to_mission = {m.get_id(): m for m in all_missions}
     book_handover_mission = mission_id_to_mission["book handover"]
     clean_mission = mission_id_to_mission["clean"]

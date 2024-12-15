@@ -5,7 +5,6 @@ import pybullet as p
 from pybullet_helpers.geometry import (
     Pose,
     iter_between_poses,
-    matrix_from_quat,
     multiply_poses,
 )
 from pybullet_helpers.inverse_kinematics import (

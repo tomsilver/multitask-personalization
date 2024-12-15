@@ -35,10 +35,8 @@ from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylind
 from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
 from tomsutils.utils import (
-    get_signed_angle_distance,
     render_textbox_on_image,
     sample_seed_from_rng,
-    wrap_angle,
 )
 
 from multitask_personalization.envs.pybullet.pybullet_human import (
@@ -611,17 +609,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if self.current_held_object_id is None:
                 return
             # If the handover position is unreachable, do nothing.
-            # TODO next: use rotate_pose from pybullet geometry to choose handover pose.
-            # Remove the "contact based" code at the top also.
             handover_pose = rotate_pose(self.robot.get_end_effector_pose(), roll=np.pi)
-
-            from pybullet_helpers.gui import visualize_pose
-
-            visualize_pose(self.human.get_end_effector_pose(), self.physics_client_id)
-            visualize_pose(handover_pose, self.physics_client_id)
-
-            # while True:
-            #     p.stepSimulation(self.physics_client_id)
 
             assert self._hidden_spec is not None
             if not self._hidden_spec.rom_model.check_position_reachable(
@@ -633,9 +621,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             target_human_joints = inverse_kinematics(
                 self._sim_human, handover_pose, best_effort=True, validate=False
             )
-            # target_human_joints = inverse_kinematics(self.human, handover_pose,
-            #                                          best_effort=True,
-            #                                          validate=False)
             # Make a plan for the human to grab the object.
             self._human_action_queue = self._get_human_arm_plan(
                 target_human_joints, "handover"
