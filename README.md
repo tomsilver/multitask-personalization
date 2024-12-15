@@ -15,7 +15,7 @@
 
 ## Check Installation
 
-Run `./run_ci_checks.sh`. It should complete with all green successes in 5-10 seconds.
+Run `./run_ci_checks.sh`. It should complete with all green successes 1 minute or so.
 
 ## Running Experiments
 
