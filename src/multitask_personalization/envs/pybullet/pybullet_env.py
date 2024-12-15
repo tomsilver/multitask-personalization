@@ -519,16 +519,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if human_action_name == "handover":
                 # If there is no plan left, execute the transfer.
                 if not self._human_action_queue:
-                    # TODO use a fixed transform here instead, to guarantee that
+                    # Use a fixed transform here instead, to guarantee that
                     # reverse handover will work.
                     self.current_human_held_object_id = self.current_held_object_id
-                    assert self.current_human_held_object_id is not None
-                    world_to_object = get_pose(
-                        self.current_human_held_object_id, self.physics_client_id
-                    )
-                    world_to_human = self.human.get_end_effector_pose()
-                    self.current_human_grasp_transform = multiply_poses(
-                        world_to_human.invert(), world_to_object
+                    self.current_human_grasp_transform = (
+                        self.scene_spec.human_spec.grasp_transform
                     )
                     self.current_held_object_id = None
                     self.current_grasp_transform = None
@@ -1260,8 +1255,6 @@ def _create_duster(
         linkParentIndices=[0] * 2,
         linkJointTypes=[p.JOINT_FIXED] * 2,
         linkJointAxis=[[0, 0, 0]] * 2,
-        linkLowerLimits=[1] * 2,
-        linkUpperLimits=[-1] * 2,
         physicsClientId=physics_client_id,
     )
 
@@ -1362,8 +1355,6 @@ def _create_shelf(
         linkParentIndices=link_parent_indices,
         linkJointTypes=link_joint_types,
         linkJointAxis=link_joint_axes,
-        linkLowerLimits=[1] * len(collision_shape_ids),
-        linkUpperLimits=[-1] * len(collision_shape_ids),
         physicsClientId=physics_client_id,
     )
     for link_id in range(p.getNumJoints(shelf_id, physicsClientId=physics_client_id)):

@@ -29,6 +29,9 @@ class HumanSpec:
         default_factory=lambda: [0.0, 0.0, 0.0, np.pi / 10, 0.0, -np.pi / 4, -np.pi / 2]
     )
 
+    # Grasp transform.
+    grasp_transform: Pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0.0, 0.0, np.sqrt(2) / 2))
+
     # Joints for the rest of the human body that remain static.
     setup_joints: dict[str, float] = field(
         default_factory=lambda: {
