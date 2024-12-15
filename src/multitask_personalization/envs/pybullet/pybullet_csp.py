@@ -147,8 +147,10 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
         if obs.held_object == book_description:
-            # If the book is already ready for handover, we are waiting for the
-            # human to grasp it.
+            # If the book is already ready for handover, we are either waiting
+            # for the human to grasp it, or we have failed and need to quit.
+            if obs.human_text is not None and "I can't reach there" in obs.human_text:
+                return [(2, "Done")]  # failed, quit
             self._sim.set_robot_base(obs.robot_base)
             ee_pose = self._sim.robot.forward_kinematics(obs.robot_joints)
             if ee_pose.allclose(handover_pose, atol=1e-3):
