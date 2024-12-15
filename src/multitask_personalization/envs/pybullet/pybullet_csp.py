@@ -284,6 +284,7 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
         grasp_yaw = np.array([-np.pi / 2])
         relative_grasp = _book_grasp_to_relative_pose(grasp_yaw)
 
+        assert obs.human_held_object is not None
         return get_plan_to_reverse_handover_object(
             obs,
             obs.human_held_object,
@@ -1063,7 +1064,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 assert len(csp.variables) == 8
                 placement, surface, placement_base_pose = csp.variables[5:]
                 placement_sampler = self._generate_placement_sampler(
-                    obs.held_object, csp, placement, surface, placement_base_pose
+                    obs.held_object, obs, csp, placement, surface, placement_base_pose
                 )
                 samplers.append(placement_sampler)
 
@@ -1071,6 +1072,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "put away robot held object":
             placement, surface, placement_base_pose = csp.variables
+            assert obs.held_object is not None
             placement_sampler = self._generate_placement_sampler(
                 obs.held_object, obs, csp, placement, surface, placement_base_pose
             )

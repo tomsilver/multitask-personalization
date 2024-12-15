@@ -133,7 +133,7 @@ class SphericalROMModel(TrainableROMModel):
         self._max_possible_radius = max_possible_radius
         # Set the origin to be in front of the hand.
         ee_pose = self._human.get_end_effector_pose()
-        origin_tf = Pose([0.0, 0.0, origin_distance])
+        origin_tf = Pose((0.0, 0.0, origin_distance))
         origin_pose = multiply_poses(ee_pose, origin_tf)
         self._sphere_center = origin_pose.position
 

@@ -524,6 +524,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     # TODO use a fixed transform here instead, to guarantee that
                     # reverse handover will work.
                     self.current_human_held_object_id = self.current_held_object_id
+                    assert self.current_human_held_object_id is not None
                     world_to_object = get_pose(
                         self.current_human_held_object_id, self.physics_client_id
                     )
@@ -624,7 +625,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
             assert self._hidden_spec is not None
             if not self._hidden_spec.rom_model.check_position_reachable(
-                handover_pose.position
+                np.array(handover_pose.position)
             ):
                 return
             # Otherwise, initiate the handover.

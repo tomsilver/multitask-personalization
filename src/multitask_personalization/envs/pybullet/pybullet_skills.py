@@ -361,10 +361,6 @@ def get_plan_to_place_object(
         seed=seed,
         physics_client_id=sim.physics_client_id,
     )
-    if debug and robot_joint_plan is None:
-        import ipdb
-
-        ipdb.set_trace()
     if robot_joint_plan is None:
         return None
     for robot_joints in robot_joint_plan:
