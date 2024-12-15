@@ -21,6 +21,7 @@ dependencies = [
    "hydra-core",
    "omegaconf",
    "moviepy==1.0.3",
+   "torch",
    "tqdm",
    "types-tqdm",
    "wandb",
