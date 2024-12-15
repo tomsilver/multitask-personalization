@@ -1403,7 +1403,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if obs.held_object == "duster":
             return
         # Only learn from cases where the robot triggered "hand over".
-        if not np.isclose(act[0], 2):
+        if not np.isclose(act[0], 2) or act[1] == "Done":
             return
         assert act[1] == "Here you go!"
         # Check if the trigger was successful.
