@@ -2,7 +2,11 @@
 
 import numpy as np
 import pybullet as p
-from pybullet_helpers.geometry import Pose, iter_between_poses, multiply_poses
+from pybullet_helpers.geometry import (
+    Pose,
+    iter_between_poses,
+    multiply_poses,
+)
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
     check_collisions_with_held_object,
@@ -12,6 +16,7 @@ from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
+    get_kinematic_plan_to_retract,
 )
 from pybullet_helpers.motion_planning import (
     MotionPlanningHyperparameters,
@@ -94,6 +99,32 @@ def get_actions_from_kinematic_transition(
     return actions
 
 
+def get_plan_to_retract(
+    state: PyBulletState,
+    sim: PyBulletEnv,
+    previously_held_object: str | None = None,
+    translation_magnitude: float = 0.125,
+    max_motion_planning_time: float = np.inf,
+) -> list[PyBulletAction]:
+    """Get a plan to retract in the opposite direction of the robot fingers."""
+    sim.set_state(state)
+    collision_ids = sim.get_collision_ids()
+    if previously_held_object is not None:
+        object_id = sim.get_object_id_from_name(previously_held_object)
+        collision_ids.discard(object_id)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    kinematic_plan = get_kinematic_plan_to_retract(
+        kinematic_state,
+        sim.robot,
+        collision_ids,
+        translation_magnitude=translation_magnitude,
+        max_motion_planning_time=max_motion_planning_time,
+        max_smoothing_iters_per_step=1,
+    )
+    assert kinematic_plan is not None
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+
+
 def get_plan_to_pick_object(
     state: PyBulletState,
     object_name: str,
@@ -139,7 +170,7 @@ def get_target_base_pose(
     if object_name == "shelf":
         return sim.scene_spec.robot_base_pose  # initial base pose
     if object_name == "bed":
-        return Pose((1.0, 0.0, 0.0))
+        return Pose((1.0, 0.2, 0.0))
     if object_name == "table":
         return Pose(
             (
@@ -244,6 +275,44 @@ def get_plan_to_handover_object(
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
+def get_plan_to_reverse_handover_object(
+    state: PyBulletState,
+    object_name: str,
+    relative_grasp: Pose,
+    sim: PyBulletEnv,
+    max_motion_planning_candidates: int = 1,
+    max_motion_planning_time: float = np.inf,
+) -> list[PyBulletAction]:
+    """Get a plan to grasp an object held by a person."""
+    sim.set_state(state)
+    object_id = sim.get_object_id_from_name(object_name)
+    assert sim.current_human_held_object_id == object_id
+    assert sim.current_held_object_id is None
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    collision_ids = sim.get_collision_ids()
+
+    # Retract upwards after.
+    postgrasp_translation = Pose((0.0, 0.0, 0.1))
+    grasp_generator = iter([relative_grasp])
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    kinematic_plan: list[KinematicState] = []
+    kinematic_pick_plan = get_kinematic_plan_to_pick_object(
+        kinematic_state,
+        sim.robot,
+        object_id,
+        sim.human.robot_id,  # used for toggled collision checking
+        collision_ids,
+        grasp_generator=grasp_generator,
+        max_motion_planning_time=max_motion_planning_time,
+        max_motion_planning_candidates=max_motion_planning_candidates,
+        max_smoothing_iters_per_step=1,
+        postgrasp_translation=postgrasp_translation,
+    )
+    assert kinematic_pick_plan is not None
+    kinematic_plan.extend(kinematic_pick_plan)
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
+
+
 def get_plan_to_place_object(
     state: PyBulletState,
     object_name: str,
@@ -262,7 +331,8 @@ def get_plan_to_place_object(
     collision_ids = sim.get_collision_ids()
     placement_generator = iter([placement_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    object_extents = sim.get_aabb_dimensions(object_id)
+    held_link_id = sim.duster_head_link_id if object_name == "duster" else -1
+    object_extents = sim.get_default_half_extents(object_id, held_link_id)
     kinematic_plan = get_kinematic_plan_to_place_object(
         kinematic_state,
         sim.robot,
@@ -271,9 +341,10 @@ def get_plan_to_place_object(
         collision_ids,
         placement_generator,
         surface_link_id=surface_link_id,
-        preplace_translation_magnitude=object_extents[2],
+        preplace_translation_magnitude=(1.25 * object_extents[2]),
         max_motion_planning_time=max_motion_planning_time,
         max_motion_planning_candidates=max_motion_planning_candidates,
+        birrt_num_iters=10,
         max_smoothing_iters_per_step=1,
         retract_after=True,
     )
@@ -286,7 +357,7 @@ def get_plan_to_place_object(
         sim.robot,
         kinematic_state.robot_joints,
         sim.robot.home_joint_positions,
-        collision_bodies=collision_ids,
+        collision_bodies=collision_ids - {object_id},
         seed=seed,
         physics_client_id=sim.physics_client_id,
     )

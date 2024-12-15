@@ -28,6 +28,8 @@ class PyBulletState:
     surface_dust_patches: dict[tuple[str, int], NDArray]
     held_object: str | None = None
     human_text: str | None = None
+    human_held_object: str | None = None
+    human_grasp_transform: Pose | None = None
 
 
 class GripperAction(Enum):
@@ -37,7 +39,9 @@ class GripperAction(Enum):
     CLOSE = 2
 
 
-PyBulletAction: TypeAlias = tuple[int, JointPositions | GripperAction | None]  # OneOf
+PyBulletAction: TypeAlias = tuple[
+    int, JointPositions | GripperAction | str | None
+]  # OneOf
 
 
 class PyBulletMission(abc.ABC):

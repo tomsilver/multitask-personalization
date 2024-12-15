@@ -1,10 +1,8 @@
 """Tests for pybullet_csp.py."""
 
-import os
 from pathlib import Path
 
 import numpy as np
-from tomsutils.llm import OpenAILLM
 
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.pybullet.pybullet_csp import (
@@ -18,13 +16,12 @@ from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
 )
+from multitask_personalization.envs.pybullet.pybullet_utils import PyBulletCannedLLM
 from multitask_personalization.rom.models import SphericalROMModel
 
 
 def test_pybullet_csp():
     """Tests for pybullet_csp.py."""
-    if "OPENAI_API_KEY" not in os.environ:
-        os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
     seed = 123
     default_scene_spec = PyBulletSceneSpec()
     scene_spec = PyBulletSceneSpec(
@@ -33,7 +30,7 @@ def test_pybullet_csp():
     )
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
-        scene_spec.human_spec, min_possible_radius=0.49, max_possible_radius=0.51
+        scene_spec.human_spec, min_possible_radius=0.29, max_possible_radius=0.31
     )
     surfaces_robot_can_clean = [
         ("table", -1),
@@ -47,11 +44,8 @@ def test_pybullet_csp():
         surfaces_robot_can_clean=surfaces_robot_can_clean,
     )
 
-    llm = OpenAILLM(
-        model_name="gpt-4o-mini",
+    llm = PyBulletCannedLLM(
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
-        max_tokens=700,
-        use_cache_only=True,
     )
 
     # Create a real environment.
@@ -84,16 +78,19 @@ def test_pybullet_csp():
         seed, min_num_satisfying_solutions=1, show_progress_bar=False
     )
 
-    all_missions = env._create_possible_missions()  # pylint: disable=protected-access
+    all_missions = (
+        env.unwrapped._create_possible_missions()  # pylint: disable=protected-access
+    )
     mission_id_to_mission = {m.get_id(): m for m in all_missions}
     book_handover_mission = mission_id_to_mission["book handover"]
     clean_mission = mission_id_to_mission["clean"]
+    store_human_mission = mission_id_to_mission["store human held object"]
 
     def _run_mission(mission):
         # Override the mission and regenerate the observation.
-        env.current_human_text = None
-        env._reset_mission(mission)  # pylint: disable=protected-access
-        obs = env.get_state()
+        env.unwrapped.current_human_text = None
+        env.unwrapped._reset_mission(mission)  # pylint: disable=protected-access
+        obs = env.unwrapped.get_state()
 
         # Generate CSP.
         csp, samplers, policy, initialization = csp_generator.generate(obs)
@@ -112,12 +109,10 @@ def test_pybullet_csp():
             act = policy.step(obs)
             if mission.check_complete(obs, act):
                 break
-            obs, reward, terminated, truncated, _ = env.step(act)
+            obs, reward, _, _, _ = env.step(act)
             assert isinstance(obs, PyBulletState)
             assert np.isclose(reward, 0.0)
             assert not policy.check_termination(obs)
-            assert not terminated
-            assert not truncated
         else:
             assert False, "Mission did not complete."
 
@@ -136,18 +131,25 @@ def test_pybullet_csp():
     # Start with book handover.
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
     _run_mission(book_handover_mission)
-    env.save_state(post_book_handover1_state_fp)
+    env.unwrapped.save_state(post_book_handover1_state_fp)
+    assert not store_human_mission.check_initiable(env.unwrapped.get_state())
 
-    # Clean.
-    env.load_state(post_book_handover1_state_fp)
+    # # Clean.
+    env.unwrapped.load_state(post_book_handover1_state_fp)
     post_clean1_state_fp = saved_state_dir / "clean_1.p"
     _run_mission(clean_mission)
-    env.save_state(post_clean1_state_fp)
+    env.unwrapped.save_state(post_clean1_state_fp)
+
+    # Store human held book.
+    env.unwrapped.load_state(post_clean1_state_fp)
+    post_store1_state_fp = saved_state_dir / "store_1.p"
+    _run_mission(store_human_mission)
+    env.unwrapped.save_state(post_store1_state_fp)
 
     # Uncomment for more thorough tests (but too slow to merge).
 
     # # Clean again.
-    # env.load_state(post_clean1_state_fp)
+    # env.load_state(post_store1_state_fp)
     # post_clean2_state_fp = saved_state_dir / "clean_2.p"
     # _run_mission(clean_mission)
     # env.save_state(post_clean2_state_fp)
