@@ -53,17 +53,17 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=False,
+        use_gui=True,
         seed=seed,
     )
     env.action_space.seed(seed)
 
     # Uncomment to create video.
-    # from gymnasium.wrappers import RecordVideo
-    # env = RecordVideo(env, "videos/test-pybullet-csp")
+    from gymnasium.wrappers import RecordVideo
+    env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
 
     # from multitask_personalization.rom.models import set_human_arm_joints
     # import pybullet as p

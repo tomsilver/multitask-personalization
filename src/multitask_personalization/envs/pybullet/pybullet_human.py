@@ -41,6 +41,13 @@ class HumanSpec:
         }
     )
 
+    # Used by some ROM models.
+    impairment: str = "none"
+    gender: str = "male"
+    subject_id: int = 1
+    condition: str = "limit_4"
+
+
     def get_joint_urdf_name(self, human_readable_name: str) -> str:
         """Look up known joints in the URDF."""
         # Use https://gkjohnson.github.io/urdf-loaders/javascript/example/bundle/
