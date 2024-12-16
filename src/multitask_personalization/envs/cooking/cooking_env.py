@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, TypeAlias, get_args
+from typing import Any, TypeAlias, get_args
 
 import gymnasium as gym
 import numpy as np
 from gymnasium.core import RenderFrame
 from matplotlib import pyplot as plt
 
-# NOTE: use intersection utilities in tomsgeoms2d once multiple pots are added.
 from tomsgeoms2d.structs import Circle
 from tomsutils.spaces import FunctionalSpace
 from tomsutils.utils import fig2data
@@ -23,8 +22,6 @@ class CookingPot:
     """A pot in a cooking environment."""
 
     radius: float = 0.25
-    depth: float = 1.0
-
     position: tuple[float, float] | None = None
 
 
@@ -34,9 +31,9 @@ class CookingIngredient:
 
     name: str
     color: tuple[float, float, float] = (0.5, 0.5, 0.5)  # rendering
-    initial_quantity: float = 1.0  # in terms of pot volume
-    initial_temperature: float = 0.0  # heats up during cooking
-    temperature_increase_rate: float = 0.1  # delta temperature
+    respawn_quantity_bounds: tuple[float, float] = (0.1, 1.0)
+    heat_rate: float = 0.1  # delta temperature during cooking
+    cool_rate: float = 0.1  # delta temperature when not cooking (min = 0.0)
 
 
 @dataclass(frozen=True)
@@ -59,15 +56,15 @@ class CookingSceneSpec(PublicSceneSpec):
     # Characteristics of available pots.
     pots: list[CookingPot] = field(
         default_factory=lambda: [
-            CookingPot(radius=0.5, depth=5.0, position=None),
-            CookingPot(radius=1.0, depth=0.2, position=None),
-            CookingPot(radius=0.5, depth=0.2, position=None),
-            CookingPot(radius=0.5, depth=2.0, position=None),
+            CookingPot(radius=0.5, position=None),
+            CookingPot(radius=1.0, position=None),
+            CookingPot(radius=0.5, position=None),
+            CookingPot(radius=0.5, position=None),
         ]
     )
 
     # Characteristics of available ingredients.
-    ingredients: Dict[str, CookingIngredient] = field(
+    ingredients: dict[str, CookingIngredient] = field(
         default_factory=lambda: {
             "salt": CookingIngredient(
                 name="salt",
@@ -113,7 +110,7 @@ class CookingHiddenSpec:
     """Hidden parameters for a cooking environment."""
 
     # Meal preferences.
-    ingredient_preferences: Dict[str, CookingIngredientPreference] = field(
+    ingredient_preferences: dict[str, CookingIngredientPreference] = field(
         default_factory=lambda: {
             "salt": CookingIngredientPreference(
                 name="salt", min_quantity=0.1, max_quantity=0.2
@@ -206,7 +203,7 @@ class CookingState:
     """The state of a cooking environment."""
 
     pots: list[CookingPotState]
-    ingredients: Dict[str, CookingIngredientState]
+    ingredients: dict[str, CookingIngredientState]
 
     meal_temperature: float | None
 
