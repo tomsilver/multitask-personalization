@@ -132,8 +132,8 @@ def test_cooking_env():
     env.close()
 
 
-def test_cooking_env_happy_meal():
-    """Test creating and serving a happy meal in the cooking env."""
+def test_cooking_env_full_meal():
+    """Test creating and serving a successful meal in the cooking env."""
     seed = 123
 
     scene_spec = CookingSceneSpec(
@@ -162,8 +162,8 @@ def test_cooking_env_happy_meal():
     meal_specs = [
         MealSpec(
             [
-                ("salt", (2.0, 4.0), (0.9, 1.1)),
-                ("pepper", (2.0, 4.0), (0.9, 1.1)),
+                ("salt", (2.5, 3.5), (0.9, 1.1)),
+                ("pepper", (2.5, 3.5), (0.9, 1.1)),
             ]
         )
     ]
@@ -200,7 +200,7 @@ def test_cooking_env_happy_meal():
         WaitCookingAction(),  # 0 -> 1
         WaitCookingAction(),  # 1 -> 2
         WaitCookingAction(),  # 2 -> 3
-        ServeMealCookingAction(),  # 4 -> 3
+        ServeMealCookingAction(),
     ]
 
     # Repeat twice.
