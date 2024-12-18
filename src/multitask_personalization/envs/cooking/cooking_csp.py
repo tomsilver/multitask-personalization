@@ -107,7 +107,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
 
         # Initialization.
         initialization = {
-            v: _IngredientCSPState(v.name, False, 0, 0, 0, (0.0, 0.0)) for v in ingredient_variables
+            v: _IngredientCSPState(v.name, False, 0, -1, 0, (-1, -1)) for v in ingredient_variables
         }
         initialization[cooking_time] = 0.0
 
@@ -259,13 +259,27 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             _sample_ingredients, csp, set(csp.variables)
         )
 
-        # Sample positions and ingredient->pot maps for all currently used pots.
+        # Sample pots and positions for any used ingredients.
         def _sample_pots(
-            _: dict[CSPVariable, Any], rng: np.random.Generator
+            sol: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            import ipdb
-
-            ipdb.set_trace()
+            unused_pot_ids = list(range(len(obs.pots)))
+            new_sol = {}
+            for v in ingredient_variables:
+                old_ing_state = sol[v]
+                assert isinstance(old_ing_state, _IngredientCSPState)
+                if old_ing_state.is_used:
+                    pot_id = rng.choice(unused_pot_ids)
+                    unused_pot_ids.remove(pot_id)
+                    pot_pos_x = rng.uniform(0, self._scene_spec.stove_top_width)
+                    pot_pos_y = rng.uniform(0, self._scene_spec.stove_top_height)
+                    pot_pos = (pot_pos_x, pot_pos_y)
+                else:
+                    pot_id = -1
+                    pot_pos = (-1, -1)
+                ing_state = old_ing_state.copy_with(pot_id=pot_id, pos=pot_pos)
+                new_sol[v] = ing_state
+            return new_sol
 
         pot_position_sampler = FunctionalCSPSampler(
             _sample_pots, csp, set(csp.variables)
