@@ -6,6 +6,14 @@ from dataclasses import dataclass
 from typing import TypeAlias
 
 
+class _NoChange:
+    def __repr__(self):
+        return "<NoChange>"
+
+
+_NO_CHANGE = _NoChange()
+
+
 @dataclass(frozen=True)
 class CookingPotState:
     """The state of a pot in a cooking environment."""
@@ -20,29 +28,37 @@ class CookingPotState:
 
     def copy_with(
         self,
-        position: tuple[float, float] | None = None,
-        ingredient_in_pot: str | None = None,
-        ingredient_quantity_in_pot: float | None = None,
-        ingredient_in_pot_temperature: float | None = None,
+        position: tuple[float, float] | None | _NoChange = _NO_CHANGE,
+        ingredient_in_pot: str | None | _NoChange = _NO_CHANGE,
+        ingredient_quantity_in_pot: float | _NoChange = _NO_CHANGE,
+        ingredient_in_pot_temperature: float | _NoChange = _NO_CHANGE,
     ) -> CookingPotState:
         """Return a copy of the state with the specified fields updated."""
+        if isinstance(position, _NoChange):
+            new_position = self.position
+        else:
+            new_position = position
+
+        if isinstance(ingredient_in_pot, _NoChange):
+            new_ingredient_in_pot = self.ingredient_in_pot
+        else:
+            new_ingredient_in_pot = ingredient_in_pot
+
+        if isinstance(ingredient_quantity_in_pot, _NoChange):
+            new_ingredient_quantity_in_pot = self.ingredient_quantity_in_pot
+        else:
+            new_ingredient_quantity_in_pot = ingredient_quantity_in_pot
+
+        if isinstance(ingredient_in_pot_temperature, _NoChange):
+            new_ingredient_in_pot_temperature = self.ingredient_in_pot_temperature
+        else:
+            new_ingredient_in_pot_temperature = ingredient_in_pot_temperature
+
         return CookingPotState(
-            position=position if position is not None else self.position,
-            ingredient_in_pot=(
-                ingredient_in_pot
-                if ingredient_in_pot is not None
-                else self.ingredient_in_pot
-            ),
-            ingredient_quantity_in_pot=(
-                ingredient_quantity_in_pot
-                if ingredient_quantity_in_pot is not None
-                else self.ingredient_quantity_in_pot
-            ),
-            ingredient_in_pot_temperature=(
-                ingredient_in_pot_temperature
-                if ingredient_in_pot_temperature is not None
-                else self.ingredient_in_pot_temperature
-            ),
+            position=new_position,
+            ingredient_in_pot=new_ingredient_in_pot,
+            ingredient_quantity_in_pot=new_ingredient_quantity_in_pot,
+            ingredient_in_pot_temperature=new_ingredient_in_pot_temperature,
         )
 
 
@@ -71,6 +87,7 @@ class CookingIngredientState:
 class CookingState:
     """The state of a cooking environment."""
 
+    stove_on: bool
     pots: list[CookingPotState]
     ingredients: dict[str, CookingIngredientState]
 
@@ -93,6 +110,11 @@ class AddIngredientCookingAction:
 
 
 @dataclass(frozen=True)
+class ToggleStove:
+    """Flip the stove on or off."""
+
+
+@dataclass(frozen=True)
 class WaitCookingAction:
     """Do nothing (sometimes necessary to wait for things to heat up)."""
 
@@ -105,6 +127,7 @@ class ServeMealCookingAction:
 CookingAction: TypeAlias = (
     MovePotCookingAction
     | AddIngredientCookingAction
+    | ToggleStove
     | WaitCookingAction
     | ServeMealCookingAction
 )

@@ -25,6 +25,7 @@ from multitask_personalization.envs.cooking.cooking_structs import (
     CookingState,
     MovePotCookingAction,
     ServeMealCookingAction,
+    ToggleStove,
     WaitCookingAction,
 )
 
@@ -58,6 +59,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
     def _get_state_from_scene_spec(self, scene_spec: CookingSceneSpec) -> CookingState:
         # NOTE: the initial quantities of ingredients are randomized.
         return CookingState(
+            stove_on=False,
             pots=[
                 CookingPotState(
                     position=pot.position,
@@ -98,10 +100,11 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self._current_user_satisfaction = 0.0
         done = False
 
+        new_stove_on = self._current_state.stove_on
         new_pot_states: list[CookingPotState] = []
         new_ingredients = self._current_state.ingredients.copy()
 
-        # Update pot temperatures.
+        # Update pot temperatures and initialize new_pot_states.
         for pot_id, pot_state in enumerate(self._current_state.pots):
             old_temperature = pot_state.ingredient_in_pot_temperature
             # Only change temperature for pots with ingredients.
@@ -109,8 +112,8 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 ingredient_spec = self.scene_spec.get_ingredient(
                     pot_state.ingredient_in_pot
                 )
-                # Increase temperature if on stove.
-                if pot_state.position is not None:
+                # Increase temperature if on stove and stove is on.
+                if pot_state.position is not None and self._current_state.stove_on:
                     assert ingredient_spec.heat_rate >= 0
                     temperature_change = ingredient_spec.heat_rate
                 # Decrease temperature if off stove.
@@ -143,7 +146,9 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 else:
                     new_position = old_position
             # Finalize position.
-            new_pot_states[pot_id].copy_with(position=new_position)
+            new_pot_states[pot_id] = new_pot_states[pot_id].copy_with(
+                position=new_position
+            )
 
         # Handle ingredient -> pot actions.
         elif isinstance(action, AddIngredientCookingAction):
@@ -153,7 +158,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             if self._ingredient_add_is_valid(
                 pot_id, ingredient, ingredient_quantity, self._current_state
             ):
-                new_pot_states[pot_id].copy_with(
+                new_pot_states[pot_id] = new_pot_states[pot_id].copy_with(
                     ingredient_in_pot=ingredient,
                     ingredient_quantity_in_pot=ingredient_quantity,
                     ingredient_in_pot_temperature=0.0,
@@ -183,15 +188,21 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             self._current_state = self._get_state_from_scene_spec(self.scene_spec)
             done = True  # used for eval
 
+        # Wait.
         elif isinstance(action, WaitCookingAction):
-            # Do nothing else.
             pass
+
+        # Handle stove toggling.
+        elif isinstance(action, ToggleStove):
+            new_stove_on = not new_stove_on
 
         else:
             raise NotImplementedError()
 
         # Update state.
-        self._current_state = CookingState(new_pot_states, new_ingredients)
+        self._current_state = CookingState(
+            new_stove_on, new_pot_states, new_ingredients
+        )
 
         return self._get_state(), 0.0, done, False, self._get_info()
 
@@ -265,7 +276,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             # Out of bounds.
             return False
         for other_pot_id, other_pot_state in enumerate(state.pots):
-            if other_pot_id == pot_id:
+            if other_pot_id == pot_id or other_pot_state.position is None:
                 continue
             other_pot_radius = self.scene_spec.pots[other_pot_id].radius
             if (
