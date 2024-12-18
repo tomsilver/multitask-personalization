@@ -10,7 +10,6 @@ from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSce
 from multitask_personalization.utils import _NoChange, _NO_CHANGE
 
 
-
 @dataclass(frozen=True)
 class CookingPotState:
     """The state of a pot in a cooking environment."""

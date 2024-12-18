@@ -101,105 +101,107 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         new_pot_states: list[CookingPotState] = []
         new_ingredients = self._current_state.ingredients.copy()
 
-        # Update pot temperatures and initialize new_pot_states.
-        for pot_id, pot_state in enumerate(self._current_state.pots):
-            old_temperature = pot_state.ingredient_in_pot_temperature
-            # Only change temperature for pots with ingredients.
-            if pot_state.ingredient_in_pot is not None:
-                ingredient_spec = self.scene_spec.get_ingredient(
-                    pot_state.ingredient_in_pot
-                )
-                # Increase temperature if on stove.
-                if pot_state.position is not None:
-                    assert ingredient_spec.heat_rate >= 0
-                    temperature_change = ingredient_spec.heat_rate
-                # Decrease temperature if off stove.
-                else:
-                    assert ingredient_spec.cool_rate >= 0
-                    temperature_change = -1 * ingredient_spec.cool_rate
-                new_temperature = old_temperature + temperature_change
+        # Special case: serve meals immediately; do not update temperature.
+        # This is to avoid having to reason about off-by-one things.
+        if isinstance(action, ServeMealCookingAction):
+            # Serve the meal and compute user satisfaction.
+            if self._hidden_spec is None:
+                raise ValueError("Hidden spec required for step().")
+            # Check if the meal made fits the user preferences.
+            meal = self._current_state.get_meal()
+            user_happy = self._hidden_spec.meal_preference_model.check(meal)
+            if user_happy:
+                self._current_user_satisfaction = 1.0
             else:
-                new_temperature = old_temperature
-            # Note that the states will be modified further by the actions below.
-            new_temperature = max(0.0, new_temperature)
-            new_pot_state = pot_state.copy_with(
-                ingredient_in_pot_temperature=new_temperature
-            )
-            new_pot_states.append(new_pot_state)
+                self._current_user_satisfaction = -1.0
+            # Reset the pot and ingredients.
+            self._current_state = self._get_state_from_scene_spec(self.scene_spec)
+            done = True  # used for eval
 
-        if isinstance(action, MultiCookingAction):
-            action_list = action.actions
         else:
-            action_list = [action]
-        del action  # make sure this action isn't used anymore
-
-        # Multiple actions are convenient if we want to allow for multiple
-        # ingredient adds or pot moves at the same time, without temperature
-        # changes being applied between individual actions.
-        for act in action_list:
-            # Handle move actions.
-            if isinstance(act, MovePotCookingAction):
-                pot_id = act.pot_id
-                old_position = self._current_state.pots[pot_id].position
-                # Always allowed to move off the stove.
-                if act.new_pot_position is None:
-                    new_position = None
-                # Check if move is valid: in bounds and not in collision.
-                else:
-                    if self._pot_move_is_valid(
-                        act.new_pot_position, pot_id, self._current_state
-                    ):
-                        new_position = act.new_pot_position
-                    # Do nothing if action is not valid.
+            # Update pot temperatures and initialize new_pot_states.
+            for pot_id, pot_state in enumerate(self._current_state.pots):
+                old_temperature = pot_state.ingredient_in_pot_temperature
+                # Only change temperature for pots with ingredients.
+                if pot_state.ingredient_in_pot is not None:
+                    ingredient_spec = self.scene_spec.get_ingredient(
+                        pot_state.ingredient_in_pot
+                    )
+                    # Increase temperature if on stove.
+                    if pot_state.position is not None:
+                        assert ingredient_spec.heat_rate >= 0
+                        temperature_change = ingredient_spec.heat_rate
+                    # Decrease temperature if off stove.
                     else:
-                        new_position = old_position
-                # Finalize position.
-                new_pot_states[pot_id] = new_pot_states[pot_id].copy_with(
-                    position=new_position
-                )
-
-            # Handle ingredient -> pot actions.
-            elif isinstance(act, AddIngredientCookingAction):
-                pot_id = act.pot_id
-                ingredient = act.ingredient
-                ingredient_quantity = act.ingredient_quantity
-                if self._ingredient_add_is_valid(
-                    pot_id, ingredient, ingredient_quantity, self._current_state
-                ):
-                    new_pot_states[pot_id] = new_pot_states[pot_id].copy_with(
-                        ingredient_in_pot=ingredient,
-                        ingredient_quantity_in_pot=ingredient_quantity,
-                        ingredient_in_pot_temperature=0.0,
-                    )
-                    ingredient_state = self._current_state.ingredients[ingredient]
-                    remainder = (
-                        ingredient_state.ingredient_unused_quantity
-                        - ingredient_quantity
-                    )
-                    new_ingredients[ingredient] = CookingIngredientState(remainder)
-
-            # Handle meal serving.
-            elif isinstance(act, ServeMealCookingAction):
-                # Serve the meal and compute user satisfaction.
-                if self._hidden_spec is None:
-                    raise ValueError("Hidden spec required for step().")
-                # Check if the meal made fits the user preferences.
-                meal = self._current_state.get_meal()
-                user_happy = self._hidden_spec.meal_preference_model.check(meal)
-                if user_happy:
-                    self._current_user_satisfaction = 1.0
+                        assert ingredient_spec.cool_rate >= 0
+                        temperature_change = -1 * ingredient_spec.cool_rate
+                    new_temperature = old_temperature + temperature_change
                 else:
-                    self._current_user_satisfaction = -1.0
-                # Reset the pot and ingredients.
-                self._current_state = self._get_state_from_scene_spec(self.scene_spec)
-                done = True  # used for eval
+                    new_temperature = old_temperature
+                # Note that the states will be modified further by the actions below.
+                new_temperature = max(0.0, new_temperature)
+                new_pot_state = pot_state.copy_with(
+                    ingredient_in_pot_temperature=new_temperature
+                )
+                new_pot_states.append(new_pot_state)
 
-            # Wait.
-            elif isinstance(act, WaitCookingAction):
-                pass
-
+            if isinstance(action, MultiCookingAction):
+                action_list = action.actions
             else:
-                raise NotImplementedError()
+                action_list = [action]
+            del action  # make sure this action isn't used anymore
+
+            # Multiple actions are convenient if we want to allow for multiple
+            # ingredient adds or pot moves at the same time, without temperature
+            # changes being applied between individual actions.
+            for act in action_list:
+                # Handle move actions.
+                if isinstance(act, MovePotCookingAction):
+                    pot_id = act.pot_id
+                    old_position = self._current_state.pots[pot_id].position
+                    # Always allowed to move off the stove.
+                    if act.new_pot_position is None:
+                        new_position = None
+                    # Check if move is valid: in bounds and not in collision.
+                    else:
+                        if self._pot_move_is_valid(
+                            act.new_pot_position, pot_id, self._current_state
+                        ):
+                            new_position = act.new_pot_position
+                        # Do nothing if action is not valid.
+                        else:
+                            new_position = old_position
+                    # Finalize position.
+                    new_pot_states[pot_id] = new_pot_states[pot_id].copy_with(
+                        position=new_position
+                    )
+
+                # Handle ingredient -> pot actions.
+                elif isinstance(act, AddIngredientCookingAction):
+                    pot_id = act.pot_id
+                    ingredient = act.ingredient
+                    ingredient_quantity = act.ingredient_quantity
+                    if self._ingredient_add_is_valid(
+                        pot_id, ingredient, ingredient_quantity, self._current_state
+                    ):
+                        new_pot_states[pot_id] = new_pot_states[pot_id].copy_with(
+                            ingredient_in_pot=ingredient,
+                            ingredient_quantity_in_pot=ingredient_quantity,
+                            ingredient_in_pot_temperature=0.0,
+                        )
+                        ingredient_state = self._current_state.ingredients[ingredient]
+                        remainder = (
+                            ingredient_state.ingredient_unused_quantity
+                            - ingredient_quantity
+                        )
+                        new_ingredients[ingredient] = CookingIngredientState(remainder)
+
+                # Wait.
+                elif isinstance(act, WaitCookingAction):
+                    pass
+
+                else:
+                    raise NotImplementedError()
 
         # Update state.
         self._current_state = CookingState(new_pot_states, new_ingredients)

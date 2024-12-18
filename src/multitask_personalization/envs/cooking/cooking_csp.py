@@ -1,4 +1,5 @@
 """CSP generation for the cooking environment."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,7 +14,9 @@ from multitask_personalization.utils import _NoChange, _NO_CHANGE
 
 
 from multitask_personalization.csp_generation import CSPGenerator
-from multitask_personalization.envs.cooking.cooking_hidden_spec import MealPreferenceModel
+from multitask_personalization.envs.cooking.cooking_hidden_spec import (
+    MealPreferenceModel,
+)
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
 from multitask_personalization.envs.cooking.cooking_structs import (
     CookingAction,
@@ -46,22 +49,25 @@ class _IngredientCSPState:
     pot_id: int
     start_time: int
     pos: tuple[float, float]
-    
-    def calculate_final_temperature(self, scene_spec: CookingSceneSpec,
-                                 total_time: int) -> float:
+
+    def calculate_final_temperature(
+        self, scene_spec: CookingSceneSpec, total_time: int
+    ) -> float:
         """Calculate the final ingredient temperature."""
         ingredient_cooking_time = total_time - self.start_time
         if ingredient_cooking_time <= 0:
             return 0.0
         heat_rate = scene_spec.get_ingredient(self.name).heat_rate
         return ingredient_cooking_time * heat_rate
-    
-    def copy_with(self, is_used: bool | _NoChange = _NO_CHANGE,
-                  quantity: float | _NoChange = _NO_CHANGE,
-                  pot_id: int | _NoChange = _NO_CHANGE,
-                  start_time: float | _NoChange = _NO_CHANGE,
-                  pos: tuple[float, float] | _NoChange = _NO_CHANGE
-                  ) -> _IngredientCSPState:
+
+    def copy_with(
+        self,
+        is_used: bool | _NoChange = _NO_CHANGE,
+        quantity: float | _NoChange = _NO_CHANGE,
+        pot_id: int | _NoChange = _NO_CHANGE,
+        start_time: float | _NoChange = _NO_CHANGE,
+        pos: tuple[float, float] | _NoChange = _NO_CHANGE,
+    ) -> _IngredientCSPState:
         """Create a new ingredient state."""
         return _IngredientCSPState(
             self.name,
@@ -113,7 +119,8 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
 
         # Initialization.
         initialization = {
-            v: _IngredientCSPState(v.name, False, 0, -1, 0, (-1, -1)) for v in ingredient_variables
+            v: _IngredientCSPState(v.name, False, 0, -1, 0, (-1, -1))
+            for v in ingredient_variables
         }
         initialization[cooking_time] = 0.0
 
@@ -138,7 +145,9 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             for ing_state in ingredients:
                 if not ing_state.is_used:
                     continue
-                temp = ing_state.calculate_final_temperature(self._scene_spec, total_cooking_time)
+                temp = ing_state.calculate_final_temperature(
+                    self._scene_spec, total_cooking_time
+                )
                 quant = ing_state.quantity
                 meal_ingredients[ing_state.name] = (temp, quant)
             meal = Meal(meal_ingredients)
@@ -230,7 +239,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         obs: CookingState,
         csp: CSP,
     ) -> list[CSPSampler]:
-        
+
         ingredient_variables = csp.variables[:-1]
         cooking_time_variable = csp.variables[-1]
 
@@ -255,7 +264,9 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
                 old_ing_state = sol[v]
                 assert isinstance(old_ing_state, _IngredientCSPState)
                 if v.name in meal.ingredients:
-                    ing_state = old_ing_state.copy_with(is_used=True, quantity=quant, start_time=start_time)
+                    ing_state = old_ing_state.copy_with(
+                        is_used=True, quantity=quant, start_time=start_time
+                    )
                 else:
                     ing_state = old_ing_state.copy_with(is_used=False)
                 new_sol[v] = ing_state
@@ -323,7 +334,9 @@ class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
 
     def _get_plan(self, obs: CookingState) -> list[CookingAction]:
         plan: list[CookingAction] = []
-        ing_states: dict[str, _IngredientCSPState] = {v: self._get_value(v) for v in obs.ingredients}
+        ing_states: dict[str, _IngredientCSPState] = {
+            v: self._get_value(v) for v in obs.ingredients
+        }
         total_cooking_time = self._get_value("total-cooking-time")
 
         # First move all the pots onto the stove.
@@ -359,8 +372,6 @@ class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
                     inner_actions.append(inner_action)
                 action = MultiCookingAction(inner_actions)
             plan.append(action)
-
-        # TODO handle annoying off-by-one thing with serve meal.
 
         # Serve the meal.
         plan.append(ServeMealCookingAction())

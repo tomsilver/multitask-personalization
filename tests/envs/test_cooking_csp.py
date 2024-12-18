@@ -8,9 +8,9 @@ from multitask_personalization.envs.cooking.cooking_csp import (
 )
 from multitask_personalization.envs.cooking.cooking_env import CookingEnv
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
+    CookingHiddenSpec,
     MealSpec,
     MealSpecMealPreferenceModel,
-    CookingHiddenSpec,
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import (
     CookingIngredient,
