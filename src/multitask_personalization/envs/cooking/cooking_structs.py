@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TypeAlias
+import numpy as np
 
+from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
+from multitask_personalization.utils import _NoChange, _NO_CHANGE
 
-class _NoChange:
-    def __repr__(self):
-        return "<NoChange>"
-
-
-_NO_CHANGE = _NoChange()
 
 
 @dataclass(frozen=True)
@@ -151,3 +148,12 @@ class Meal:
 
     # Maps ingredient names to temperature and quantity.
     ingredients: dict[str, tuple[float, float]]
+
+    def calculate_total_cooking_time(self, scene_spec: CookingSceneSpec) -> int:
+        """Calculate the total amount of time needed to cook this meal."""
+        total_time = 0
+        for ingredient, (temp, _) in self.ingredients.items():
+            heat_rate = scene_spec.get_ingredient(ingredient).heat_rate
+            ingredient_time = int(np.round(temp / heat_rate))
+            total_time = max(total_time, ingredient_time)
+        return total_time

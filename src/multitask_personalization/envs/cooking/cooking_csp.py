@@ -1,4 +1,5 @@
 """CSP generation for the cooking environment."""
+from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,6 +8,8 @@ from typing import Any, get_args
 import numpy as np
 from tomsutils.spaces import FunctionalSpace
 from gymnasium.spaces import Discrete
+from multitask_personalization.utils import _NoChange, _NO_CHANGE
+
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.cooking.cooking_hidden_spec import MealPreferenceModel
@@ -46,6 +49,22 @@ class _IngredientCSPState:
             return 0.0
         heat_rate = scene_spec.get_ingredient(self.name).heat_rate
         return ingredient_cooking_time * heat_rate
+    
+    def copy_with(self, is_used: bool | _NoChange = _NO_CHANGE,
+                  quantity: float | _NoChange = _NO_CHANGE,
+                  pot_id: int | _NoChange = _NO_CHANGE,
+                  start_time: float | _NoChange = _NO_CHANGE,
+                  pos: tuple[float, float] | _NoChange = _NO_CHANGE
+                  ) -> _IngredientCSPState:
+        """Create a new ingredient state."""
+        return _IngredientCSPState(
+            self.name,
+            is_used=self.is_used if is_used is _NO_CHANGE else is_used,
+            quantity=self.quantity if quantity is _NO_CHANGE else quantity,
+            pot_id=self.pot_id if pot_id is _NO_CHANGE else pot_id,
+            start_time=self.start_time if start_time is _NO_CHANGE else start_time,
+            pos=self.pos if pos is _NO_CHANGE else pos,
+        )
 
 
 class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
@@ -209,27 +228,39 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         ingredient_variables = csp.variables[:-1]
         cooking_time_variable = csp.variables[-1]
 
-
         # Sample ingredients by sampling a meal from the meal model.
         def _sample_ingredients(
-            _: dict[CSPVariable, Any], rng: np.random.Generator
+            sol: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
+            # Sample a meal.
             meal = self._meal_model.sample(rng)
-            var_to_state = {}
+            # First determine the total amount of cooking time needed.
+            total_cooking_time = meal.calculate_total_cooking_time(self._scene_spec)
+            new_sol = {cooking_time_variable: total_cooking_time}
+            # Now determine the start times for individual ingredients.
             for v in ingredient_variables:
+                # Determine the temperature and quantity necessary for the meal.
+                temp, quant = meal.ingredients[v.name]
+                # Determine the cooking start time from the temperature.
+                heat_rate = self._scene_spec.get_ingredient(v.name).heat_rate
+                cooking_duration = int(np.round(temp / heat_rate))
+                start_time = total_cooking_time - cooking_duration
+                # Don't change positions, pots, etc.
+                old_ing_state = sol[v]
+                assert isinstance(old_ing_state, _IngredientCSPState)
                 if v.name in meal.ingredients:
-                    import ipdb; ipdb.set_trace()
+                    ing_state = old_ing_state.copy_with(is_used=True, quantity=quant, start_time=start_time)
                 else:
-                    var_to_state[v] = _IngredientCSPState(v.name, is_used=False, pot_id=0, start_time=0, pos=(0, 0))
-            # TODO update cooking_time_variable
-            return var_to_state
+                    ing_state = old_ing_state.copy_with(is_used=False)
+                new_sol[v] = ing_state
+            return new_sol
 
         ingredient_sampler = FunctionalCSPSampler(
             _sample_ingredients, csp, set(csp.variables)
         )
 
-        # Sample positions for all currently used pots.
-        def _sample_pot_positions(
+        # Sample positions and ingredient->pot maps for all currently used pots.
+        def _sample_pots(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
             import ipdb
@@ -237,7 +268,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             ipdb.set_trace()
 
         pot_position_sampler = FunctionalCSPSampler(
-            _sample_pot_positions, csp, set(csp.variables)
+            _sample_pots, csp, set(csp.variables)
         )
 
         return [ingredient_sampler, pot_position_sampler]

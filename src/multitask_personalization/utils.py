@@ -130,3 +130,11 @@ def visualize_csp_graph(csp: CSP, outfile: Path, dpi: int = 250) -> None:
     dot.render(outfile.stem, directory=outfile.parent)
     os.remove(intermediate_dot_file)
     print(f"Wrote out to {outfile}")
+
+
+class _NoChange:
+    def __repr__(self):
+        return "<NoChange>"
+
+
+_NO_CHANGE = _NoChange()
