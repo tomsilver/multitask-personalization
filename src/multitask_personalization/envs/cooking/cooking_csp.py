@@ -143,9 +143,24 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         obs: CookingState,
         csp: CSP,
     ) -> list[CSPSampler]:
-        import ipdb
 
-        ipdb.set_trace()
+        # Sample ingredients by internally sampling a happy meal.
+        def _sample_ingredients(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            import ipdb; ipdb.set_trace()
+
+        ingredient_sampler = FunctionalCSPSampler(_sample_ingredients, csp, set(csp.variables))
+
+        # Sample positions for all currently used pots.
+        def _sample_pot_positions(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            import ipdb; ipdb.set_trace()
+
+        pot_position_sampler = FunctionalCSPSampler(_sample_pot_positions, csp, set(csp.variables))
+
+        return [ingredient_sampler, pot_position_sampler]
 
     def _generate_policy(
         self,
