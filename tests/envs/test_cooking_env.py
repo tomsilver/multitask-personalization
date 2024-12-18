@@ -184,7 +184,7 @@ def test_cooking_env_happy_meal():
 
     plan = [
         MovePotCookingAction(0, (3.0, 6.0)),
-        MovePotCookingAction(1, (4.0, 6.0)),
+        MovePotCookingAction(1, (8.0, 3.0)),
         AddIngredientCookingAction(
             pot_id=0,
             ingredient="salt",
@@ -199,9 +199,8 @@ def test_cooking_env_happy_meal():
         WaitCookingAction(),  # 0 -> 1
         WaitCookingAction(),  # 1 -> 2
         WaitCookingAction(),  # 2 -> 3
-        WaitCookingAction(),  # 3 -> 4
-        ToggleStove(),  # 4 -> 3
-        ServeMealCookingAction(),
+        ToggleStove(),  # 3 -> 4
+        ServeMealCookingAction(),  # 4 -> 3
     ]
 
     # Repeat twice.

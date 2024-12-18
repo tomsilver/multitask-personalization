@@ -124,6 +124,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             else:
                 new_temperature = old_temperature
             # Note that the states will be modified further by the actions below.
+            new_temperature = max(0.0, new_temperature)
             new_pot_state = pot_state.copy_with(
                 ingredient_in_pot_temperature=new_temperature
             )
