@@ -334,6 +334,7 @@ class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
         seed: int = 0,
     ) -> None:
         super().__init__(csp, seed)
+        self._current_plan: list[CookingAction] = []
         self._terminated = False
 
     def _get_plan(self, obs: CookingState) -> list[CookingAction]:
@@ -386,7 +387,7 @@ class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
-        self._current_plan: list[CookingAction] = []
+        self._current_plan = []
         self._terminated = False
 
     def step(self, obs: CookingState) -> CookingAction:
