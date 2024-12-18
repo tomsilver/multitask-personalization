@@ -8,15 +8,25 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.core import RenderFrame
 from matplotlib import pyplot as plt
-
 from tomsgeoms2d.structs import Circle
 from tomsutils.spaces import FunctionalSpace
 from tomsutils.utils import fig2data
 
+from multitask_personalization.envs.cooking.cooking_hidden_spec import (
+    CookingHappyMeal,
+    CookingHiddenSpec,
+)
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
-from multitask_personalization.envs.cooking.cooking_hidden_spec import CookingHiddenSpec, CookingHappyMeal
-from multitask_personalization.envs.cooking.cooking_structs import CookingAction, CookingIngredientState, CookingPotState, CookingState, WaitCookingAction, MovePotCookingAction, ServeMealCookingAction, AddIngredientCookingAction
-
+from multitask_personalization.envs.cooking.cooking_structs import (
+    AddIngredientCookingAction,
+    CookingAction,
+    CookingIngredientState,
+    CookingPotState,
+    CookingState,
+    MovePotCookingAction,
+    ServeMealCookingAction,
+    WaitCookingAction,
+)
 
 
 class CookingEnv(gym.Env[CookingState, CookingAction]):
@@ -54,13 +64,14 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                     ingredient_in_pot=None,
                     ingredient_quantity_in_pot=0.0,
                     ingredient_in_pot_temperature=0.0,
-                    ingredient_done=False,
                 )
                 for pot in scene_spec.pots
             ],
             ingredients={
                 ingredient.name: CookingIngredientState(
-                    ingredient_unused_quantity=self._rng.uniform(*ingredient.respawn_quantity_bounds),
+                    ingredient_unused_quantity=self._rng.uniform(
+                        *ingredient.respawn_quantity_bounds
+                    ),
                 )
                 for ingredient in scene_spec.ingredients
             },
@@ -95,7 +106,9 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             old_temperature = pot_state.ingredient_in_pot_temperature
             # Only change temperature for pots with ingredients.
             if pot_state.ingredient_in_pot is not None:
-                ingredient_spec = self.scene_spec.get_ingredient(pot_state.ingredient_in_pot)
+                ingredient_spec = self.scene_spec.get_ingredient(
+                    pot_state.ingredient_in_pot
+                )
                 # Increase temperature if on stove.
                 if pot_state.position is not None:
                     assert ingredient_spec.heat_rate >= 0
@@ -108,7 +121,9 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             else:
                 new_temperature = old_temperature
             # Note that the states will be modified further by the actions below.
-            new_pot_state = pot_state.copy_with(ingredient_in_pot_temperature=new_temperature)
+            new_pot_state = pot_state.copy_with(
+                ingredient_in_pot_temperature=new_temperature
+            )
             new_pot_states.append(new_pot_state)
 
         # Handle move actions.
@@ -120,8 +135,9 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 new_position = None
             # Check if move is valid: in bounds and not in collision.
             else:
-                if self._pot_move_is_valid(action.new_pot_position, pot_id,
-                                        self._current_state):
+                if self._pot_move_is_valid(
+                    action.new_pot_position, pot_id, self._current_state
+                ):
                     new_position = action.new_pot_position
                 # Do nothing if action is not valid.
                 else:
@@ -134,13 +150,18 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             pot_id = action.pot_id
             ingredient = action.ingredient
             ingredient_quantity = action.ingredient_quantity
-            if self._ingredient_add_is_valid(pot_id, ingredient, ingredient_quantity,
-                                             self._current_state):
-                new_pot_states[pot_id].copy_with(ingredient_in_pot=ingredient,
-                                                 ingredient_quantity_in_pot=ingredient_quantity,
-                                                 ingredient_in_pot_temperature=0.0)
+            if self._ingredient_add_is_valid(
+                pot_id, ingredient, ingredient_quantity, self._current_state
+            ):
+                new_pot_states[pot_id].copy_with(
+                    ingredient_in_pot=ingredient,
+                    ingredient_quantity_in_pot=ingredient_quantity,
+                    ingredient_in_pot_temperature=0.0,
+                )
                 ingredient_state = self._current_state.ingredients[ingredient]
-                remainder = ingredient_state.ingredient_unused_quantity - ingredient_quantity
+                remainder = (
+                    ingredient_state.ingredient_unused_quantity - ingredient_quantity
+                )
                 new_ingredients[ingredient] = CookingIngredientState(remainder)
 
         # Handle meal serving.
@@ -168,7 +189,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
 
         else:
             raise NotImplementedError()
-        
+
         # Update state.
         self._current_state = CookingState(new_pot_states, new_ingredients)
 
@@ -212,16 +233,6 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                         fontsize=50,
                         bbox={"facecolor": "white"},
                     )
-        # Plot meal temperature
-        if self._current_state.meal_temperature is not None:
-            ax.text(
-                max_x - pad,
-                max_y - pad,
-                f"meal temp: {self._current_state.meal_temperature:.2f}",
-                ha="right",
-                va="top",
-                fontsize=100,
-            )
 
         ax.set_xlim(min_x + pad, max_x - pad)
         ax.set_ylim(min_y + pad, max_y - pad)
@@ -241,39 +252,40 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             "user_satisfaction": self._current_user_satisfaction,
         }
 
-    def _pot_move_is_valid(self, new_position: tuple[float, float], pot_id: int,
-                                            state: CookingState) -> bool:
+    def _pot_move_is_valid(
+        self, new_position: tuple[float, float], pot_id: int, state: CookingState
+    ) -> bool:
         pot_radius = self.scene_spec.pots[pot_id].radius
         if (
-                new_position[0]
-                - pot_radius
-                < 0
-                or new_position[0]
-                + pot_radius
-                > self.scene_spec.stove_top_width
-                or new_position[1]
-                - pot_radius
-                < 0
-                or new_position[1]
-                + pot_radius
-                > self.scene_spec.stove_top_height
-            ):
-                # Out of bounds.
-                return False
+            new_position[0] - pot_radius < 0
+            or new_position[0] + pot_radius > self.scene_spec.stove_top_width
+            or new_position[1] - pot_radius < 0
+            or new_position[1] + pot_radius > self.scene_spec.stove_top_height
+        ):
+            # Out of bounds.
+            return False
         for other_pot_id, other_pot_state in enumerate(state.pots):
             if other_pot_id == pot_id:
                 continue
             other_pot_radius = self.scene_spec.pots[other_pot_id].radius
-            if np.linalg.norm(
-                np.array(new_position) - np.array(other_pot_state.position)
-            ) < other_pot_radius + pot_radius:
+            if (
+                np.linalg.norm(
+                    np.array(new_position) - np.array(other_pot_state.position)
+                )
+                < other_pot_radius + pot_radius
+            ):
                 # In collision with another pot.
                 return False
         # Valid move.
         return True
-    
-    def _ingredient_add_is_valid(pot_id: int, ingredient: str, ingredient_quantity: float,
-                                 state: CookingState) -> bool:
+
+    def _ingredient_add_is_valid(
+        self,
+        pot_id: int,
+        ingredient: str,
+        ingredient_quantity: float,
+        state: CookingState,
+    ) -> bool:
         # Can only add ingredients to empty pots.
         if state.pots[pot_id].ingredient_in_pot is not None:
             return False
@@ -284,14 +296,25 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         # Valid.
         return True
 
-    def _happy_meal_is_made(self, happy_meal: CookingHappyMeal, state: CookingState) -> bool:
+    def _happy_meal_is_made(
+        self, happy_meal: CookingHappyMeal, state: CookingState
+    ) -> bool:
         for name, (temp_lo, temp_hi), (quant_lo, quant_hi) in happy_meal.ingredients:
-            if not self._check_happy_meal_ingredient(name, temp_lo, temp_hi, quant_lo, quant_hi, state):
+            if not self._check_happy_meal_ingredient(
+                name, temp_lo, temp_hi, quant_lo, quant_hi, state
+            ):
                 return False
         return True
-    
-    def _check_happy_meal_ingredient(self, name: str, temp_lo: float, temp_hi: float, quant_lo: float, quant_hi: float,
-                                     state: CookingState) -> bool:
+
+    def _check_happy_meal_ingredient(
+        self,
+        name: str,
+        temp_lo: float,
+        temp_hi: float,
+        quant_lo: float,
+        quant_hi: float,
+        state: CookingState,
+    ) -> bool:
         # For simplicity, we assume all of the ingredient within the given bounds
         # needs to be contained within one pot. We don't split across pots.
         for pot_state in state.pots:

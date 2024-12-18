@@ -5,7 +5,6 @@ import pytest
 
 from multitask_personalization.envs.cooking.cooking_env import (
     AddIngredientCookingAction,
-    CompleteCookingAction,
     CookingEnv,
     CookingHiddenSpec,
     CookingSceneSpec,
