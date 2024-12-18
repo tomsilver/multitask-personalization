@@ -8,7 +8,8 @@ from multitask_personalization.envs.cooking.cooking_csp import (
 )
 from multitask_personalization.envs.cooking.cooking_env import CookingEnv
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
-    CookingHappyMeal,
+    MealSpec,
+    MealSpecMealPreferenceModel,
     CookingHiddenSpec,
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import (
@@ -49,16 +50,16 @@ def test_cooking_csp():
         ],
     )
 
-    hidden_spec = CookingHiddenSpec(
-        happy_meals=[
-            CookingHappyMeal(
-                [
-                    ("salt", (2.0, 4.0), (0.9, 1.1)),
-                    ("pepper", (2.0, 4.0), (0.9, 1.1)),
-                ]
-            )
-        ]
-    )
+    meal_specs = [
+        MealSpec(
+            [
+                ("salt", (2.0, 4.0), (0.9, 1.1)),
+                ("pepper", (2.0, 4.0), (0.9, 1.1)),
+            ]
+        )
+    ]
+    meal_model = MealSpecMealPreferenceModel(meal_specs)
+    hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(
         scene_spec,
@@ -71,7 +72,7 @@ def test_cooking_csp():
     assert isinstance(obs, CookingState)
 
     # Create the CSP.
-    csp_generator = CookingCSPGenerator(scene_spec, seed=seed)
+    csp_generator = CookingCSPGenerator(scene_spec, meal_model, seed=seed)
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.

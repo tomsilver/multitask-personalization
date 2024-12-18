@@ -6,13 +6,15 @@ from typing import Any, get_args
 
 import numpy as np
 from tomsutils.spaces import FunctionalSpace
+from gymnasium.spaces import Discrete
 
 from multitask_personalization.csp_generation import CSPGenerator
-from multitask_personalization.envs.cooking.cooking_hidden_spec import CookingHiddenSpec
+from multitask_personalization.envs.cooking.cooking_hidden_spec import MealPreferenceModel
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
 from multitask_personalization.envs.cooking.cooking_structs import (
     CookingAction,
     CookingState,
+    Meal,
 )
 from multitask_personalization.structs import (
     CSP,
@@ -31,9 +33,19 @@ class _IngredientCSPState:
 
     name: str
     is_used: bool
+    quantity: float
     pot_id: int
     start_time: int
     pos: tuple[float, float]
+    
+    def calculate_final_temperature(self, scene_spec: CookingSceneSpec,
+                                 total_time: int) -> float:
+        """Calculate the final ingredient temperature."""
+        ingredient_cooking_time = total_time - self.start_time
+        if ingredient_cooking_time <= 0:
+            return 0.0
+        heat_rate = scene_spec.get_ingredient(self.name).heat_rate
+        return ingredient_cooking_time * heat_rate
 
 
 class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
@@ -42,10 +54,12 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
     def __init__(
         self,
         scene_spec: CookingSceneSpec,
+        meal_model: MealPreferenceModel,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self._scene_spec = scene_spec
+        self._meal_model = meal_model
 
     def save(self, model_dir: Path) -> None:
         # Nothing is learned yet.
@@ -66,12 +80,17 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
 
         # One per ingredient with: is_used, quantity, pot_id, start_time.
         ingredients = sorted(obs.ingredients)
-        variables = [CSPVariable(i, variable_space) for i in ingredients]
+        ingredient_variables = [CSPVariable(i, variable_space) for i in ingredients]
+
+        # One "global" variable for the total amount of cooking time.
+        cooking_time = CSPVariable("total-cooking-time", Discrete(10000000))
+        variables = ingredient_variables + [cooking_time]
 
         # Initialization.
         initialization = {
-            v: _IngredientCSPState(v.name, False, 0, 0, (0.0, 0.0)) for v in variables
+            v: _IngredientCSPState(v.name, False, 0, 0, 0, (0.0, 0.0)) for v in ingredient_variables
         }
+        initialization[cooking_time] = 0.0
 
         return variables, initialization
 
@@ -81,21 +100,33 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
 
-        # Final ingredients must comprise some happy meal.
-        def _is_happy_meal(
+        ingredient_variables = variables[:-1]
+        cooking_time_variable = variables[-1]
+
+        # Final ingredients must comprise some meal that the user enjoys.
+        def _user_enjoys_meal(
+            total_cooking_time: float,
             *ingredients: _IngredientCSPState,
         ) -> bool:
-            import ipdb
+            # Derive meal.
+            meal_ingredients = {}
+            for ing_state in ingredients:
+                if not ing_state.is_used:
+                    continue
+                temp = ing_state.calculate_final_temperature(self._scene_spec, total_cooking_time)
+                quant = ing_state.quantity
+                meal_ingredients[ing_state.name] = (temp, quant)
+            meal = Meal(meal_ingredients)
+            # Check against model.
+            return self._meal_model.check(meal)
 
-            ipdb.set_trace()
-
-        happy_meal_constraint = FunctionalCSPConstraint(
-            "happy_meal_constraint",
-            variables,
-            _is_happy_meal,
+        user_enjoys_meal_constraint = FunctionalCSPConstraint(
+            "user_enjoys_meal_constraint",
+            [cooking_time_variable] + ingredient_variables,
+            _user_enjoys_meal,
         )
 
-        return [happy_meal_constraint]
+        return [user_enjoys_meal_constraint]
 
     def _generate_nonpersonal_constraints(
         self,
@@ -104,11 +135,15 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
     ) -> list[CSPConstraint]:
 
         constraints: list[CSPConstraint] = []
+        ingredient_variables = variables[:-1]
 
         # Pots cannot overlap on the stove.
         def _pots_nonoverlapping(
             ingredient1: _IngredientCSPState, ingredient2: _IngredientCSPState
         ) -> bool:
+            # Unused pots need not be checked.
+            if not ingredient1.is_used or not ingredient2.is_used:
+                return True
             pot1 = ingredient1.pot_id
             pot2 = ingredient2.pot_id
             r1 = self._scene_spec.pots[pot1].radius
@@ -116,8 +151,8 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             dist = np.linalg.norm(np.array(ingredient1.pos) - np.array(ingredient2.pos))
             return dist >= r1 + r2
 
-        for i, ingredient1 in enumerate(variables[:-1]):
-            for ingredient2 in variables[i + 1 :]:
+        for i, ingredient1 in enumerate(ingredient_variables[:-1]):
+            for ingredient2 in ingredient_variables[i + 1 :]:
                 constraint = FunctionalCSPConstraint(
                     f"{ingredient1.name}-{ingredient2.name}-nonoverlapping",
                     [ingredient1, ingredient2],
@@ -129,12 +164,13 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         def _ingredients_different_pots(
             ingredient1: _IngredientCSPState, ingredient2: _IngredientCSPState
         ) -> bool:
-            import ipdb
+            # Unused pots need not be checked.
+            if not ingredient1.is_used or not ingredient2.is_used:
+                return True
+            return ingredient1.pot_id != ingredient2.pot_id
 
-            ipdb.set_trace()
-
-        for i, ingredient1 in enumerate(variables[:-1]):
-            for ingredient2 in variables[i + 1 :]:
+        for i, ingredient1 in enumerate(ingredient_variables[:-1]):
+            for ingredient2 in ingredient_variables[i + 1 :]:
                 constraint = FunctionalCSPConstraint(
                     f"{ingredient1.name}-{ingredient2.name}-different-pots",
                     [ingredient1, ingredient2],
@@ -144,11 +180,10 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
 
         # Ingredient quantity used must be not more than total available.
         def _ingredient_quantity_exists(ingredient: _IngredientCSPState) -> bool:
-            import ipdb
+            available = obs.ingredients[ingredient.name].ingredient_unused_quantity
+            return ingredient.quantity <= available
 
-            ipdb.set_trace()
-
-        for ingredient in variables:
+        for ingredient in ingredient_variables:
             constraint = FunctionalCSPConstraint(
                 f"{ingredient.name}-quantity-exists",
                 [ingredient],
@@ -170,14 +205,24 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         obs: CookingState,
         csp: CSP,
     ) -> list[CSPSampler]:
+        
+        ingredient_variables = csp.variables[:-1]
+        cooking_time_variable = csp.variables[-1]
 
-        # Sample ingredients by internally sampling a happy meal.
+
+        # Sample ingredients by sampling a meal from the meal model.
         def _sample_ingredients(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            import ipdb
-
-            ipdb.set_trace()
+            meal = self._meal_model.sample(rng)
+            var_to_state = {}
+            for v in ingredient_variables:
+                if v.name in meal.ingredients:
+                    import ipdb; ipdb.set_trace()
+                else:
+                    var_to_state[v] = _IngredientCSPState(v.name, is_used=False, pot_id=0, start_time=0, pos=(0, 0))
+            # TODO update cooking_time_variable
+            return var_to_state
 
         ingredient_sampler = FunctionalCSPSampler(
             _sample_ingredients, csp, set(csp.variables)
