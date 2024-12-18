@@ -64,17 +64,19 @@ class _IngredientCSPState:
         is_used: bool | _NoChange = _NO_CHANGE,
         quantity: float | _NoChange = _NO_CHANGE,
         pot_id: int | _NoChange = _NO_CHANGE,
-        start_time: float | _NoChange = _NO_CHANGE,
+        start_time: int | _NoChange = _NO_CHANGE,
         pos: tuple[float, float] | _NoChange = _NO_CHANGE,
     ) -> _IngredientCSPState:
         """Create a new ingredient state."""
         return _IngredientCSPState(
             self.name,
-            is_used=self.is_used if is_used is _NO_CHANGE else is_used,
-            quantity=self.quantity if quantity is _NO_CHANGE else quantity,
-            pot_id=self.pot_id if pot_id is _NO_CHANGE else pot_id,
-            start_time=self.start_time if start_time is _NO_CHANGE else start_time,
-            pos=self.pos if pos is _NO_CHANGE else pos,
+            is_used=self.is_used if isinstance(is_used, _NoChange) else is_used,
+            quantity=self.quantity if isinstance(quantity, _NoChange) else quantity,
+            pot_id=self.pot_id if isinstance(pot_id, _NoChange) else pot_id,
+            start_time=(
+                self.start_time if isinstance(start_time, _NoChange) else start_time
+            ),
+            pos=self.pos if isinstance(pos, _NoChange) else pos,
         )
 
 
@@ -104,7 +106,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         obs: CookingState,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
 
-        variable_space = FunctionalSpace(
+        variable_space: FunctionalSpace = FunctionalSpace(
             contains_fn=lambda x: isinstance(x, get_args(_IngredientCSPState)),
         )
 
@@ -117,7 +119,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         variables = ingredient_variables + [cooking_time]
 
         # Initialization.
-        initialization = {
+        initialization: dict[CSPVariable, Any] = {
             v: _IngredientCSPState(v.name, False, 0, -1, 0, (-1, -1))
             for v in ingredient_variables
         }
@@ -136,7 +138,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
 
         # Final ingredients must comprise some meal that the user enjoys.
         def _user_enjoys_meal(
-            total_cooking_time: float,
+            total_cooking_time: int,
             *ingredients: _IngredientCSPState,
         ) -> bool:
             # Derive meal.
@@ -182,7 +184,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             r1 = self._scene_spec.pots[pot1].radius
             r2 = self._scene_spec.pots[pot2].radius
             dist = np.linalg.norm(np.array(ingredient1.pos) - np.array(ingredient2.pos))
-            return dist >= r1 + r2
+            return bool(dist >= r1 + r2)
 
         for i, ingredient1 in enumerate(ingredient_variables[:-1]):
             for ingredient2 in ingredient_variables[i + 1 :]:
@@ -250,7 +252,9 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             meal = self._meal_model.sample(rng)
             # First determine the total amount of cooking time needed.
             total_cooking_time = meal.calculate_total_cooking_time(self._scene_spec)
-            new_sol = {cooking_time_variable: total_cooking_time}
+            new_sol: dict[CSPVariable, Any] = {
+                cooking_time_variable: total_cooking_time
+            }
             # Now determine the start times for individual ingredients.
             for v in ingredient_variables:
                 # Determine the temperature and quantity necessary for the meal.
@@ -344,7 +348,9 @@ class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
             ing_state = ing_states[ing]
             if not ing_state.is_used:
                 continue
-            action = MovePotCookingAction(ing_state.pot_id, ing_state.pos)
+            action: CookingAction = MovePotCookingAction(
+                ing_state.pot_id, ing_state.pos
+            )
             plan.append(action)
 
         # Determine what ingredients should be added at what times.
@@ -361,7 +367,7 @@ class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
             if not ings_to_add:
                 action = WaitCookingAction()
             else:
-                inner_actions = []
+                inner_actions: list[CookingAction] = []
                 for ing in sorted(ings_to_add):
                     ing_state = ing_states[ing]
                     inner_action = AddIngredientCookingAction(
@@ -380,7 +386,7 @@ class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
-        self._current_plan = []
+        self._current_plan: list[CookingAction] = []
         self._terminated = False
 
     def step(self, obs: CookingState) -> CookingAction:

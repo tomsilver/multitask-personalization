@@ -88,7 +88,6 @@ def test_cooking_csp():
     # Run the policy.
     for _ in range(1000):
         act = policy.step(obs)
-        print(act)
         obs, reward, env_terminated, truncated, info = env.step(act)
         assert isinstance(obs, CookingState)
         assert np.isclose(reward, 0.0)
