@@ -1,16 +1,11 @@
 """CSP generation for the cooking environment."""
 
-import abc
-import json
-import logging
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from gymnasium.spaces import Box, Discrete, Tuple
+from gymnasium.spaces import Box
 from numpy.typing import NDArray
-from tomsutils.spaces import EnumSpace
-from tomsutils.utils import create_rng_from_rng
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.cooking.cooking_structs import (
@@ -26,7 +21,6 @@ from multitask_personalization.structs import (
     CSPVariable,
     FunctionalCSPConstraint,
     FunctionalCSPSampler,
-    LogProbCSPConstraint,
 )
 
 
@@ -167,9 +161,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         obs: CookingState,
         csp: CSP,
     ) -> CSPPolicy:
-        import ipdb
-
-        ipdb.set_trace()
+        return _CookingCSPPolicy(csp, seed=self._seed)
 
     def observe_transition(
         self,
@@ -180,3 +172,12 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         info: dict[str, Any],
     ) -> None:
         pass
+
+
+class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
+    
+    def step(self, obs: CookingState) -> CookingAction:
+        import ipdb; ipdb.set_trace()
+
+    def check_termination(self, obs: CookingState) -> bool:
+        import ipdb; ipdb.set_trace()
