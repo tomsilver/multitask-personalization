@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TypeAlias
+
 import numpy as np
 
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
-from multitask_personalization.utils import _NoChange, _NO_CHANGE
+from multitask_personalization.utils import _NO_CHANGE, _NoChange
 
 
 @dataclass(frozen=True)
@@ -153,6 +154,7 @@ class Meal:
         total_time = 0
         for ingredient, (temp, _) in self.ingredients.items():
             heat_rate = scene_spec.get_ingredient(ingredient).heat_rate
-            ingredient_time = int(np.round(temp / heat_rate))
+            # The plus 1 is to account for the one "add" step.
+            ingredient_time = int(np.round(temp / heat_rate)) + 1
             total_time = max(total_time, ingredient_time)
         return total_time

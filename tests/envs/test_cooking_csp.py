@@ -53,8 +53,8 @@ def test_cooking_csp():
     meal_specs = [
         MealSpec(
             [
-                ("salt", (2.0, 4.0), (0.9, 1.1)),
-                ("pepper", (2.0, 4.0), (0.9, 1.1)),
+                ("salt", (2.5, 3.5), (0.9, 1.1)),
+                ("pepper", (2.5, 3.5), (0.9, 1.1)),
             ]
         )
     ]
@@ -88,6 +88,7 @@ def test_cooking_csp():
     # Run the policy.
     for _ in range(1000):
         act = policy.step(obs)
+        print(act)
         obs, reward, env_terminated, truncated, info = env.step(act)
         assert isinstance(obs, CookingState)
         assert np.isclose(reward, 0.0)

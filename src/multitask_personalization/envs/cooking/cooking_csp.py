@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from collections import defaultdict
 from typing import Any, get_args
 
 import numpy as np
-from tomsutils.spaces import FunctionalSpace
 from gymnasium.spaces import Discrete
-from multitask_personalization.utils import _NoChange, _NO_CHANGE
-
+from tomsutils.spaces import FunctionalSpace
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
@@ -19,14 +17,14 @@ from multitask_personalization.envs.cooking.cooking_hidden_spec import (
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
 from multitask_personalization.envs.cooking.cooking_structs import (
+    AddIngredientCookingAction,
     CookingAction,
     CookingState,
     Meal,
-    ServeMealCookingAction,
-    AddIngredientCookingAction,
-    WaitCookingAction,
     MovePotCookingAction,
     MultiCookingAction,
+    ServeMealCookingAction,
+    WaitCookingAction,
 )
 from multitask_personalization.structs import (
     CSP,
@@ -38,6 +36,7 @@ from multitask_personalization.structs import (
     FunctionalCSPConstraint,
     FunctionalCSPSampler,
 )
+from multitask_personalization.utils import _NO_CHANGE, _NoChange
 
 
 @dataclass(frozen=True)
@@ -54,7 +53,7 @@ class _IngredientCSPState:
         self, scene_spec: CookingSceneSpec, total_time: int
     ) -> float:
         """Calculate the final ingredient temperature."""
-        ingredient_cooking_time = total_time - self.start_time
+        ingredient_cooking_time = total_time - self.start_time - 1
         if ingredient_cooking_time <= 0:
             return 0.0
         heat_rate = scene_spec.get_ingredient(self.name).heat_rate
@@ -258,7 +257,8 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
                 temp, quant = meal.ingredients[v.name]
                 # Determine the cooking start time from the temperature.
                 heat_rate = self._scene_spec.get_ingredient(v.name).heat_rate
-                cooking_duration = int(np.round(temp / heat_rate))
+                # The plus 1 is to account for the "add" time.
+                cooking_duration = int(np.round(temp / heat_rate)) + 1
                 start_time = total_cooking_time - cooking_duration
                 # Don't change positions, pots, etc.
                 old_ing_state = sol[v]
