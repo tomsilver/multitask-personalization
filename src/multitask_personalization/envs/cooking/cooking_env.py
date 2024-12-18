@@ -216,9 +216,12 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         fig, ax = plt.subplots(
             1, 1, figsize=(scale * (max_x - min_x), scale * (max_y - min_y))
         )
+        # Indicate if on.
+        if self._current_state.stove_on:
+            ax.set_facecolor((1.0, 0.47, 0.42))
         # Plot pots.
         for pot_id, pot in enumerate(self._current_state.pots):
-            if pot.position is not None and pot.ingredient_in_pot is not None:
+            if pot.position is not None:
                 color = (
                     (1, 1, 1)
                     if pot.ingredient_in_pot is None

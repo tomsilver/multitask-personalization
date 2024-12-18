@@ -1,7 +1,6 @@
 """Tests for cooking_env.py."""
 
 import numpy as np
-import pytest
 
 from multitask_personalization.envs.cooking.cooking_env import CookingEnv
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
@@ -173,14 +172,8 @@ def test_cooking_env_happy_meal():
     )
 
     # Uncomment to create video.
-    # TODO comment out
-    from gymnasium.wrappers import RecordVideo
-
-    env = RecordVideo(env, "videos/test-cooking-env")
-
-    env.action_space.seed(seed)
-    obs, _ = env.reset()
-    assert isinstance(obs, CookingState)
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-cooking-env")
 
     plan = [
         MovePotCookingAction(0, (3.0, 6.0)),
