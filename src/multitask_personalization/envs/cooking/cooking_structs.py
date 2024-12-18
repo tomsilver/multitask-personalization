@@ -90,6 +90,17 @@ class CookingState:
     pots: list[CookingPotState]
     ingredients: dict[str, CookingIngredientState]
 
+    def get_meal(self) -> Meal:
+        """Extract a meal from the current ingredients in pots."""
+        ingredients = {}
+        for pot_state in self.pots:
+            if pot_state.ingredient_in_pot is not None:
+                ingredient = pot_state.ingredient_in_pot
+                temperature = pot_state.ingredient_in_pot_temperature
+                quantity = pot_state.ingredient_quantity_in_pot
+                ingredients[ingredient] = (temperature, quantity)
+        return Meal(ingredients)
+
 
 @dataclass(frozen=True)
 class MovePotCookingAction:
@@ -132,3 +143,11 @@ CookingAction: TypeAlias = (
     | ServeMealCookingAction
     | MultiCookingAction
 )
+
+
+@dataclass(frozen=True)
+class Meal:
+    """A convenience data structure."""
+
+    # Maps ingredient names to temperature and quantity.
+    ingredients: dict[str, tuple[float, float]]
