@@ -45,9 +45,13 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         self,
         obs: CookingState,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
-        import ipdb
-
-        ipdb.set_trace()
+        # One per ingredient with: is_used, quantity, pot_id, start_time.
+        ingredients = sorted(obs.ingredients)
+        variables = [
+            CSPVariable(ingredient, Box(0, np.inf, (4,), dtype=np.float_))
+            for ingredient in ingredients
+        ]
+        return variables
 
     def _generate_personal_constraints(
         self,
