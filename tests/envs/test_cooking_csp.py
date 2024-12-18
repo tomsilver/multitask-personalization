@@ -66,18 +66,12 @@ def test_cooking_csp():
         seed=seed,
     )
 
-    env = CookingEnv(
-        scene_spec,
-        hidden_spec=hidden_spec,
-        seed=seed,
-    )
-
     env.action_space.seed(seed)
     obs, _ = env.reset()
     assert isinstance(obs, CookingState)
 
     # Create the CSP.
-    csp_generator = CookingCSPGenerator(seed=seed)
+    csp_generator = CookingCSPGenerator(scene_spec, seed=seed)
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
