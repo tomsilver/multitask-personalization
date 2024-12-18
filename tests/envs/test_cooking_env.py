@@ -4,8 +4,9 @@ import numpy as np
 
 from multitask_personalization.envs.cooking.cooking_env import CookingEnv
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
-    CookingHappyMeal,
     CookingHiddenSpec,
+    MealSpec,
+    MealSpecMealPreferenceModel,
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import (
     CookingIngredient,
@@ -27,7 +28,16 @@ def test_cooking_env():
     seed = 123
 
     scene_spec = CookingSceneSpec()
-    hidden_spec = CookingHiddenSpec()
+    meal_specs = [
+        MealSpec(
+            [
+                ("salt", (2.0, 4.0), (0.9, 1.1)),
+                ("pepper", (2.0, 4.0), (0.9, 1.1)),
+            ]
+        )
+    ]
+    meal_model = MealSpecMealPreferenceModel(meal_specs)
+    hidden_spec = CookingHiddenSpec(meal_model)
     env = CookingEnv(
         scene_spec,
         hidden_spec=hidden_spec,
@@ -149,16 +159,16 @@ def test_cooking_env_happy_meal():
         ],
     )
 
-    hidden_spec = CookingHiddenSpec(
-        happy_meals=[
-            CookingHappyMeal(
-                [
-                    ("salt", (2.0, 4.0), (0.9, 1.1)),
-                    ("pepper", (2.0, 4.0), (0.9, 1.1)),
-                ]
-            )
-        ]
-    )
+    meal_specs = [
+        MealSpec(
+            [
+                ("salt", (2.0, 4.0), (0.9, 1.1)),
+                ("pepper", (2.0, 4.0), (0.9, 1.1)),
+            ]
+        )
+    ]
+    meal_model = MealSpecMealPreferenceModel(meal_specs)
+    hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(
         scene_spec,

@@ -13,7 +13,6 @@ from tomsutils.spaces import FunctionalSpace
 from tomsutils.utils import fig2data
 
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
-    CookingHappyMeal,
     CookingHiddenSpec,
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
@@ -184,12 +183,9 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 # Serve the meal and compute user satisfaction.
                 if self._hidden_spec is None:
                     raise ValueError("Hidden spec required for step().")
-                # Check each ingredient quantity preferences.
-                user_happy = False
-                for happy_meal in self._hidden_spec.happy_meals:
-                    if self._happy_meal_is_made(happy_meal, self._current_state):
-                        user_happy = True
-                        break
+                # Check if the meal made fits the user preferences.
+                meal = self._current_state.get_meal()
+                user_happy = self._hidden_spec.meal_preference_model.check(meal)
                 if user_happy:
                     self._current_user_satisfaction = 1.0
                 else:
@@ -310,36 +306,3 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             return False
         # Valid.
         return True
-
-    def _happy_meal_is_made(
-        self, happy_meal: CookingHappyMeal, state: CookingState
-    ) -> bool:
-        for name, (temp_lo, temp_hi), (quant_lo, quant_hi) in happy_meal.ingredients:
-            if not self._check_happy_meal_ingredient(
-                name, temp_lo, temp_hi, quant_lo, quant_hi, state
-            ):
-                return False
-        return True
-
-    def _check_happy_meal_ingredient(
-        self,
-        name: str,
-        temp_lo: float,
-        temp_hi: float,
-        quant_lo: float,
-        quant_hi: float,
-        state: CookingState,
-    ) -> bool:
-        # For simplicity, we assume all of the ingredient within the given bounds
-        # needs to be contained within one pot. We don't split across pots.
-        for pot_state in state.pots:
-            if pot_state.ingredient_in_pot != name:
-                continue
-            quantity = pot_state.ingredient_quantity_in_pot
-            if not quant_lo <= quantity <= quant_hi:
-                return False
-            temperature = pot_state.ingredient_in_pot_temperature
-            if not temp_lo <= temperature <= temp_hi:
-                return False
-            return True
-        return False
