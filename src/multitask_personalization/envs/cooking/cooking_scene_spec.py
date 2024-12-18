@@ -45,27 +45,34 @@ class CookingSceneSpec(PublicSceneSpec):
     )
 
     # Characteristics of available ingredients.
-    ingredients: dict[str, CookingIngredient] = field(
-        default_factory=lambda: {
-            "salt": CookingIngredient(
+    ingredients: list[CookingIngredient] = field(
+        default_factory=lambda: [
+            CookingIngredient(
                 name="salt",
                 color=(0.9, 0.9, 0.9),
             ),
-            "pepper": CookingIngredient(
+            CookingIngredient(
                 name="pepper",
                 color=(0.0, 0.0, 0.0),
             ),
-            "sugar": CookingIngredient(
+            CookingIngredient(
                 name="sugar",
                 color=(0.5, 0.0, 0.0),
             ),
-            "flour": CookingIngredient(
+            CookingIngredient(
                 name="flour",
                 color=(0.0, 0.5, 0.0),
             ),
-        }
+        ]
     )
 
     # Rendering.
     render_figscale: float = 5
     render_padding: float = 0.1
+
+    def get_ingredient(self, name: str) -> CookingIngredient:
+        """Look up an ingredient by name."""
+        for ingredient in self.ingredients:
+            if name == ingredient.name:
+                return ingredient
+        raise ValueError(f"Unknown ingredient: {name}")
