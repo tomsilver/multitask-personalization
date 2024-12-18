@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from collections import defaultdict
 from typing import Any, get_args
 
 import numpy as np
@@ -18,6 +19,11 @@ from multitask_personalization.envs.cooking.cooking_structs import (
     CookingAction,
     CookingState,
     Meal,
+    ServeMealCookingAction,
+    AddIngredientCookingAction,
+    WaitCookingAction,
+    MovePotCookingAction,
+    MultiCookingAction,
 )
 from multitask_personalization.structs import (
     CSP,
@@ -307,12 +313,73 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
 
 class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
 
-    def step(self, obs: CookingState) -> CookingAction:
-        import ipdb
+    def __init__(
+        self,
+        csp: CSP,
+        seed: int = 0,
+    ) -> None:
+        super().__init__(csp, seed)
+        self._terminated = False
 
-        ipdb.set_trace()
+    def _get_plan(self, obs: CookingState) -> list[CookingAction]:
+        plan: list[CookingAction] = []
+        ing_states: dict[str, _IngredientCSPState] = {v: self._get_value(v) for v in obs.ingredients}
+        total_cooking_time = self._get_value("total-cooking-time")
+
+        # First move all the pots onto the stove.
+        for ing in sorted(ing_states):
+            ing_state = ing_states[ing]
+            if not ing_state.is_used:
+                continue
+            action = MovePotCookingAction(ing_state.pot_id, ing_state.pos)
+            plan.append(action)
+
+        # Determine what ingredients should be added at what times.
+        cooking_time_to_ingredients: dict[int, set[str]] = defaultdict(set)
+        for ing in sorted(ing_states):
+            ing_state = ing_states[ing]
+            if not ing_state.is_used:
+                continue
+            cooking_time_to_ingredients[ing_state.start_time].add(ing)
+
+        # Cook and wait.
+        for t in range(total_cooking_time):
+            ings_to_add = cooking_time_to_ingredients[t]
+            if not ings_to_add:
+                action = WaitCookingAction()
+            else:
+                inner_actions = []
+                for ing in sorted(ings_to_add):
+                    ing_state = ing_states[ing]
+                    inner_action = AddIngredientCookingAction(
+                        pot_id=ing_state.pot_id,
+                        ingredient=ing,
+                        ingredient_quantity=ing_state.quantity,
+                    )
+                    inner_actions.append(inner_action)
+                action = MultiCookingAction(inner_actions)
+            plan.append(action)
+
+        # TODO handle annoying off-by-one thing with serve meal.
+
+        # Serve the meal.
+        plan.append(ServeMealCookingAction())
+
+        return plan
+
+    def reset(self, solution: dict[CSPVariable, Any]) -> None:
+        super().reset(solution)
+        self._current_plan = []
+        self._terminated = False
+
+    def step(self, obs: CookingState) -> CookingAction:
+        if not self._current_plan:
+            plan = self._get_plan(obs)
+            assert plan is not None
+            self._current_plan = plan
+        action = self._current_plan.pop(0)
+        self._terminated = isinstance(action, ServeMealCookingAction)
+        return action
 
     def check_termination(self, obs: CookingState) -> bool:
-        import ipdb
-
-        ipdb.set_trace()
+        return self._terminated
