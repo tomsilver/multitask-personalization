@@ -16,8 +16,8 @@ from multitask_personalization.envs.cooking.cooking_structs import (
     AddIngredientCookingAction,
     CookingState,
     MovePotCookingAction,
+    MultiCookingAction,
     ServeMealCookingAction,
-    ToggleStove,
     WaitCookingAction,
 )
 
@@ -91,11 +91,6 @@ def test_cooking_env():
     )
     obs, reward, terminated, truncated, _ = env.step(act)
     assert obs.ingredients["pepper"] == initial_pepper_state  # action failed
-
-    # Turn on the stove.
-    act = ToggleStove()
-    obs, reward, terminated, truncated, _ = env.step(act)
-    assert obs.stove_on
 
     # Test increasing temperature.
     act = WaitCookingAction()
@@ -178,21 +173,23 @@ def test_cooking_env_happy_meal():
     plan = [
         MovePotCookingAction(0, (3.0, 6.0)),
         MovePotCookingAction(1, (8.0, 3.0)),
-        AddIngredientCookingAction(
-            pot_id=0,
-            ingredient="salt",
-            ingredient_quantity=1.0,
+        MultiCookingAction(
+            [
+                AddIngredientCookingAction(
+                    pot_id=0,
+                    ingredient="salt",
+                    ingredient_quantity=1.0,
+                ),
+                AddIngredientCookingAction(
+                    pot_id=1,
+                    ingredient="pepper",
+                    ingredient_quantity=1.0,
+                ),
+            ]
         ),
-        AddIngredientCookingAction(
-            pot_id=1,
-            ingredient="pepper",
-            ingredient_quantity=1.0,
-        ),
-        ToggleStove(),
         WaitCookingAction(),  # 0 -> 1
         WaitCookingAction(),  # 1 -> 2
         WaitCookingAction(),  # 2 -> 3
-        ToggleStove(),  # 3 -> 4
         ServeMealCookingAction(),  # 4 -> 3
     ]
 
