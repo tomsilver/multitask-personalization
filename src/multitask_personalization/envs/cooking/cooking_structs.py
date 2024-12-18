@@ -87,7 +87,6 @@ class CookingIngredientState:
 class CookingState:
     """The state of a cooking environment."""
 
-    stove_on: bool
     pots: list[CookingPotState]
     ingredients: dict[str, CookingIngredientState]
 
@@ -110,8 +109,10 @@ class AddIngredientCookingAction:
 
 
 @dataclass(frozen=True)
-class ToggleStove:
-    """Flip the stove on or off."""
+class MultiCookingAction:
+    """Do multiple actions in the same time step."""
+
+    actions: list[CookingAction]
 
 
 @dataclass(frozen=True)
@@ -127,7 +128,7 @@ class ServeMealCookingAction:
 CookingAction: TypeAlias = (
     MovePotCookingAction
     | AddIngredientCookingAction
-    | ToggleStove
     | WaitCookingAction
     | ServeMealCookingAction
+    | MultiCookingAction
 )
