@@ -28,6 +28,15 @@ def test_cooking_csp():
     seed = 123
 
     scene_spec = CookingSceneSpec(
+        meal_specs=[
+            MealSpec(
+                "seasoning",
+                [
+                    ("salt", (2.5, 3.5), (0.9, 1.1)),
+                    ("pepper", (2.5, 3.5), (0.9, 1.1)),
+                ],
+            )
+        ],
         pots=[
             CookingPot(radius=0.5, position=None),
             CookingPot(radius=1.0, position=None),
@@ -50,16 +59,7 @@ def test_cooking_csp():
         ],
     )
 
-    meal_specs = [
-        MealSpec(
-            "seasoning",
-            [
-                ("salt", (2.5, 3.5), (0.9, 1.1)),
-                ("pepper", (2.5, 3.5), (0.9, 1.1)),
-            ],
-        )
-    ]
-    meal_model = MealSpecMealPreferenceModel(meal_specs)
+    meal_model = MealSpecMealPreferenceModel(scene_spec.meal_specs)
     hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(

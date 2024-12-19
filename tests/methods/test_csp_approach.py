@@ -4,6 +4,17 @@ import numpy as np
 import pytest
 
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
+from multitask_personalization.envs.cooking.cooking_env import CookingEnv
+from multitask_personalization.envs.cooking.cooking_hidden_spec import (
+    CookingHiddenSpec,
+    MealSpec,
+    MealSpecMealPreferenceModel,
+)
+from multitask_personalization.envs.cooking.cooking_scene_spec import (
+    CookingIngredient,
+    CookingPot,
+    CookingSceneSpec,
+)
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
     TinyHiddenSpec,
@@ -38,6 +49,76 @@ def test_csp_approach(explore_method, disable_learning):
         seed=seed,
         explore_method=explore_method,
         disable_learning=disable_learning,
+    )
+    approach.train()
+    env.action_space.seed(seed)
+
+    for _ in range(10):
+        obs, info = env.reset()
+        approach.reset(obs, info)
+        for _ in range(100):
+            act = approach.step()
+            obs, reward, terminated, truncated, info = env.step(act)
+            assert np.isclose(reward, 0.0)
+            approach.update(obs, reward, terminated, info)
+            assert not truncated
+            if terminated:
+                break
+
+    env.close()
+
+
+def test_cooking_csp_approach():
+    """Tests CSP approach in cooking environment."""
+    seed = 123
+    scene_spec = CookingSceneSpec(
+        meal_specs=[
+            MealSpec(
+                "seasoning",
+                [
+                    ("salt", (2.5, 3.5), (0.9, 1.1)),
+                    ("pepper", (2.5, 3.5), (0.9, 1.1)),
+                ],
+            )
+        ],
+        pots=[
+            CookingPot(radius=0.5, position=None),
+            CookingPot(radius=1.0, position=None),
+        ],
+        ingredients=[
+            CookingIngredient(
+                name="salt",
+                color=(0.9, 0.9, 0.9),
+                respawn_quantity_bounds=(1.0, 1.1),
+                heat_rate=1.0,
+                cool_rate=1.0,
+            ),
+            CookingIngredient(
+                name="pepper",
+                color=(0.0, 0.0, 0.0),
+                respawn_quantity_bounds=(1.0, 1.1),
+                heat_rate=1.0,
+                cool_rate=1.0,
+            ),
+        ],
+    )
+
+    meal_model = MealSpecMealPreferenceModel(scene_spec.meal_specs)
+    hidden_spec = CookingHiddenSpec(meal_model)
+
+    env = CookingEnv(
+        scene_spec,
+        hidden_spec=hidden_spec,
+        seed=seed,
+    )
+
+    solver = RandomWalkCSPSolver(seed, show_progress_bar=False)
+    approach = CSPApproach(
+        scene_spec,
+        env.action_space,
+        solver,
+        seed=seed,
+        explore_method="max-entropy",
     )
     approach.train()
     env.action_space.seed(seed)
