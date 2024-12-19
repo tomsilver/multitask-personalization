@@ -5,9 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypeAlias
 
-import numpy as np
-
-from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
+from multitask_personalization.envs.cooking.cooking_meals import Meal
 from multitask_personalization.utils import _NO_CHANGE, _NoChange
 
 
@@ -87,7 +85,7 @@ class CookingState:
     pots: list[CookingPotState]
     ingredients: dict[str, CookingIngredientState]
 
-    def get_meal(self) -> Meal:
+    def get_meal(self, meal_name: str) -> Meal:
         """Extract a meal from the current ingredients in pots."""
         ingredients = {}
         for pot_state in self.pots:
@@ -96,7 +94,7 @@ class CookingState:
                 temperature = pot_state.ingredient_in_pot_temperature
                 quantity = pot_state.ingredient_quantity_in_pot
                 ingredients[ingredient] = (temperature, quantity)
-        return Meal(ingredients)
+        return Meal(meal_name, ingredients)
 
 
 @dataclass(frozen=True)
@@ -132,6 +130,8 @@ class WaitCookingAction:
 class ServeMealCookingAction:
     """Implicitly combine all ingredients in all pots and serve the meal."""
 
+    meal_name: str
+
 
 CookingAction: TypeAlias = (
     MovePotCookingAction
@@ -140,21 +140,3 @@ CookingAction: TypeAlias = (
     | ServeMealCookingAction
     | MultiCookingAction
 )
-
-
-@dataclass(frozen=True)
-class Meal:
-    """A convenience data structure."""
-
-    # Maps ingredient names to temperature and quantity.
-    ingredients: dict[str, tuple[float, float]]
-
-    def calculate_total_cooking_time(self, scene_spec: CookingSceneSpec) -> int:
-        """Calculate the total amount of time needed to cook this meal."""
-        total_time = 0
-        for ingredient, (temp, _) in self.ingredients.items():
-            heat_rate = scene_spec.get_ingredient(ingredient).heat_rate
-            # The plus 1 is to account for the one "add" step.
-            ingredient_time = int(np.round(temp / heat_rate)) + 1
-            total_time = max(total_time, ingredient_time)
-        return total_time

@@ -30,10 +30,11 @@ def test_cooking_env():
     scene_spec = CookingSceneSpec()
     meal_specs = [
         MealSpec(
+            "seasoning",
             [
                 ("salt", (2.0, 4.0), (0.9, 1.1)),
                 ("pepper", (2.0, 4.0), (0.9, 1.1)),
-            ]
+            ],
         )
     ]
     meal_model = MealSpecMealPreferenceModel(meal_specs)
@@ -122,7 +123,7 @@ def test_cooking_env():
     assert np.isclose(current_salt_temperature - next_salt_temperature, delta)
 
     # Test serving (user will be unhappy).
-    act = ServeMealCookingAction()
+    act = ServeMealCookingAction("seasoning")
     obs, reward, terminated, truncated, info = env.step(act)
     assert np.isclose(reward, 0.0)
     assert terminated
@@ -161,10 +162,11 @@ def test_cooking_env_full_meal():
 
     meal_specs = [
         MealSpec(
+            "seasoning",
             [
                 ("salt", (2.5, 3.5), (0.9, 1.1)),
                 ("pepper", (2.5, 3.5), (0.9, 1.1)),
-            ]
+            ],
         )
     ]
     meal_model = MealSpecMealPreferenceModel(meal_specs)
@@ -200,7 +202,7 @@ def test_cooking_env_full_meal():
         WaitCookingAction(),  # 0 -> 1
         WaitCookingAction(),  # 1 -> 2
         WaitCookingAction(),  # 2 -> 3
-        ServeMealCookingAction(),
+        ServeMealCookingAction("seasoning"),
     ]
 
     # Repeat twice.
