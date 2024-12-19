@@ -114,7 +114,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         ingredients = sorted(obs.ingredients)
         ingredient_variables = [CSPVariable(i, variable_space) for i in ingredients]
 
-        # One "global" variable for the meal name.a
+        # One "global" variable for the meal name.
         meal_name = CSPVariable("meal-name", Text(10000000))
 
         # One "global" variable for the total amount of cooking time.
