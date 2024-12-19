@@ -26,6 +26,9 @@ from multitask_personalization.envs.cooking.cooking_structs import (
     ServeMealCookingAction,
     WaitCookingAction,
 )
+from multitask_personalization.envs.cooking.cooking_utils import (
+    calculate_total_cooking_time,
+)
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
@@ -128,7 +131,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             for v in ingredient_variables
         }
         initialization[meal_name] = "<unknown>"
-        initialization[cooking_time] = 0.0
+        initialization[cooking_time] = 0
 
         return variables, initialization
 
@@ -257,7 +260,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             # Sample a meal.
             meal = self._meal_model.sample(rng)
             # First determine the total amount of cooking time needed.
-            total_cooking_time = meal.calculate_total_cooking_time(self._scene_spec)
+            total_cooking_time = calculate_total_cooking_time(meal, self._scene_spec)
             new_sol: dict[CSPVariable, Any] = {
                 meal_name_variable: meal.name,
                 cooking_time_variable: total_cooking_time,

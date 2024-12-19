@@ -11,6 +11,11 @@ from tomsutils.llm import LargeLanguageModel
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.csp_solvers import CSPSolver
+from multitask_personalization.envs.cooking.cooking_csp import CookingCSPGenerator
+from multitask_personalization.envs.cooking.cooking_hidden_spec import (
+    MealSpecMealPreferenceModel,
+)
+from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
 from multitask_personalization.envs.pybullet.pybullet_csp import PyBulletCSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
@@ -137,8 +142,6 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._sync_csp_generator_train_eval()
 
     def _create_csp_generator(self) -> CSPGenerator:
-        # At the moment, this part is extremely environment-specific.
-        # We will refactor this in a future PR.
         if isinstance(self._scene_spec, TinySceneSpec):
             return TinyCSPGenerator(
                 seed=self._seed,
@@ -159,6 +162,14 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 explore_method=self._explore_method,
                 disable_learning=self._disable_learning,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
+            )
+        if isinstance(self._scene_spec, CookingSceneSpec):
+            meal_model = MealSpecMealPreferenceModel(self._scene_spec.meal_specs)
+            return CookingCSPGenerator(
+                self._scene_spec,
+                meal_model,
+                explore_method=self._explore_method,
+                disable_learning=self._disable_learning,
             )
         raise NotImplementedError()
 
