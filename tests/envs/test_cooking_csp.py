@@ -52,10 +52,11 @@ def test_cooking_csp():
 
     meal_specs = [
         MealSpec(
+            "seasoning",
             [
                 ("salt", (2.5, 3.5), (0.9, 1.1)),
                 ("pepper", (2.5, 3.5), (0.9, 1.1)),
-            ]
+            ],
         )
     ]
     meal_model = MealSpecMealPreferenceModel(meal_specs)

@@ -108,7 +108,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             if self._hidden_spec is None:
                 raise ValueError("Hidden spec required for step().")
             # Check if the meal made fits the user preferences.
-            meal = self._current_state.get_meal()
+            meal = self._current_state.get_meal(action.meal_name)
             user_happy = self._hidden_spec.meal_preference_model.check(meal)
             if user_happy:
                 self._current_user_satisfaction = 1.0
