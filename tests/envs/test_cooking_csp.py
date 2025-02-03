@@ -11,7 +11,10 @@ from multitask_personalization.envs.cooking.cooking_hidden_spec import (
     CookingHiddenSpec,
     MealSpecMealPreferenceModel,
 )
-from multitask_personalization.envs.cooking.cooking_meals import MealSpec, IngredientSpec
+from multitask_personalization.envs.cooking.cooking_meals import (
+    IngredientSpec,
+    MealSpec,
+)
 from multitask_personalization.envs.cooking.cooking_scene_spec import (
     CookingIngredient,
     CookingPot,
@@ -33,8 +36,10 @@ def test_cooking_csp():
                 "seasoning",
                 [
                     IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
-                    IngredientSpec("pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
-                ]
+                    IngredientSpec(
+                        "pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)
+                    ),
+                ],
             )
         ],
         pots=[

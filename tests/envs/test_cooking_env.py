@@ -5,8 +5,11 @@ import numpy as np
 from multitask_personalization.envs.cooking.cooking_env import CookingEnv
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
     CookingHiddenSpec,
-    MealSpec,
     MealSpecMealPreferenceModel,
+)
+from multitask_personalization.envs.cooking.cooking_meals import (
+    IngredientSpec,
+    MealSpec,
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import (
     CookingIngredient,
@@ -32,8 +35,8 @@ def test_cooking_env():
         MealSpec(
             "seasoning",
             [
-                ("salt", (2.0, 4.0), (0.9, 1.1)),
-                ("pepper", (2.0, 4.0), (0.9, 1.1)),
+                IngredientSpec("salt", temperature=(2.0, 4.0), quantity=(0.9, 1.1)),
+                IngredientSpec("pepper", temperature=(2.0, 4.0), quantity=(0.9, 1.1)),
             ],
         )
     ]
@@ -142,8 +145,10 @@ def test_cooking_env_full_meal():
             MealSpec(
                 "seasoning",
                 [
-                    ("salt", (2.5, 3.5), (0.9, 1.1)),
-                    ("pepper", (2.5, 3.5), (0.9, 1.1)),
+                    IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+                    IngredientSpec(
+                        "pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)
+                    ),
                 ],
             )
         ],

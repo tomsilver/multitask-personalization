@@ -35,7 +35,9 @@ class CookingSceneSpec(PublicSceneSpec):
     """Public parameters that define a cooking environment scene."""
 
     # A list of all known meal specs.
-    universal_meal_specs: list[MealSpec] = field(default_factory=lambda: DEFAULT_MEAL_SPECS)
+    universal_meal_specs: list[MealSpec] = field(
+        default_factory=lambda: DEFAULT_MEAL_SPECS
+    )
 
     # The "stove top", a 2D rectangle. This is the only space in the env.
     stove_top_width: float = 10.0

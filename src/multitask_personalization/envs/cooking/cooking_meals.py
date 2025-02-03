@@ -58,7 +58,6 @@ class IngredientSpec:
     quantity: tuple[float, float]
 
 
-
 @dataclass(frozen=True)
 class Meal:
     """A specific number of ingredients."""
@@ -76,6 +75,6 @@ DEFAULT_MEAL_SPECS = [
         [
             IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
             IngredientSpec("pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
-        ]
+        ],
     )
 ]

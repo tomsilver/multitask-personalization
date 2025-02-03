@@ -7,7 +7,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from multitask_personalization.envs.cooking.cooking_meals import Meal, MealSpec, IngredientSpec
+from multitask_personalization.envs.cooking.cooking_meals import (
+    IngredientSpec,
+    Meal,
+    MealSpec,
+)
 from multitask_personalization.envs.cooking.cooking_structs import IngredientCritique
 
 
@@ -112,11 +116,12 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                 quant_hi = meal_quant
             else:
                 assert critique.more_or_less == "good"
-            new_ingredients[critique.ingredient] = IngredientSpec(critique.ingredient,
-                                                                  temperature=(temp_lo, temp_hi),
-                                                                  quantity=(quant_lo, quant_hi))
+            new_ingredients[critique.ingredient] = IngredientSpec(
+                critique.ingredient,
+                temperature=(temp_lo, temp_hi),
+                quantity=(quant_lo, quant_hi),
+            )
         # Finalize new meal spec.
         self._meal_specs[meal.name] = MealSpec(
-            name=meal.name,
-            ingredients=list(new_ingredients.values())
+            name=meal.name, ingredients=list(new_ingredients.values())
         )
