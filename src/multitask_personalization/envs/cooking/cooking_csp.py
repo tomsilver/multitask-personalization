@@ -38,6 +38,7 @@ from multitask_personalization.structs import (
     CSPVariable,
     FunctionalCSPConstraint,
     FunctionalCSPSampler,
+    LogProbCSPConstraint,
 )
 from multitask_personalization.utils import _NO_CHANGE, _NoChange
 
@@ -145,7 +146,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         meal_name_variable, cooking_time_variable = variables[-2:]
 
         # Final ingredients must comprise some meal that the user enjoys.
-        def _user_enjoys_meal(
+        def _user_enjoys_meal_logprob(
             meal_name: str,
             total_cooking_time: int,
             *ingredients: _IngredientCSPState,
@@ -161,13 +162,13 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
                 quant = ing_state.quantity
                 meal_ingredients[ing_state.name] = (temp, quant)
             meal = Meal(meal_name, meal_ingredients)
-            # Check against model.
-            return self._meal_model.check(meal)
+            return self._meal_model.predict_enjoyment_logprob(meal)
 
-        user_enjoys_meal_constraint = FunctionalCSPConstraint(
+        user_enjoys_meal_constraint = LogProbCSPConstraint(
             "user_enjoys_meal_constraint",
             [meal_name_variable, cooking_time_variable] + ingredient_variables,
-            _user_enjoys_meal,
+            _user_enjoys_meal_logprob,
+            threshold=np.log(0.5) - 1e-3,
         )
 
         return [user_enjoys_meal_constraint]
@@ -331,7 +332,15 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        pass
+        if not self._disable_learning:
+            self._update_meal_model(obs, act, next_obs)
+
+    def _update_meal_model(
+        self, obs: CookingState, act: CookingAction, next_obs: CookingState
+    ) -> None:
+        import ipdb
+
+        ipdb.set_trace()
 
 
 class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
