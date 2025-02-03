@@ -28,6 +28,10 @@ class MealPreferenceModel(abc.ABC):
     def predict_enjoyment_logprob(self, meal: Meal) -> float:
         """Predict the log probability of enjoyment."""
 
+    @abc.abstractmethod
+    def meal_is_known(self, meal_name: str) -> bool:
+        """Whether the name of the meal is known."""
+
     def check(self, meal: Meal) -> bool:
         """Check whether the user would enjoy this meal."""
         log_prob = self.predict_enjoyment_logprob(meal)
@@ -49,3 +53,9 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         # Degenerate.
         enjoys = any(ms.check(meal) for ms in self._meal_specs)
         return 0.0 if enjoys else -np.inf
+
+    def meal_is_known(self, meal_name: str) -> bool:
+        for meal_spec in self._meal_specs:
+            if meal_name == meal_spec.name:
+                return True
+        return False

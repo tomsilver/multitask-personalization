@@ -150,7 +150,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             meal_name: str,
             total_cooking_time: int,
             *ingredients: _IngredientCSPState,
-        ) -> bool:
+        ) -> float:
             # Derive meal.
             meal_ingredients = {}
             for ing_state in ingredients:
@@ -235,6 +235,21 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
                 _ingredient_quantity_exists,
             )
             constraints.append(constraint)
+
+        # The ingredients must comprise SOME known meal.
+        meal_name_variable = variables[-2]
+
+        def _meal_is_known(
+            meal_name: str,
+        ) -> bool:
+            return self._meal_model.meal_is_known(meal_name)
+
+        meal_is_known_constraint = FunctionalCSPConstraint(
+            f"meal-is-known",
+            [meal_name_variable],
+            _meal_is_known,
+        )
+        constraints.append(meal_is_known_constraint)
 
         return constraints
 
