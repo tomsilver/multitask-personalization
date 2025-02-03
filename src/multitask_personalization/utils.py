@@ -112,9 +112,10 @@ class Bounded1DClassifier:
     See notebooks/ for more explanation.
     """
 
-    def __init__(self, a_lo: float, b_hi: float) -> None:
+    def __init__(self, a_lo: float, b_hi: float, default: float = 0.5) -> None:
         self.a_lo = a_lo
         self.b_hi = b_hi
+        self.default = default
 
         self.x1 = 0.0
         self.x2 = 0.0
@@ -159,7 +160,7 @@ class Bounded1DClassifier:
         """Batch predict class probabilities."""
         # Total ignore if not yet fit.
         if not self._fitted:
-            return [0.5] * len(X)
+            return [self.default] * len(X)
         X_arr = np.array(X)
         return np.piecewise(
             X_arr,
