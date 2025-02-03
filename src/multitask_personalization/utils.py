@@ -104,6 +104,73 @@ def bernoulli_entropy(log_p_true: float) -> float:
     return entropy
 
 
+class Bounded1DClassifier:
+    """Predicts the probability that 1D x is true or false given data, and
+    given that there is some interval with known lower and upper bounds that
+    determines the classifier.
+
+    See notebooks/ for more explanation.
+    """
+
+    def __init__(self, a_lo: float, b_hi: float) -> None:
+        self.a_lo = a_lo
+        self.b_hi = b_hi
+
+        self.x1 = 0.0
+        self.x2 = 0.0
+        self.x3 = 0.0
+        self.x4 = 0.0
+        self._fitted = False
+
+    def fit(self, X: list[float], Y: list[float]) -> None:
+        """Fit the model parameters."""
+        X_pos, X_neg = set(), set()
+        for x, y in zip(X, Y, strict=True):
+            if y:
+                X_pos.add(x)
+            else:
+                X_neg.add(x)
+        # Can't fit if there is no positive data.
+        if not X_pos:
+            return
+        m = next(iter(X_pos))
+        X_neg_lo, X_neg_hi = set(), set()
+        for x in X_neg:
+            if x < m:
+                X_neg_lo.add(x)
+            else:
+                X_neg_hi.add(x)
+        self.x1 = max(X_neg_lo | {self.a_lo})
+        self.x2 = min(X_pos)
+        self.x3 = max(X_pos)
+        self.x4 = min(X_neg_hi | {self.b_hi})
+        self._fitted = True
+
+    def predict_proba(self, X: list[float]) -> list[float]:
+        """Batch predict class probabilities."""
+        # Total ignore if not yet fit.
+        if not self._fitted:
+            return [0.5] * len(X)
+        X_arr = np.array(X)
+        return np.piecewise(
+            X_arr,
+            [
+                X_arr < self.x1,
+                (self.x1 <= X_arr) & (X_arr < self.x2),
+                (self.x2 <= X_arr) & (X_arr < self.x3),
+                (self.x3 <= X_arr) & (X_arr < self.x4),
+                X_arr >= self.x4,
+            ],
+            [
+                lambda _: 0,
+                lambda x: (x - self.x1) / (self.x2 - self.x1),
+                lambda _: 1,
+                lambda x: 1 - (x - self.x3) / (self.x4 - self.x3),
+                lambda _: 0,
+            ],
+        ).tolist()
+
+
 def print_csp_sol(sol: dict[CSPVariable, Any]) -> None:
     """Useful for debugging."""
     print("-" * 80)
