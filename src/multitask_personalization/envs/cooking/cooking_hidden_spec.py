@@ -24,6 +24,7 @@ class IngredientCritique:
     ingredient: str
     more_or_less: str  # "more", "less", "good"
     hotter_or_colder: str  # "hotter", "colder", "good"
+    missing: bool = False
 
 
 class MealPreferenceModel(abc.ABC):
@@ -62,7 +63,7 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
             if meal_name == meal_spec.name:
                 return True
         return False
-    
+
     def predict_enjoyment_logprob(self, meal: Meal) -> float:
         # Degenerate.
         enjoys = any(ms.check(meal) for ms in self._meal_specs)
@@ -72,21 +73,25 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         meal_spec = self._get_spec_for_meal(meal.name)
         critiques: list[IngredientCritique] = []
         for ing, (temp_lo, temp_hi), (quant_lo, quant_hi) in meal_spec.ingredients:
-            temp, quant = meal.ingredients[ing]
-            if temp < temp_lo:
-                temperature_feedback = "hotter"
-            elif temp > temp_hi:
-                temperature_feedback = "cooler"
+            temperature_feedback = "good"
+            quantity_feedback = "good"
+            missing = False
+            if ing not in meal.ingredients:
+                missing = True
             else:
-                temperature_feedback = "good"
-            if quant < quant_lo:
-                quantity_feedback = "more"
-            elif quant > quant_hi:
-                quantity_feedback = "less"
-            else:
-                quantity_feedback = "good"
-            if temperature_feedback != "good" or quantity_feedback != "good":
-                critique = IngredientCritique(ing, temperature_feedback, quantity_feedback)
+                temp, quant = meal.ingredients[ing]
+                if temp < temp_lo:
+                    temperature_feedback = "hotter"
+                elif temp > temp_hi:
+                    temperature_feedback = "cooler"
+                if quant < quant_lo:
+                    quantity_feedback = "more"
+                elif quant > quant_hi:
+                    quantity_feedback = "less"
+            if missing or temperature_feedback != "good" or quantity_feedback != "good":
+                critique = IngredientCritique(
+                    ing, temperature_feedback, quantity_feedback
+                )
                 critiques.append(critique)
         return critiques
 

@@ -245,7 +245,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             return self._meal_model.meal_is_known(meal_name)
 
         meal_is_known_constraint = FunctionalCSPConstraint(
-            f"meal-is-known",
+            "meal-is-known",
             [meal_name_variable],
             _meal_is_known,
         )
@@ -356,10 +356,8 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         # Only update when the meal is served and we get feedback about it.
         if not isinstance(act, ServeMealCookingAction):
             return
-        
-        import ipdb
-
-        ipdb.set_trace()
+        # Coming soon.
+        del obs, next_obs
 
 
 class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
