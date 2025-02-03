@@ -7,9 +7,9 @@ from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.cooking.cooking_env import CookingEnv
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
     CookingHiddenSpec,
-    MealSpec,
     MealSpecMealPreferenceModel,
 )
+from multitask_personalization.envs.cooking.cooking_meals import MealSpec, IngredientSpec
 from multitask_personalization.envs.cooking.cooking_scene_spec import (
     CookingIngredient,
     CookingPot,
@@ -72,22 +72,25 @@ def test_cooking_csp_approach():
     """Tests CSP approach in cooking environment."""
     seed = 123
 
+    universal_meal_specs = [
+        MealSpec(
+            "seasoning",
+            [
+                IngredientSpec("salt", temperature=(1.0, 5.0), quantity=(0.1, 2.0)),
+                IngredientSpec("pepper", temperature=(1.0, 5.0), quantity=(0.1, 2.0)),
+            ]
+        )
+    ]
 
-    universal_meal_specs = [MealSpec(
-        "seasoning",
-        [
-            ("salt", (1.0, 5.0), (0.1, 2.0)),
-            ("pepper", (1.0, 5.0), (0.1, 2.0)),
-        ],
-    )]
-
-    ground_truth_meal_specs = [MealSpec(
-        "seasoning",
-        [
-            ("salt", (2.5, 3.5), (0.9, 1.1)),
-            ("pepper", (2.5, 3.5), (0.9, 1.1)),
-        ],
-    )]
+    ground_truth_meal_specs =[
+        MealSpec(
+            "seasoning",
+            [
+                IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+                IngredientSpec("pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+            ]
+        )
+    ]
 
     scene_spec = CookingSceneSpec(
         universal_meal_specs=universal_meal_specs,

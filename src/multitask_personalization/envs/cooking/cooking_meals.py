@@ -15,35 +15,48 @@ class MealSpec:
     name: str
 
     # Ingredient name, temperature bounds, quantity bounds.
-    ingredients: list[tuple[str, tuple[float, float], tuple[float, float]]]
+    ingredients: list[IngredientSpec]
 
     def __post_init__(self) -> None:
-        for _, (temp_lo, temp_hi), (quant_lo, quant_hi) in self.ingredients:
-            assert 0 <= temp_lo < temp_hi
-            assert 0 <= quant_lo < quant_hi
+        for ing_spec in self.ingredients:
+            assert 0 <= ing_spec.temperature[0] < ing_spec.temperature[1]
+            assert 0 <= ing_spec.quantity[0] < ing_spec.quantity[1]
 
     def sample(self, rng: np.random.Generator) -> Meal:
         """Sample a meal."""
         ingredients = {}
-        for ing, (temp_lo, temp_hi), (quant_lo, quant_hi) in self.ingredients:
-            temp = rng.uniform(temp_lo, temp_hi)
-            quant = rng.uniform(quant_lo, quant_hi)
-            ingredients[ing] = (temp, quant)
+        for ing_spec in self.ingredients:
+            temp = rng.uniform(*ing_spec.temperature)
+            quant = rng.uniform(*ing_spec.quantity)
+            ingredients[ing_spec.name] = (temp, quant)
         return Meal(self.name, ingredients)
 
     def check(self, meal: Meal) -> bool:
         """Check if a meal fits the preferences."""
-        # For simplicity, we assume all of the ingredient within the given bounds
-        # needs to be contained within one pot. We don't split across pots.
-        for ing, (temp_lo, temp_hi), (quant_lo, quant_hi) in self.ingredients:
-            if ing not in meal.ingredients:
+        for ing_spec in self.ingredients:
+            if ing_spec.name not in meal.ingredients:
                 return False
-            temp, quant = meal.ingredients[ing]
-            if not temp_lo <= temp <= temp_hi:
+            temp, quant = meal.ingredients[ing_spec.name]
+            if not ing_spec.temperature[0] <= temp <= ing_spec.temperature[1]:
                 return False
-            if not quant_lo <= quant <= quant_hi:
+            if not ing_spec.quantity[0] <= quant <= ing_spec.quantity[1]:
                 return False
         return True
+
+
+@dataclass(frozen=True)
+class IngredientSpec:
+    """An individual ingredient specification for a meal specification."""
+
+    # The unique name of the ingredient.
+    name: str
+
+    # Lower and upper bounds on temperature.
+    temperature: tuple[float, float]
+
+    # Lower and upper bound on quantity.
+    quantity: tuple[float, float]
+
 
 
 @dataclass(frozen=True)
@@ -61,8 +74,8 @@ DEFAULT_MEAL_SPECS = [
     MealSpec(
         "seasoning",
         [
-            ("salt", (2.5, 3.5), (0.9, 1.1)),
-            ("pepper", (2.5, 3.5), (0.9, 1.1)),
-        ],
+            IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+            IngredientSpec("pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+        ]
     )
 ]
