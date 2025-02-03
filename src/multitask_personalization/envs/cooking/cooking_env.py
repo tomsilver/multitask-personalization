@@ -123,6 +123,8 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 self._current_user_satisfaction = -1.0
             # Reset the pot and ingredients.
             self._current_state = self._get_state_from_scene_spec(self.scene_spec)
+            new_pot_states = self._current_state.pots
+            new_ingredients = self._current_state.ingredients.copy()
             done = True  # used for eval
 
         else:
