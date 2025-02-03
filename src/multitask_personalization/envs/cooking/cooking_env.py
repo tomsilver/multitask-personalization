@@ -22,6 +22,7 @@ from multitask_personalization.envs.cooking.cooking_structs import (
     CookingIngredientState,
     CookingPotState,
     CookingState,
+    IngredientCritique,
     MovePotCookingAction,
     MultiCookingAction,
     ServeMealCookingAction,
@@ -54,6 +55,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self._current_state = self._get_state_from_scene_spec(scene_spec)
 
         self._current_user_satisfaction = 0.0
+        self._current_user_critiques: list[IngredientCritique] = []
 
     def _get_state_from_scene_spec(self, scene_spec: CookingSceneSpec) -> CookingState:
         # NOTE: the initial quantities of ingredients are randomized.
@@ -75,6 +77,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 )
                 for ingredient in scene_spec.ingredients
             },
+            critiques=[],
         )
 
     def reset(
@@ -87,6 +90,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         # Reset the current state based on the scene spec.
         self._current_state = self._get_state_from_scene_spec(self.scene_spec)
         self._current_user_satisfaction = 0.0
+        self._current_user_critiques = []
         return self._get_state(), self._get_info()
 
     def step(
@@ -96,6 +100,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
 
         # May be updated if the action is serve.
         self._current_user_satisfaction = 0.0
+        self._current_user_critiques = []
         done = False
 
         new_pot_states: list[CookingPotState] = []
@@ -109,13 +114,17 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                 raise ValueError("Hidden spec required for step().")
             # Check if the meal made fits the user preferences.
             meal = self._current_state.get_meal(action.meal_name)
-            user_happy = self._hidden_spec.meal_preference_model.check(meal)
-            if user_happy:
+            self._current_user_critiques = (
+                self._hidden_spec.meal_preference_model.get_feedback(meal)
+            )
+            if not self._current_user_critiques:
                 self._current_user_satisfaction = 1.0
             else:
                 self._current_user_satisfaction = -1.0
             # Reset the pot and ingredients.
             self._current_state = self._get_state_from_scene_spec(self.scene_spec)
+            new_pot_states = self._current_state.pots
+            new_ingredients = self._current_state.ingredients.copy()
             done = True  # used for eval
 
         else:
@@ -204,7 +213,9 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
                     raise NotImplementedError()
 
         # Update state.
-        self._current_state = CookingState(new_pot_states, new_ingredients)
+        self._current_state = CookingState(
+            new_pot_states, new_ingredients, list(self._current_user_critiques)
+        )
 
         return self._get_state(), 0.0, done, False, self._get_info()
 

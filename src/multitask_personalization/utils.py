@@ -112,9 +112,10 @@ class Bounded1DClassifier:
     See notebooks/ for more explanation.
     """
 
-    def __init__(self, a_lo: float, b_hi: float) -> None:
+    def __init__(self, a_lo: float, b_hi: float, default: float = 0.5) -> None:
         self.a_lo = a_lo
         self.b_hi = b_hi
+        self.default = default
 
         self.x1 = 0.0
         self.x2 = 0.0
@@ -122,7 +123,10 @@ class Bounded1DClassifier:
         self.x4 = 0.0
         self._fitted = False
 
-    def fit(self, X: list[float], Y: list[float]) -> None:
+        self._incremental_X: list[float] = []
+        self._incremental_Y: list[bool] = []
+
+    def fit(self, X: list[float], Y: list[bool]) -> None:
         """Fit the model parameters."""
         X_pos, X_neg = set(), set()
         for x, y in zip(X, Y, strict=True):
@@ -146,11 +150,17 @@ class Bounded1DClassifier:
         self.x4 = min(X_neg_hi | {self.b_hi})
         self._fitted = True
 
+    def fit_incremental(self, X: list[float], Y: list[bool]) -> None:
+        """Accumulate training data and re-fit."""
+        self._incremental_X.extend(X)
+        self._incremental_Y.extend(Y)
+        self.fit(self._incremental_X, self._incremental_Y)
+
     def predict_proba(self, X: list[float]) -> list[float]:
         """Batch predict class probabilities."""
         # Total ignore if not yet fit.
         if not self._fitted:
-            return [0.5] * len(X)
+            return [self.default] * len(X)
         X_arr = np.array(X)
         return np.piecewise(
             X_arr,

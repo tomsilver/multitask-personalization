@@ -7,8 +7,11 @@ from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from multitask_personalization.envs.cooking.cooking_env import CookingEnv
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
     CookingHiddenSpec,
-    MealSpec,
     MealSpecMealPreferenceModel,
+)
+from multitask_personalization.envs.cooking.cooking_meals import (
+    IngredientSpec,
+    MealSpec,
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import (
     CookingIngredient,
@@ -71,16 +74,29 @@ def test_csp_approach(explore_method, disable_learning):
 def test_cooking_csp_approach():
     """Tests CSP approach in cooking environment."""
     seed = 123
+
+    universal_meal_specs = [
+        MealSpec(
+            "seasoning",
+            [
+                IngredientSpec("salt", temperature=(1.0, 5.0), quantity=(0.1, 2.0)),
+                IngredientSpec("pepper", temperature=(1.0, 5.0), quantity=(0.1, 2.0)),
+            ],
+        )
+    ]
+
+    ground_truth_meal_specs = [
+        MealSpec(
+            "seasoning",
+            [
+                IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+                IngredientSpec("pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+            ],
+        )
+    ]
+
     scene_spec = CookingSceneSpec(
-        meal_specs=[
-            MealSpec(
-                "seasoning",
-                [
-                    ("salt", (2.5, 3.5), (0.9, 1.1)),
-                    ("pepper", (2.5, 3.5), (0.9, 1.1)),
-                ],
-            )
-        ],
+        universal_meal_specs=universal_meal_specs,
         pots=[
             CookingPot(radius=0.5, position=None),
             CookingPot(radius=1.0, position=None),
@@ -103,7 +119,7 @@ def test_cooking_csp_approach():
         ],
     )
 
-    meal_model = MealSpecMealPreferenceModel(scene_spec.meal_specs)
+    meal_model = MealSpecMealPreferenceModel(ground_truth_meal_specs)
     hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(
@@ -123,16 +139,13 @@ def test_cooking_csp_approach():
     approach.train()
     env.action_space.seed(seed)
 
-    for _ in range(10):
-        obs, info = env.reset()
-        approach.reset(obs, info)
-        for _ in range(100):
-            act = approach.step()
-            obs, reward, terminated, truncated, info = env.step(act)
-            assert np.isclose(reward, 0.0)
-            approach.update(obs, reward, terminated, info)
-            assert not truncated
-            if terminated:
-                break
+    obs, info = env.reset()
+    approach.reset(obs, info)
+    for _ in range(250):
+        act = approach.step()
+        obs, reward, terminated, truncated, info = env.step(act)
+        assert np.isclose(reward, 0.0)
+        approach.update(obs, reward, terminated, info)
+        assert not truncated
 
     env.close()
