@@ -104,7 +104,7 @@ def bernoulli_entropy(log_p_true: float) -> float:
     return entropy
 
 
-class Bounded1DBayesianClassifier:
+class Bounded1DClassifier:
     """Predicts the probability that 1D x is true or false given data, and
     given that there is some interval with known lower and upper bounds that
     determines the classifier.
@@ -120,7 +120,7 @@ class Bounded1DBayesianClassifier:
         self.x2 = 0.0
         self.x3 = 0.0
         self.x4 = 0.0
-        self._fit = False
+        self._fitted = False
 
     def fit(self, X: list[float], Y: list[float]) -> None:
         """Fit the model parameters."""
@@ -144,12 +144,12 @@ class Bounded1DBayesianClassifier:
         self.x2 = min(X_pos)
         self.x3 = max(X_pos)
         self.x4 = min(X_neg_hi | {self.b_hi})
-        self._fit = True
+        self._fitted = True
 
     def predict_proba(self, X: list[float]) -> list[float]:
         """Batch predict class probabilities."""
         # Total ignore if not yet fit.
-        if not self._fit:
+        if not self._fitted:
             return [0.5] * len(X)
         X_arr = np.array(X)
         return np.piecewise(
