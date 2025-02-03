@@ -139,16 +139,15 @@ def test_cooking_csp_approach():
     approach.train()
     env.action_space.seed(seed)
 
-    for _ in range(10):
-        obs, info = env.reset()
-        approach.reset(obs, info)
-        for _ in range(100):
-            act = approach.step()
-            obs, reward, terminated, truncated, info = env.step(act)
-            assert np.isclose(reward, 0.0)
-            approach.update(obs, reward, terminated, info)
-            assert not truncated
-            if terminated:
-                break
+    obs, info = env.reset()
+    approach.reset(obs, info)
+    for _ in range(1000):
+        act = approach.step()
+        obs, reward, terminated, truncated, info = env.step(act)
+        assert np.isclose(reward, 0.0)
+        approach.update(obs, reward, terminated, info)
+        assert not truncated
+    
+    import ipdb; ipdb.set_trace()
 
     env.close()
