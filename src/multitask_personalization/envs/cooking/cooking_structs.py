@@ -148,6 +148,6 @@ class IngredientCritique:
     """A single piece of feedback about a meal."""
 
     ingredient: str
-    more_or_less: str  # "more", "less", "good"
     hotter_or_colder: str  # "hotter", "colder", "good"
+    more_or_less: str  # "more", "less", "good"
     missing: bool = False

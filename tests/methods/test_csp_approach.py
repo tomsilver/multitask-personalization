@@ -71,16 +71,26 @@ def test_csp_approach(explore_method, disable_learning):
 def test_cooking_csp_approach():
     """Tests CSP approach in cooking environment."""
     seed = 123
-    scene_spec = CookingSceneSpec(
-        meal_specs=[
-            MealSpec(
-                "seasoning",
-                [
-                    ("salt", (2.5, 3.5), (0.9, 1.1)),
-                    ("pepper", (2.5, 3.5), (0.9, 1.1)),
-                ],
-            )
+
+
+    universal_meal_specs = [MealSpec(
+        "seasoning",
+        [
+            ("salt", (1.0, 5.0), (0.1, 2.0)),
+            ("pepper", (1.0, 5.0), (0.1, 2.0)),
         ],
+    )]
+
+    ground_truth_meal_specs = [MealSpec(
+        "seasoning",
+        [
+            ("salt", (2.5, 3.5), (0.9, 1.1)),
+            ("pepper", (2.5, 3.5), (0.9, 1.1)),
+        ],
+    )]
+
+    scene_spec = CookingSceneSpec(
+        universal_meal_specs=universal_meal_specs,
         pots=[
             CookingPot(radius=0.5, position=None),
             CookingPot(radius=1.0, position=None),
@@ -103,7 +113,7 @@ def test_cooking_csp_approach():
         ],
     )
 
-    meal_model = MealSpecMealPreferenceModel(scene_spec.meal_specs)
+    meal_model = MealSpecMealPreferenceModel(ground_truth_meal_specs)
     hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(

@@ -353,11 +353,10 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
     def _update_meal_model(
         self, obs: CookingState, act: CookingAction, next_obs: CookingState
     ) -> None:
-        # Only update when the meal is served and we get feedback about it.
-        if not isinstance(act, ServeMealCookingAction):
+        # Only need to update if there was some critique.
+        if not next_obs.critiques:
             return
-        # Coming soon.
-        del obs, next_obs
+        import ipdb; ipdb.set_trace()
 
 
 class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):

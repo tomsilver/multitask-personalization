@@ -164,7 +164,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
         if isinstance(self._scene_spec, CookingSceneSpec):
-            meal_model = MealSpecMealPreferenceModel(self._scene_spec.meal_specs)
+            meal_model = MealSpecMealPreferenceModel(self._scene_spec.universal_meal_specs)
             return CookingCSPGenerator(
                 self._scene_spec,
                 meal_model,

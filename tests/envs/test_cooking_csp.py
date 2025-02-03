@@ -28,7 +28,7 @@ def test_cooking_csp():
     seed = 123
 
     scene_spec = CookingSceneSpec(
-        meal_specs=[
+        universal_meal_specs=[
             MealSpec(
                 "seasoning",
                 [
@@ -59,7 +59,7 @@ def test_cooking_csp():
         ],
     )
 
-    meal_model = MealSpecMealPreferenceModel(scene_spec.meal_specs)
+    meal_model = MealSpecMealPreferenceModel(scene_spec.universal_meal_specs)
     hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(
