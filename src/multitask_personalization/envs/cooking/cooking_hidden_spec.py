@@ -17,6 +17,15 @@ class CookingHiddenSpec:
     meal_preference_model: MealPreferenceModel
 
 
+@dataclass(frozen=True)
+class IngredientCritique:
+    """A single piece of feedback about a meal."""
+
+    ingredient: str
+    more_or_less: str  # "more", "less", "good"
+    hotter_or_colder: str  # "hotter", "colder", "good"
+
+
 class MealPreferenceModel(abc.ABC):
     """A model of a user's meal preferences."""
 
@@ -25,17 +34,16 @@ class MealPreferenceModel(abc.ABC):
         """Sample a meal that the user should enjoy."""
 
     @abc.abstractmethod
+    def meal_is_known(self, meal_name: str) -> bool:
+        """Whether the name of the meal is known."""
+
+    @abc.abstractmethod
     def predict_enjoyment_logprob(self, meal: Meal) -> float:
         """Predict the log probability of enjoyment."""
 
     @abc.abstractmethod
-    def meal_is_known(self, meal_name: str) -> bool:
-        """Whether the name of the meal is known."""
-
-    def check(self, meal: Meal) -> bool:
-        """Check whether the user would enjoy this meal."""
-        log_prob = self.predict_enjoyment_logprob(meal)
-        return log_prob > np.log(0.5)
+    def get_feedback(self, meal: Meal) -> list[IngredientCritique]:
+        """Critique all the ingredients in this meal."""
 
 
 class MealSpecMealPreferenceModel(MealPreferenceModel):
@@ -49,13 +57,41 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         meal_spec = self._meal_specs[meal_spec_idx]
         return meal_spec.sample(rng)
 
-    def predict_enjoyment_logprob(self, meal: Meal) -> float:
-        # Degenerate.
-        enjoys = any(ms.check(meal) for ms in self._meal_specs)
-        return 0.0 if enjoys else -np.inf
-
     def meal_is_known(self, meal_name: str) -> bool:
         for meal_spec in self._meal_specs:
             if meal_name == meal_spec.name:
                 return True
         return False
+    
+    def predict_enjoyment_logprob(self, meal: Meal) -> float:
+        # Degenerate.
+        enjoys = any(ms.check(meal) for ms in self._meal_specs)
+        return 0.0 if enjoys else -np.inf
+
+    def get_feedback(self, meal: Meal) -> list[IngredientCritique]:
+        meal_spec = self._get_spec_for_meal(meal.name)
+        critiques: list[IngredientCritique] = []
+        for ing, (temp_lo, temp_hi), (quant_lo, quant_hi) in meal_spec.ingredients:
+            temp, quant = meal.ingredients[ing]
+            if temp < temp_lo:
+                temperature_feedback = "hotter"
+            elif temp > temp_hi:
+                temperature_feedback = "cooler"
+            else:
+                temperature_feedback = "good"
+            if quant < quant_lo:
+                quantity_feedback = "more"
+            elif quant > quant_hi:
+                quantity_feedback = "less"
+            else:
+                quantity_feedback = "good"
+            if temperature_feedback != "good" or quantity_feedback != "good":
+                critique = IngredientCritique(ing, temperature_feedback, quantity_feedback)
+                critiques.append(critique)
+        return critiques
+
+    def _get_spec_for_meal(self, meal_name: str) -> MealSpec:
+        for meal_spec in self._meal_specs:
+            if meal_name == meal_spec.name:
+                return meal_spec
+        raise ValueError(f"Unknown meal {meal_name}")

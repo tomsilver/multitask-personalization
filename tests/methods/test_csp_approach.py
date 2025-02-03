@@ -128,6 +128,7 @@ def test_cooking_csp_approach():
         approach.reset(obs, info)
         for _ in range(100):
             act = approach.step()
+            print(act)  # TODO remove
             obs, reward, terminated, truncated, info = env.step(act)
             assert np.isclose(reward, 0.0)
             approach.update(obs, reward, terminated, info)

@@ -353,6 +353,10 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
     def _update_meal_model(
         self, obs: CookingState, act: CookingAction, next_obs: CookingState
     ) -> None:
+        # Only update when the meal is served and we get feedback about it.
+        if not isinstance(act, ServeMealCookingAction):
+            return
+        
         import ipdb
 
         ipdb.set_trace()
