@@ -8,11 +8,11 @@ from dataclasses import dataclass
 import numpy as np
 
 from multitask_personalization.envs.cooking.cooking_meals import (
-    IngredientSpec,
     Meal,
     MealSpec,
 )
 from multitask_personalization.envs.cooking.cooking_structs import IngredientCritique
+from multitask_personalization.utils import Bounded1DClassifier
 
 
 @dataclass(frozen=True)
@@ -50,26 +50,60 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
     """An explicit list of a user's meal preferences."""
 
     def __init__(self, meal_specs: list[MealSpec]) -> None:
-        self._meal_specs = {m.name: m for m in meal_specs}
-        assert len(self._meal_specs) == len(meal_specs), "Meal names must be unique"
+        self._universal_meal_specs = {m.name: m for m in meal_specs}
+        assert len(self._universal_meal_specs) == len(
+            meal_specs
+        ), "Meal names must be unique"
+        # Initialize models for quantity and temperature for each meal ingredient.
+        self._temperature_models: dict[str, dict[str, Bounded1DClassifier]] = {}
+        self._quantity_models: dict[str, dict[str, Bounded1DClassifier]] = {}
+        for meal_name, meal_spec in self._universal_meal_specs.items():
+            self._temperature_models[meal_name] = {}
+            self._quantity_models[meal_name] = {}
+            for ing_spec in meal_spec.ingredients:
+                temp_lo, temp_hi = ing_spec.temperature
+                self._temperature_models[meal_name][ing_spec.name] = (
+                    Bounded1DClassifier(temp_lo, temp_hi)
+                )
+                quant_lo, quant_hi = ing_spec.quantity
+                self._quantity_models[meal_name][ing_spec.name] = Bounded1DClassifier(
+                    quant_lo, quant_hi
+                )
 
     def sample(self, rng: np.random.Generator) -> Meal:
-        meal_spec_idx = rng.choice(len(self._meal_specs))
-        ordered_meal_specs = [self._meal_specs[m] for m in sorted(self._meal_specs)]
+        meal_spec_idx = rng.choice(len(self._universal_meal_specs))
+        ordered_meal_specs = [
+            self._universal_meal_specs[m] for m in sorted(self._universal_meal_specs)
+        ]
         meal_spec = ordered_meal_specs[meal_spec_idx]
         return meal_spec.sample(rng)
 
     def meal_is_known(self, meal_name: str) -> bool:
-        return meal_name in self._meal_specs
+        return meal_name in self._universal_meal_specs
 
     def predict_enjoyment_logprob(self, meal: Meal) -> float:
-        if not meal.name in self._meal_specs:
+        if not meal.name in self._universal_meal_specs:
             return -np.inf
-        enjoys = self._meal_specs[meal.name].check(meal)
-        return 0.0 if enjoys else -np.inf
+        # Accumulate estimates for the whole meal.
+        meal_spec = self._universal_meal_specs[meal.name]
+        total_log_prob = 0.0
+        for ing_spec in meal_spec.ingredients:
+            # If the ingredient is missing, fail.
+            if ing_spec.name not in meal.ingredients:
+                return -np.inf
+            temp, quant = meal.ingredients[ing_spec.name]
+            # Consider temperature.
+            temperature_model = self._temperature_models[meal.name][ing_spec.name]
+            temperature_log_prob = np.log(temperature_model.predict_proba([temp])[0])
+            total_log_prob += temperature_log_prob
+            # Consier quantity.
+            quantity_model = self._quantity_models[meal.name][ing_spec.name]
+            quantity_log_prob = np.log(quantity_model.predict_proba([quant])[0])
+            total_log_prob += quantity_log_prob
+        return total_log_prob
 
     def get_feedback(self, meal: Meal) -> list[IngredientCritique]:
-        meal_spec = self._meal_specs[meal.name]
+        meal_spec = self._universal_meal_specs[meal.name]
         critiques: list[IngredientCritique] = []
         for ing_spec in meal_spec.ingredients:
             temperature_feedback = "good"
@@ -95,33 +129,12 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         return critiques
 
     def update(self, meal: Meal, critiques: list[IngredientCritique]) -> None:
-        old_ingredients = {i.name: i for i in self._meal_specs[meal.name].ingredients}
-        new_ingredients = old_ingredients.copy()
         for critique in critiques:
             assert not critique.missing
             meal_temp, meal_quant = meal.ingredients[critique.ingredient]
-            temp_lo, temp_hi = old_ingredients[critique.ingredient].temperature
-            quant_lo, quant_hi = old_ingredients[critique.ingredient].quantity
-            # Update temperature.
-            if critique.hotter_or_colder == "hotter":
-                temp_lo = meal_temp
-            elif critique.hotter_or_colder == "colder":
-                temp_hi = meal_temp
-            else:
-                assert critique.hotter_or_colder == "good"
-            # Update quantity.
-            if critique.more_or_less == "more":
-                quant_lo = meal_quant
-            elif critique.more_or_less == "less":
-                quant_hi = meal_quant
-            else:
-                assert critique.more_or_less == "good"
-            new_ingredients[critique.ingredient] = IngredientSpec(
-                critique.ingredient,
-                temperature=(temp_lo, temp_hi),
-                quantity=(quant_lo, quant_hi),
-            )
-        # Finalize new meal spec.
-        self._meal_specs[meal.name] = MealSpec(
-            name=meal.name, ingredients=list(new_ingredients.values())
-        )
+            temperature_label = critique.hotter_or_colder == "good"
+            quantity_label = critique.more_or_less == "good"
+            temperature_model = self._temperature_models[meal.name][critique.ingredient]
+            quantity_model = self._quantity_models[meal.name][critique.ingredient]
+            temperature_model.fit_incremental([meal_temp], [temperature_label])
+            quantity_model.fit_incremental([meal_quant], [quantity_label])
