@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from multitask_personalization.envs.cooking.cooking_meals import Meal, MealSpec
+from multitask_personalization.envs.cooking.cooking_structs import IngredientCritique
 
 
 @dataclass(frozen=True)
@@ -15,16 +16,6 @@ class CookingHiddenSpec:
     """Hidden parameters for a cooking environment."""
 
     meal_preference_model: MealPreferenceModel
-
-
-@dataclass(frozen=True)
-class IngredientCritique:
-    """A single piece of feedback about a meal."""
-
-    ingredient: str
-    more_or_less: str  # "more", "less", "good"
-    hotter_or_colder: str  # "hotter", "colder", "good"
-    missing: bool = False
 
 
 class MealPreferenceModel(abc.ABC):

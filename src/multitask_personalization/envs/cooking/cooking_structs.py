@@ -84,6 +84,7 @@ class CookingState:
 
     pots: list[CookingPotState]
     ingredients: dict[str, CookingIngredientState]
+    critiques: list[IngredientCritique]
 
     def get_meal(self, meal_name: str) -> Meal:
         """Extract a meal from the current ingredients in pots."""
@@ -140,3 +141,13 @@ CookingAction: TypeAlias = (
     | ServeMealCookingAction
     | MultiCookingAction
 )
+
+
+@dataclass(frozen=True)
+class IngredientCritique:
+    """A single piece of feedback about a meal."""
+
+    ingredient: str
+    more_or_less: str  # "more", "less", "good"
+    hotter_or_colder: str  # "hotter", "colder", "good"
+    missing: bool = False
