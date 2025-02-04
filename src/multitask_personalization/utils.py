@@ -125,7 +125,7 @@ class Bounded1DClassifier:
         self.incremental_X: list[float] = []
         self.incremental_Y: list[bool] = []
 
-    def fit(self, X: list[float], Y: list[bool]) -> None:
+    def _fit(self, X: list[float], Y: list[bool]) -> None:
         """Fit the model parameters."""
         X_pos, X_neg = set(), set()
         for x, y in zip(X, Y, strict=True):
@@ -152,7 +152,7 @@ class Bounded1DClassifier:
         """Accumulate training data and re-fit."""
         self.incremental_X.extend(X)
         self.incremental_Y.extend(Y)
-        self.fit(self.incremental_X, self.incremental_Y)
+        self._fit(self.incremental_X, self.incremental_Y)
 
     def predict_proba(self, X: list[float]) -> list[float]:
         """Batch predict class probabilities."""

@@ -7,6 +7,7 @@ import json
 import matplotlib.pyplot as plt
 from multitask_personalization.utils import Bounded1DClassifier
 from matplotlib import animation
+import numpy as np
 
 
 def _main(results_dir: Path, outfile: Path, meal_name: str, ingredient_name: str,
@@ -43,41 +44,54 @@ def _main(results_dir: Path, outfile: Path, meal_name: str, ingredient_name: str
     meal_specs = {m.name: m for m in cfg.env.env.hidden_spec.meal_preference_model.meal_specs}
     meal_spec = meal_specs[meal_name]
     ing_specs = {i.name: i for i in meal_spec.ingredients}
-    ing_spec = ing_specs[ingredient_name]
-    ground_truth_temperature = ing_spec.temperature
-    ground_truth_quantity = ing_spec.quantity
+    ground_truth_spec = ing_specs[ingredient_name]
 
     # Set up the figure and axis.
     fig, axes = plt.subplots(1, len(data), sharey=True)
     fig.suptitle(f"{meal_name}: {ingredient_name}")
-    scatter_plots = []
+    artists = []
     for i, metric_name in enumerate(sorted(data)):
         axes[i].set_xlabel(metric_name)
         if i == 0:
             axes[i].set_ylabel("P(True)")
         min_x = min(data[metric_name]["incremental_X"][-1])
         max_x = max(data[metric_name]["incremental_X"][-1])
-        axes[i].set_xlim((min_x - 0.1, max_x + 0.1))
+        pad = (max_x - min_x) * 0.1
+        axes[i].set_xlim((min_x - pad, max_x + pad))
         axes[i].set_ylim((-0.1, 1.1))
-        # Initialize an empty scatter plot.
-        scatter_plot = axes[i].scatter([], [], label="data")
-        scatter_plots.append(scatter_plot)
+        axes[i].vlines(ground_truth_spec[metric_name], -0.1, 1.1, linestyle="--", color="green")
     plt.tight_layout()
 
     # Define the initialization function.
     def init():
-        return scatter_plots
+        return artists
     
     # Define the animation function.
     def animate(t):
-        while scatter_plots:
-            scatter_plot = scatter_plots.pop()
-            scatter_plot.remove()
+        while artists:
+            artist = artists.pop()
+            artist.remove()
         for i, metric_name in enumerate(sorted(data)):
             x = data[metric_name]["incremental_X"][t]
             y = data[metric_name]["incremental_Y"][t]
-            scatter_plot = axes[i].scatter(x, y, label="data", color="black")
-            scatter_plots.append(scatter_plot)
+            scatter_plot = axes[i].scatter(x, y, color="black")
+            artists.append(scatter_plot)
+            x_stars = [data[metric_name][xs][t] for xs in ["x1", "x2", "x3", "x4"]]
+            y_stars = [0, 1, 1, 0]
+            scatter_plot = axes[i].scatter(x_stars, y_stars, color="gold", marker="*", s=250)
+            artists.append(scatter_plot)
+            model = Bounded1DClassifier(-100, 100)  # too lazy to load bounds
+            model.x1 = x_stars[0]
+            model.x2 = x_stars[1]
+            model.x3 = x_stars[2]
+            model.x4 = x_stars[3]
+            model.incremental_X = x
+            model.incremental_Y = y
+            x_min, x_max = axes[i].get_xlim()
+            X_test = np.linspace(x_min, x_max, num=100, endpoint=True)
+            Y_test = model.predict_proba(X_test)
+            line_plot, = axes[i].plot(X_test, Y_test, color="red")
+            artists.append(line_plot)
         return []
     
     # Create the animation.
