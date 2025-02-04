@@ -98,25 +98,27 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         meal_spec = self._universal_meal_specs[meal.name]
         total_log_prob = 0.0
         for ing_spec in meal_spec.ingredients:
-            print("ingredient:", ing_spec.name)
+            # TODO
+            # print("ingredient:", ing_spec.name)
             # If the ingredient is missing, fail.
             if ing_spec.name not in meal.ingredients:
                 return -np.inf
             temp, quant = meal.ingredients[ing_spec.name]
-            print("temperature:", temp)
-            print("quantity:", quant)
+            # TODO
+            # print("temperature:", temp)
+            # print("quantity:", quant)
             # Consider temperature.
             temperature_model = self._temperature_models[meal.name][ing_spec.name]
             temperature_log_prob = np.log(temperature_model.predict_proba([temp])[0])
-            print("temperature_log_prob:", temperature_log_prob)
+            # TODO
+            # print("temperature_log_prob:", temperature_log_prob)
             total_log_prob += temperature_log_prob
             # Consier quantity.
             quantity_model = self._quantity_models[meal.name][ing_spec.name]
             quantity_log_prob = np.log(quantity_model.predict_proba([quant])[0])
             total_log_prob += quantity_log_prob
-            print("quantity_log_prob:", quantity_log_prob)
-            if np.isclose(quantity_log_prob, 0.0) and len(quantity_model.incremental_X) > 10 and quant > 1:
-                import ipdb; ipdb.set_trace()
+            # TODO
+            # print("quantity_log_prob:", quantity_log_prob)
         return total_log_prob
 
     def get_feedback(self, meal: Meal) -> list[IngredientCritique]:
