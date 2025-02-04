@@ -153,18 +153,18 @@ def test_cooking_csp_approach():
     # for meal_spec in ground_truth_meal_specs:
     #     print(f"\n{meal_spec.name}")
     #     for ing_spec in meal_spec.ingredients:
-    #         temp_f = meal_model._temperature_models[meal_spec.name][ing_spec.name]
-    #         quant_f = meal_model._quantity_models[meal_spec.name][ing_spec.name]
+    #         tf = meal_model._temperature_models[meal_spec.name][ing_spec.name]
+    #         qf = meal_model._quantity_models[meal_spec.name][ing_spec.name]
     #         print(" ", ing_spec.name)
     #         print("   ", "temperature:")
     #         print("     ", "ground truth:", ing_spec.temperature)
-    #         print("     ", "learned xs:", temp_f.x1, temp_f.x2, temp_f.x3, temp_f.x4)
-    #         print("     ", "num data:", len(temp_f._incremental_X))
-    #         print("     ", "num positive:", sum(temp_f._incremental_Y))
+    #         print("     ", "learned xs:", tf.x1, tf.x2, tf.x3, tf.x4)
+    #         print("     ", "num data:", len(tf._incremental_X))
+    #         print("     ", "num positive:", sum(tf._incremental_Y))
     #         print("   ", "quantity:")
     #         print("     ", "ground truth:", ing_spec.quantity)
-    #         print("     ", "learned xs:", quant_f.x1, quant_f.x2, quant_f.x3, quant_f.x4)
-    #         print("     ", "num data:", len(quant_f._incremental_X))
-    #         print("     ", "num positive:", sum(quant_f._incremental_Y))
+    #         print("     ", "learned xs:", qf.x1, qf.x2, qf.x3, qf.x4)
+    #         print("     ", "num data:", len(qf._incremental_X))
+    #         print("     ", "num positive:", sum(qf._incremental_Y))
 
     env.close()
