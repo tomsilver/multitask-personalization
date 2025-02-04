@@ -123,7 +123,8 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                     quantity_feedback = "less"
             if missing or temperature_feedback != "good" or quantity_feedback != "good":
                 critique = IngredientCritique(
-                    ing_spec.name, temperature_feedback, quantity_feedback
+                    ing_spec.name, temperature_feedback, quantity_feedback,
+                    missing=missing,
                 )
                 critiques.append(critique)
         return critiques

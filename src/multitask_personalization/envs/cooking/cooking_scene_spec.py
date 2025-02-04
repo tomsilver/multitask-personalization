@@ -25,7 +25,7 @@ class CookingIngredient:
 
     name: str
     color: tuple[float, float, float] = (0.5, 0.5, 0.5)  # rendering
-    respawn_quantity_bounds: tuple[float, float] = (0.5, 1.0)
+    respawn_quantity_bounds: tuple[float, float] = (10.0, 20.0)  # more than enough
     heat_rate: float = 0.1  # delta temperature during cooking
     cool_rate: float = 0.1  # delta temperature when not cooking (min = 0.0)
 
