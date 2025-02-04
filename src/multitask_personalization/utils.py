@@ -121,10 +121,9 @@ class Bounded1DClassifier:
         self.x2 = 0.0
         self.x3 = 0.0
         self.x4 = 0.0
-        self._fitted = False
 
-        self._incremental_X: list[float] = []
-        self._incremental_Y: list[bool] = []
+        self.incremental_X: list[float] = []
+        self.incremental_Y: list[bool] = []
 
     def fit(self, X: list[float], Y: list[bool]) -> None:
         """Fit the model parameters."""
@@ -148,18 +147,17 @@ class Bounded1DClassifier:
         self.x2 = min(X_pos)
         self.x3 = max(X_pos)
         self.x4 = min(X_neg_hi | {self.b_hi})
-        self._fitted = True
 
     def fit_incremental(self, X: list[float], Y: list[bool]) -> None:
         """Accumulate training data and re-fit."""
-        self._incremental_X.extend(X)
-        self._incremental_Y.extend(Y)
-        self.fit(self._incremental_X, self._incremental_Y)
+        self.incremental_X.extend(X)
+        self.incremental_Y.extend(Y)
+        self.fit(self.incremental_X, self.incremental_Y)
 
     def predict_proba(self, X: list[float]) -> list[float]:
         """Batch predict class probabilities."""
         # Total ignore if not yet fit.
-        if not self._fitted:
+        if sum(self.incremental_Y) == 0:
             return [self.default] * len(X)
         X_arr = np.array(X)
         return np.piecewise(

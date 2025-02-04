@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -13,6 +14,7 @@ from multitask_personalization.envs.cooking.cooking_meals import (
 )
 from multitask_personalization.envs.cooking.cooking_structs import IngredientCritique
 from multitask_personalization.utils import Bounded1DClassifier
+import json
 
 
 @dataclass(frozen=True)
@@ -44,6 +46,14 @@ class MealPreferenceModel(abc.ABC):
     @abc.abstractmethod
     def update(self, meal: Meal, critiques: list[IngredientCritique]) -> None:
         """Update the model from user feedback."""
+
+    @abc.abstractmethod
+    def save(self, model_dir: Path) -> None:
+        """Save the current meal model."""
+
+    @abc.abstractmethod
+    def load(self, model_dir: Path) -> None:
+        """Load the meal model."""
 
 
 class MealSpecMealPreferenceModel(MealPreferenceModel):
@@ -88,18 +98,25 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         meal_spec = self._universal_meal_specs[meal.name]
         total_log_prob = 0.0
         for ing_spec in meal_spec.ingredients:
+            print("ingredient:", ing_spec.name)
             # If the ingredient is missing, fail.
             if ing_spec.name not in meal.ingredients:
                 return -np.inf
             temp, quant = meal.ingredients[ing_spec.name]
+            print("temperature:", temp)
+            print("quantity:", quant)
             # Consider temperature.
             temperature_model = self._temperature_models[meal.name][ing_spec.name]
             temperature_log_prob = np.log(temperature_model.predict_proba([temp])[0])
+            print("temperature_log_prob:", temperature_log_prob)
             total_log_prob += temperature_log_prob
             # Consier quantity.
             quantity_model = self._quantity_models[meal.name][ing_spec.name]
             quantity_log_prob = np.log(quantity_model.predict_proba([quant])[0])
             total_log_prob += quantity_log_prob
+            print("quantity_log_prob:", quantity_log_prob)
+            if np.isclose(quantity_log_prob, 0.0) and len(quantity_model.incremental_X) > 10 and quant > 1:
+                import ipdb; ipdb.set_trace()
         return total_log_prob
 
     def get_feedback(self, meal: Meal) -> list[IngredientCritique]:
@@ -139,3 +156,55 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
             quantity_model = self._quantity_models[meal.name][critique.ingredient]
             temperature_model.fit_incremental([meal_temp], [temperature_label])
             quantity_model.fit_incremental([meal_quant], [quantity_label])
+
+    def save(self, model_dir: Path) -> None:
+        # Create a dictionary of all the model parameters for readability.
+        # Note that we need to save the data along with the model for full
+        # saving and loading.
+        model_parameters = {}
+        for meal_name, meal_spec in self._universal_meal_specs.items():
+            model_parameters[meal_name] = {}
+            for ing_spec in meal_spec.ingredients:
+                ing_name = ing_spec.name
+                temperature_model = self._temperature_models[meal_name][ing_name]
+                quantity_model = self._quantity_models[meal_spec.name][ing_name]
+                model_parameters[meal_name][ing_name] = {
+                    "temperature": {
+                        "x1": temperature_model.x1,
+                        "x2": temperature_model.x2,
+                        "x3": temperature_model.x3,
+                        "x4": temperature_model.x4,
+                        "incremental_X": temperature_model.incremental_X,
+                        "incremental_Y": temperature_model.incremental_Y,
+                    },
+                    "quantity": {
+                        "x1": quantity_model.x1,
+                        "x2": quantity_model.x2,
+                        "x3": quantity_model.x3,
+                        "x4": quantity_model.x4,
+                        "incremental_X": quantity_model.incremental_X,
+                        "incremental_Y": quantity_model.incremental_Y,
+                    },
+                }
+        filepath = model_dir / "meal_preferences.json"
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(model_parameters, f)
+
+    def load(self, model_dir: Path) -> None:
+        filepath = model_dir / "meal_preferences.json"
+        with open(filepath, "r", encoding="utf-8") as f:
+            model_parameters = json.load(f)
+        for meal_name, meal_spec in self._universal_meal_specs.items():
+            for ing_spec in meal_spec.ingredients:
+                ing_name = ing_spec.name
+                ing_parameters = model_parameters[meal_name][ing_name]
+                temperature_model = self._temperature_models[meal_name][ing_name]
+                quantity_model = self._quantity_models[meal_spec.name][ing_name]
+                for model, name in [(temperature_model, "temperature"), (quantity_model, "quantity")]:
+                    parameters = ing_parameters[name]
+                    model.x1 = parameters["x1"]
+                    model.x2 = parameters["x2"]
+                    model.x3 = parameters["x3"]
+                    model.x4 = parameters["x4"]
+                    model.incremental_X = parameters["incremental_X"]
+                    model.incremental_Y = parameters["incremental_Y"]

@@ -106,8 +106,8 @@ def _main(cfg: DictConfig) -> None:
             # Check if it's time to eval.
             if cfg.env.eval_frequency > 0 and t % cfg.env.eval_frequency == 0:
 
-                meal_model = train_approach._csp_generator._meal_model
-                for meal_spec in train_env.scene_spec.universal_meal_specs:
+                meal_model = eval_approach._csp_generator._meal_model
+                for meal_spec in eval_env._hidden_spec.meal_preference_model._universal_meal_specs.values():
                     print(f"\n{meal_spec.name}")
                     for ing_spec in meal_spec.ingredients:
                         tf = meal_model._temperature_models[meal_spec.name][ing_spec.name]
@@ -116,13 +116,13 @@ def _main(cfg: DictConfig) -> None:
                         print("   ", "temperature:")
                         print("     ", "ground truth:", ing_spec.temperature)
                         print("     ", "learned xs:", tf.x1, tf.x2, tf.x3, tf.x4)
-                        print("     ", "num data:", len(tf._incremental_X))
-                        print("     ", "num positive:", sum(tf._incremental_Y))
+                        print("     ", "num data:", len(tf.incremental_X))
+                        print("     ", "num positive:", sum(tf.incremental_Y))
                         print("   ", "quantity:")
                         print("     ", "ground truth:", ing_spec.quantity)
                         print("     ", "learned xs:", qf.x1, qf.x2, qf.x3, qf.x4)
-                        print("     ", "num data:", len(qf._incremental_X))
-                        print("     ", "num positive:", sum(qf._incremental_Y))
+                        print("     ", "num data:", len(qf.incremental_X))
+                        print("     ", "num positive:", sum(qf.incremental_Y))
 
                 # Save the models from the training approach and load them into the
                 # eval approach.

@@ -98,12 +98,10 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         self._meal_model = meal_model
 
     def save(self, model_dir: Path) -> None:
-        # Nothing is learned yet.
-        pass
+        self._meal_model.save(model_dir)
 
     def load(self, model_dir: Path) -> None:
-        # Nothing is learned yet.
-        pass
+        self._meal_model.load(model_dir)
 
     def _generate_variables(
         self,
@@ -152,13 +150,14 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             *ingredients: _IngredientCSPState,
         ) -> float:
             meal = self._derive_meal(meal_name, total_cooking_time, *ingredients)
-            return self._meal_model.predict_enjoyment_logprob(meal)
+            lp = self._meal_model.predict_enjoyment_logprob(meal)
+            print("LP:", lp)
+            return lp
 
         user_enjoys_meal_constraint = LogProbCSPConstraint(
             "user_enjoys_meal_constraint",
             [meal_name_variable, cooking_time_variable] + ingredient_variables,
             _user_enjoys_meal_logprob,
-            threshold=np.log(0.5) - 1e-3,
         )
 
         return [user_enjoys_meal_constraint]

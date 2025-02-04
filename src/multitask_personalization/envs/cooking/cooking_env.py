@@ -117,6 +117,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             self._current_user_critiques = (
                 self._hidden_spec.meal_preference_model.get_feedback(meal)
             )
+            print(self._current_user_critiques)
             if not self._current_user_critiques:
                 self._current_user_satisfaction = 1.0
             else:
