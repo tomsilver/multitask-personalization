@@ -47,6 +47,7 @@ class RandomWalkCSPSolver(CSPSolver):
         self._max_iters = max_iters
         self._min_num_satisfying_solutions = min_num_satisfying_solutions
         self._show_progress_bar = show_progress_bar
+        self._rng = np.random.default_rng(seed)
 
     def solve(
         self,
@@ -59,9 +60,6 @@ class RandomWalkCSPSolver(CSPSolver):
         best_satisfying_cost: float = np.inf
         num_satisfying_solutions = 0
         sampler_idxs = list(range(len(samplers)))
-        # Reset the RNG for each generate call. This is useful for deterministic
-        # behavior between saving and loading, for example.
-        rng = np.random.default_rng(self._seed)
         for _ in (
             pbar := tqdm(range(self._max_iters), disable=not self._show_progress_bar)
         ):
@@ -79,10 +77,10 @@ class RandomWalkCSPSolver(CSPSolver):
                     best_satisfying_sol = sol
                 if num_satisfying_solutions >= self._min_num_satisfying_solutions:
                     return best_satisfying_sol
-            rng.shuffle(sampler_idxs)
+            self._rng.shuffle(sampler_idxs)
             for sample_idx in sampler_idxs:
                 sampler = samplers[sample_idx]
-                partial_sol = sampler.sample(sol, rng)
+                partial_sol = sampler.sample(sol, self._rng)
                 if partial_sol is not None:
                     break
             else:
