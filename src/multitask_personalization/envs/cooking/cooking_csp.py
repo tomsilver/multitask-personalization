@@ -325,8 +325,12 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
                     pot_id = rng.choice(unused_pot_ids)
                     radius = self._scene_spec.pots[pot_id].radius
                     unused_pot_ids.remove(pot_id)
-                    pot_pos_x = rng.uniform(radius, self._scene_spec.stove_top_width - radius)
-                    pot_pos_y = rng.uniform(radius, self._scene_spec.stove_top_height - radius)
+                    pot_pos_x = rng.uniform(
+                        radius, self._scene_spec.stove_top_width - radius
+                    )
+                    pot_pos_y = rng.uniform(
+                        radius, self._scene_spec.stove_top_height - radius
+                    )
                     pot_pos = (pot_pos_x, pot_pos_y)
                 else:
                     pot_id = -1
