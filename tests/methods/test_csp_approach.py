@@ -79,8 +79,8 @@ def test_cooking_csp_approach():
         MealSpec(
             "seasoning",
             [
-                IngredientSpec("salt", temperature=(1.0, 5.0), quantity=(0.1, 2.0)),
-                IngredientSpec("pepper", temperature=(1.0, 5.0), quantity=(0.1, 2.0)),
+                IngredientSpec("salt", temperature=(2.4, 3.6), quantity=(0.1, 2.0)),
+                IngredientSpec("pepper", temperature=(2.4, 3.6), quantity=(0.1, 2.0)),
             ],
         )
     ]
@@ -147,5 +147,24 @@ def test_cooking_csp_approach():
         assert np.isclose(reward, 0.0)
         approach.update(obs, reward, terminated, info)
         assert not truncated
+
+    # Uncomment for debugging.
+    # meal_model = approach._csp_generator._meal_model
+    # for meal_spec in ground_truth_meal_specs:
+    #     print(f"\n{meal_spec.name}")
+    #     for ing_spec in meal_spec.ingredients:
+    #         tf = meal_model._temperature_models[meal_spec.name][ing_spec.name]
+    #         qf = meal_model._quantity_models[meal_spec.name][ing_spec.name]
+    #         print(" ", ing_spec.name)
+    #         print("   ", "temperature:")
+    #         print("     ", "ground truth:", ing_spec.temperature)
+    #         print("     ", "learned xs:", tf.x1, tf.x2, tf.x3, tf.x4)
+    #         print("     ", "num data:", len(tf._incremental_X))
+    #         print("     ", "num positive:", sum(tf._incremental_Y))
+    #         print("   ", "quantity:")
+    #         print("     ", "ground truth:", ing_spec.quantity)
+    #         print("     ", "learned xs:", qf.x1, qf.x2, qf.x3, qf.x4)
+    #         print("     ", "num data:", len(qf._incremental_X))
+    #         print("     ", "num positive:", sum(qf._incremental_Y))
 
     env.close()
