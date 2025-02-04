@@ -11,7 +11,7 @@ def test_bounded_1d_classifier():
     model = Bounded1DClassifier(0.0, 1.0)
     X = [0.2, 0.4, 0.6, 0.8]
     Y = [False, True, True, False]
-    model.fit(X, Y)
+    model.fit_incremental(X, Y)
     assert np.isclose(model.predict_proba([0.1])[0], 0.0)
     assert np.isclose(model.predict_proba([0.3])[0], 0.5)
     assert np.isclose(model.predict_proba([0.5])[0], 1.0)

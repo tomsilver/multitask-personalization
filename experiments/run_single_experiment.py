@@ -105,6 +105,7 @@ def _main(cfg: DictConfig) -> None:
                 logging.info(f"Starting training step {t}")
             # Check if it's time to eval.
             if cfg.env.eval_frequency > 0 and t % cfg.env.eval_frequency == 0:
+
                 # Save the models from the training approach and load them into the
                 # eval approach.
                 step_model_dir = model_dir / str(t)

@@ -101,7 +101,7 @@ def test_cooking_env():
 
     # Add more than available.
     act = AddIngredientCookingAction(
-        pot_id=1, ingredient="pepper", ingredient_quantity=5.0
+        pot_id=1, ingredient="pepper", ingredient_quantity=10000.0
     )
     obs, reward, terminated, truncated, _ = env.step(act)
     assert obs.ingredients["pepper"] == initial_pepper_state  # action failed

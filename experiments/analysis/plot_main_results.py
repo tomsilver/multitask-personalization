@@ -10,8 +10,9 @@ from matplotlib import pyplot as plt
 from omegaconf import DictConfig
 
 ENV_TO_DISPLAY_NAME = {
-    "tiny": "Tiny",
+    # "tiny": "Tiny",
     # "pybullet": "Home Library",
+    "cooking": "Cooking",
 }
 
 APPROACH_TO_DISPLAY_NAME = {
@@ -56,6 +57,9 @@ def _main(results_dir: Path, outfile: Path) -> None:
             color = APPROACH_TO_COLOR[approach_name]
             config_fn = _create_config_fn(env_name, approach_name)
             df = combine_results_csvs(results_dir, config_fn=config_fn)
+            if df.empty:
+                print(f"WARNING: no data found for {env_name}: {approach_name}")
+                continue
             sns.lineplot(
                 data=df,
                 x="training_execution_time",

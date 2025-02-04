@@ -1,0 +1,28 @@
+env:
+  _target_: "multitask_personalization.envs.cooking.cooking_env.CookingEnv"
+  scene_spec:
+    _target_: "multitask_personalization.envs.cooking.cooking_scene_spec.CookingSceneSpec"
+  hidden_spec:
+    _target_: "multitask_personalization.envs.cooking.cooking_hidden_spec.CookingHiddenSpec"
+    meal_preference_model:
+      _target_: "multitask_personalization.envs.cooking.cooking_hidden_spec.MealSpecMealPreferenceModel"
+      meal_specs:
+        - _target_: "multitask_personalization.envs.cooking.cooking_meals.MealSpec"
+          name: "seasoning"
+          ingredients:
+            - _target_: "multitask_personalization.envs.cooking.cooking_meals.IngredientSpec"
+              name: "salt"
+              temperature: [2.8, 3.2]
+              quantity: [0.95, 1.0]
+            - _target_: "multitask_personalization.envs.cooking.cooking_meals.IngredientSpec"
+              name: "pepper"
+              temperature: [2.8, 3.2]
+              quantity: [0.95, 1.0]
+  # note: seed is excluded because it varies for train/eval envs
+train_env: {}
+eval_env: {}
+max_environment_steps: 2500
+eval_frequency: 100
+max_eval_episode_length: 100
+num_eval_trials: 10
+dt: 0.01
