@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,7 +15,6 @@ from multitask_personalization.envs.cooking.cooking_meals import (
 )
 from multitask_personalization.envs.cooking.cooking_structs import IngredientCritique
 from multitask_personalization.utils import Bounded1DClassifier
-import json
 
 
 @dataclass(frozen=True)
@@ -98,27 +98,18 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         meal_spec = self._universal_meal_specs[meal.name]
         total_log_prob = 0.0
         for ing_spec in meal_spec.ingredients:
-            # TODO
-            # print("ingredient:", ing_spec.name)
             # If the ingredient is missing, fail.
             if ing_spec.name not in meal.ingredients:
                 return -np.inf
             temp, quant = meal.ingredients[ing_spec.name]
-            # TODO
-            # print("temperature:", temp)
-            # print("quantity:", quant)
             # Consider temperature.
             temperature_model = self._temperature_models[meal.name][ing_spec.name]
             temperature_log_prob = np.log(temperature_model.predict_proba([temp])[0])
-            # TODO
-            # print("temperature_log_prob:", temperature_log_prob)
             total_log_prob += temperature_log_prob
-            # Consier quantity.
+            # Consider quantity.
             quantity_model = self._quantity_models[meal.name][ing_spec.name]
             quantity_log_prob = np.log(quantity_model.predict_proba([quant])[0])
             total_log_prob += quantity_log_prob
-            # TODO
-            # print("quantity_log_prob:", quantity_log_prob)
         return total_log_prob
 
     def get_feedback(self, meal: Meal) -> list[IngredientCritique]:
@@ -142,7 +133,9 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                     quantity_feedback = "less"
             if missing or temperature_feedback != "good" or quantity_feedback != "good":
                 critique = IngredientCritique(
-                    ing_spec.name, temperature_feedback, quantity_feedback,
+                    ing_spec.name,
+                    temperature_feedback,
+                    quantity_feedback,
                     missing=missing,
                 )
                 critiques.append(critique)
@@ -163,7 +156,7 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         # Create a dictionary of all the model parameters for readability.
         # Note that we need to save the data along with the model for full
         # saving and loading.
-        model_parameters = {}
+        model_parameters: dict = {}
         for meal_name, meal_spec in self._universal_meal_specs.items():
             model_parameters[meal_name] = {}
             for ing_spec in meal_spec.ingredients:
@@ -202,7 +195,10 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                 ing_parameters = model_parameters[meal_name][ing_name]
                 temperature_model = self._temperature_models[meal_name][ing_name]
                 quantity_model = self._quantity_models[meal_spec.name][ing_name]
-                for model, name in [(temperature_model, "temperature"), (quantity_model, "quantity")]:
+                for model, name in [
+                    (temperature_model, "temperature"),
+                    (quantity_model, "quantity"),
+                ]:
                     parameters = ing_parameters[name]
                     model.x1 = parameters["x1"]
                     model.x2 = parameters["x2"]

@@ -338,11 +338,13 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         )
 
         return [meal_sampler, pot_position_sampler]
-    
-    def _derive_meal(self, meal_name: str,
-            total_cooking_time: int,
-            *ingredients: _IngredientCSPState,
-        ) -> Meal:
+
+    def _derive_meal(
+        self,
+        meal_name: str,
+        total_cooking_time: int,
+        *ingredients: _IngredientCSPState,
+    ) -> Meal:
         meal_ingredients = {}
         for ing_state in ingredients:
             if not ing_state.is_used:
