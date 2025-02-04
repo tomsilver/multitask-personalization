@@ -157,6 +157,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             "user_enjoys_meal_constraint",
             [meal_name_variable, cooking_time_variable] + ingredient_variables,
             _user_enjoys_meal_logprob,
+            threshold=np.log(0.5) - 1e-3,
         )
 
         return [user_enjoys_meal_constraint]
