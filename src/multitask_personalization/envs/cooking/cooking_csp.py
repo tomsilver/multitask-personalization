@@ -283,17 +283,17 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             }
             # Now determine the start times for individual ingredients.
             for v in ingredient_variables:
-                # Determine the temperature and quantity necessary for the meal.
-                temp, quant = meal.ingredients[v.name]
-                # Determine the cooking start time from the temperature.
-                heat_rate = self._scene_spec.get_ingredient(v.name).heat_rate
-                # The plus 1 is to account for the "add" time.
-                cooking_duration = int(np.round(temp / heat_rate)) + 1
-                start_time = total_cooking_time - cooking_duration
                 # Don't change positions, pots, etc.
                 old_ing_state = sol[v]
                 assert isinstance(old_ing_state, _IngredientCSPState)
                 if v.name in meal.ingredients:
+                    # Determine the temperature and quantity necessary for the meal.
+                    temp, quant = meal.ingredients[v.name]
+                    # Determine the cooking start time from the temperature.
+                    heat_rate = self._scene_spec.get_ingredient(v.name).heat_rate
+                    # The plus 1 is to account for the "add" time.
+                    cooking_duration = int(np.round(temp / heat_rate)) + 1
+                    start_time = total_cooking_time - cooking_duration
                     ing_state = old_ing_state.copy_with(
                         is_used=True, quantity=quant, start_time=start_time
                     )
