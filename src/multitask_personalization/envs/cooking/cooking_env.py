@@ -97,6 +97,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self, action: CookingAction
     ) -> tuple[CookingState, float, bool, bool, dict[str, Any]]:
         assert self.action_space.contains(action)
+        print(action)
 
         # May be updated if the action is serve.
         self._current_user_satisfaction = 0.0
@@ -120,6 +121,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             if not self._current_user_critiques:
                 self._current_user_satisfaction = 1.0
             else:
+                print(meal)
                 self._current_user_satisfaction = -1.0
             # Reset the pot and ingredients.
             self._current_state = self._get_state_from_scene_spec(self.scene_spec)
