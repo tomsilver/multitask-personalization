@@ -151,17 +151,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             total_cooking_time: int,
             *ingredients: _IngredientCSPState,
         ) -> float:
-            # Derive meal.
-            meal_ingredients = {}
-            for ing_state in ingredients:
-                if not ing_state.is_used:
-                    continue
-                temp = ing_state.calculate_final_temperature(
-                    self._scene_spec, total_cooking_time
-                )
-                quant = ing_state.quantity
-                meal_ingredients[ing_state.name] = (temp, quant)
-            meal = Meal(meal_name, meal_ingredients)
+            meal = self._derive_meal(meal_name, total_cooking_time, *ingredients)
             return self._meal_model.predict_enjoyment_logprob(meal)
 
         user_enjoys_meal_constraint = LogProbCSPConstraint(
@@ -181,6 +171,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
 
         constraints: list[CSPConstraint] = []
         ingredient_variables = variables[:-2]
+        meal_name_variable, cooking_time_variable = variables[-2:]
 
         # Pots cannot overlap on the stove.
         def _pots_nonoverlapping(
@@ -237,16 +228,20 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
             constraints.append(constraint)
 
         # The ingredients must comprise SOME known meal.
-        meal_name_variable = variables[-2]
-
         def _meal_is_known(
             meal_name: str,
+            total_cooking_time: int,
+            *ingredients: _IngredientCSPState,
         ) -> bool:
-            return self._meal_model.meal_is_known(meal_name)
+            meal = self._derive_meal(meal_name, total_cooking_time, *ingredients)
+            for meal_spec in self._scene_spec.universal_meal_specs:
+                if meal_spec.check(meal):
+                    return True
+            return False
 
         meal_is_known_constraint = FunctionalCSPConstraint(
             "meal-is-known",
-            [meal_name_variable],
+            [meal_name_variable, cooking_time_variable] + ingredient_variables,
             _meal_is_known,
         )
         constraints.append(meal_is_known_constraint)
@@ -331,6 +326,21 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         )
 
         return [meal_sampler, pot_position_sampler]
+    
+    def _derive_meal(self, meal_name: str,
+            total_cooking_time: int,
+            *ingredients: _IngredientCSPState,
+        ) -> Meal:
+        meal_ingredients = {}
+        for ing_state in ingredients:
+            if not ing_state.is_used:
+                continue
+            temp = ing_state.calculate_final_temperature(
+                self._scene_spec, total_cooking_time
+            )
+            quant = ing_state.quantity
+            meal_ingredients[ing_state.name] = (temp, quant)
+        return Meal(meal_name, meal_ingredients)
 
     def _generate_policy(
         self,
