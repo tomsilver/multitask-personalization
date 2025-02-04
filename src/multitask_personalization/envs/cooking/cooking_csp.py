@@ -214,6 +214,20 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
                 )
                 constraints.append(constraint)
 
+        # Used ingredients must be in some pot.
+        def _used_ingredient_in_pot(
+            ingredient: _IngredientCSPState,
+        ) -> bool:
+            return not ingredient.is_used or ingredient.pot_id != -1
+
+        for ingredient in ingredient_variables:
+            constraint = FunctionalCSPConstraint(
+                f"{ingredient.name}-in-pot-if-used",
+                [ingredient],
+                _used_ingredient_in_pot,
+            )
+            constraints.append(constraint)
+
         # Ingredient quantity used must be not more than total available.
         def _ingredient_quantity_exists(ingredient: _IngredientCSPState) -> bool:
             available = obs.ingredients[ingredient.name].ingredient_unused_quantity

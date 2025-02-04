@@ -68,8 +68,8 @@ class RandomWalkCSPSolver(CSPSolver):
                 num_satisfying_solutions += 1
                 if csp.cost is None:
                     # Uncomment to debug.
-                    # from multitask_personalization.utils import print_csp_sol
-                    # print_csp_sol(sol)
+                    from multitask_personalization.utils import print_csp_sol
+                    print_csp_sol(sol)
                     return sol
                 cost = csp.get_cost(sol)
                 if cost < best_satisfying_cost:
