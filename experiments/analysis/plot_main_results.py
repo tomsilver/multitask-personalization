@@ -18,8 +18,8 @@ ENV_TO_DISPLAY_NAME = {
 APPROACH_TO_DISPLAY_NAME = {
     "ours": "CBTL (Ours)",
     "nothing_personal": "Free Explore",
-    "exploit_only": "Exploit Only",
     "epsilon_greedy": "Epsilon Greedy",
+    "exploit_only": "Exploit Only",
     "no_learning": "No Learning",
 }
 
@@ -27,8 +27,8 @@ APPROACH_TO_DISPLAY_NAME = {
 APPROACH_TO_COLOR = {
     "ours": "#3288bd",
     "nothing_personal": "#66c2a5",
-    "exploit_only": "#abdda4",
-    "epsilon_greedy": "#e6f598",
+    "epsilon_greedy": "#abdda4",
+    "exploit_only": "#e6f598",
     "no_learning": "#fee08b",
 }
 
@@ -51,7 +51,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
     _, axes = plt.subplots(1, len(ENV_TO_DISPLAY_NAME), squeeze=False)
     for ax, (env_name, env_display_name) in zip(axes[0], ENV_TO_DISPLAY_NAME.items()):
         ax.set_title(env_display_name)
-        ax.set_xlabel("Simulated Execution Time (s)")
+        ax.set_xlabel("Simulated Execution Time")
         ax.set_ylabel("Simulated User Satisfaction")
         for approach_name, approach_display_name in APPROACH_TO_DISPLAY_NAME.items():
             color = APPROACH_TO_COLOR[approach_name]
