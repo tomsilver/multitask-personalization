@@ -18,7 +18,7 @@ def combine_results_csvs(
     combined_df = pd.DataFrame()
     for subdir in os.listdir(directory):
         subdir_path = directory / subdir
-        if os.path.isdir(subdir_path):
+        if os.path.isdir(subdir_path) and subdir_path.name.isdigit():
             csv_path = subdir_path / results_filename
             config_path = subdir_path / config_filename
             cfg = OmegaConf.load(config_path)

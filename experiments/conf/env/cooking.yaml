@@ -21,7 +21,7 @@ env:
   # note: seed is excluded because it varies for train/eval envs
 train_env: {}
 eval_env: {}
-max_environment_steps: 2500
+max_environment_steps: 10000
 eval_frequency: 100
 max_eval_episode_length: 100
 num_eval_trials: 10
