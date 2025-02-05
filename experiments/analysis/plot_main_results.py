@@ -18,8 +18,8 @@ ENV_TO_DISPLAY_NAME = {
 APPROACH_TO_DISPLAY_NAME = {
     "ours": "CBTL (Ours)",
     "nothing_personal": "Free Explore",
-    "exploit_only": "Exploit Only",
     "epsilon_greedy": "Epsilon Greedy",
+    "exploit_only": "Exploit Only",
     "no_learning": "No Learning",
 }
 
@@ -27,8 +27,8 @@ APPROACH_TO_DISPLAY_NAME = {
 APPROACH_TO_COLOR = {
     "ours": "#3288bd",
     "nothing_personal": "#66c2a5",
-    "exploit_only": "#abdda4",
-    "epsilon_greedy": "#e6f598",
+    "epsilon_greedy": "#abdda4",
+    "exploit_only": "#e6f598",
     "no_learning": "#fee08b",
 }
 
