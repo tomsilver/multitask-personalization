@@ -51,7 +51,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
     _, axes = plt.subplots(1, len(ENV_TO_DISPLAY_NAME), squeeze=False)
     for ax, (env_name, env_display_name) in zip(axes[0], ENV_TO_DISPLAY_NAME.items()):
         ax.set_title(env_display_name)
-        ax.set_xlabel("Simulated Execution Time (s)")
+        ax.set_xlabel("Simulated Execution Time")
         ax.set_ylabel("Simulated User Satisfaction")
         for approach_name, approach_display_name in APPROACH_TO_DISPLAY_NAME.items():
             color = APPROACH_TO_COLOR[approach_name]
