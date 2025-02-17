@@ -6,6 +6,7 @@ env:
     use_standard_books: false
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
+    missions: "all"
     book_preferences: "I enjoy some fiction, especially science fiction, but not historical fiction. I like certain nonfiction genres like true crime. But I find most biographies to be boring."
     rom_model: ${rom_model}
     surfaces_robot_can_clean:

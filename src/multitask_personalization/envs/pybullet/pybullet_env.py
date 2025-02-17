@@ -916,18 +916,27 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         physics_client_id = p.connect(p.DIRECT)
         sim_robot = self._create_robot(self.scene_spec, physics_client_id)
         possible_missions: list[PyBulletMission] = [
-            HandOverBookMission(
+            StoreRobotHeldObjectMission(sim_robot),
+        ]
+
+        assert self._hidden_spec.missions in ["all", "handover-only", "clean-only"]
+
+        if self._hidden_spec.missions in ["all", "handover-only"]:
+            handover_mission = HandOverBookMission(
                 self.book_descriptions,
                 sim_robot,
                 self._hidden_spec.rom_model,
                 self._hidden_spec.book_preferences,
                 self._llm,
                 seed=seed,
-            ),
-            StoreRobotHeldObjectMission(sim_robot),
-            StoreHumanHeldObjectMission(sim_robot),
-            CleanSurfacesMission(),
-        ]
+            )
+            reverse_handover_mission = StoreHumanHeldObjectMission(sim_robot)
+            possible_missions.extend([handover_mission, reverse_handover_mission])
+
+        if self._hidden_spec.missions in ["all", "clean-only"]:
+            clean_mission = CleanSurfacesMission()
+            possible_missions.append(clean_mission)
+
         return possible_missions
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
