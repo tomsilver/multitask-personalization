@@ -119,7 +119,9 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         max_motion_planning_time: float = np.inf,
         max_motion_planning_candidates: int = 1,
     ) -> None:
-        super().__init__(sim, csp, seed, max_motion_planning_time, max_motion_planning_candidates)
+        super().__init__(
+            sim, csp, seed, max_motion_planning_time, max_motion_planning_candidates
+        )
         # Need to track whether the user has been alerted to handle the rare
         # case where the policy is initiated from a state where the handover
         # pose is already at the target.
