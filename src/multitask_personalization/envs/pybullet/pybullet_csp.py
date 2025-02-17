@@ -111,6 +111,24 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
 class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
 
+    def __init__(
+        self,
+        sim: PyBulletEnv,
+        csp: CSP,
+        seed: int = 0,
+        max_motion_planning_time: float = np.inf,
+        max_motion_planning_candidates: int = 1,
+    ) -> None:
+        super().__init__(sim, csp, seed, max_motion_planning_time, max_motion_planning_candidates)
+        # Need to track whether the user has been alerted to handle the rare
+        # case where the policy is initiated from a state where the handover
+        # pose is already at the target.
+        self._alerted_user = False
+
+    def reset(self, solution: dict[CSPVariable, Any]) -> None:
+        self._alerted_user = False
+        return super().reset(solution)
+
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         book_description = self._get_value("book")
         book_grasp = _book_grasp_to_relative_pose(self._get_value("book_grasp"))
@@ -160,7 +178,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 return [(2, "Done")]  # failed, quit
             self._sim.set_robot_base(obs.robot_base)
             ee_pose = self._sim.robot.forward_kinematics(obs.robot_joints)
-            if ee_pose.allclose(handover_pose, atol=1e-3):
+            if self._alerted_user and ee_pose.allclose(handover_pose, atol=1e-3):
                 return [(3, None)]  # waiting
             # Move to the handover base pose.
             if not handover_base_pose.allclose(obs.robot_base, atol=1e-3):
@@ -177,6 +195,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
             # Tell the human to take the book.
+            self._alerted_user = True
             plan.append((2, "Here you go!"))
             return plan
         # Need to place held object.
