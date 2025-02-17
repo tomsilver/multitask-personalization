@@ -1,6 +1,6 @@
 _target_: "multitask_personalization.csp_solvers.RandomWalkCSPSolver"
 seed: ${seed}
-max_iters: 100000
-num_improvements: 10
+max_iters: 100_000
+num_improvements: 50
 max_improvement_attempts: 10_000
 show_progress_bar: True
