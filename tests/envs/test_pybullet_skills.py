@@ -63,6 +63,7 @@ def test_pybullet_skills():
         ("shelf", 2),
     ]
     hidden_spec = HiddenSceneSpec(
+        missions="all",
         book_preferences=book_preferences,
         rom_model=rom_model,
         surfaces_robot_can_clean=surfaces_robot_can_clean,
@@ -127,6 +128,7 @@ def test_wiping_all_surfaces():
         ("shelf", 2),
     ]
     hidden_spec = HiddenSceneSpec(
+        missions="all",
         book_preferences=book_preferences,
         rom_model=rom_model,
         surfaces_robot_can_clean=surfaces_robot_can_clean,

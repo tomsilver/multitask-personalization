@@ -194,6 +194,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
 class HiddenSceneSpec:
     """Defines hidden parameters for a pybullet environment."""
 
+    missions: str  # handover-only, clean-only, all
     book_preferences: str  # a natural language description
     rom_model: ROMModel
     surfaces_robot_can_clean: list[tuple[str, int]]

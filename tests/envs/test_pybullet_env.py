@@ -51,6 +51,7 @@ def test_pybullet_env(llm):
         ("shelf", 2),
     ]
     hidden_spec = HiddenSceneSpec(
+        missions="all",
         book_preferences=book_preferences,
         rom_model=rom_model,
         surfaces_robot_can_clean=surfaces_robot_can_clean,
