@@ -185,7 +185,7 @@ class StoreHumanHeldObjectMission(PyBulletMission):
         return "Put this away"
 
     def check_initiable(self, state: PyBulletState) -> bool:
-        return state.held_object is not None
+        return state.human_held_object is not None
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
         if action[0] != 0:

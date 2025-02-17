@@ -133,9 +133,9 @@ def test_pybullet_csp():
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
     _run_mission(book_handover_mission)
     env.unwrapped.save_state(post_book_handover1_state_fp)
-    assert not store_human_mission.check_initiable(env.unwrapped.get_state())
+    assert store_human_mission.check_initiable(env.unwrapped.get_state())
 
-    # # Clean.
+    # Clean.
     env.unwrapped.load_state(post_book_handover1_state_fp)
     post_clean1_state_fp = saved_state_dir / "clean_1.p"
     _run_mission(clean_mission)

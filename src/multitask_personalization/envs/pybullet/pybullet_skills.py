@@ -102,16 +102,12 @@ def get_actions_from_kinematic_transition(
 def get_plan_to_retract(
     state: PyBulletState,
     sim: PyBulletEnv,
-    previously_held_object: str | None = None,
+    collision_ids: set[int],
     translation_magnitude: float = 0.125,
     max_motion_planning_time: float = np.inf,
 ) -> list[PyBulletAction]:
     """Get a plan to retract in the opposite direction of the robot fingers."""
     sim.set_state(state)
-    collision_ids = sim.get_collision_ids()
-    if previously_held_object is not None:
-        object_id = sim.get_object_id_from_name(previously_held_object)
-        collision_ids.discard(object_id)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan = get_kinematic_plan_to_retract(
         kinematic_state,
