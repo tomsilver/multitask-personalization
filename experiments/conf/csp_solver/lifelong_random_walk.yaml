@@ -4,6 +4,6 @@ base_solver:
   seed: ${seed}
   max_iters: 100000
   num_improvements: 5
-  max_improvement_attempts: 1000
+  max_improvement_attempts: 10_000
   show_progress_bar: True
 seed: ${seed}

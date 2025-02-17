@@ -83,16 +83,20 @@ class RandomWalkCSPSolver(CSPSolver):
             else:
                 msg = "Searching for first solution"
             pbar.set_description(msg)
+
             # Uncomment to debug.
             # from multitask_personalization.utils import print_csp_sol
             # print_csp_sol(sol)
+
             # Don't ever both with solutions that are worse than what we've seen.
+            sol_is_cost_improvement = True
             if csp.cost is not None:
                 cost = csp.get_cost(sol)
                 if cost >= best_satisfying_cost:
-                    continue
+                    sol_is_cost_improvement = False
+
             # This would be a cost improvement, so see if the constraints pass.
-            if csp.check_solution(sol):
+            if sol_is_cost_improvement and csp.check_solution(sol):
                 if solution_found:
                     num_improve_found += 1
                 solution_found = True
@@ -100,6 +104,8 @@ class RandomWalkCSPSolver(CSPSolver):
                     return sol
                 best_satisfying_cost = cost
                 best_satisfying_sol = sol
+
+            # Sample the next solution.
             self._rng.shuffle(sampler_idxs)
             for sample_idx in sampler_idxs:
                 sampler = samplers[sample_idx]
