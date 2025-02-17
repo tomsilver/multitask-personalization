@@ -3,7 +3,7 @@
 from functools import partial
 
 import numpy as np
-from pybullet_helpers.joint import get_joint_infos
+from pybullet_helpers.joint import get_joint_infos, JointPositions
 from pybullet_helpers.motion_planning import get_joint_positions_distance
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from tomsutils.llm import LargeLanguageModel
@@ -163,9 +163,11 @@ class StoreHumanHeldObjectMission(PyBulletMission):
     def __init__(
         self,
         sim_robot: FingeredSingleArmPyBulletRobot,
+        human_handover_joints: JointPositions,
         retract_joint_distance_atol: float = 1e-3,
     ) -> None:
         super().__init__()
+        self._human_handover_joints = human_handover_joints
         self._retract_joint_positions = sim_robot.home_joint_positions
         joint_infos = get_joint_infos(
             sim_robot.robot_id, sim_robot.arm_joints, sim_robot.physics_client_id
@@ -185,7 +187,13 @@ class StoreHumanHeldObjectMission(PyBulletMission):
         return "Put this away"
 
     def check_initiable(self, state: PyBulletState) -> bool:
-        return state.human_held_object is not None
+        if state.human_held_object is None:
+            return False
+        # Need to wait for the human arm to come to rest before we make a plan
+        # about where to grasp the book.
+        if not np.allclose(state.human_joints, self._human_handover_joints):
+            return False
+        return True
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
         if action[0] != 0:
@@ -236,6 +244,27 @@ class CleanSurfacesMission(PyBulletMission):
         else:
             user_satisfaction = 0.0
         return None, user_satisfaction
+
+
+class WaitMission(PyBulletMission):
+    """A single-step mission where the robot should do nothing."""
+
+    def get_id(self) -> str:
+        return "wait"
+
+    def get_mission_command(self) -> str:
+        return "Wait"
+
+    def check_initiable(self, state: PyBulletState) -> bool:
+        return True
+
+    def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
+        return True
+
+    def step(
+        self, state: PyBulletState, action: PyBulletAction
+    ) -> tuple[str | None, float]:
+        return None, 0.0
 
 
 def _explain_user_book_preference(

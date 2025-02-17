@@ -47,6 +47,7 @@ from multitask_personalization.envs.pybullet.pybullet_missions import (
     HandOverBookMission,
     StoreHumanHeldObjectMission,
     StoreRobotHeldObjectMission,
+    WaitMission,
 )
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     HiddenSceneSpec,
@@ -934,7 +935,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 seed=seed,
             )
             reverse_handover_mission = StoreHumanHeldObjectMission(
-                self._mission_sim_robot
+                self._mission_sim_robot,
+                self.scene_spec.human_spec.reverse_handover_joints,
             )
             possible_missions.extend([handover_mission, reverse_handover_mission])
 

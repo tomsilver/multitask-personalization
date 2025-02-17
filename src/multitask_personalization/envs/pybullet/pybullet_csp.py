@@ -361,6 +361,16 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         return super().check_termination(obs)
 
 
+class _WaitCSPPolicy(_PyBulletCSPPolicy):
+
+    def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
+        joint_delta = [0] * 10  # 3 base + 7 arm
+        return [(0, joint_delta)]
+
+    def _policy_can_handle_mission(self, mission: str) -> bool:
+        return mission == "wait"
+
+
 def _book_grasp_to_relative_pose(yaw: NDArray) -> Pose:
     assert len(yaw) == 1
     return get_poses_facing_line(
@@ -398,6 +408,8 @@ def _infer_mission_from_obs(obs: PyBulletState) -> str | None:
         return "put away human held object"
     if "Clean the dirty surfaces" in obs.human_text:
         return "clean"
+    if "Wait" in obs.human_text:
+        return "wait"
     return None
 
 
@@ -628,6 +640,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 variables.extend(placement_vars)
                 initialization.update(placement_init)
 
+        elif self._current_mission == "wait":
+            variables = []
+            initialization = {}
+
         else:
             raise NotImplementedError
 
@@ -691,6 +707,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 threshold=np.log(0.5) - 1e-3,
             )
             return [surfaces_to_clean_constraint]
+        
+        if self._current_mission == "wait":
+            return []
 
         raise NotImplementedError
 
@@ -1009,6 +1028,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     constraints.append(plan_to_place_exists)
 
             return constraints
+        
+        if self._current_mission == "wait":
+            return []
 
         raise NotImplementedError
 
@@ -1203,6 +1225,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 samplers.append(placement_sampler)
 
             return samplers
+        
+        if self._current_mission == "wait":
+            return []
 
         raise NotImplementedError
 
@@ -1243,6 +1268,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "clean":
 
             return _CleanCSPPolicy(
+                self._sim,
+                csp,
+                seed=self._seed,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+            )
+        
+        if self._current_mission == "wait":
+
+            return _WaitCSPPolicy(
                 self._sim,
                 csp,
                 seed=self._seed,

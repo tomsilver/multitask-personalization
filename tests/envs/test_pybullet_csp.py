@@ -16,6 +16,7 @@ from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
 )
+from multitask_personalization.envs.pybullet.pybullet_missions import WaitMission
 from multitask_personalization.envs.pybullet.pybullet_utils import PyBulletCannedLLM
 from multitask_personalization.rom.models import SphericalROMModel
 
@@ -54,7 +55,7 @@ def test_pybullet_csp():
         scene_spec,
         llm,
         hidden_spec=hidden_spec,
-        use_gui=False,
+        use_gui=True,
         seed=seed,
     )
     env.action_space.seed(seed)
@@ -86,6 +87,7 @@ def test_pybullet_csp():
     book_handover_mission = mission_id_to_mission["book handover"]
     clean_mission = mission_id_to_mission["clean"]
     store_human_mission = mission_id_to_mission["store human held object"]
+    wait_mission = WaitMission()
 
     def _run_mission(mission):
         # Override the mission and regenerate the observation.
@@ -108,9 +110,10 @@ def test_pybullet_csp():
         # Run the policy.
         for _ in range(1000):  # should be more than enough
             act = policy.step(obs)
+            next_obs, reward, _, _, _ = env.step(act)
             if mission.check_complete(obs, act):
                 break
-            obs, reward, _, _, _ = env.step(act)
+            obs = next_obs
             assert isinstance(obs, PyBulletState)
             assert np.isclose(reward, 0.0)
             assert not policy.check_termination(obs)
@@ -133,6 +136,12 @@ def test_pybullet_csp():
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
     _run_mission(book_handover_mission)
     env.unwrapped.save_state(post_book_handover1_state_fp)
+    # The store book handover mission should not be initial right away, but
+    # once the human arm comes to reset after the robot waits a little bit,
+    # then it should be safe to run the store mission.
+    assert not store_human_mission.check_initiable(env.unwrapped.get_state())
+    for _ in range(100):
+        _run_mission(wait_mission)
     assert store_human_mission.check_initiable(env.unwrapped.get_state())
 
     # Clean.
