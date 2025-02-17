@@ -40,12 +40,14 @@ class RandomWalkCSPSolver(CSPSolver):
         self,
         seed: int,
         max_iters: int = 100_000,
-        min_num_satisfying_solutions: int = 50,
+        num_improvements: int = 5,
+        max_improvement_attempts: int = 1_000,
         show_progress_bar: bool = True,
     ) -> None:
         super().__init__(seed)
         self._max_iters = max_iters
-        self._min_num_satisfying_solutions = min_num_satisfying_solutions
+        self._num_improvements = num_improvements
+        self._max_improvement_attempts = max_improvement_attempts
         self._show_progress_bar = show_progress_bar
         self._rng = np.random.default_rng(seed)
 
@@ -58,25 +60,46 @@ class RandomWalkCSPSolver(CSPSolver):
         sol = initialization.copy()
         best_satisfying_sol: dict[CSPVariable, Any] | None = None
         best_satisfying_cost: float = np.inf
-        num_satisfying_solutions = 0
+        solution_found = False
+        num_improve_attempts = 0
+        num_improve_found = 0
         sampler_idxs = list(range(len(samplers)))
         for _ in (
             pbar := tqdm(range(self._max_iters), disable=not self._show_progress_bar)
         ):
-            pbar.set_description(f"Found {num_satisfying_solutions} solns")
-            if csp.check_solution(sol):
-                num_satisfying_solutions += 1
-                if csp.cost is None:
-                    # Uncomment to debug.
-                    # from multitask_personalization.utils import print_csp_sol
-                    # print_csp_sol(sol)
-                    return sol
+            # Check for early termination.
+            if solution_found and (
+                num_improve_attempts >= self._max_improvement_attempts
+                or num_improve_found >= self._num_improvements
+            ):
+                break
+            # Update progress.
+            if solution_found:
+                num_improve_attempts += 1
+                msg = (
+                    f"Improved {num_improve_found} times w/ "
+                    f"{num_improve_attempts} tries)"
+                )
+            else:
+                msg = "Searching for first solution"
+            pbar.set_description(msg)
+            # Uncomment to debug.
+            # from multitask_personalization.utils import print_csp_sol
+            # print_csp_sol(sol)
+            # Don't ever both with solutions that are worse than what we've seen.
+            if csp.cost is not None:
                 cost = csp.get_cost(sol)
-                if cost < best_satisfying_cost:
-                    best_satisfying_cost = cost
-                    best_satisfying_sol = sol
-                if num_satisfying_solutions >= self._min_num_satisfying_solutions:
-                    return best_satisfying_sol
+                if cost >= best_satisfying_cost:
+                    continue
+            # This would be a cost improvement, so see if the constraints pass.
+            if csp.check_solution(sol):
+                if solution_found:
+                    num_improve_found += 1
+                solution_found = True
+                if csp.cost is None:
+                    return sol
+                best_satisfying_cost = cost
+                best_satisfying_sol = sol
             self._rng.shuffle(sampler_idxs)
             for sample_idx in sampler_idxs:
                 sampler = samplers[sample_idx]
