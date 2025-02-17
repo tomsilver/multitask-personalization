@@ -112,10 +112,9 @@ class Bounded1DClassifier:
     See notebooks/ for more explanation.
     """
 
-    def __init__(self, a_lo: float, b_hi: float, default: float = 0.5) -> None:
+    def __init__(self, a_lo: float, b_hi: float) -> None:
         self.a_lo = a_lo
         self.b_hi = b_hi
-        self.default = default
 
         self.x1 = a_lo
         self.x2 = a_lo
@@ -148,6 +147,12 @@ class Bounded1DClassifier:
         self.x3 = max(X_pos)
         self.x4 = min(X_neg_hi | {self.b_hi})
 
+    def fit(self, X: list[float], Y: list[bool]) -> None:
+        """Discard any previous data and fit to the new data."""
+        self.incremental_X = list(X)
+        self.incremental_Y = list(Y)
+        self._fit(self.incremental_X, self.incremental_Y)
+
     def fit_incremental(self, X: list[float], Y: list[bool]) -> None:
         """Accumulate training data and re-fit."""
         self.incremental_X.extend(X)
@@ -156,9 +161,6 @@ class Bounded1DClassifier:
 
     def predict_proba(self, X: list[float]) -> list[float]:
         """Batch predict class probabilities."""
-        # Total ignore if not yet fit.
-        if sum(self.incremental_Y) == 0:
-            return [self.default] * len(X)
         X_arr = np.array(X)
         return np.piecewise(
             X_arr,

@@ -73,11 +73,12 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
             for ing_spec in meal_spec.ingredients:
                 temp_lo, temp_hi = ing_spec.temperature
                 self._temperature_models[meal_name][ing_spec.name] = (
-                    Bounded1DClassifier(temp_lo, temp_hi, default=1.0)
+                    Bounded1DClassifier(temp_lo, temp_hi)
                 )
                 quant_lo, quant_hi = ing_spec.quantity
                 self._quantity_models[meal_name][ing_spec.name] = Bounded1DClassifier(
-                    quant_lo, quant_hi, default=1.0
+                    quant_lo,
+                    quant_hi,
                 )
 
     def sample(self, rng: np.random.Generator) -> Meal:

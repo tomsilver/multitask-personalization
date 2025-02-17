@@ -188,5 +188,5 @@ class SphericalROMModel(TrainableROMModel):
             dist = self._distance_to_center(position)
             X.append(dist)
             Y.append(label)
-        self._radius_model.fit_incremental(X, Y)
+        self._radius_model.fit(X, Y)
         logging.info(f"Updating SphericalROMModel: {self._radius_model.get_summary()}")
