@@ -41,7 +41,7 @@ python experiments/run_single_experiment.py -m \
     env.eval_frequency=50 \
     env.num_eval_trials=1 \
     csp_solver=random_walk \
-    csp_solver.min_num_satisfying_solutions=1 \
+    csp_solver.num_improvements=1 \
     csp_solver.max_iters=100
 ```
 

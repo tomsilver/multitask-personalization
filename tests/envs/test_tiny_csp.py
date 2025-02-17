@@ -32,9 +32,7 @@ def test_tiny_csp():
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
     # Solve the CSP.
-    solver = RandomWalkCSPSolver(
-        seed, min_num_satisfying_solutions=5, show_progress_bar=False
-    )
+    solver = RandomWalkCSPSolver(seed, num_improvements=1, show_progress_bar=False)
     sol = solver.solve(
         csp,
         initialization,

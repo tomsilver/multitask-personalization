@@ -76,7 +76,7 @@ def test_pybullet_csp():
     )
 
     solver = RandomWalkCSPSolver(
-        seed, min_num_satisfying_solutions=1, show_progress_bar=False
+        seed, max_improvement_attempts=0, show_progress_bar=False
     )
 
     all_missions = (
