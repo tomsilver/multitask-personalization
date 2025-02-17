@@ -69,10 +69,10 @@ def euler2rotmat(euler: NDArray, seq: str = "ZXY") -> NDArray:
 
 
 def sample_within_sphere(
-    center: Pose3D, radius: float, rng: np.random.Generator
+    center: Pose3D, min_radius: float, max_radius: float, rng: np.random.Generator
 ) -> Pose3D:
     """Sample a random point within a sphere of given radius and center."""
-    return sample_on_sphere(center, rng.uniform(0, radius), rng)
+    return sample_on_sphere(center, rng.uniform(min_radius, max_radius), rng)
 
 
 def sample_on_sphere(center: Pose3D, radius: float, rng: np.random.Generator) -> Pose3D:
@@ -117,10 +117,10 @@ class Bounded1DClassifier:
         self.b_hi = b_hi
         self.default = default
 
-        self.x1 = 0.0
-        self.x2 = 0.0
-        self.x3 = 0.0
-        self.x4 = 0.0
+        self.x1 = a_lo
+        self.x2 = a_lo
+        self.x3 = b_hi
+        self.x4 = b_hi
 
         self.incremental_X: list[float] = []
         self.incremental_Y: list[bool] = []
@@ -177,6 +177,30 @@ class Bounded1DClassifier:
                 lambda _: 0,
             ],
         ).tolist()
+
+    def get_save_state(self) -> dict[str, Any]:
+        """Get everything needed to restore the model later."""
+        return {
+            "x1": self.x1,
+            "x2": self.x2,
+            "x3": self.x3,
+            "x4": self.x4,
+            "incremental_X": self.incremental_X,
+            "incremental_Y": self.incremental_Y,
+        }
+
+    def load_from_state(self, state_dict: dict[str, Any]) -> None:
+        """Load a model from a dictionary returned by get_save_state()."""
+        self.x1 = state_dict["x1"]
+        self.x2 = state_dict["x2"]
+        self.x3 = state_dict["x3"]
+        self.x4 = state_dict["x4"]
+        self.incremental_X = state_dict["incremental_X"]
+        self.incremental_Y = state_dict["incremental_Y"]
+
+    def get_summary(self) -> str:
+        """Get a short human-readable summary of the current model."""
+        return f"x1={self.x1:.3f} x2={self.x2:.3f} x3={self.x3:.3f} x4={self.x4:.4f}"
 
 
 def print_csp_sol(sol: dict[CSPVariable, Any]) -> None:
