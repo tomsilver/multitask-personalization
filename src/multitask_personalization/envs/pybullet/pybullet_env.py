@@ -281,6 +281,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             for o, l in obj_links_to_save
         }
 
+        # Create another robot for mission simulation.
+        self._mission_sim_robot = self._create_robot(
+            self.scene_spec, p.connect(p.DIRECT)
+        )
+
         # Uncomment for debug / development.
         # if use_gui:
         #     while True:
@@ -913,10 +918,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         assert self._hidden_spec is not None
         # NOTE: don't use the real robot / real environment inside the missions
         # in case they want to do things like use robot FK.
-        physics_client_id = p.connect(p.DIRECT)
-        sim_robot = self._create_robot(self.scene_spec, physics_client_id)
         possible_missions: list[PyBulletMission] = [
-            StoreRobotHeldObjectMission(sim_robot),
+            StoreRobotHeldObjectMission(self._mission_sim_robot),
         ]
 
         assert self._hidden_spec.missions in ["all", "handover-only", "clean-only"]
@@ -924,13 +927,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self._hidden_spec.missions in ["all", "handover-only"]:
             handover_mission = HandOverBookMission(
                 self.book_descriptions,
-                sim_robot,
+                self._mission_sim_robot,
                 self._hidden_spec.rom_model,
                 self._hidden_spec.book_preferences,
                 self._llm,
                 seed=seed,
             )
-            reverse_handover_mission = StoreHumanHeldObjectMission(sim_robot)
+            reverse_handover_mission = StoreHumanHeldObjectMission(
+                self._mission_sim_robot
+            )
             possible_missions.extend([handover_mission, reverse_handover_mission])
 
         if self._hidden_spec.missions in ["all", "clean-only"]:
