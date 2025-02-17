@@ -68,10 +68,20 @@ class FunctionalCSPConstraint(CSPConstraint):
     ):
         super().__init__(name, variables)
         self.constraint_fn = constraint_fn
+        self._cache: dict[tuple, bool] = {}
 
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
-        vals = [sol[v] for v in self.variables]
-        return self.constraint_fn(*vals)
+        vals = tuple(sol[v] for v in self.variables)
+        try:
+            return self._cache[vals]
+        except (TypeError, KeyError):
+            pass
+        result = self.constraint_fn(*vals)
+        try:
+            self._cache[vals] = result
+        except TypeError:
+            pass
+        return result
 
     def copy(self) -> CSPConstraint:
         return FunctionalCSPConstraint(self.name, self.variables, self.constraint_fn)
