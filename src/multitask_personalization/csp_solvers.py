@@ -92,7 +92,9 @@ class RandomWalkCSPSolver(CSPSolver):
             sol_is_cost_improvement = True
             if csp.cost is not None:
                 cost = csp.get_cost(sol)
-                if cost >= best_satisfying_cost:
+                # Note: this should be >, rather than >=, because of interaction
+                # with the Lifelong solver.
+                if cost > best_satisfying_cost:
                     sol_is_cost_improvement = False
 
             # This would be a cost improvement, so see if the constraints pass.
