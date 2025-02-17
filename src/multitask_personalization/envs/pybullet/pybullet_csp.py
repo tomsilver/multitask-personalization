@@ -144,15 +144,15 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                     obs, grasp_base_pose, self._sim, seed=self._seed
                 )
             # Pick up the target book.
-            plan = get_plan_to_pick_object(
+            pick_plan = get_plan_to_pick_object(
                 obs,
                 book_description,
                 book_grasp,
                 self._sim,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
-            assert plan is not None
-            return plan
+            assert pick_plan is not None
+            return pick_plan
         if obs.held_object == book_description:
             # If the book is already ready for handover, we are either waiting
             # for the human to grasp it, or we have failed and need to quit.
@@ -1461,6 +1461,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 absolute_placement = multiply_poses(
                     placement_surface_link_pose, held_object_relative_placement
                 )
+                assert self._sim.current_held_object_id is not None
                 set_pose(
                     self._sim.current_held_object_id,
                     absolute_placement,
