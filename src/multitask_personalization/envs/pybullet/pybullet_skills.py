@@ -128,7 +128,7 @@ def get_plan_to_pick_object(
     sim: PyBulletEnv,
     max_motion_planning_candidates: int = 1,
     max_motion_planning_time: float = np.inf,
-) -> list[PyBulletAction]:
+) -> list[PyBulletAction] | None:
     """Get a plan to pick up an object from some current state."""
     sim.set_state(state)
     obj_id = sim.get_object_id_from_name(object_name)
@@ -149,7 +149,8 @@ def get_plan_to_pick_object(
         max_smoothing_iters_per_step=1,
         postgrasp_translation_magnitude=1e-2,
     )
-    assert kinematic_pick_plan is not None
+    if kinematic_pick_plan is None:
+        return None
     kinematic_plan.extend(kinematic_pick_plan)
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
