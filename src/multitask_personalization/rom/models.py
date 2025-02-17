@@ -4,7 +4,6 @@ import abc
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pybullet as p
@@ -175,8 +174,8 @@ class SphericalROMModel(TrainableROMModel):
         position: NDArray,
     ) -> float:
         distance = self._distance_to_center(position)
-        p = self._radius_model.predict_proba([distance])[0]
-        return np.log(p)
+        prob = self._radius_model.predict_proba([distance])[0]
+        return np.log(prob)
 
     def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:
         return [self.sample_reachable_position(self._rng) for _ in range(n)]
