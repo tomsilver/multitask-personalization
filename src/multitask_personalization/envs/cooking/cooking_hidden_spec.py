@@ -73,11 +73,12 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
             for ing_spec in meal_spec.ingredients:
                 temp_lo, temp_hi = ing_spec.temperature
                 self._temperature_models[meal_name][ing_spec.name] = (
-                    Bounded1DClassifier(temp_lo, temp_hi, default=1.0)
+                    Bounded1DClassifier(temp_lo, temp_hi)
                 )
                 quant_lo, quant_hi = ing_spec.quantity
                 self._quantity_models[meal_name][ing_spec.name] = Bounded1DClassifier(
-                    quant_lo, quant_hi, default=1.0
+                    quant_lo,
+                    quant_hi,
                 )
 
     def sample(self, rng: np.random.Generator) -> Meal:
@@ -164,22 +165,8 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                 temperature_model = self._temperature_models[meal_name][ing_name]
                 quantity_model = self._quantity_models[meal_spec.name][ing_name]
                 model_parameters[meal_name][ing_name] = {
-                    "temperature": {
-                        "x1": temperature_model.x1,
-                        "x2": temperature_model.x2,
-                        "x3": temperature_model.x3,
-                        "x4": temperature_model.x4,
-                        "incremental_X": temperature_model.incremental_X,
-                        "incremental_Y": temperature_model.incremental_Y,
-                    },
-                    "quantity": {
-                        "x1": quantity_model.x1,
-                        "x2": quantity_model.x2,
-                        "x3": quantity_model.x3,
-                        "x4": quantity_model.x4,
-                        "incremental_X": quantity_model.incremental_X,
-                        "incremental_Y": quantity_model.incremental_Y,
-                    },
+                    "temperature": temperature_model.get_save_state(),
+                    "quantity": quantity_model.get_save_state(),
                 }
         filepath = model_dir / "meal_preferences.json"
         with open(filepath, "w", encoding="utf-8") as f:
@@ -199,10 +186,4 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                     (temperature_model, "temperature"),
                     (quantity_model, "quantity"),
                 ]:
-                    parameters = ing_parameters[name]
-                    model.x1 = parameters["x1"]
-                    model.x2 = parameters["x2"]
-                    model.x3 = parameters["x3"]
-                    model.x4 = parameters["x4"]
-                    model.incremental_X = parameters["incremental_X"]
-                    model.incremental_Y = parameters["incremental_Y"]
+                    model.load_from_state(ing_parameters[name])

@@ -7,7 +7,6 @@ from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
 )
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.utils import (
-    sample_on_sphere,
     sample_within_sphere,
 )
 
@@ -19,59 +18,48 @@ def test_spherical_rom_model():
     rng = np.random.default_rng(seed)
 
     scene_spec = PyBulletSceneSpec()
-    sphere_radius = 1.0
+    min_radius = 0.4
+    max_radius = 0.6
     spherical_rom_model = SphericalROMModel(
         scene_spec.human_spec,
         seed=seed,
-        min_possible_radius=sphere_radius - 1e-1,
-        max_possible_radius=sphere_radius + 1e-1,
+        min_possible_radius=0,
+        max_possible_radius=100,
     )
-
-    # Create human.
     sphere_center = (
         spherical_rom_model._sphere_center  # pylint: disable=protected-access
     )
+    data = [
+        (sphere_center + np.array([0.0, 0.0, min_radius - 1e-2]), False),
+        (sphere_center + np.array([0.0, 0.0, min_radius]), True),
+        (sphere_center + np.array([0.0, 0.0, max_radius]), True),
+        (sphere_center + np.array([0.0, 0.0, max_radius + 1e-2]), False),
+    ]
+    spherical_rom_model.train(data)
 
-    # Test SphereROMModel().
-    assert spherical_rom_model.check_position_reachable(sphere_center)
+    assert not spherical_rom_model.check_position_reachable(sphere_center)
+    for position, label in data:
+        lp = spherical_rom_model.get_position_reachable_logprob(position)
+        if label:
+            assert np.isclose(lp, 0.0)
+        else:
+            assert np.isneginf(lp)
+    test_point = sphere_center + np.array([0.0, 0.0, min_radius - 5e-3])
+    test_lp = spherical_rom_model.get_position_reachable_logprob(test_point)
+    assert np.isclose(test_lp, np.log(0.5))
+    test_point = sphere_center + np.array([0.0, 0.0, max_radius + 5e-3])
+    test_lp = spherical_rom_model.get_position_reachable_logprob(test_point)
+    assert np.isclose(test_lp, np.log(0.5))
+
     assert spherical_rom_model.sample_reachable_position(rng).shape == (3,)
+
     # Check check_position_reachable().
     for _ in range(100):
-        point = sample_within_sphere(sphere_center, sphere_radius, rng)
-        distance = np.linalg.norm(np.subtract(point, sphere_center))
+        point = sample_within_sphere(sphere_center, min_radius, max_radius, rng)
         assert spherical_rom_model.check_position_reachable(point)
+
     # Check sample_reachable_position().
     for _ in range(100):
         point = spherical_rom_model.sample_reachable_position(rng)
         distance = np.linalg.norm(np.subtract(point, sphere_center))
-        assert distance < sphere_radius + 1e-6
-    # Check get_position_reachable_logprob().
-    for _ in range(100):
-        point = sample_within_sphere(sphere_center, sphere_radius - 2e-1, rng)
-        assert np.isclose(
-            spherical_rom_model.get_position_reachable_logprob(point), 0.0
-        )
-    for _ in range(100):
-        point = sample_on_sphere(sphere_center, sphere_radius + 2e-1, rng)
-        assert np.isneginf(spherical_rom_model.get_position_reachable_logprob(point))
-    for _ in range(100):
-        point = sample_on_sphere(sphere_center, sphere_radius, rng)
-        assert np.isclose(
-            spherical_rom_model.get_position_reachable_logprob(point), np.log(0.5)
-        )
-
-    # Test training the parameters.
-    init_params = spherical_rom_model.get_trainable_parameters()
-    assert np.isclose(init_params[0], sphere_radius - 1e-1)
-    assert np.isclose(init_params[1], sphere_radius + 1e-1)
-
-    data = [
-        (sphere_center + np.array([0.0, 0.0, 0.9]), True),
-        (sphere_center + np.array([0.0, 0.0, 1.1]), False),
-    ]
-
-    spherical_rom_model.train(data)
-
-    new_params = spherical_rom_model.get_trainable_parameters()
-    assert np.isclose(new_params[0], 0.9)
-    assert np.isclose(new_params[1], 1.1)
+        assert min_radius - 5e-3 <= distance <= max_radius + 5e-3

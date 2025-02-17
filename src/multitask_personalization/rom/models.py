@@ -4,7 +4,6 @@ import abc
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pybullet as p
@@ -17,6 +16,7 @@ from multitask_personalization.envs.pybullet.pybullet_human import (
     create_human_from_spec,
 )
 from multitask_personalization.utils import (
+    Bounded1DClassifier,
     sample_within_sphere,
 )
 
@@ -101,14 +101,6 @@ class TrainableROMModel(ROMModel):
     """Base class for trainable ROM models."""
 
     @abc.abstractmethod
-    def get_trainable_parameters(self) -> Any:
-        """Access the current trainable parameter values."""
-
-    @abc.abstractmethod
-    def set_trainable_parameters(self, params: Any) -> None:
-        """Set the trainable parameter values."""
-
-    @abc.abstractmethod
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         """Update trainable parameters given a dataset of (position, label)."""
 
@@ -124,18 +116,22 @@ class SphericalROMModel(TrainableROMModel):
         self,
         human_spec: HumanSpec,
         seed: int = 0,
-        min_possible_radius: float = 0.25,
+        min_possible_radius: float = 0.0,
         max_possible_radius: float = 1.25,
         origin_distance: float = 0.2,
     ) -> None:
         super().__init__(human_spec, seed=seed)
-        self._min_possible_radius = min_possible_radius
-        self._max_possible_radius = max_possible_radius
-        # Set the origin to be in front of the hand.
+
+        # Set the sphere origin to be in front of the hand.
         ee_pose = self._human.get_end_effector_pose()
         origin_tf = Pose((0.0, 0.0, origin_distance))
         origin_pose = multiply_poses(ee_pose, origin_tf)
         self._sphere_center = origin_pose.position
+
+        # Fit a model to the sphere radius.
+        self._radius_model = Bounded1DClassifier(
+            min_possible_radius, max_possible_radius
+        )
 
         # Uncomment for debugging.
         # self._reachable_points = self._sample_spherical_points(n=500)
@@ -143,10 +139,7 @@ class SphericalROMModel(TrainableROMModel):
 
     def save(self, model_dir: Path) -> None:
         outfile = model_dir / "spherical_rom_params.json"
-        params = {
-            "min_possible_radius": self._min_possible_radius,
-            "max_possible_radius": self._max_possible_radius,
-        }
+        params = self._radius_model.get_save_state()
         with open(outfile, "w", encoding="utf-8") as f:
             json.dump(params, f)
 
@@ -154,12 +147,7 @@ class SphericalROMModel(TrainableROMModel):
         outfile = model_dir / "spherical_rom_params.json"
         with open(outfile, "r", encoding="utf-8") as f:
             params = json.load(f)
-        self._min_possible_radius = params["min_possible_radius"]
-        self._max_possible_radius = params["max_possible_radius"]
-
-    @property
-    def _radius(self) -> float:
-        return (self._max_possible_radius + self._min_possible_radius) / 2
+        self._radius_model.load_from_state(params)
 
     def _distance_to_center(
         self,
@@ -167,60 +155,39 @@ class SphericalROMModel(TrainableROMModel):
     ) -> float:
         return float(np.linalg.norm(np.subtract(position, self._sphere_center)))
 
-    def get_trainable_parameters(self) -> Any:
-        return (self._min_possible_radius, self._max_possible_radius)
-
-    def set_trainable_parameters(self, params: Any) -> None:
-        min_radius, max_radius = params
-        self._min_possible_radius = min_radius
-        self._max_possible_radius = max_radius
-
     def check_position_reachable(
         self,
         position: NDArray,
     ) -> bool:
-        return self._distance_to_center(position) < self._radius
+        distance = self._distance_to_center(position)
+        return self._radius_model.predict_proba([distance])[0] >= 0.5
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
-        return np.array(sample_within_sphere(self._sphere_center, self._radius, rng))
+        min_radius = (self._radius_model.x1 + self._radius_model.x2) / 2
+        max_radius = (self._radius_model.x3 + self._radius_model.x4) / 2
+        return np.array(
+            sample_within_sphere(self._sphere_center, min_radius, max_radius, rng)
+        )
 
     def get_position_reachable_logprob(
         self,
         position: NDArray,
     ) -> float:
         distance = self._distance_to_center(position)
-        if distance <= self._min_possible_radius:
-            return 0.0  # definitely reachable
-        if distance >= self._max_possible_radius:
-            return -np.inf  # definitely not reachable
-        return np.log(0.5)  # uncertain
+        prob = self._radius_model.predict_proba([distance])[0]
+        return np.log(prob)
 
     def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:
-        return [
-            np.array(sample_within_sphere(self._sphere_center, self._radius, self._rng))
-            for _ in range(n)
-        ]
+        return [self.sample_reachable_position(self._rng) for _ in range(n)]
 
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         # Find decision boundary between maximal positive and minimal negative.
         logging.info(f"Training SphericalROMModel with {len(data)} data")
+        X, Y = [], []
         for position, label in data:
             dist = self._distance_to_center(position)
-            if label:
-                # We've found a positive data point that is farther than what
-                # we've previously seen, so increase the min possible radius.
-                self._min_possible_radius = max(dist, self._min_possible_radius)
-            else:
-                # We've found a negative data point that is closer than what
-                # we've previously seen, so decrease the max possible radius.
-                self._max_possible_radius = min(dist, self._max_possible_radius)
-        logging.info(
-            f"Updating SphericalROMModel: min={self._min_possible_radius}, "
-            f"max={self._max_possible_radius}"
-        )
-
-    def get_metrics(self) -> dict[str, float]:
-        return {
-            "spherical_rom_min_radius": self._min_possible_radius,
-            "spherical_rom_max_radius": self._max_possible_radius,
-        }
+            X.append(dist)
+            Y.append(label)
+        logging.info(f"Last x, y: {X[-1]}, {Y[-1]}")
+        self._radius_model.fit(X, Y)
+        logging.info(f"Updating SphericalROMModel: {self._radius_model.get_summary()}")
