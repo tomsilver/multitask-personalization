@@ -234,9 +234,11 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
     def step(self, obs: PyBulletState) -> PyBulletAction:
-        # Need to wait to plan until the human has fully extended their arm.
+        # Need to initially wait to plan until the human has extended their arm.
         human_target = self._sim.scene_spec.human_spec.reverse_handover_joints
-        if not np.allclose(human_target, obs.human_joints):
+        if obs.human_held_object is not None and not np.allclose(
+            human_target, obs.human_joints
+        ):
             wait_action = (0, [0.0] * 10)  # 3 base + 7 arm
             return wait_action
         return super().step(obs)
