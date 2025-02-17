@@ -123,10 +123,15 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         # Retract after transfer.
         if obs.human_held_object is not None:
             assert obs.human_held_object == book_description
+            held_book_id = self._sim.get_object_id_from_name(obs.human_held_object)
+            collision_ids = self._sim.get_collision_ids() - {
+                held_book_id,
+                self._sim.human.robot_id,
+            }
             plan = get_plan_to_retract(
                 obs,
                 self._sim,
-                obs.human_held_object,
+                collision_ids=collision_ids,
                 max_motion_planning_time=self._max_motion_planning_time,
             )
             # Indicate done.
