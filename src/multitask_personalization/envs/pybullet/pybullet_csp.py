@@ -144,13 +144,15 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                     obs, grasp_base_pose, self._sim, seed=self._seed
                 )
             # Pick up the target book.
-            return get_plan_to_pick_object(
+            pick_plan = get_plan_to_pick_object(
                 obs,
                 book_description,
                 book_grasp,
                 self._sim,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
+            assert pick_plan is not None
+            return pick_plan
         if obs.held_object == book_description:
             # If the book is already ready for handover, we are either waiting
             # for the human to grasp it, or we have failed and need to quit.
@@ -800,6 +802,28 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
                 constraints.append(plan_to_place_exists)
 
+                # Verify that a picking plan exists. It's possible that even if the
+                # pick grasp is reachable, the full plan might not work. Keep this
+                # as a separate constraint so that the grasp constraint can fail fast.
+                plan_to_pick_exists = self._generate_plan_to_pick_exists_constraint(
+                    obs,
+                    book,
+                    book_grasp,
+                    grasp_base_pose,
+                    placement_var=placement,
+                    placement_surface_var=surface,
+                )
+                constraints.append(plan_to_pick_exists)
+
+            else:
+                plan_to_pick_exists = self._generate_plan_to_pick_exists_constraint(
+                    obs,
+                    book,
+                    book_grasp,
+                    grasp_base_pose,
+                )
+                constraints.append(plan_to_pick_exists)
+
             return constraints
 
         if self._current_mission == "put away robot held object":
@@ -1399,6 +1423,91 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
 
         return placement_sampler
+
+    def _generate_plan_to_pick_exists_constraint(
+        self,
+        obs: PyBulletState,
+        book_var: CSPVariable,
+        book_grasp_yaw_var: CSPVariable,
+        grasp_base_pose_var: CSPVariable,
+        placement_var: CSPVariable | None = None,
+        placement_surface_var: CSPVariable | None = None,
+        constraint_name: str = "plan_to_pick_exists",
+    ) -> CSPConstraint:
+
+        def _plan_to_pick_exists(
+            book: str,
+            book_grasp_yaw: NDArray,
+            grasp_base_pose: Pose,
+            held_object_relative_placement: Pose | None = None,
+            held_object_placement_surface: tuple[str, int] | None = None,
+        ) -> bool:
+            max_mp_candidates = self._max_motion_planning_candidates
+            self._sim.set_state(obs)
+            self._sim.set_robot_base(grasp_base_pose)
+            # This is largely duplicate code... should be refactored later.
+            if obs.held_object is not None:
+                assert held_object_relative_placement is not None
+                assert held_object_placement_surface is not None
+                placement_surface_id = self._sim.get_object_id_from_name(
+                    held_object_placement_surface[0]
+                )
+                placement_surface_link_id = held_object_placement_surface[1]
+                placement_surface_link_pose = get_link_pose(
+                    placement_surface_id,
+                    placement_surface_link_id,
+                    self._sim.physics_client_id,
+                )
+                absolute_placement = multiply_poses(
+                    placement_surface_link_pose, held_object_relative_placement
+                )
+                assert self._sim.current_held_object_id is not None
+                set_pose(
+                    self._sim.current_held_object_id,
+                    absolute_placement,
+                    self._sim.physics_client_id,
+                )
+                self._sim.current_held_object_id = None
+                self._sim.current_grasp_transform = None
+            else:
+                assert held_object_relative_placement is None
+                assert held_object_placement_surface is None
+            obs_after_base_move = self._sim.get_state()
+            book_grasp = _book_grasp_to_relative_pose(book_grasp_yaw)
+            plan = get_plan_to_pick_object(
+                obs_after_base_move,
+                book,
+                book_grasp,
+                self._sim,
+                max_motion_planning_candidates=max_mp_candidates,
+                max_motion_planning_time=1e-1,
+            )
+            result = plan is not None
+            return result
+
+        if placement_var is None:
+            assert placement_surface_var is None
+            plan_to_pick_exists = FunctionalCSPConstraint(
+                constraint_name,
+                [book_var, book_grasp_yaw_var, grasp_base_pose_var],
+                _plan_to_pick_exists,
+            )
+
+        else:
+            assert placement_surface_var is not None
+            plan_to_pick_exists = FunctionalCSPConstraint(
+                constraint_name,
+                [
+                    book_var,
+                    book_grasp_yaw_var,
+                    grasp_base_pose_var,
+                    placement_var,
+                    placement_surface_var,
+                ],
+                _plan_to_pick_exists,
+            )
+
+        return plan_to_pick_exists
 
     def _book_is_preferred_logprob(self, book_description: str) -> float:
         return get_user_book_enjoyment_logprob(
