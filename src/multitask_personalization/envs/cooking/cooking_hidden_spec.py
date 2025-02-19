@@ -132,14 +132,13 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                     quantity_feedback = "more"
                 elif quant > ing_spec.quantity[1]:
                     quantity_feedback = "less"
-            if missing or temperature_feedback != "good" or quantity_feedback != "good":
-                critique = IngredientCritique(
-                    ing_spec.name,
-                    temperature_feedback,
-                    quantity_feedback,
-                    missing=missing,
-                )
-                critiques.append(critique)
+            critique = IngredientCritique(
+                ing_spec.name,
+                temperature_feedback,
+                quantity_feedback,
+                missing=missing,
+            )
+            critiques.append(critique)
         return critiques
 
     def update(self, meal: Meal, critiques: list[IngredientCritique]) -> None:
