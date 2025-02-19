@@ -12,6 +12,7 @@ import numpy as np
 from multitask_personalization.envs.cooking.cooking_meals import (
     Meal,
     MealSpec,
+    IngredientSpec,
 )
 from multitask_personalization.envs.cooking.cooking_structs import IngredientCritique
 from multitask_personalization.utils import Bounded1DClassifier
@@ -60,6 +61,7 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
     """An explicit list of a user's meal preferences."""
 
     def __init__(self, meal_specs: list[MealSpec]) -> None:
+        # TODO: modify this to necessitate lifelong learning
         self._universal_meal_specs = {m.name: m for m in meal_specs}
         assert len(self._universal_meal_specs) == len(
             meal_specs
@@ -80,6 +82,62 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                     quant_lo,
                     quant_hi,
                 )
+        # Lifelong learning setup.
+        """
+            If a a shift occurs, all ingredients will shift at the same time.
+            The amount is sampled within a range.
+        """
+        self._n_feedbacks_given = 0 # counts the number of feedbacks given as a proxy for the number of meals user had since the last shift
+        self._min_shift_interval = 5 # minimum number of meals before a potential preference shift
+        self._shift_prob = 0.2 # probability of a preference shift
+        self._shift_factor_range = (0.0, 2.0) # range of the shift factor. Given old range [x-r, x+r], new range is [max(0, x*f-r), x*f+r]
+    
+    def shift_preferences(self, rng: np.random.Generator) -> None:
+        if self._n_feedbacks_given >= self._min_shift_interval and rng.uniform() < self._shift_prob:
+            print("Shifting preferences")
+            # Format and print previous preferences.
+            for meal_name, meal_spec in self._universal_meal_specs.items():
+                print(meal_name)
+                for ing_spec in meal_spec.ingredients:
+                    print(ing_spec.name, ing_spec.temperature, ing_spec.quantity)
+            print("")
+            ing_shift_factors = {}
+            for meal_name, meal_spec in self._universal_meal_specs.items():
+                shifted_ing_specs = []
+                for ing_spec in meal_spec.ingredients:
+                    # Sample shift factors.
+                    if ing_spec.name not in ing_shift_factors:
+                        ing_shift_factors[ing_spec.name] = (rng.uniform(*self._shift_factor_range), rng.uniform(*self._shift_factor_range))
+                    temp_shift_factor, quant_shift_factor = ing_shift_factors[ing_spec.name]
+                    print(ing_spec.name, temp_shift_factor, quant_shift_factor)
+                    # Shift temperature and quantity ranges.
+                    temp_lo, temp_hi = ing_spec.temperature
+                    temp_mean, temp_radius = (temp_lo + temp_hi) / 2, (temp_hi - temp_lo) / 2
+                    temp_shifted = (max(0, temp_mean * temp_shift_factor - temp_radius), temp_mean * temp_shift_factor + temp_radius)
+
+                    quant_lo, quant_hi = ing_spec.quantity
+                    quant_mean, quant_radius = (quant_lo + quant_hi) / 2, (quant_hi - quant_lo) / 2
+                    quant_shifted = (max(0, quant_mean * quant_shift_factor - quant_radius), quant_mean * quant_shift_factor + quant_radius)
+
+                    shifted_ing_spec = IngredientSpec(
+                        ing_spec.name,
+                        temperature=temp_shifted,
+                        quantity=quant_shifted
+                    )
+                    shifted_ing_specs.append(shifted_ing_spec)
+                self._universal_meal_specs[meal_name] = MealSpec(meal_name, shifted_ing_specs)
+
+            # Reset counter after shift.
+            self._n_feedbacks_given = 0
+        
+            # Format and print new preferences.
+            for meal_name, meal_spec in self._universal_meal_specs.items():
+                print(meal_name)
+                for ing_spec in meal_spec.ingredients:
+                    print(ing_spec.name, ing_spec.temperature, ing_spec.quantity)
+            print("")
+        else:
+            print("No shift")
 
     def sample(self, rng: np.random.Generator) -> Meal:
         meal_spec_idx = rng.choice(len(self._universal_meal_specs))
@@ -140,6 +198,7 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                     missing=missing,
                 )
                 critiques.append(critique)
+        self._n_feedbacks_given += 1
         return critiques
 
     def update(self, meal: Meal, critiques: list[IngredientCritique]) -> None:
