@@ -40,7 +40,9 @@ def test_cooking_env():
             ],
         )
     ]
-    meal_model = MealSpecMealPreferenceModel(meal_specs)
+    meal_model = MealSpecMealPreferenceModel(
+        meal_specs, scene_spec.preference_shift_spec
+    )
     hidden_spec = CookingHiddenSpec(meal_model)
     env = CookingEnv(
         scene_spec,
@@ -173,7 +175,9 @@ def test_cooking_env_full_meal():
             ),
         ],
     )
-    meal_model = MealSpecMealPreferenceModel(scene_spec.universal_meal_specs)
+    meal_model = MealSpecMealPreferenceModel(
+        scene_spec.universal_meal_specs, scene_spec.preference_shift_spec
+    )
     hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(
@@ -257,7 +261,9 @@ def test_cooking_env_shift_preferences():
             ),
         ],
     )
-    meal_model = MealSpecMealPreferenceModel(scene_spec.universal_meal_specs)
+    meal_model = MealSpecMealPreferenceModel(
+        scene_spec.universal_meal_specs, scene_spec.preference_shift_spec
+    )
     meal_model._shift_prob = 1.0  # pylint: disable=protected-access
     hidden_spec = CookingHiddenSpec(meal_model)
 

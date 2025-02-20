@@ -14,7 +14,10 @@ from multitask_personalization.envs.cooking.cooking_meals import (
     Meal,
     MealSpec,
 )
-from multitask_personalization.envs.cooking.cooking_structs import IngredientCritique
+from multitask_personalization.envs.cooking.cooking_structs import (
+    IngredientCritique,
+    PreferenceShiftSpec,
+)
 from multitask_personalization.utils import Bounded1DClassifier
 
 
@@ -64,7 +67,9 @@ class MealPreferenceModel(abc.ABC):
 class MealSpecMealPreferenceModel(MealPreferenceModel):
     """An explicit list of a user's meal preferences."""
 
-    def __init__(self, meal_specs: list[MealSpec]) -> None:
+    def __init__(
+        self, meal_specs: list[MealSpec], preference_shift_spec: PreferenceShiftSpec
+    ) -> None:
         self._universal_meal_specs = {m.name: m for m in meal_specs}
         assert len(self._universal_meal_specs) == len(
             meal_specs
@@ -92,16 +97,15 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         # since the last shift
         self._n_feedbacks_given = 0
 
-        self._min_shift_interval = (
-            5  # minimum number of meals before a potential preference shift
-        )
-        self._shift_prob = 0.2  # probability of a preference shift
-        # range of the shift factor.
+        # min number of meals before preference shift
+        self._min_shift_interval = preference_shift_spec.min_shift_interval
+        # probability of a preference shift
+        self._shift_prob = (
+            preference_shift_spec.shift_prob
+        )  
+        # Range of the shift factor.
         # Given old range [x-r, x+r], new range is [max(0, x*f-r), x*f+r]
-        self._shift_factor_range = (
-            0.0,
-            2.0,
-        )
+        self._shift_factor_range = preference_shift_spec.shift_factor_range
 
     def shift_preferences(self, rng: np.random.Generator) -> None:
         if (

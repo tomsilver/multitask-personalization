@@ -165,7 +165,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             )
         if isinstance(self._scene_spec, CookingSceneSpec):
             meal_model = MealSpecMealPreferenceModel(
-                self._scene_spec.universal_meal_specs
+                self._scene_spec.universal_meal_specs,
+                self._scene_spec.preference_shift_spec,
             )
             return CookingCSPGenerator(
                 self._scene_spec,

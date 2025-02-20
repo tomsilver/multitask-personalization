@@ -151,3 +151,19 @@ class IngredientCritique:
     hotter_or_colder: str  # "hotter", "colder", "good"
     more_or_less: str  # "more", "less", "good"
     missing: bool = False
+
+
+@dataclass(frozen=True)
+class PreferenceShiftSpec:
+    """A specification for a preference shift parameters."""
+
+    min_shift_interval: int
+    shift_prob: float
+    shift_factor_range: tuple[float, float]
+
+
+DEFAULT_PREFERENCE_SHIFT_SPEC = PreferenceShiftSpec(
+    min_shift_interval=5,
+    shift_prob=0.2,
+    shift_factor_range=(0.0, 2.0),
+)

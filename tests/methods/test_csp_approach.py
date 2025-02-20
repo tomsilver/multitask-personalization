@@ -119,7 +119,9 @@ def test_cooking_csp_approach():
         ],
     )
 
-    meal_model = MealSpecMealPreferenceModel(ground_truth_meal_specs)
+    meal_model = MealSpecMealPreferenceModel(
+        ground_truth_meal_specs, scene_spec.preference_shift_spec
+    )
     hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(
