@@ -8,6 +8,10 @@ from multitask_personalization.envs.cooking.cooking_meals import (
     DEFAULT_MEAL_SPECS,
     MealSpec,
 )
+from multitask_personalization.envs.cooking.cooking_structs import (
+    DEFAULT_PREFERENCE_SHIFT_SPEC,
+    PreferenceShiftSpec,
+)
 from multitask_personalization.structs import PublicSceneSpec
 
 
@@ -37,6 +41,11 @@ class CookingSceneSpec(PublicSceneSpec):
     # A list of all known meal specs.
     universal_meal_specs: list[MealSpec] = field(
         default_factory=lambda: DEFAULT_MEAL_SPECS
+    )
+
+    # Preference shift parameters.
+    preference_shift_spec: PreferenceShiftSpec = field(
+        default=DEFAULT_PREFERENCE_SHIFT_SPEC
     )
 
     # The "stove top", a 2D rectangle. This is the only space in the env.

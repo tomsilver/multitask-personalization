@@ -133,6 +133,9 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             new_ingredients = self._current_state.ingredients.copy()
             done = True  # used for eval
 
+            # Shift user preferences.
+            self._hidden_spec.meal_preference_model.shift_preferences(self._rng)
+
         else:
             # Update pot temperatures and initialize new_pot_states.
             for pot_id, pot_state in enumerate(self._current_state.pots):

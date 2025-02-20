@@ -40,7 +40,9 @@ def test_cooking_env():
             ],
         )
     ]
-    meal_model = MealSpecMealPreferenceModel(meal_specs)
+    meal_model = MealSpecMealPreferenceModel(
+        meal_specs, scene_spec.preference_shift_spec
+    )
     hidden_spec = CookingHiddenSpec(meal_model)
     env = CookingEnv(
         scene_spec,
@@ -173,7 +175,9 @@ def test_cooking_env_full_meal():
             ),
         ],
     )
-    meal_model = MealSpecMealPreferenceModel(scene_spec.universal_meal_specs)
+    meal_model = MealSpecMealPreferenceModel(
+        scene_spec.universal_meal_specs, scene_spec.preference_shift_spec
+    )
     hidden_spec = CookingHiddenSpec(meal_model)
 
     env = CookingEnv(
@@ -216,5 +220,91 @@ def test_cooking_env_full_meal():
             _, _, terminated, _, info = env.step(act)
         assert terminated
         assert info["user_satisfaction"] == 1.0
+
+    env.close()
+
+
+def test_cooking_env_shift_preferences():
+    """Test creating and serving a successful meal in the cooking env."""
+    seed = 123
+
+    scene_spec = CookingSceneSpec(
+        universal_meal_specs=[
+            MealSpec(
+                "seasoning",
+                [
+                    IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+                    IngredientSpec(
+                        "pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)
+                    ),
+                ],
+            )
+        ],
+        pots=[
+            CookingPot(radius=0.5, position=None),
+            CookingPot(radius=1.0, position=None),
+        ],
+        ingredients=[
+            CookingIngredient(
+                name="salt",
+                color=(0.9, 0.9, 0.9),
+                respawn_quantity_bounds=(1.0, 1.1),
+                heat_rate=1.0,
+                cool_rate=1.0,
+            ),
+            CookingIngredient(
+                name="pepper",
+                color=(0.0, 0.0, 0.0),
+                respawn_quantity_bounds=(1.0, 1.1),
+                heat_rate=1.0,
+                cool_rate=1.0,
+            ),
+        ],
+    )
+    meal_model = MealSpecMealPreferenceModel(
+        scene_spec.universal_meal_specs, scene_spec.preference_shift_spec
+    )
+    meal_model._shift_prob = 1.0  # pylint: disable=protected-access
+    hidden_spec = CookingHiddenSpec(meal_model)
+
+    env = CookingEnv(
+        scene_spec,
+        hidden_spec=hidden_spec,
+        seed=seed,
+    )
+
+    # Uncomment to create video.
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-cooking-env")
+
+    plan = [
+        MovePotCookingAction(0, (3.0, 6.0)),
+        MovePotCookingAction(1, (8.0, 3.0)),
+        MultiCookingAction(
+            [
+                AddIngredientCookingAction(
+                    pot_id=0,
+                    ingredient="salt",
+                    ingredient_quantity=1.0,
+                ),
+                AddIngredientCookingAction(
+                    pot_id=1,
+                    ingredient="pepper",
+                    ingredient_quantity=1.0,
+                ),
+            ]
+        ),
+        WaitCookingAction(),  # 0 -> 1
+        WaitCookingAction(),  # 1 -> 2
+        WaitCookingAction(),  # 2 -> 3
+        ServeMealCookingAction("seasoning"),
+    ]
+
+    # Repeat twice.
+    for _ in range(10):
+        env.reset()
+        for act in plan:
+            _, _, terminated, _, _ = env.step(act)
+        assert terminated
 
     env.close()

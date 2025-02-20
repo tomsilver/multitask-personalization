@@ -18,6 +18,11 @@ env:
               name: "pepper"
               temperature: [2.8, 3.2]
               quantity: [0.95, 1.0]
+      preference_shift_spec:
+        _target_: "multitask_personalization.envs.cooking.cooking_structs.PreferenceShiftSpec"
+        min_shift_interval: 8
+        shift_prob: 0.3
+        shift_factor_range: [0.0, 3.0]
   # note: seed is excluded because it varies for train/eval envs
 train_env: {}
 eval_env: {}
