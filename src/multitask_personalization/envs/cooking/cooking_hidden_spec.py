@@ -100,9 +100,7 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         # min number of meals before preference shift
         self._min_shift_interval = preference_shift_spec.min_shift_interval
         # probability of a preference shift
-        self._shift_prob = (
-            preference_shift_spec.shift_prob
-        )  
+        self._shift_prob = preference_shift_spec.shift_prob
         # Range of the shift factor.
         # Given old range [x-r, x+r], new range is [max(0, x*f-r), x*f+r]
         self._shift_factor_range = preference_shift_spec.shift_factor_range
