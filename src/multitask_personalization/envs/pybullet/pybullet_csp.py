@@ -14,6 +14,7 @@ from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
+    check_collisions_with_held_object,
 )
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import generate_surface_placements
@@ -1473,6 +1474,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             self._sim.set_state(obs)
             self._sim.set_robot_base(grasp_base_pose)
             # This is largely duplicate code... should be refactored later.
+            # Without the below, it's possible that the robot would be in
+            # collision with something after we manually set the base pose.
+            self._sim.robot.set_joints(self._sim.robot.home_joint_positions)
             if obs.held_object is not None:
                 assert held_object_relative_placement is not None
                 assert held_object_placement_surface is not None
@@ -1499,6 +1503,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             else:
                 assert held_object_relative_placement is None
                 assert held_object_placement_surface is None
+            assert not check_collisions_with_held_object(
+                self._sim.robot,
+                self._sim.get_collision_ids(),
+                self._sim.physics_client_id,
+                held_object=None,
+                base_link_to_held_obj=None,
+                joint_state=self._sim.robot.get_joint_positions(),
+            )
             obs_after_base_move = self._sim.get_state()
             book_grasp = _book_grasp_to_relative_pose(book_grasp_yaw)
             plan = get_plan_to_pick_object(
