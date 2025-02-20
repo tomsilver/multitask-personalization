@@ -444,6 +444,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm: LargeLanguageModel,
         book_preference_initialization: str = "Unknown",
         max_motion_planning_candidates: int = 1,
+        max_motion_planning_time: float = 5,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -460,6 +461,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         }
         self._steps_since_last_cleaning_admonishment: int | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._max_motion_planning_time = max_motion_planning_time
         self._current_mission: str | None = None
 
     def generate(
@@ -1275,6 +1277,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 csp,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=self._max_motion_planning_time,
             )
 
         if self._current_mission == "put away robot held object":
@@ -1284,6 +1287,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 csp,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=self._max_motion_planning_time,
             )
 
         if self._current_mission == "put away human held object":
@@ -1293,6 +1297,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 csp,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=self._max_motion_planning_time,
             )
 
         if self._current_mission == "clean":
@@ -1302,6 +1307,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 csp,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=self._max_motion_planning_time,
             )
 
         raise NotImplementedError
