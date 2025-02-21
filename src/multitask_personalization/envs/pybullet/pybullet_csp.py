@@ -6,16 +6,16 @@ import logging
 from pathlib import Path
 from typing import Any, Collection
 
-import pybullet as p
 import numpy as np
+import pybullet as p
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
+    check_body_collisions,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
-    check_body_collisions,
 )
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import generate_surface_placements
