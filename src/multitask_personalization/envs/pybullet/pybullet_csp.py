@@ -881,6 +881,32 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "clean":
             constraints = []
 
+            surface, robot_state = variables[:2]
+
+            def _prewipe_pose_is_valid(
+                surface_name_and_link: tuple[str, int],
+                candidate_robot_state: tuple[Pose, NDArray],
+            ) -> bool:
+                # Necessary to escape from initialization.
+                surface_name, surface_link_id = surface_name_and_link
+                base_pose, robot_joint_arr = candidate_robot_state
+                num_rots = 1 if surface_name == "table" else 0
+                self._sim.set_robot_base(base_pose)
+                self._sim.robot.set_joints(robot_joint_arr.tolist())
+                current_pose = self._sim.robot.get_end_effector_pose()
+                target_pose = self._get_prewipe_end_effector_pose(
+                    surface_name, surface_link_id, num_rots
+                )
+                return target_pose.allclose(current_pose, atol=1e-3)
+
+            prewipe_pose_is_valid = FunctionalCSPConstraint(
+                "prewipe_pose_is_valid",
+                [surface, robot_state],
+                _prewipe_pose_is_valid,
+            )
+
+            constraints.append(prewipe_pose_is_valid)
+
             if obs.held_object is not None:
                 first_placement, first_surface = variables[-3:-1]
                 first_placement_collision_free_constraint = (
