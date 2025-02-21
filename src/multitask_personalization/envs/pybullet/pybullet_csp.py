@@ -12,7 +12,6 @@ from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
-    check_collisions_with_held_object,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
 )
@@ -1206,10 +1205,18 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             policy.reset(sol)
             self._sim.set_state(obs)
             for _ in range(self._max_policy_steps):
-                # TODO raise and catch planning failures here.
-                action = policy.step(obs)
-                self._sim.step_simulator(action, check_hidden_spec=False)
+                # This is perhaps risky -- we might be sweeping unknown issues
+                # under the rug -- but it's easier for now than carefully listing
+                # all possible failures.
+                try:
+                    action = policy.step(obs)
+                    self._sim.step_simulator(action, check_hidden_spec=False)
+                except:
+                    return False
+                if policy.check_termination(obs):
+                    break
                 obs = self._sim.get_state()
+            # TODO check mission-specific success conditions.
             return True
 
         policy_success_constraint = FunctionalCSPConstraint(
