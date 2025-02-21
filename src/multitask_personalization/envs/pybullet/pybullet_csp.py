@@ -286,6 +286,8 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
                 surface_link_id=surface_link_id,
             )
             assert place_plan is not None
+            # Indicate done.
+            place_plan.append((2, "Done"))
             return place_plan
         # Put away the object that we're holding at first.
         if obs.held_object is not None:
