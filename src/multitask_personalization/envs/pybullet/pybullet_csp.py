@@ -1423,9 +1423,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if not np.isclose(act[0], 2) or act[1] == "Done":
             return
         assert act[1] == "Here you go!"
-        assert next_obs.held_object is not None
+        assert next_obs.human_held_object is not None
         # Update the history of things the user has told the robot.
-        new_feedback = f'When I gave the user the book: "{next_obs.held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
+        new_feedback = f'When I gave the user the book: "{next_obs.human_held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
         self._all_user_feedback.append(new_feedback)
         # Learn from the history of all feedback.
         # For now, just do this once; in the future, get a distribution of
