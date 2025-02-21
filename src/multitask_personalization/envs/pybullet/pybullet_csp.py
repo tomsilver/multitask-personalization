@@ -1200,22 +1200,25 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         policy = self._generate_policy(obs, csp_variables)
 
         def _policy_succeeds(*args) -> bool:
-            nonlocal obs
             sol = dict(zip(csp_variables, args))
             policy.reset(sol)
-            self._sim.set_state(obs)
+            state = obs
+            self._sim.set_state(state)
             for _ in range(self._max_policy_steps):
                 # This is perhaps risky -- we might be sweeping unknown issues
                 # under the rug -- but it's easier for now than carefully listing
                 # all possible failures.
                 try:
-                    action = policy.step(obs)
+                    action = policy.step(state)
+                    # NOTE: need to explicitly set the state of the sim again
+                    # because the policy may internally modify it.
+                    self._sim.set_state(state)
                     self._sim.step_simulator(action, check_hidden_spec=False)
                 except:
                     return False
-                if policy.check_termination(obs):
+                if policy.check_termination(state):
                     break
-                obs = self._sim.get_state()
+                state = self._sim.get_state()
             # TODO check mission-specific success conditions.
             return True
 
