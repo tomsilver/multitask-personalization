@@ -4,7 +4,7 @@ import abc
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Collection
 
 import numpy as np
 from gymnasium.spaces import Box, Discrete, Tuple
@@ -66,12 +66,12 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
     def __init__(
         self,
         sim: PyBulletEnv,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
         seed: int = 0,
         max_motion_planning_time: float = np.inf,
         max_motion_planning_candidates: int = 1,
     ) -> None:
-        super().__init__(csp, seed)
+        super().__init__(csp_variables, seed)
         self._sim = sim
         self._current_plan: list[PyBulletAction] = []
         self._max_motion_planning_time = max_motion_planning_time
@@ -115,13 +115,17 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
     def __init__(
         self,
         sim: PyBulletEnv,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
         seed: int = 0,
         max_motion_planning_time: float = np.inf,
         max_motion_planning_candidates: int = 1,
     ) -> None:
         super().__init__(
-            sim, csp, seed, max_motion_planning_time, max_motion_planning_candidates
+            sim,
+            csp_variables,
+            seed,
+            max_motion_planning_time,
+            max_motion_planning_candidates,
         )
         # Need to track whether the user has been alerted to handle the rare
         # case where the policy is initiated from a state where the handover
@@ -446,6 +450,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         book_preference_initialization: str = "Unknown",
         max_motion_planning_candidates: int = 1,
         max_motion_planning_time: float = 5,
+        max_policy_steps: int = 1000,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -463,6 +468,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._steps_since_last_cleaning_admonishment: int | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._max_motion_planning_time = max_motion_planning_time
+        self._max_policy_steps = max_policy_steps
         self._current_mission: str | None = None
 
     def generate(
@@ -813,7 +819,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             )
 
             # Create policy success constraint.
-            policy_success_constraint = self._create_policy_success_constraint()
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
 
             constraints: list[CSPConstraint] = [
                 book_grasp_reachable_constraint,
@@ -825,15 +833,21 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return constraints
 
         if self._current_mission == "put away robot held object":
-            policy_success_constraint = self._create_policy_success_constraint()
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
             return [policy_success_constraint]
 
         if self._current_mission == "put away human held object":
-            policy_success_constraint = self._create_policy_success_constraint()            
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
             return [policy_success_constraint]
 
         if self._current_mission == "clean":
-            policy_success_constraint = self._create_policy_success_constraint()
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
             return [policy_success_constraint]
 
         raise NotImplementedError
@@ -1035,7 +1049,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     def _generate_policy(
         self,
         obs: PyBulletState,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
     ) -> CSPPolicy:
 
         # NOTE: need to figure out a way to make this more scalable...
@@ -1043,7 +1057,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return _BookHandoverCSPPolicy(
                 self._sim,
-                csp,
+                csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 max_motion_planning_time=self._max_motion_planning_time,
@@ -1053,7 +1067,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return _PutAwayRobotHeldObjectCSPPolicy(
                 self._sim,
-                csp,
+                csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 max_motion_planning_time=self._max_motion_planning_time,
@@ -1063,7 +1077,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return _PutAwayHumanHeldObjectCSPPolicy(
                 self._sim,
-                csp,
+                csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 max_motion_planning_time=self._max_motion_planning_time,
@@ -1073,7 +1087,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             return _CleanCSPPolicy(
                 self._sim,
-                csp,
+                csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 max_motion_planning_time=self._max_motion_planning_time,
@@ -1179,6 +1193,32 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
 
         return placement_sampler
+
+    def _create_policy_success_constraint(
+        self, obs: PyBulletState, csp_variables: list[CSPVariable]
+    ) -> CSPConstraint:
+
+        policy = self._generate_policy(obs, csp_variables)
+
+        def _policy_succeeds(*args) -> bool:
+            nonlocal obs
+            sol = dict(zip(csp_variables, args))
+            policy.reset(sol)
+            self._sim.set_state(obs)
+            for _ in range(self._max_policy_steps):
+                # TODO raise and catch planning failures here.
+                action = policy.step(obs)
+                self._sim.step_simulator(action, check_hidden_spec=False)
+                obs = self._sim.get_state()
+            return True
+
+        policy_success_constraint = FunctionalCSPConstraint(
+            "policy_success",
+            csp_variables,
+            _policy_succeeds,
+        )
+
+        return policy_success_constraint
 
     def _book_is_preferred_logprob(self, book_description: str) -> float:
         return get_user_book_enjoyment_logprob(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any, Collection, get_args
 
 import numpy as np
 from gymnasium.spaces import Discrete, Text
@@ -365,9 +365,9 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
     def _generate_policy(
         self,
         obs: CookingState,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
     ) -> CSPPolicy:
-        return _CookingCSPPolicy(csp, seed=self._seed)
+        return _CookingCSPPolicy(csp_variables, seed=self._seed)
 
     def observe_transition(
         self,
@@ -394,10 +394,10 @@ class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
 
     def __init__(
         self,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
         seed: int = 0,
     ) -> None:
-        super().__init__(csp, seed)
+        super().__init__(csp_variables, seed)
         self._current_plan: list[CookingAction] = []
         self._terminated = False
 

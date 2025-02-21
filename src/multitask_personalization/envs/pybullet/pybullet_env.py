@@ -473,7 +473,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         return self.get_state(), self._get_info()
 
-    def _step_simulator(self, action: PyBulletAction) -> None:
+    def step_simulator(
+        self, action: PyBulletAction, check_hidden_spec: bool = True
+    ) -> None:
+        """Step the simulator."""
         # Reset current human text.
         self.current_human_text = None
         # Handle dust: increase for any dust not touched, zero out dust that is
@@ -497,12 +500,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 if patch_id in wiper_overlap_obj_ids:
                     new_level = 0.0
                     # Check if this surface should not be cleaned.
-                    assert self._hidden_spec is not None
-                    if (
-                        not np.isclose(level, 0.0)
-                        and surf not in self._hidden_spec.surfaces_robot_can_clean
-                    ):
-                        report_surface_should_not_be_cleaned = True
+                    if check_hidden_spec:
+                        assert self._hidden_spec is not None
+                        if (
+                            not np.isclose(level, 0.0)
+                            and surf not in self._hidden_spec.surfaces_robot_can_clean
+                        ):
+                            report_surface_should_not_be_cleaned = True
                 self._set_dust_level(patch_id, new_level)
         if self._steps_since_last_cleaning_admonishment is not None:
             self._steps_since_last_cleaning_admonishment += 1
@@ -611,11 +615,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             # If the handover position is unreachable, do nothing.
             handover_pose = rotate_pose(self.robot.get_end_effector_pose(), roll=np.pi)
 
-            assert self._hidden_spec is not None
-            if not self._hidden_spec.rom_model.check_position_reachable(
-                np.array(handover_pose.position)
-            ):
-                return
+            if check_hidden_spec:
+                assert self._hidden_spec is not None
+                if not self._hidden_spec.rom_model.check_position_reachable(
+                    np.array(handover_pose.position)
+                ):
+                    return
             # Otherwise, initiate the handover.
             self._sim_human.set_joints(self.human.get_joint_positions())
             target_human_joints = inverse_kinematics(
@@ -689,7 +694,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
         # Advance the simulator.
         state = self.get_state()
-        self._step_simulator(action)
+        self.step_simulator(action)
 
         # Advance the mission.
         assert self._current_mission is not None
