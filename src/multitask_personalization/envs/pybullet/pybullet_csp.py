@@ -832,9 +832,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "put away robot held object":
 
             placement, surface = variables[2:4]
+            assert obs.held_object is not None
             placement_collision_free_constraint = (
                 self._generate_placement_is_collision_free_constraint(
-                    obs, placement, surface
+                    obs, obs.held_object, placement, surface
                 )
             )
 
@@ -845,23 +846,60 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "put away human held object":
 
+            constraints = []
+
+            if obs.held_object is not None:
+                assert len(variables) == 8
+                first_placement, first_surface = variables[5:7]
+                first_placement_collision_free_constraint = (
+                    self._generate_placement_is_collision_free_constraint(
+                        obs,
+                        obs.held_object,
+                        first_placement,
+                        first_surface,
+                        constraint_name="first_placement_collision_free",
+                    )
+                )
+                constraints.append(first_placement_collision_free_constraint)
+
             placement, surface = variables[2:4]
+            assert obs.human_held_object is not None
             placement_collision_free_constraint = (
                 self._generate_placement_is_collision_free_constraint(
-                    obs, placement, surface
+                    obs, obs.human_held_object, placement, surface
                 )
             )
+            constraints.append(placement_collision_free_constraint)
 
             policy_success_constraint = self._create_policy_success_constraint(
                 obs, variables
             )
-            return [placement_collision_free_constraint, policy_success_constraint]
+            constraints.append(policy_success_constraint)
+
+            return constraints
 
         if self._current_mission == "clean":
+            constraints = []
+
+            if obs.held_object is not None:
+                first_placement, first_surface = variables[-3:-1]
+                first_placement_collision_free_constraint = (
+                    self._generate_placement_is_collision_free_constraint(
+                        obs,
+                        obs.held_object,
+                        first_placement,
+                        first_surface,
+                        constraint_name="first_placement_collision_free",
+                    )
+                )
+                constraints.append(first_placement_collision_free_constraint)
+
             policy_success_constraint = self._create_policy_success_constraint(
                 obs, variables
             )
-            return [policy_success_constraint]
+            constraints.append(policy_success_constraint)
+
+            return constraints
 
         raise NotImplementedError
 
@@ -1216,6 +1254,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     def _generate_placement_is_collision_free_constraint(
         self,
         obs: PyBulletState,
+        held_object: str,
         placement_var: CSPVariable,
         surface_var: CSPVariable,
         constraint_name: str = "placement_collision_free",
@@ -1226,8 +1265,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             surface_name_and_link: tuple[str, int],
         ) -> bool:
             self._sim.set_state(obs)
-            assert obs.held_object is not None
-            held_obj_id = self._sim.get_object_id_from_name(obs.held_object)
+            held_obj_id = self._sim.get_object_id_from_name(held_object)
             placement_surface_id = self._sim.get_object_id_from_name(
                 surface_name_and_link[0]
             )
