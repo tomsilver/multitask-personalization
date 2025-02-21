@@ -85,8 +85,8 @@ class RandomWalkCSPSolver(CSPSolver):
             pbar.set_description(msg)
 
             # Uncomment to debug.
-            from multitask_personalization.utils import print_csp_sol
-            print_csp_sol(sol)
+            # from multitask_personalization.utils import print_csp_sol
+            # print_csp_sol(sol)
 
             # Don't ever both with solutions that are worse than what we've seen.
             sol_is_cost_improvement = True

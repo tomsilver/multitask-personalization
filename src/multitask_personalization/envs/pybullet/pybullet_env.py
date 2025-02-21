@@ -24,9 +24,8 @@ from pybullet_helpers.geometry import (
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
-    inverse_kinematics,
 )
-from pybullet_helpers.joint import JointPositions, iter_between_joint_positions
+from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.kinova import KinovaGen3RobotiqGripperPyBulletRobot
@@ -584,7 +583,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     return
             # Otherwise, handover.
             self.current_human_held_object_id = self.current_held_object_id
-            self.current_human_grasp_transform = self.scene_spec.human_spec.grasp_transform
+            self.current_human_grasp_transform = (
+                self.scene_spec.human_spec.grasp_transform
+            )
             self.current_held_object_id = None
             self.current_grasp_transform = None
             return

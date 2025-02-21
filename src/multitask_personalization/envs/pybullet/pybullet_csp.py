@@ -260,9 +260,6 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
 class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
-    def step(self, obs: PyBulletState) -> PyBulletAction:
-        return super().step(obs)
-
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         # Put away the main object.
         if obs.held_object is not None and obs.human_held_object is None:
@@ -443,8 +440,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm: LargeLanguageModel,
         book_preference_initialization: str = "Unknown",
         max_motion_planning_candidates: int = 1,
-        max_motion_planning_time: float = 5,
+        max_motion_planning_time: float = 10,
         max_policy_steps: int = 1000,
+        motion_planning_time_constraint_scale: float = 0.5,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -462,6 +460,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._steps_since_last_cleaning_admonishment: int | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._max_motion_planning_time = max_motion_planning_time
+        self._motion_planning_time_constraint_scale = (
+            motion_planning_time_constraint_scale
+        )
         self._max_policy_steps = max_policy_steps
         self._current_mission: str | None = None
 
@@ -1045,7 +1046,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self,
         obs: PyBulletState,
         csp_variables: Collection[CSPVariable],
+        motion_planning_scale_factor: float = 1.0,
     ) -> CSPPolicy:
+
+        # May want to use lower scale factor during constraint checking.
+        max_motion_planning_time = (
+            self._max_motion_planning_time * motion_planning_scale_factor
+        )
 
         # NOTE: need to figure out a way to make this more scalable...
         if self._current_mission == "hand over book":
@@ -1055,7 +1062,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
-                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_time=max_motion_planning_time,
             )
 
         if self._current_mission == "put away robot held object":
@@ -1065,7 +1072,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
-                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_time=max_motion_planning_time,
             )
 
         if self._current_mission == "put away human held object":
@@ -1075,7 +1082,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
-                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_time=max_motion_planning_time,
             )
 
         if self._current_mission == "clean":
@@ -1085,7 +1092,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
-                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_time=max_motion_planning_time,
             )
 
         raise NotImplementedError
@@ -1194,8 +1201,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     ) -> CSPConstraint:
         """Currently assume that policy termination = success."""
 
-        # TODO toggle motion planning time.
-        policy = self._generate_policy(obs, csp_variables)
+        policy = self._generate_policy(
+            obs,
+            csp_variables,
+            motion_planning_scale_factor=self._motion_planning_time_constraint_scale,
+        )
 
         def _policy_succeeds(*args) -> bool:
             sol = dict(zip(csp_variables, args))
@@ -1213,14 +1223,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     self._sim.set_state(state)
                     self._sim.step_simulator(action, check_hidden_spec=False)
                 except BaseException as e:
-                    import sys, traceback
-                    _, _, tb = sys.exc_info()
-                    traceback.print_tb(tb)
+                    # Uncomment to debug.
+                    # import sys, traceback
+                    # _, _, tb = sys.exc_info()
+                    # traceback.print_tb(tb)
+                    del e
                     return False
                 if policy.check_termination(state):
                     return True
                 state = self._sim.get_state()
-            print("RAN OUT OF TIME!")
             return False
 
         policy_success_constraint = FunctionalCSPConstraint(
