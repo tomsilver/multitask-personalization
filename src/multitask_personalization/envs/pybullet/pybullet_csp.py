@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any, Collection
 
+import pybullet as p
 import numpy as np
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
@@ -14,6 +15,7 @@ from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
+    check_body_collisions,
 )
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import generate_surface_placements
@@ -828,17 +830,32 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return constraints
 
         if self._current_mission == "put away robot held object":
-            # SOON: add some helper constraints here and below.
+
+            placement, surface = variables[2:4]
+            placement_collision_free_constraint = (
+                self._generate_placement_is_collision_free_constraint(
+                    obs, placement, surface
+                )
+            )
+
             policy_success_constraint = self._create_policy_success_constraint(
                 obs, variables
             )
-            return [policy_success_constraint]
+            return [placement_collision_free_constraint, policy_success_constraint]
 
         if self._current_mission == "put away human held object":
+
+            placement, surface = variables[2:4]
+            placement_collision_free_constraint = (
+                self._generate_placement_is_collision_free_constraint(
+                    obs, placement, surface
+                )
+            )
+
             policy_success_constraint = self._create_policy_success_constraint(
                 obs, variables
             )
-            return [policy_success_constraint]
+            return [placement_collision_free_constraint, policy_success_constraint]
 
         if self._current_mission == "clean":
             policy_success_constraint = self._create_policy_success_constraint(
@@ -1195,6 +1212,57 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
 
         return placement_sampler
+
+    def _generate_placement_is_collision_free_constraint(
+        self,
+        obs: PyBulletState,
+        placement_var: CSPVariable,
+        surface_var: CSPVariable,
+        constraint_name: str = "placement_collision_free",
+    ) -> CSPConstraint:
+
+        def _placement_is_collision_free(
+            placement_pose: Pose,
+            surface_name_and_link: tuple[str, int],
+        ) -> bool:
+            self._sim.set_state(obs)
+            assert obs.held_object is not None
+            held_obj_id = self._sim.get_object_id_from_name(obs.held_object)
+            placement_surface_id = self._sim.get_object_id_from_name(
+                surface_name_and_link[0]
+            )
+            placement_surface_link_id = surface_name_and_link[1]
+            placement_surface_link_pose = get_link_pose(
+                placement_surface_id,
+                placement_surface_link_id,
+                self._sim.physics_client_id,
+            )
+            absolute_placement = multiply_poses(
+                placement_surface_link_pose, placement_pose
+            )
+            set_pose(held_obj_id, absolute_placement, self._sim.physics_client_id)
+            p.performCollisionDetection(physicsClientId=self._sim.physics_client_id)
+            collision_bodies = self._sim.get_collision_ids() - {
+                held_obj_id,
+                placement_surface_id,
+            }
+            for body in collision_bodies:
+                if check_body_collisions(
+                    held_obj_id,
+                    body,
+                    self._sim.physics_client_id,
+                    perform_collision_detection=False,
+                ):
+                    return False
+            return True
+
+        placement_collision_free_constraint = FunctionalCSPConstraint(
+            constraint_name,
+            [placement_var, surface_var],
+            _placement_is_collision_free,
+        )
+
+        return placement_collision_free_constraint
 
     def _create_policy_success_constraint(
         self, obs: PyBulletState, csp_variables: list[CSPVariable]
