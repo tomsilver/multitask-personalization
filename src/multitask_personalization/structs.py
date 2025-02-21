@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import Any, Callable, Generic
+from typing import Any, Callable, Collection, Generic
 
 import gymnasium as gym
 import numpy as np
@@ -197,12 +197,12 @@ class FunctionalCSPSampler(CSPSampler):
 class CSPPolicy(abc.ABC, Generic[ObsType, ActType]):
     """Implements a policy that is conditioned on the solution to a CSP."""
 
-    def __init__(self, csp: CSP, seed: int = 0) -> None:
-        self._csp = csp
+    def __init__(self, csp_variables: Collection[CSPVariable], seed: int = 0) -> None:
+        self._csp_variables = csp_variables
         self._seed = seed
         self._rng = np.random.default_rng(seed)
         self._current_solution: dict[CSPVariable, Any] | None = None
-        self._csp_var_name_to_var = {v.name: v for v in self._csp.variables}
+        self._csp_var_name_to_var = {v.name: v for v in self._csp_variables}
 
     def _get_value(self, var_name: str) -> Any:
         assert self._current_solution is not None

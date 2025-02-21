@@ -2,7 +2,7 @@
 
 import pickle as pkl
 from pathlib import Path
-from typing import Any
+from typing import Any, Collection
 
 import numpy as np
 from gymnasium.spaces import Box
@@ -28,8 +28,8 @@ from multitask_personalization.structs import (
 
 class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
 
-    def __init__(self, csp: CSP, seed: int = 0) -> None:
-        super().__init__(csp, seed)
+    def __init__(self, csp_variables: Collection[CSPVariable], seed: int = 0) -> None:
+        super().__init__(csp_variables, seed)
         self._target_position: float | None = None
         self._speed: float | None = None
         self._terminated = False
@@ -238,9 +238,9 @@ class TinyCSPGenerator(CSPGenerator[TinyState, TinyAction]):
     def _generate_policy(
         self,
         obs: TinyState,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
     ) -> CSPPolicy:
-        return _TinyCSPPolicy(csp, seed=self._seed)
+        return _TinyCSPPolicy(csp_variables, seed=self._seed)
 
     def observe_transition(
         self,

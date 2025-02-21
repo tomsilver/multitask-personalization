@@ -2,7 +2,7 @@
 
 import abc
 from pathlib import Path
-from typing import Any, Generic
+from typing import Any, Collection, Generic
 
 import numpy as np
 from gymnasium.core import ActType, ObsType
@@ -74,7 +74,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         cost = self._generate_cost(obs, variables)
         csp = CSP(variables, constraints, cost)
         samplers = self._generate_samplers(obs, csp)
-        policy = self._generate_policy(obs, csp)
+        policy = self._generate_policy(obs, csp.variables)
         return csp, samplers, policy, initialization
 
     @abc.abstractmethod
@@ -103,7 +103,8 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         if exclude_personal_constraints:
             return nonpersonal_constraints
         personal_constraints = self._generate_personal_constraints(obs, variables)
-        return nonpersonal_constraints + personal_constraints
+        # NOTE: check personal constraints first, they are faster.
+        return personal_constraints + nonpersonal_constraints
 
     @abc.abstractmethod
     def _generate_personal_constraints(
@@ -170,7 +171,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     def _generate_policy(
         self,
         obs: ObsType,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
     ) -> CSPPolicy:
         """Generate a policy conditioned on a CSP solution."""
 

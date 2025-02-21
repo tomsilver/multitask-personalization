@@ -4,15 +4,16 @@ import abc
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Collection
 
 import numpy as np
+import pybullet as p
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, multiply_poses, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
-    check_collisions_with_held_object,
+    check_body_collisions,
     inverse_kinematics,
     sample_collision_free_inverse_kinematics,
 )
@@ -66,12 +67,12 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
     def __init__(
         self,
         sim: PyBulletEnv,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
         seed: int = 0,
         max_motion_planning_time: float = np.inf,
         max_motion_planning_candidates: int = 1,
     ) -> None:
-        super().__init__(csp, seed)
+        super().__init__(csp_variables, seed)
         self._sim = sim
         self._current_plan: list[PyBulletAction] = []
         self._max_motion_planning_time = max_motion_planning_time
@@ -115,13 +116,17 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
     def __init__(
         self,
         sim: PyBulletEnv,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
         seed: int = 0,
         max_motion_planning_time: float = np.inf,
         max_motion_planning_candidates: int = 1,
     ) -> None:
         super().__init__(
-            sim, csp, seed, max_motion_planning_time, max_motion_planning_candidates
+            sim,
+            csp_variables,
+            seed,
+            max_motion_planning_time,
+            max_motion_planning_candidates,
         )
         # Need to track whether the user has been alerted to handle the rare
         # case where the policy is initiated from a state where the handover
@@ -257,16 +262,6 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
 class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
-    def step(self, obs: PyBulletState) -> PyBulletAction:
-        # Need to initially wait to plan until the human has extended their arm.
-        human_target = self._sim.scene_spec.human_spec.reverse_handover_joints
-        if obs.human_held_object is not None and not np.allclose(
-            human_target, obs.human_joints
-        ):
-            wait_action = (0, [0.0] * 10)  # 3 base + 7 arm
-            return wait_action
-        return super().step(obs)
-
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         # Put away the main object.
         if obs.held_object is not None and obs.human_held_object is None:
@@ -290,6 +285,8 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
                 surface_link_id=surface_link_id,
             )
             assert place_plan is not None
+            # Indicate done.
+            place_plan.append((2, "Done"))
             return place_plan
         # Put away the object that we're holding at first.
         if obs.held_object is not None:
@@ -445,7 +442,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         llm: LargeLanguageModel,
         book_preference_initialization: str = "Unknown",
         max_motion_planning_candidates: int = 1,
-        max_motion_planning_time: float = 5,
+        max_motion_planning_time: float = 10,
+        max_policy_steps: int = 1000,
+        motion_planning_time_constraint_scale: float = 0.5,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -463,6 +462,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._steps_since_last_cleaning_admonishment: int | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._max_motion_planning_time = max_motion_planning_time
+        self._motion_planning_time_constraint_scale = (
+            motion_planning_time_constraint_scale
+        )
+        self._max_policy_steps = max_policy_steps
         self._current_mission: str | None = None
 
     def generate(
@@ -812,156 +815,73 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _handover_position_is_collision_free,
             )
 
+            # Create policy success constraint.
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
+
             constraints: list[CSPConstraint] = [
                 book_grasp_reachable_constraint,
                 handover_reachable_constraint,
                 handover_collision_free_constraint,
+                policy_success_constraint,
             ]
-
-            if obs.held_object is not None:
-                assert len(variables) == 8
-                placement, surface, placement_base_pose = variables[5:]
-                plan_to_place_exists = self._generate_plan_to_place_exists_constraint(
-                    obs, placement, surface, placement_base_pose
-                )
-                constraints.append(plan_to_place_exists)
-
-                # Verify that a picking plan exists. It's possible that even if the
-                # pick grasp is reachable, the full plan might not work. Keep this
-                # as a separate constraint so that the grasp constraint can fail fast.
-                plan_to_pick_exists = self._generate_plan_to_pick_exists_constraint(
-                    obs,
-                    book,
-                    book_grasp,
-                    grasp_base_pose,
-                    placement_var=placement,
-                    placement_surface_var=surface,
-                )
-                constraints.append(plan_to_pick_exists)
-
-            else:
-                plan_to_pick_exists = self._generate_plan_to_pick_exists_constraint(
-                    obs,
-                    book,
-                    book_grasp,
-                    grasp_base_pose,
-                )
-                constraints.append(plan_to_pick_exists)
 
             return constraints
 
         if self._current_mission == "put away robot held object":
-            placement, surface, placement_base_pose = variables
-            plan_to_place_exists = self._generate_plan_to_place_exists_constraint(
-                obs, placement, surface, placement_base_pose
+
+            placement, surface = variables[2:4]
+            assert obs.held_object is not None
+            placement_collision_free_constraint = (
+                self._generate_placement_is_collision_free_constraint(
+                    obs, obs.held_object, placement, surface
+                )
             )
-            return [plan_to_place_exists]
+
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
+            return [placement_collision_free_constraint, policy_success_constraint]
 
         if self._current_mission == "put away human held object":
-            _, grasp_yaw, placement, surface, placement_base_pose = variables[:5]
 
-            def _placement_after_grasp_exists(
-                yaw: NDArray,
-                placement_pose: Pose,
-                surface_name_and_link: tuple[str, int],
-                base_pose: Pose,
-                held_object_relative_placement: Pose | None = None,
-                held_object_placement_surface: tuple[str, int] | None = None,
-            ) -> bool:
-
-                self._sim.set_state(obs)
-                if self._sim.current_held_object_id is not None:
-                    assert held_object_relative_placement is not None
-                    assert held_object_placement_surface is not None
-                    placement_surface_id = self._sim.get_object_id_from_name(
-                        held_object_placement_surface[0]
-                    )
-                    placement_surface_link_id = held_object_placement_surface[1]
-                    placement_surface_link_pose = get_link_pose(
-                        placement_surface_id,
-                        placement_surface_link_id,
-                        self._sim.physics_client_id,
-                    )
-                    absolute_placement = multiply_poses(
-                        placement_surface_link_pose, held_object_relative_placement
-                    )
-                    set_pose(
-                        self._sim.current_held_object_id,
-                        absolute_placement,
-                        self._sim.physics_client_id,
-                    )
-                    self._sim.current_held_object_id = None
-                    self._sim.current_grasp_transform = None
-
-                # Snap object to grasp.
-                self._sim.set_robot_base(base_pose)
-                grasp_pose = _book_grasp_to_relative_pose(yaw)
-                end_effector_pose = self._sim.robot.get_end_effector_pose()
-                held_obj_pose = multiply_poses(end_effector_pose, grasp_pose.invert())
-                assert obs.human_held_object is not None
-                held_obj_id = self._sim.get_object_id_from_name(obs.human_held_object)
-                set_pose(held_obj_id, held_obj_pose, self._sim.physics_client_id)
-                self._sim.current_held_object_id = held_obj_id
-                self._sim.current_grasp_transform = grasp_pose.invert()
-                surface_name, surface_link_id = surface_name_and_link
-                obs_after_base_move = self._sim.get_state()
-
-                max_mp_candidates = self._max_motion_planning_candidates
-                plan = get_plan_to_place_object(
-                    obs_after_base_move,
-                    obs.human_held_object,
-                    surface_name,
-                    placement_pose,
-                    self._sim,
-                    max_motion_planning_time=1e-1,
-                    max_motion_planning_candidates=max_mp_candidates,
-                    surface_link_id=surface_link_id,
-                )
-                result = plan is not None
-                return result
-
-            plan_to_place_exists_vars = [
-                grasp_yaw,
-                placement,
-                surface,
-                placement_base_pose,
-            ]
-            if obs.held_object is not None:
-                first_placement, first_placement_surface = variables[5:7]
-                plan_to_place_exists_vars.extend(
-                    [first_placement, first_placement_surface]
-                )
-
-            plan_to_place_after_pick_exists = FunctionalCSPConstraint(
-                "place-after-pick",
-                plan_to_place_exists_vars,
-                _placement_after_grasp_exists,
-            )
-
-            constraints = [plan_to_place_after_pick_exists]
+            constraints = []
 
             if obs.held_object is not None:
                 assert len(variables) == 8
-                first_placement, first_placement_surface, first_placement_base_pose = (
-                    variables[5:]
-                )
-                first_plan_to_place_exists = (
-                    self._generate_plan_to_place_exists_constraint(
+                first_placement, first_surface = variables[5:7]
+                first_placement_collision_free_constraint = (
+                    self._generate_placement_is_collision_free_constraint(
                         obs,
+                        obs.held_object,
                         first_placement,
-                        first_placement_surface,
-                        first_placement_base_pose,
+                        first_surface,
+                        constraint_name="first_placement_collision_free",
                     )
                 )
-                constraints.append(first_plan_to_place_exists)
+                constraints.append(first_placement_collision_free_constraint)
+
+            placement, surface = variables[2:4]
+            assert obs.human_held_object is not None
+            placement_collision_free_constraint = (
+                self._generate_placement_is_collision_free_constraint(
+                    obs, obs.human_held_object, placement, surface
+                )
+            )
+            constraints.append(placement_collision_free_constraint)
+
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
+            constraints.append(policy_success_constraint)
 
             return constraints
 
         if self._current_mission == "clean":
+            constraints = []
 
-            # Coming soon: removing objects to clean surfaces.
-
-            surface, robot_state, grasp_base_pose = variables[:3]
+            surface, robot_state = variables[:2]
 
             def _prewipe_pose_is_valid(
                 surface_name_and_link: tuple[str, int],
@@ -985,86 +905,25 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _prewipe_pose_is_valid,
             )
 
-            def _wipe_plan_exists(
-                surface_name_and_link: tuple[str, int],
-                candidate_robot_state: tuple[Pose, NDArray],
-                grasp_base_pose: Pose,
-                held_object_relative_placement: Pose | None = None,
-                held_object_placement_surface: tuple[str, int] | None = None,
-            ) -> bool:
-                surface_name, surface_link_id = surface_name_and_link
-                base_pose, robot_joint_arr = candidate_robot_state
-                joint_state = robot_joint_arr.tolist()
-                num_rots = 1 if surface_name == "table" else 0
-
-                self._sim.set_state(obs)
-                if (
-                    self._sim.current_held_object_id is not None
-                    and self._sim.current_held_object_id != self._sim.duster_id
-                ):
-                    assert held_object_relative_placement is not None
-                    assert held_object_placement_surface is not None
-                    placement_surface_id = self._sim.get_object_id_from_name(
-                        held_object_placement_surface[0]
-                    )
-                    placement_surface_link_id = held_object_placement_surface[1]
-                    placement_surface_link_pose = get_link_pose(
-                        placement_surface_id,
-                        placement_surface_link_id,
-                        self._sim.physics_client_id,
-                    )
-                    absolute_placement = multiply_poses(
-                        placement_surface_link_pose, held_object_relative_placement
-                    )
-                    set_pose(
-                        self._sim.current_held_object_id,
-                        absolute_placement,
-                        self._sim.physics_client_id,
-                    )
-                    self._sim.current_held_object_id = None
-                    self._sim.current_grasp_transform = None
-                pre_wipe_state = self._sim.get_state()
-                wipe_plan = get_plan_to_wipe_surface(
-                    pre_wipe_state,
-                    "duster",
-                    surface_name,
-                    grasp_base_pose,
-                    base_pose,
-                    joint_state,
-                    num_rots,
-                    self._sim,
-                    surface_link_id=surface_link_id,
-                    max_motion_planning_time=1e-1,
-                )
-                return wipe_plan is not None
-
-            wipe_plan_exists_vars = [surface, robot_state, grasp_base_pose]
-            if obs.held_object is not None and obs.held_object != "duster":
-                placement, placement_surface = variables[3:5]
-                wipe_plan_exists_vars.extend([placement, placement_surface])
-            wipe_plan_exists = FunctionalCSPConstraint(
-                "wipe_plan_exists",
-                wipe_plan_exists_vars,
-                _wipe_plan_exists,
-            )
-
-            constraints = [
-                prewipe_pose_is_valid,
-                wipe_plan_exists,
-            ]
+            constraints.append(prewipe_pose_is_valid)
 
             if obs.held_object is not None:
-                # Shortcut: if already holding the duster, don't bother making
-                # a real plan to place it, because the policy won't need to.
-                if obs.held_object != "duster":
-                    assert len(variables) == 6
-                    placement, placement_surface, placement_base_pose = variables[3:]
-                    plan_to_place_exists = (
-                        self._generate_plan_to_place_exists_constraint(
-                            obs, placement, placement_surface, placement_base_pose
-                        )
+                first_placement, first_surface = variables[-3:-1]
+                first_placement_collision_free_constraint = (
+                    self._generate_placement_is_collision_free_constraint(
+                        obs,
+                        obs.held_object,
+                        first_placement,
+                        first_surface,
+                        constraint_name="first_placement_collision_free",
                     )
-                    constraints.append(plan_to_place_exists)
+                )
+                constraints.append(first_placement_collision_free_constraint)
+
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
+            constraints.append(policy_success_constraint)
 
             return constraints
 
@@ -1267,48 +1126,54 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     def _generate_policy(
         self,
         obs: PyBulletState,
-        csp: CSP,
+        csp_variables: Collection[CSPVariable],
+        motion_planning_scale_factor: float = 1.0,
     ) -> CSPPolicy:
+
+        # May want to use lower scale factor during constraint checking.
+        max_motion_planning_time = (
+            self._max_motion_planning_time * motion_planning_scale_factor
+        )
 
         # NOTE: need to figure out a way to make this more scalable...
         if self._current_mission == "hand over book":
 
             return _BookHandoverCSPPolicy(
                 self._sim,
-                csp,
+                csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
-                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_time=max_motion_planning_time,
             )
 
         if self._current_mission == "put away robot held object":
 
             return _PutAwayRobotHeldObjectCSPPolicy(
                 self._sim,
-                csp,
+                csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
-                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_time=max_motion_planning_time,
             )
 
         if self._current_mission == "put away human held object":
 
             return _PutAwayHumanHeldObjectCSPPolicy(
                 self._sim,
-                csp,
+                csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
-                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_time=max_motion_planning_time,
             )
 
         if self._current_mission == "clean":
 
             return _CleanCSPPolicy(
                 self._sim,
-                csp,
+                csp_variables,
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
-                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_time=max_motion_planning_time,
             )
 
         raise NotImplementedError
@@ -1361,46 +1226,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         }
         return variables, initialization
 
-    def _generate_plan_to_place_exists_constraint(
-        self,
-        obs: PyBulletState,
-        placement_var: CSPVariable,
-        surface_var: CSPVariable,
-        placement_base_pose_var: CSPVariable,
-        constraint_name: str = "plan_to_place_exists",
-    ) -> CSPConstraint:
-        def _plan_to_place_exists(
-            placement_pose: Pose,
-            surface_name_and_link: tuple[str, int],
-            base_pose: Pose,
-        ) -> bool:
-            assert obs.held_object is not None
-            surface_name, surface_link_id = surface_name_and_link
-            max_mp_candidates = self._max_motion_planning_candidates
-            self._sim.set_state(obs)
-            self._sim.set_robot_base(base_pose)
-            obs_after_base_move = self._sim.get_state()
-            plan = get_plan_to_place_object(
-                obs_after_base_move,
-                obs.held_object,
-                surface_name,
-                placement_pose,
-                self._sim,
-                max_motion_planning_time=1e-1,
-                max_motion_planning_candidates=max_mp_candidates,
-                surface_link_id=surface_link_id,
-            )
-            result = plan is not None
-            return result
-
-        plan_to_place_exists = FunctionalCSPConstraint(
-            constraint_name,
-            [placement_var, surface_var, placement_base_pose_var],
-            _plan_to_place_exists,
-        )
-
-        return plan_to_place_exists
-
     def _generate_placement_sampler(
         self,
         held_object: str,
@@ -1452,101 +1277,102 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         return placement_sampler
 
-    def _generate_plan_to_pick_exists_constraint(
+    def _generate_placement_is_collision_free_constraint(
         self,
         obs: PyBulletState,
-        book_var: CSPVariable,
-        book_grasp_yaw_var: CSPVariable,
-        grasp_base_pose_var: CSPVariable,
-        placement_var: CSPVariable | None = None,
-        placement_surface_var: CSPVariable | None = None,
-        constraint_name: str = "plan_to_pick_exists",
+        held_object: str,
+        placement_var: CSPVariable,
+        surface_var: CSPVariable,
+        constraint_name: str = "placement_collision_free",
     ) -> CSPConstraint:
 
-        def _plan_to_pick_exists(
-            book: str,
-            book_grasp_yaw: NDArray,
-            grasp_base_pose: Pose,
-            held_object_relative_placement: Pose | None = None,
-            held_object_placement_surface: tuple[str, int] | None = None,
+        def _placement_is_collision_free(
+            placement_pose: Pose,
+            surface_name_and_link: tuple[str, int],
         ) -> bool:
-            max_mp_candidates = self._max_motion_planning_candidates
             self._sim.set_state(obs)
-            self._sim.set_robot_base(grasp_base_pose)
-            # This is largely duplicate code... should be refactored later.
-            # Without the below, it's possible that the robot would be in
-            # collision with something after we manually set the base pose.
-            self._sim.robot.set_joints(self._sim.robot.home_joint_positions)
-            if obs.held_object is not None:
-                assert held_object_relative_placement is not None
-                assert held_object_placement_surface is not None
-                placement_surface_id = self._sim.get_object_id_from_name(
-                    held_object_placement_surface[0]
-                )
-                placement_surface_link_id = held_object_placement_surface[1]
-                placement_surface_link_pose = get_link_pose(
-                    placement_surface_id,
-                    placement_surface_link_id,
-                    self._sim.physics_client_id,
-                )
-                absolute_placement = multiply_poses(
-                    placement_surface_link_pose, held_object_relative_placement
-                )
-                assert self._sim.current_held_object_id is not None
-                set_pose(
-                    self._sim.current_held_object_id,
-                    absolute_placement,
-                    self._sim.physics_client_id,
-                )
-                self._sim.current_held_object_id = None
-                self._sim.current_grasp_transform = None
-            else:
-                assert held_object_relative_placement is None
-                assert held_object_placement_surface is None
-            assert not check_collisions_with_held_object(
-                self._sim.robot,
-                self._sim.get_collision_ids(),
+            held_obj_id = self._sim.get_object_id_from_name(held_object)
+            placement_surface_id = self._sim.get_object_id_from_name(
+                surface_name_and_link[0]
+            )
+            placement_surface_link_id = surface_name_and_link[1]
+            placement_surface_link_pose = get_link_pose(
+                placement_surface_id,
+                placement_surface_link_id,
                 self._sim.physics_client_id,
-                held_object=None,
-                base_link_to_held_obj=None,
-                joint_state=self._sim.robot.get_joint_positions(),
             )
-            obs_after_base_move = self._sim.get_state()
-            book_grasp = _book_grasp_to_relative_pose(book_grasp_yaw)
-            plan = get_plan_to_pick_object(
-                obs_after_base_move,
-                book,
-                book_grasp,
-                self._sim,
-                max_motion_planning_candidates=max_mp_candidates,
-                max_motion_planning_time=1e-1,
+            absolute_placement = multiply_poses(
+                placement_surface_link_pose, placement_pose
             )
-            result = plan is not None
-            return result
+            set_pose(held_obj_id, absolute_placement, self._sim.physics_client_id)
+            p.performCollisionDetection(physicsClientId=self._sim.physics_client_id)
+            collision_bodies = self._sim.get_collision_ids() - {
+                held_obj_id,
+                placement_surface_id,
+            }
+            for body in collision_bodies:
+                if check_body_collisions(
+                    held_obj_id,
+                    body,
+                    self._sim.physics_client_id,
+                    perform_collision_detection=False,
+                ):
+                    return False
+            return True
 
-        if placement_var is None:
-            assert placement_surface_var is None
-            plan_to_pick_exists = FunctionalCSPConstraint(
-                constraint_name,
-                [book_var, book_grasp_yaw_var, grasp_base_pose_var],
-                _plan_to_pick_exists,
-            )
+        placement_collision_free_constraint = FunctionalCSPConstraint(
+            constraint_name,
+            [placement_var, surface_var],
+            _placement_is_collision_free,
+        )
 
-        else:
-            assert placement_surface_var is not None
-            plan_to_pick_exists = FunctionalCSPConstraint(
-                constraint_name,
-                [
-                    book_var,
-                    book_grasp_yaw_var,
-                    grasp_base_pose_var,
-                    placement_var,
-                    placement_surface_var,
-                ],
-                _plan_to_pick_exists,
-            )
+        return placement_collision_free_constraint
 
-        return plan_to_pick_exists
+    def _create_policy_success_constraint(
+        self, obs: PyBulletState, csp_variables: list[CSPVariable]
+    ) -> CSPConstraint:
+        """Currently assume that policy termination = success."""
+
+        policy = self._generate_policy(
+            obs,
+            csp_variables,
+            motion_planning_scale_factor=self._motion_planning_time_constraint_scale,
+        )
+
+        def _policy_succeeds(*args) -> bool:
+            sol = dict(zip(csp_variables, args))
+            policy.reset(sol)
+            state = obs
+            self._sim.set_state(state)
+            for _ in range(self._max_policy_steps):
+                # This is perhaps risky -- we might be sweeping unknown issues
+                # under the rug -- but it's easier for now than carefully listing
+                # all possible failures.
+                try:
+                    action = policy.step(state)
+                    # NOTE: need to explicitly set the state of the sim again
+                    # because the policy may internally modify it.
+                    self._sim.set_state(state)
+                    self._sim.step_simulator(action, check_hidden_spec=False)
+                except BaseException as e:
+                    # Uncomment to debug.
+                    # import sys, traceback
+                    # _, _, tb = sys.exc_info()
+                    # traceback.print_tb(tb)
+                    del e
+                    return False
+                if policy.check_termination(state):
+                    return True
+                state = self._sim.get_state()
+            return False
+
+        policy_success_constraint = FunctionalCSPConstraint(
+            "policy_success",
+            csp_variables,
+            _policy_succeeds,
+        )
+
+        return policy_success_constraint
 
     def _book_is_preferred_logprob(self, book_description: str) -> float:
         return get_user_book_enjoyment_logprob(
@@ -1597,9 +1423,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if not np.isclose(act[0], 2) or act[1] == "Done":
             return
         assert act[1] == "Here you go!"
-        assert next_obs.held_object is not None
+        assert next_obs.human_held_object is not None
         # Update the history of things the user has told the robot.
-        new_feedback = f'When I gave the user the book: "{next_obs.held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
+        new_feedback = f'When I gave the user the book: "{next_obs.human_held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
         self._all_user_feedback.append(new_feedback)
         # Learn from the history of all feedback.
         # For now, just do this once; in the future, get a distribution of
