@@ -20,7 +20,7 @@ train_env:
 eval_env:
   use_gui: false
 max_environment_steps: 10000
-eval_frequency: 100
+eval_frequency: 1000
 max_eval_episode_length: 250
 num_eval_trials: 10
 dt: 0.00416667
