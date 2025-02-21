@@ -103,7 +103,8 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         if exclude_personal_constraints:
             return nonpersonal_constraints
         personal_constraints = self._generate_personal_constraints(obs, variables)
-        return nonpersonal_constraints + personal_constraints
+        # NOTE: check personal constraints first, they are faster.
+        return personal_constraints + nonpersonal_constraints
 
     @abc.abstractmethod
     def _generate_personal_constraints(

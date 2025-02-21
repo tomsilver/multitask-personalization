@@ -261,13 +261,6 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
     def step(self, obs: PyBulletState) -> PyBulletAction:
-        # Need to initially wait to plan until the human has extended their arm.
-        human_target = self._sim.scene_spec.human_spec.reverse_handover_joints
-        if obs.human_held_object is not None and not np.allclose(
-            human_target, obs.human_joints
-        ):
-            wait_action = (0, [0.0] * 10)  # 3 base + 7 arm
-            return wait_action
         return super().step(obs)
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
@@ -832,6 +825,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return constraints
 
         if self._current_mission == "put away robot held object":
+            # SOON: add some helper constraints here and below.
             policy_success_constraint = self._create_policy_success_constraint(
                 obs, variables
             )
@@ -1196,7 +1190,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     def _create_policy_success_constraint(
         self, obs: PyBulletState, csp_variables: list[CSPVariable]
     ) -> CSPConstraint:
+        """Currently assume that policy termination = success."""
 
+        # TODO toggle motion planning time.
         policy = self._generate_policy(obs, csp_variables)
 
         def _policy_succeeds(*args) -> bool:
@@ -1214,13 +1210,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     # because the policy may internally modify it.
                     self._sim.set_state(state)
                     self._sim.step_simulator(action, check_hidden_spec=False)
-                except:
+                except BaseException as e:
+                    import sys, traceback
+                    _, _, tb = sys.exc_info()
+                    traceback.print_tb(tb)
                     return False
                 if policy.check_termination(state):
-                    break
+                    return True
                 state = self._sim.get_state()
-            # TODO check mission-specific success conditions.
-            return True
+            print("RAN OUT OF TIME!")
+            return False
 
         policy_success_constraint = FunctionalCSPConstraint(
             "policy_success",

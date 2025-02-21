@@ -165,6 +165,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.human = create_human_from_spec(
             self.scene_spec.human_spec, self.physics_client_id
         )
+        self.human.set_joints(self.scene_spec.human_spec.reverse_handover_joints)
 
         # Create a sim human on which we will do motion planning, IK, etc.
         self._sim_human_physics_client_id = p.connect(p.DIRECT)
@@ -242,7 +243,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Track what the human is holding and whether a handover is happening.
         self.current_human_grasp_transform: Pose | None = None
         self.current_human_held_object_id: int | None = None
-        self._human_action_queue: list[tuple[str, JointPositions]] = []
 
         # Create and track dust patches.
         self._dust_patches = {
@@ -383,7 +383,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.robot.open_fingers()
 
         # Reset human.
-        self.human.set_joints(self.scene_spec.human_spec.init_joints)
+        self.human.set_joints(self.scene_spec.human_spec.reverse_handover_joints)
 
         # Reset robot stand.
         set_pose(
@@ -417,7 +417,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_held_object_id = None
         self.current_human_grasp_transform = None
         self.current_human_held_object_id = None
-        self._human_action_queue = []
 
         # Reset dust patches.
         for surface, link_id in self._dust_patches:
@@ -520,34 +519,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             ):
                 self.current_human_text = "Don't clean there -- I can do it myself."
                 self._steps_since_last_cleaning_admonishment = 0
-        # Continue moving the human if there is a plan to do so.
-        if self._human_action_queue:
-            human_action_name, human_joint_action = self._human_action_queue.pop(0)
-            if human_action_name != "wait":
-                self.human.set_joints(human_joint_action)
-            if human_action_name == "handover":
-                # If there is no plan left, execute the transfer.
-                if not self._human_action_queue:
-                    # Use a fixed transform here instead, to guarantee that
-                    # reverse handover will work.
-                    self.current_human_held_object_id = self.current_held_object_id
-                    self.current_human_grasp_transform = (
-                        self.scene_spec.human_spec.grasp_transform
-                    )
-                    self.current_held_object_id = None
-                    self.current_grasp_transform = None
-                    # Make a plan for the human back to resting position.
-                    target_human_joints = self.scene_spec.human_spec.reading_joints
-                    human_retract_plan = self._get_human_arm_plan(
-                        target_human_joints, "reset"
-                    )
-                    # This is really hacky but we need the human to wait a bit
-                    # before the robot has moved back.
-                    current_human_joints = self.human.get_joint_positions()
-                    human_wait_plan = [
-                        ("wait", current_human_joints)
-                    ] * self.scene_spec.handover_human_num_wait_steps
-                    self._human_action_queue = human_wait_plan + human_retract_plan
         # Opening or closing the gripper.
         if np.isclose(action[0], 1):
             if action[1] == GripperAction.CLOSE:
@@ -589,19 +560,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     self.current_held_object_id = object_id
                     self._close_robot_fingers()
                     if object_id == self.current_human_held_object_id:
-                        # Reverse hand over. Move human back to rest position
-                        # after waiting a bit for robot to finish.
+                        # Reverse hand over.
                         self.current_human_held_object_id = None
                         self.current_human_grasp_transform = None
-                        human_retract_plan = self._get_human_arm_plan(
-                            self.scene_spec.human_spec.reading_joints,
-                            "reverse-handover",
-                        )
-                        current_human_joints = self.human.get_joint_positions()
-                        human_wait_plan = [
-                            ("wait", current_human_joints)
-                        ] * self.scene_spec.handover_human_num_wait_steps
-                        self._human_action_queue = human_wait_plan + human_retract_plan
             elif action[1] == GripperAction.OPEN:
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
@@ -621,15 +582,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     np.array(handover_pose.position)
                 ):
                     return
-            # Otherwise, initiate the handover.
-            self._sim_human.set_joints(self.human.get_joint_positions())
-            target_human_joints = inverse_kinematics(
-                self._sim_human, handover_pose, best_effort=True, validate=False
-            )
-            # Make a plan for the human to grab the object.
-            self._human_action_queue = self._get_human_arm_plan(
-                target_human_joints, "handover"
-            )
+            # Otherwise, handover.
+            self.current_human_held_object_id = self.current_held_object_id
+            self.current_human_grasp_transform = self.scene_spec.human_spec.grasp_transform
+            self.current_held_object_id = None
+            self.current_grasp_transform = None
             return
         # Robot indicated done.
         if np.isclose(action[0], 2) and action[1] == "Done":
@@ -770,7 +727,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "mission_rng": self._mission_rng,
             "book_llm_rng": self._book_llm_rng,
             "steps_since_last_cleaning_admonishment": admonish_steps,
-            "human_handover_joint_queue": self._human_action_queue,
         }
         with open(filepath, "wb") as f:
             pkl.dump(state_dict, f)
@@ -789,7 +745,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._steps_since_last_cleaning_admonishment = state_dict[
             "steps_since_last_cleaning_admonishment"
         ]
-        self._human_action_queue = state_dict["human_handover_joint_queue"]
         logging.info(f"Loaded state from {filepath}")
 
     def _object_name_to_id(self) -> dict[str, int]:
@@ -902,12 +857,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.current_human_text = mission_description
         else:
             self.current_human_text += "\n" + mission_description
-        # Move the human arm to prepare for reverse handover.
-        if self._current_mission.get_id() == "store human held object":
-            self._human_action_queue = self._get_human_arm_plan(
-                self.scene_spec.human_spec.reverse_handover_joints,
-                "prepare-reverse-handover",
-            )
 
     def _generate_mission(self) -> PyBulletMission:
         state = self.get_state()
@@ -1175,26 +1124,6 @@ Return that list and nothing else. Do not explain anything."""
 
     def _open_robot_fingers(self) -> None:
         return self.robot.open_fingers()
-
-    def _get_human_arm_plan(
-        self,
-        target_human_joints: JointPositions,
-        name: str,
-    ) -> list[tuple[str, JointPositions]]:
-        current_human_joints = self.human.get_joint_positions()
-        joint_infos = [
-            self.human.joint_info_from_name(j) for j in self.human.arm_joint_names
-        ]
-
-        joint_lst = iter_between_joint_positions(
-            joint_infos,
-            current_human_joints,
-            target_human_joints,
-            num_interp_per_unit=self.scene_spec.handover_num_waypoints,
-            include_start=False,
-        )
-
-        return [(name, j) for j in joint_lst]
 
     def get_default_half_extents(
         self, object_id: int, link_id: int

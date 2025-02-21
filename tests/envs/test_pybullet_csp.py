@@ -64,7 +64,7 @@ def test_pybullet_csp():
     # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
@@ -134,8 +134,6 @@ def test_pybullet_csp():
     _run_mission(book_handover_mission)
     env.unwrapped.save_state(post_book_handover1_state_fp)
     assert store_human_mission.check_initiable(env.unwrapped.get_state())
-
-    import ipdb; ipdb.set_trace()
 
     # Clean.
     env.unwrapped.load_state(post_book_handover1_state_fp)
