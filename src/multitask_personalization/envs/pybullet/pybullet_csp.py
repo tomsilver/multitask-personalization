@@ -1292,6 +1292,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     rng,
                     self._sim.physics_client_id,
                     surface_link_id=surface_link_id,
+                    parallel_yaws_only=True,
                 )
             )
             return {
