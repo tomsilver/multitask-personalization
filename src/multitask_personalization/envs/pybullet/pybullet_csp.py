@@ -939,7 +939,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
                 constraints.append(first_placement_reachable_constraint)
 
-            placement, surface = variables[2:4]
+            placement, surface, base = variables[2:5]
             assert obs.human_held_object is not None
             placement_collision_free_constraint = (
                 self._generate_placement_is_collision_free_constraint(
@@ -947,6 +947,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
             )
             constraints.append(placement_collision_free_constraint)
+
+            placement_reachable_constraint = (
+                self._generate_placement_is_reachable_constraint(
+                    obs,
+                    placement,
+                    surface,
+                    base,
+                )
+            )
+            constraints.append(placement_reachable_constraint)
 
             policy_success_constraint = self._create_policy_success_constraint(
                 obs, variables
