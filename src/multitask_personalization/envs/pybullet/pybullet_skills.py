@@ -244,6 +244,7 @@ def get_plan_to_handover_object(
     sim: PyBulletEnv,
     seed: int = 0,
     max_motion_planning_candidates: int = 1,
+    max_motion_planning_time: float = np.inf,
 ) -> list[PyBulletAction]:
     """Get a plan to hand over a held object while next to a person."""
     sim.set_state(state)
@@ -261,6 +262,7 @@ def get_plan_to_handover_object(
         end_effector_frame_to_plan_frame=Pose.identity(),
         seed=seed,
         max_candidate_plans=max_motion_planning_candidates,
+        max_time=max_motion_planning_time,
         held_object=object_id,
         base_link_to_held_obj=kinematic_state.attachments[object_id],
     )

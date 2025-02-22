@@ -210,6 +210,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 self._sim,
                 self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=self._max_motion_planning_time,
             )
             # Tell the human to take the book.
             self._alerted_user = True
