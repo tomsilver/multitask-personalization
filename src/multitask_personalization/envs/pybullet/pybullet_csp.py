@@ -772,6 +772,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         # NOTE: need to figure out a way to make this more scalable...
         if self._current_mission == "hand over book":
+            constraints: list[CSPConstraint] = []
+
             book, book_grasp, handover_position, grasp_base_pose, handover_base_pose = (
                 variables[:5]
             )
@@ -793,6 +795,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 [book, book_grasp, grasp_base_pose],
                 _book_grasp_is_reachable,
             )
+            constraints.append(book_grasp_reachable_constraint)
 
             def _handover_position_is_reachable(
                 position: NDArray, base_pose: Pose
@@ -806,6 +809,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 [handover_position, handover_base_pose],
                 _handover_position_is_reachable,
             )
+            constraints.append(handover_reachable_constraint)
 
             # Create collision constraints.
             def _handover_position_is_collision_free(
@@ -845,43 +849,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 [handover_position, book, book_grasp, handover_base_pose],
                 _handover_position_is_collision_free,
             )
-
-            # Create policy success constraint.
-            policy_success_constraint = self._create_policy_success_constraint(
-                obs, variables
-            )
-
-            constraints: list[CSPConstraint] = [
-                book_grasp_reachable_constraint,
-                handover_reachable_constraint,
-                handover_collision_free_constraint,
-                policy_success_constraint,
-            ]
-
-            return constraints
-
-        if self._current_mission == "put away robot held object":
-
-            placement, surface = variables[2:4]
-            assert obs.held_object is not None
-            placement_collision_free_constraint = (
-                self._generate_placement_is_collision_free_constraint(
-                    obs, obs.held_object, placement, surface
-                )
-            )
-
-            policy_success_constraint = self._create_policy_success_constraint(
-                obs, variables
-            )
-            return [placement_collision_free_constraint, policy_success_constraint]
-
-        if self._current_mission == "put away human held object":
-
-            constraints = []
+            constraints.append(handover_collision_free_constraint)
 
             if obs.held_object is not None:
-                assert len(variables) == 8
-                first_placement, first_surface = variables[5:7]
+                first_placement, first_surface, first_base = variables[-3:]
                 first_placement_collision_free_constraint = (
                     self._generate_placement_is_collision_free_constraint(
                         obs,
@@ -892,6 +863,81 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     )
                 )
                 constraints.append(first_placement_collision_free_constraint)
+
+                first_placement_reachable_constraint = (
+                    self._generate_placement_is_reachable_constraint(
+                        obs,
+                        first_placement,
+                        first_surface,
+                        first_base,
+                        constraint_name="first_placement_reachable",
+                    )
+                )
+                constraints.append(first_placement_reachable_constraint)
+
+            # Create policy success constraint.
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
+            constraints.append(policy_success_constraint)
+
+            return constraints
+
+        if self._current_mission == "put away robot held object":
+
+            placement, surface, placement_base = variables[2:5]
+            assert obs.held_object is not None
+            placement_collision_free_constraint = (
+                self._generate_placement_is_collision_free_constraint(
+                    obs, obs.held_object, placement, surface
+                )
+            )
+
+            placement_reachable_constraint = (
+                self._generate_placement_is_reachable_constraint(
+                    obs,
+                    placement,
+                    surface,
+                    placement_base,
+                )
+            )
+
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
+            return [
+                placement_collision_free_constraint,
+                placement_reachable_constraint,
+                policy_success_constraint,
+            ]
+
+        if self._current_mission == "put away human held object":
+
+            constraints = []
+
+            if obs.held_object is not None:
+                first_placement, first_surface, first_base = variables[-3:]
+                first_placement_collision_free_constraint = (
+                    self._generate_placement_is_collision_free_constraint(
+                        obs,
+                        obs.held_object,
+                        first_placement,
+                        first_surface,
+                        constraint_name="first_placement_collision_free",
+                    )
+                )
+                constraints.append(first_placement_collision_free_constraint)
+
+                first_placement_reachable_constraint = (
+                    self._generate_placement_is_reachable_constraint(
+                        obs,
+                        first_placement,
+                        first_surface,
+                        first_base,
+                        constraint_name="first_placement_reachable",
+                    )
+                )
+                constraints.append(first_placement_reachable_constraint)
 
             placement, surface = variables[2:4]
             assert obs.human_held_object is not None
@@ -950,6 +996,17 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     )
                 )
                 constraints.append(first_placement_collision_free_constraint)
+
+                first_placement_reachable_constraint = (
+                    self._generate_placement_is_reachable_constraint(
+                        obs,
+                        first_placement,
+                        first_surface,
+                        first_base,
+                        constraint_name="first_placement_reachable",
+                    )
+                )
+                constraints.append(first_placement_reachable_constraint)
 
             policy_success_constraint = self._create_policy_success_constraint(
                 obs, variables
@@ -1292,6 +1349,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     rng,
                     self._sim.physics_client_id,
                     surface_link_id=surface_link_id,
+                    parallel_yaws_only=True,
                 )
             )
             return {
@@ -1358,6 +1416,43 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
 
         return placement_collision_free_constraint
+
+    def _generate_placement_is_reachable_constraint(
+        self,
+        obs: PyBulletState,
+        placement_var: CSPVariable,
+        surface_var: CSPVariable,
+        base_var: CSPVariable,
+        constraint_name: str = "placement_reachable",
+    ) -> CSPConstraint:
+
+        def _placement_is_reachable(
+            placement_pose: Pose,
+            surface_name_and_link: tuple[str, int],
+            robot_base_pose: Pose,
+        ) -> bool:
+            self._sim.set_state(obs)
+            placement_surface_id = self._sim.get_object_id_from_name(
+                surface_name_and_link[0]
+            )
+            placement_surface_link_id = surface_name_and_link[1]
+            placement_surface_link_pose = get_link_pose(
+                placement_surface_id,
+                placement_surface_link_id,
+                self._sim.physics_client_id,
+            )
+            absolute_placement = multiply_poses(
+                placement_surface_link_pose, placement_pose
+            )
+            return _pose_is_reachable(absolute_placement, robot_base_pose, self._sim)
+
+        placement_reachable_constraint = FunctionalCSPConstraint(
+            constraint_name,
+            [placement_var, surface_var, base_var],
+            _placement_is_reachable,
+        )
+
+        return placement_reachable_constraint
 
     def _create_policy_success_constraint(
         self, obs: PyBulletState, csp_variables: list[CSPVariable]
