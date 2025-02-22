@@ -180,6 +180,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 book_grasp,
                 self._sim,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=self._max_motion_planning_time,
             )
             assert pick_plan is not None
             return pick_plan
