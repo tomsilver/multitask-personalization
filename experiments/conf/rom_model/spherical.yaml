@@ -3,4 +3,4 @@ human_spec:
   _target_: "multitask_personalization.envs.pybullet.pybullet_human.HumanSpec"
 seed: ${seed}
 min_possible_radius: 0.1
-max_possible_radius: 0.3
+max_possible_radius: 0.5

@@ -245,7 +245,7 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
                 obs, placement_base_pose, self._sim, seed=self._seed
             )
         assert obs.held_object is not None
-        return get_plan_to_place_object(
+        plan = get_plan_to_place_object(
             obs,
             obs.held_object,
             surface_name,
@@ -255,6 +255,11 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
             max_motion_planning_candidates=self._max_motion_planning_candidates,
             surface_link_id=surface_link_id,
         )
+        if plan is None:
+            return plan
+        # Indicate done.
+        plan.append((2, "Done"))
+        return plan
 
     def _policy_can_handle_mission(self, mission: str) -> bool:
         return mission == "put away robot held object"
