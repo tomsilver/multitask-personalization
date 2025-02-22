@@ -290,8 +290,8 @@ def get_plan_to_reverse_handover_object(
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     collision_ids = sim.get_collision_ids()
 
-    # Retract upwards after.
-    postgrasp_translation = Pose((0.0, 0.0, 0.1))
+    # Disable post-grasp.
+    postgrasp_translation = Pose((0.0, 0.0, 0.0))
     grasp_generator = iter([relative_grasp])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan: list[KinematicState] = []
