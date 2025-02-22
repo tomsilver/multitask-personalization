@@ -138,6 +138,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         return super().reset(solution)
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
+        logging.debug("Starting planning for book handover")
         book_description = self._get_value("book")
         book_grasp = _book_grasp_to_relative_pose(self._get_value("book_grasp"))
         handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
@@ -154,6 +155,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
                 held_book_id,
                 self._sim.human.robot_id,
             }
+            logging.debug("Getting plan to retract after book handover")
             plan = get_plan_to_retract(
                 obs,
                 self._sim,
@@ -166,10 +168,12 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         if obs.held_object is None:
             # First move next to the object.
             if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
+                logging.debug("Getting plan to move next to book")
                 return get_plan_to_move_to_pose(
                     obs, grasp_base_pose, self._sim, seed=self._seed
                 )
             # Pick up the target book.
+            logging.debug("Getting plan to pick book")
             pick_plan = get_plan_to_pick_object(
                 obs,
                 book_description,
@@ -183,17 +187,21 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
             # If the book is already ready for handover, we are either waiting
             # for the human to grasp it, or we have failed and need to quit.
             if obs.human_text is not None and "I can't reach there" in obs.human_text:
+                logging.debug("Book handover failed, returning done action")
                 return [(2, "Done")]  # failed, quit
             self._sim.set_robot_base(obs.robot_base)
             ee_pose = self._sim.robot.forward_kinematics(obs.robot_joints)
             if self._alerted_user and ee_pose.allclose(handover_pose, atol=1e-3):
+                logging.debug("Waiting for the user to take the book")
                 return [(3, None)]  # waiting
             # Move to the handover base pose.
             if not handover_base_pose.allclose(obs.robot_base, atol=1e-3):
+                logging.debug("Getting plan to move to handover base pose")
                 return get_plan_to_move_to_pose(
                     obs, handover_base_pose, self._sim, seed=self._seed
                 )
             # Handover the book.
+            logging.debug("Getting plan to do the handover")
             plan = get_plan_to_handover_object(
                 obs,
                 book_description,
@@ -212,11 +220,13 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         assert isinstance(placement_base_pose, Pose)
         # Move to the placement base pose.
         if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+            logging.debug("Getting plan to move to place before handover")
             return get_plan_to_move_to_pose(
                 obs, placement_base_pose, self._sim, seed=self._seed
             )
         surface_name, surface_link_id = self._get_value("surface")
         assert obs.held_object is not None
+        logging.debug("Getting plan to place before handover")
         return get_plan_to_place_object(
             obs,
             obs.held_object,
@@ -235,16 +245,19 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
 class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
+        logging.debug("Starting planning for put away robot held object")
         placement_pose = self._get_value("placement")
         surface_name, surface_link_id = self._get_value("surface")
         placement_base_pose = self._get_value("placement_base_pose")
         assert isinstance(placement_base_pose, Pose)
         # Move to the placement base pose.
         if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+            logging.debug("Getting plan to move the placement base pose")
             return get_plan_to_move_to_pose(
                 obs, placement_base_pose, self._sim, seed=self._seed
             )
         assert obs.held_object is not None
+        logging.debug("Getting plan to place")
         plan = get_plan_to_place_object(
             obs,
             obs.held_object,
@@ -268,6 +281,7 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
+        logging.debug("Starting planning for put away human held object")
         # Put away the main object.
         if obs.held_object is not None and obs.human_held_object is None:
             placement_pose = self._get_value("placement")
@@ -276,9 +290,11 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
             assert isinstance(placement_base_pose, Pose)
             # Move to the placement base pose.
             if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+                logging.debug("Getting plan to move the placement base pose")
                 return get_plan_to_move_to_pose(
                     obs, placement_base_pose, self._sim, seed=self._seed
                 )
+            logging.debug("Getting plan to place")
             place_plan = get_plan_to_place_object(
                 obs,
                 obs.held_object,
@@ -301,9 +317,11 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
             assert isinstance(placement_base_pose, Pose)
             # Move to the placement base pose.
             if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+                logging.debug("Getting plan to move to place first object")
                 return get_plan_to_move_to_pose(
                     obs, placement_base_pose, self._sim, seed=self._seed
                 )
+            logging.debug("Getting plan to place first object")
             place_plan = get_plan_to_place_object(
                 obs,
                 obs.held_object,
@@ -319,6 +337,7 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
         # Reverse handover.
         grasp_base_pose = self._get_value("grasp_base_pose")
         # First move next to the object.
+        logging.debug("Getting plan to move next to object")
         if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
             return get_plan_to_move_to_pose(
                 obs, grasp_base_pose, self._sim, seed=self._seed
@@ -328,6 +347,7 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
         relative_grasp = _book_grasp_to_relative_pose(grasp_yaw)
 
         assert obs.human_held_object is not None
+        logging.debug("Getting plan to reverse handover")
         return get_plan_to_reverse_handover_object(
             obs,
             obs.human_held_object,
@@ -344,6 +364,7 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 class _CleanCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
+        logging.debug("Starting planning for cleaning")
         surface_name, link_id = self._get_value("surface")
         base_pose, joint_arr = self._get_value("robot_state")
         grasp_base_pose = self._get_value("grasp_base_pose")
@@ -351,6 +372,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         joint_state = joint_arr.tolist()
         num_rots = 1 if surface_name == "table" else 0
         if obs.held_object is None or obs.held_object == "duster":
+            logging.debug("Getting plan to wipe surface")
             plan = get_plan_to_wipe_surface(
                 obs,
                 "duster",
@@ -374,9 +396,11 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         assert isinstance(placement_base_pose, Pose)
         # Move to the placement base pose.
         if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+            logging.debug("Getting plan to move to place object")
             return get_plan_to_move_to_pose(
                 obs, placement_base_pose, self._sim, seed=self._seed
             )
+        logging.debug("Getting plan to place object")
         return get_plan_to_place_object(
             obs,
             obs.held_object,
