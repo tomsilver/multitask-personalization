@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Collection, Generic
 
@@ -145,8 +146,11 @@ class CSP:
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether all constraints hold given values of the variables."""
         for constraint in self.constraints:
+            logging.debug(f"Checking constraint: {constraint.name}")
             if not constraint.check_solution(sol):
+                logging.debug("Result: False")
                 return False
+            logging.debug("Result: True")
         return True
 
     def get_cost(self, sol: dict[CSPVariable, Any]) -> float:
