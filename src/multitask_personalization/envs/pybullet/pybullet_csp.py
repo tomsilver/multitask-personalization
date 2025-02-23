@@ -339,8 +339,8 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
         # Reverse handover.
         grasp_base_pose = self._get_value("grasp_base_pose")
         # First move next to the object.
-        logging.debug("Getting plan to move next to object")
         if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
+            logging.debug("Getting plan to move next to object")
             return get_plan_to_move_to_pose(
                 obs, grasp_base_pose, self._sim, seed=self._seed
             )
@@ -1492,9 +1492,29 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     self._sim.step_simulator(action, check_hidden_spec=False)
                 except BaseException as e:
                     # Uncomment to debug.
-                    # import sys, traceback
+                    # import sys, traceback, hydra, time
+                    # import imageio.v2 as iio
+                    # from pathlib import Path
                     # _, _, tb = sys.exc_info()
-                    # traceback.print_tb(tb)
+                    # tb_str = "\n".join(traceback.format_tb(tb))
+                    # base_output_dir = (
+                    #     Path(
+                    #         hydra.core.hydra_config.HydraConfig.get().runtime.output_dir  # pylint: disable=line-too-long
+                    #     )
+                    #     / "policy_constraint_failures"
+                    # )
+                    # base_output_dir.mkdir(exist_ok=True)
+                    # time_str = time.strftime("%Y%m%d-%H%M%S")
+                    # output_dir = (
+                    #     base_output_dir / f"{policy.__class__.__name__}_{time_str}"
+                    # )
+                    # output_dir.mkdir(exist_ok=True)
+                    # tb_str_file = output_dir / "traceback.txt"
+                    # with open(tb_str_file, "w", encoding="utf-8") as f:
+                    #     f.write(tb_str)
+                    # img = self._sim.render()
+                    # img_file = output_dir / "render.png"
+                    # iio.imsave(img_file, img)
                     del e
                     return False
                 if policy.check_termination(state):

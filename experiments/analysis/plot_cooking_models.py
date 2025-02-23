@@ -83,15 +83,15 @@ def _main(
             artist = artists.pop()
             artist.remove()
         for i, metric_name in enumerate(sorted(data)):
-            x = data[metric_name]["incremental_X"][t]
-            y = data[metric_name]["incremental_Y"][t]
-            scatter_plot = axes[i].scatter(x, y, color="black")
-            artists.append(scatter_plot)
             x_stars = [data[metric_name][xs][t] for xs in ["x1", "x2", "x3", "x4"]]
             y_stars = [0, 1, 1, 0]
             scatter_plot = axes[i].scatter(
                 x_stars, y_stars, color="gold", marker="*", s=250
             )
+            artists.append(scatter_plot)
+            x = data[metric_name]["incremental_X"][t]
+            y = data[metric_name]["incremental_Y"][t]
+            scatter_plot = axes[i].scatter(x, y, color="black")
             artists.append(scatter_plot)
             model = Bounded1DClassifier(-100, 100)  # too lazy to load bounds
             model.x1 = x_stars[0]

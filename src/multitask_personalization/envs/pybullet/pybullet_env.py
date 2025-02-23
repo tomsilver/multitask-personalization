@@ -24,6 +24,7 @@ from pybullet_helpers.geometry import (
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
+    check_collisions_with_held_object,
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_link_pose
@@ -807,14 +808,28 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 return surface_id
         raise ValueError(f"Object {object_id} not on any surface.")
 
-    def get_collision_ids(self) -> set[int]:
+    def get_collision_ids(self, ignore_current_collisions: bool = False) -> set[int]:
         """Get all collision IDs for the environment."""
-        return set(self.book_ids) | {
+        collision_ids = set(self.book_ids) | {
             self.table_id,
             self.shelf_id,
             self.duster_id,
             self.cup_id,
         }
+        if ignore_current_collisions:
+            currently_in_collision: set[int] = set()
+            for obj_id in collision_ids:
+                if check_collisions_with_held_object(
+                    self.robot,
+                    {obj_id},
+                    self.physics_client_id,
+                    self.current_held_object_id,
+                    self.current_grasp_transform,
+                    self.robot.get_joint_positions(),
+                ):
+                    currently_in_collision.add(obj_id)
+            collision_ids -= currently_in_collision
+        return collision_ids
 
     def get_surface_link_ids(self, object_id: int) -> set[int]:
         """Get all link IDs for surfaces for a given object."""
