@@ -808,7 +808,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 return surface_id
         raise ValueError(f"Object {object_id} not on any surface.")
 
-    def get_collision_ids(self, ignore_current_collisions: bool=False) -> set[int]:
+    def get_collision_ids(self, ignore_current_collisions: bool = False) -> set[int]:
         """Get all collision IDs for the environment."""
         collision_ids = set(self.book_ids) | {
             self.table_id,
@@ -819,11 +819,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if ignore_current_collisions:
             currently_in_collision: set[int] = set()
             for obj_id in collision_ids:
-                if check_collisions_with_held_object(self.robot, {obj_id},
-                                                     self.physics_client_id,
-                                                     self.current_held_object_id,
-                                                     self.current_grasp_transform,
-                                                     self.robot.get_joint_positions()):
+                if check_collisions_with_held_object(
+                    self.robot,
+                    {obj_id},
+                    self.physics_client_id,
+                    self.current_held_object_id,
+                    self.current_grasp_transform,
+                    self.robot.get_joint_positions(),
+                ):
                     currently_in_collision.add(obj_id)
             collision_ids -= currently_in_collision
         return collision_ids
