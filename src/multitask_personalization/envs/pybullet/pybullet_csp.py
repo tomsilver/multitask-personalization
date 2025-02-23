@@ -339,8 +339,8 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
         # Reverse handover.
         grasp_base_pose = self._get_value("grasp_base_pose")
         # First move next to the object.
-        logging.debug("Getting plan to move next to object")
         if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
+            logging.debug("Getting plan to move next to object")
             return get_plan_to_move_to_pose(
                 obs, grasp_base_pose, self._sim, seed=self._seed
             )
