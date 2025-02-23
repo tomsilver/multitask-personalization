@@ -1492,9 +1492,22 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     self._sim.step_simulator(action, check_hidden_spec=False)
                 except BaseException as e:
                     # Uncomment to debug.
-                    # import sys, traceback
-                    # _, _, tb = sys.exc_info()
-                    # traceback.print_tb(tb)
+                    import sys, traceback, hydra, time
+                    import imageio.v2 as iio
+                    from pathlib import Path
+                    _, _, tb = sys.exc_info()
+                    tb_str = "\n".join(traceback.format_tb(tb))
+                    base_output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir) / "policy_constraint_failures"
+                    base_output_dir.mkdir(exist_ok=True)
+                    time_str = time.strftime("%Y%m%d-%H%M%S")
+                    output_dir = base_output_dir / f"{policy.__class__.__name__}_{time_str}"
+                    output_dir.mkdir(exist_ok=True)
+                    tb_str_file = output_dir / "traceback.txt"
+                    with open(tb_str_file, "w", encoding="utf-8") as f:
+                        f.write(tb_str)
+                    img = self._sim.render()
+                    img_file = output_dir / "render.png"
+                    iio.imsave(img_file, img)
                     del e
                     return False
                 if policy.check_termination(state):
