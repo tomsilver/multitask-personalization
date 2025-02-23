@@ -288,7 +288,7 @@ def get_plan_to_reverse_handover_object(
     assert sim.current_human_held_object_id == object_id
     assert sim.current_held_object_id is None
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    collision_ids = sim.get_collision_ids()
+    collision_ids = sim.get_collision_ids(ignore_current_collisions=True)
 
     # Disable post-grasp.
     postgrasp_translation = Pose((0.0, 0.0, 0.0))
