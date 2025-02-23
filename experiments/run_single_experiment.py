@@ -13,7 +13,7 @@ import pandas as pd
 import wandb
 from omegaconf import DictConfig, OmegaConf
 
-from multitask_personalization.methods.approach import ApproachFailure, BaseApproach
+from multitask_personalization.methods.approach import BaseApproach
 
 
 @hydra.main(version_base=None, config_name="config", config_path="conf/")
@@ -125,10 +125,7 @@ def _main(cfg: DictConfig) -> None:
             if t >= cfg.env.max_environment_steps:
                 break
             # Continue training.
-            try:
-                act = train_approach.step()
-            except ApproachFailure as e:
-                logging.info(e)
+            act = train_approach.step()
             obs, rew, _, _, info = train_env.step(act)
             assert np.isclose(rew, 0.0)
             # During training, there is no such thing as termination.
@@ -200,10 +197,7 @@ def _evaluate_approach(
         # Main eval loop.
         cumulative_user_satisfaction = 0.0
         for _ in range(cfg.env.max_eval_episode_length):
-            try:
-                act = eval_approach.step()
-            except ApproachFailure as e:
-                logging.info(e)
+            act = eval_approach.step()
             obs, rew, terminated, truncated, info = eval_env.step(act)
             assert np.isclose(float(rew), 0.0)
             eval_approach.update(obs, float(rew), terminated, info)
