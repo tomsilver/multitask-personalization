@@ -564,9 +564,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                         self.current_human_held_object_id = None
                         self.current_human_grasp_transform = None
             elif action[1] == GripperAction.OPEN:
+                previously_held_object_id = self.current_held_object_id
                 self.current_grasp_transform = None
                 self.current_held_object_id = None
                 self._open_robot_fingers()
+                if previously_held_object_id is not None:
+                    new_surface_id = self.get_surface_that_object_is_on(
+                        previously_held_object_id
+                    )
+                    assert new_surface_id in self.get_surface_ids()
             return
         # Robot indicating hand over.
         if np.isclose(action[0], 2) and action[1] == "Here you go!":
