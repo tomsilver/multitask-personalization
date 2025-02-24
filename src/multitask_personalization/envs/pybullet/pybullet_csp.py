@@ -1454,7 +1454,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             absolute_placement = multiply_poses(
                 placement_surface_link_pose, placement_pose
             )
-            return _pose_is_reachable(absolute_placement, robot_base_pose, self._sim)
+            # At this point we don't know exactly how the object will be
+            # grasped but we know it will be some 90 degree yaw rotation, so
+            # try them all and if any work then say the pose is reachable.
+            for yaw in [-np.pi / 2, 0, np.pi / 2, np.pi]:
+                relative_pose = _book_grasp_to_relative_pose(np.array([yaw]))
+                world_pose = multiply_poses(absolute_placement, relative_pose)
+                if _pose_is_reachable(world_pose, robot_base_pose, self._sim):
+                    return True
+            return False
 
         placement_reachable_constraint = FunctionalCSPConstraint(
             constraint_name,
