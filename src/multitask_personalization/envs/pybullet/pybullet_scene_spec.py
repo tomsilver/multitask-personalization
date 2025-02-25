@@ -98,46 +98,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
     surface_texture: Path = Path(__file__).parent / "assets" / "dark_wood_texture.jpg"
 
     use_standard_books: bool = False
-    book_half_extents: tuple[tuple[float, float, float], ...] = (
-        (0.02, 0.05, 0.08),
-        (0.02, 0.05, 0.08),
-        (0.02, 0.05, 0.08),
-    )
-    book_poses: tuple[Pose, ...] = (
-        Pose(
-            position=(
-                shelf_pose.position[0],
-                shelf_pose.position[1],
-                shelf_pose.position[2]
-                + (shelf_num_layers - 2) * shelf_spacing
-                + (shelf_num_layers - 2) * shelf_height
-                + book_half_extents[0][2]
-                + shelf_support_width,
-            )
-        ),
-        Pose(
-            position=(
-                shelf_pose.position[0] - 10 * book_half_extents[0][0],
-                shelf_pose.position[1],
-                shelf_pose.position[2]
-                + (shelf_num_layers - 2) * shelf_spacing
-                + (shelf_num_layers - 2) * shelf_height
-                + book_half_extents[1][2]
-                + shelf_support_width,
-            )
-        ),
-        Pose(
-            position=(
-                shelf_pose.position[0] + 10 * book_half_extents[0][0],
-                shelf_pose.position[1],
-                shelf_pose.position[2]
-                + (shelf_num_layers - 2) * shelf_spacing
-                + (shelf_num_layers - 2) * shelf_height
-                + book_half_extents[2][2]
-                + shelf_support_width,
-            )
-        ),
-    )
+    num_books: int = 3
+    default_book_half_extents: tuple[float, float, float] = (0.02, 0.05, 0.08)
 
     surface_dust_patch_size: int = 2  # dust arrays will be this number ^ 2
     surface_max_dust: float = 1.0
@@ -188,6 +150,49 @@ class PyBulletSceneSpec(PublicSceneSpec):
             ),
             (np.pi / 2, np.pi, -np.pi / 2),
         )
+
+    @property
+    def book_half_extents(self) -> tuple[tuple[float, float, float], ...]:
+        """The half extents for all books."""
+        return tuple([self.default_book_half_extents] * self.num_books)
+
+    @property
+    def book_poses(self) -> tuple[Pose, ...]:
+        """The initial book poses."""
+
+        all_possible_poses: list[Pose] = []
+
+        # Books on the middle shelf.
+        x = self.shelf_pose.position[0]
+        dx = 10 * self.default_book_half_extents[0]
+        y = self.shelf_pose.position[1]
+        z = (
+            self.shelf_pose.position[2]
+            + (self.shelf_num_layers - 2) * self.shelf_spacing
+            + (self.shelf_num_layers - 2) * self.shelf_height
+            + self.default_book_half_extents[2]
+            + self.shelf_support_width
+        )
+
+        all_possible_poses.append(Pose((x - dx, y, z)))
+        all_possible_poses.append(Pose((x, y, z)))
+        all_possible_poses.append(Pose((x + dx, y, z)))
+
+        # Books on the top shelf.
+        z = (
+            self.shelf_pose.position[2]
+            + (self.shelf_num_layers - 1) * self.shelf_spacing
+            + (self.shelf_num_layers - 1) * self.shelf_height
+            + self.default_book_half_extents[2]
+            + self.shelf_support_width
+        )
+
+        all_possible_poses.append(Pose((x - dx, y, z)))
+        all_possible_poses.append(Pose((x, y, z)))
+        all_possible_poses.append(Pose((x + dx, y, z)))
+
+        assert len(all_possible_poses) >= self.num_books
+        return tuple(all_possible_poses[: self.num_books])
 
 
 @dataclass(frozen=True)

@@ -4,6 +4,7 @@ env:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PyBulletSceneSpec"
     surface_dust_patch_size: 2
     use_standard_books: false
+    num_books: 6
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     missions: "all"
