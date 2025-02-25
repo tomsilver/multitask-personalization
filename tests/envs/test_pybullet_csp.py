@@ -23,11 +23,7 @@ from multitask_personalization.rom.models import SphericalROMModel
 def test_pybullet_csp():
     """Tests for pybullet_csp.py."""
     seed = 123
-    default_scene_spec = PyBulletSceneSpec()
-    scene_spec = PyBulletSceneSpec(
-        book_half_extents=default_scene_spec.book_half_extents[:3],
-        book_poses=default_scene_spec.book_poses[:3],
-    )
+    scene_spec = PyBulletSceneSpec(num_books=3)
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
         scene_spec.human_spec, min_possible_radius=0.29, max_possible_radius=0.31

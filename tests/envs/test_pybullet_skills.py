@@ -43,11 +43,7 @@ def test_pybullet_skills():
         os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
 
     seed = 123
-    default_scene_spec = PyBulletSceneSpec()
-    scene_spec = PyBulletSceneSpec(
-        book_half_extents=default_scene_spec.book_half_extents[:3],
-        book_poses=default_scene_spec.book_poses[:3],
-    )
+    scene_spec = PyBulletSceneSpec(num_books=3)
     llm = OpenAILLM(
         model_name="gpt-4o-mini",
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
@@ -110,12 +106,8 @@ def test_wiping_all_surfaces():
         os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
 
     seed = 123
-    default_scene_spec = PyBulletSceneSpec()
-    scene_spec = PyBulletSceneSpec(
-        # NOTE: disable books.
-        book_half_extents=default_scene_spec.book_half_extents[:1],
-        book_poses=[Pose((-1000, -1000, -1000))],
-    )
+    # NOTE: disable books.
+    scene_spec = PyBulletSceneSpec(num_books=0)
     llm = PyBulletCannedLLM(
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
     )
