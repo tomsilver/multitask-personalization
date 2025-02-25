@@ -99,6 +99,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
     use_standard_books: bool = False
     num_books: int = 3
+    default_book_half_extents: tuple[float, float, float] = (0.02, 0.05, 0.08)
 
     surface_dust_patch_size: int = 2  # dust arrays will be this number ^ 2
     surface_max_dust: float = 1.0
@@ -153,8 +154,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     @property
     def book_half_extents(self) -> tuple[tuple[float, float, float], ...]:
         """The half extents for all books."""
-        default_half_extent = (0.02, 0.05, 0.08)
-        return tuple([default_half_extent] * self.num_books)
+        return tuple([self.default_book_half_extents] * self.num_books)
 
     @property
     def book_poses(self) -> tuple[Pose, ...]:
@@ -164,13 +164,13 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
         # Books on the second shelf.
         x = self.shelf_pose.position[0]
-        dx = 10 * self.book_half_extents[0][0]
+        dx = 10 * self.default_book_half_extents[0]
         y = self.shelf_pose.position[1]
         z = (
             self.shelf_pose.position[2]
             + (self.shelf_num_layers - 2) * self.shelf_spacing
             + (self.shelf_num_layers - 2) * self.shelf_height
-            + self.book_half_extents[0][2]
+            + self.default_book_half_extents[2]
             + self.shelf_support_width
         )
 
