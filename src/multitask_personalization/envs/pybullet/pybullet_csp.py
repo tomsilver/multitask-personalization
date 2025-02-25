@@ -476,6 +476,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         max_motion_planning_time: float = 10,
         max_policy_steps: int = 1000,
         motion_planning_time_constraint_scale: float = 0.5,
+        placement_distance_threshold: float = 0.1,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -497,6 +498,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             motion_planning_time_constraint_scale
         )
         self._max_policy_steps = max_policy_steps
+        self._placement_distance_threshold = placement_distance_threshold
         self._current_mission: str | None = None
 
     def generate(
@@ -1404,17 +1406,30 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 placement_surface_link_pose, placement_pose
             )
             set_pose(held_obj_id, absolute_placement, self._sim.physics_client_id)
-            p.performCollisionDetection(physicsClientId=self._sim.physics_client_id)
             collision_bodies = self._sim.get_collision_ids() - {
                 held_obj_id,
                 placement_surface_id,
             }
-            for body in collision_bodies:
+            # E.g., check collisions with shelf walls.
+            collision_link_ids: set[tuple[int, int | None]] = {
+                (body, None) for body in collision_bodies
+            }
+            for link_id in self._sim.get_surface_link_ids(placement_surface_id):
+                if link_id != placement_surface_link_id:
+                    collision_link_ids.add((placement_surface_id, link_id))
+            # NOTE: we use a large distance check here to prevent objects from
+            # being too close to each other. Without this, there were weird
+            # edge cases where placing was possible but picking was not due to
+            # subtle differences in the pick / place skill implementations.
+            p.performCollisionDetection(physicsClientId=self._sim.physics_client_id)
+            for body, link in collision_link_ids:
                 if check_body_collisions(
                     held_obj_id,
                     body,
                     self._sim.physics_client_id,
+                    link2=link,
                     perform_collision_detection=False,
+                    distance_threshold=self._placement_distance_threshold,
                 ):
                     return False
             return True
