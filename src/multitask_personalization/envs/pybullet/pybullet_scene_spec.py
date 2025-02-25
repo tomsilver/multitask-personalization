@@ -162,7 +162,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
         all_possible_poses: list[Pose] = []
 
-        # Books on the second shelf.
+        # Books on the middle shelf.
         x = self.shelf_pose.position[0]
         dx = 10 * self.default_book_half_extents[0]
         y = self.shelf_pose.position[1]
@@ -178,7 +178,20 @@ class PyBulletSceneSpec(PublicSceneSpec):
         all_possible_poses.append(Pose((x, y, z)))
         all_possible_poses.append(Pose((x + dx, y, z)))
 
-        assert len(all_possible_poses) <= self.num_books
+        # Books on the top shelf.
+        z = (
+            self.shelf_pose.position[2]
+            + (self.shelf_num_layers - 1) * self.shelf_spacing
+            + (self.shelf_num_layers - 1) * self.shelf_height
+            + self.default_book_half_extents[2]
+            + self.shelf_support_width
+        )
+
+        all_possible_poses.append(Pose((x - dx, y, z)))
+        all_possible_poses.append(Pose((x, y, z)))
+        all_possible_poses.append(Pose((x + dx, y, z)))
+
+        assert len(all_possible_poses) >= self.num_books
         return tuple(all_possible_poses[: self.num_books])
 
 

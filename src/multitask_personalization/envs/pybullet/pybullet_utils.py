@@ -70,6 +70,8 @@ class PyBulletCannedLLM(LargeLanguageModel):
             matches = re.findall(pattern, prompt)
             assert len(matches) == 1
             num_books = int(matches[0])
+            if num_books == 0:
+                return []
             assert num_books >= 1
             book_nums = rng.choice(list(range(1, 101)), size=num_books, replace=False)
             books = [
