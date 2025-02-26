@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 import seaborn as sns
-from analysis_utils import combine_results_csvs
+from analysis_utils import check_for_missing_results, combine_results_csvs
 from matplotlib import pyplot as plt
 from omegaconf import DictConfig
 
@@ -54,9 +54,11 @@ def _main(results_dir: Path, outfile: Path) -> None:
         ax.set_xlabel("Simulated Execution Time")
         ax.set_ylabel("Simulated User Satisfaction")
         for approach_name, approach_display_name in APPROACH_TO_DISPLAY_NAME.items():
+            print(f"Combining results for {env_name}, {approach_name}")
             color = APPROACH_TO_COLOR[approach_name]
             config_fn = _create_config_fn(env_name, approach_name)
             df = combine_results_csvs(results_dir, config_fn=config_fn)
+            check_for_missing_results(df)
             if df.empty:
                 print(f"WARNING: no data found for {env_name}: {approach_name}")
                 continue
@@ -65,7 +67,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
                 x="training_execution_time",
                 y="eval_mean_user_satisfaction",
                 estimator="mean",
-                errorbar="sd",
+                errorbar="se",
                 ax=ax,
                 color=color,
                 label=approach_display_name,
