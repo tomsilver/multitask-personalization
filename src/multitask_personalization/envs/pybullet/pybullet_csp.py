@@ -890,7 +890,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "put away robot held object":
 
-            placement, surface, placement_base = variables[2:5]
+            placement, surface, placement_base = variables
             assert obs.held_object is not None
             placement_collision_free_constraint = (
                 self._generate_placement_is_collision_free_constraint(
@@ -1166,7 +1166,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 sol: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any] | None:
                 # Sample base pose.
-                dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
+                surface_name, surface_link_id = sol[surface]
+                num_rots = 1 if surface_name == "table" else 0
+                # Help with the bottom shelf since it's sensitive.
+                if surface_name == "shelf" and surface_link_id == 0:
+                    dx, dy = 0.067020, 0.023298
+                else:
+                    dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
                 position = (
                     self._sim.scene_spec.robot_base_pose.position[0] + dx,
                     self._sim.scene_spec.robot_base_pose.position[1] + dy,
@@ -1176,8 +1182,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 base_pose = Pose(position, orientation)
                 # Sample joints.
                 self._sim.set_robot_base(base_pose)
-                surface_name, surface_link_id = sol[surface]
-                num_rots = 1 if surface_name == "table" else 0
                 ee_init_pose = self._get_prewipe_end_effector_pose(
                     surface_name, surface_link_id, num_rots
                 )

@@ -162,6 +162,7 @@ def test_wiping_all_surfaces():
     targets = [
         ("shelf", 2, 0),
         ("shelf", 1, 0),
+        ("shelf", 0, 0),
         ("table", -1, 1),
     ]
     rng = np.random.default_rng(123)
