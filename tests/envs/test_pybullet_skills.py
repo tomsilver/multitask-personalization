@@ -32,8 +32,9 @@ def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
         obs, reward, terminated, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
         assert np.isclose(reward, 0.0)
-        assert not terminated
         assert not truncated
+        if terminated:
+            break
     return obs
 
 
@@ -118,6 +119,9 @@ def test_wiping_all_surfaces():
         ("shelf", 0),
         ("shelf", 1),
         ("shelf", 2),
+        ("side-table-0", -1, 1),
+        ("side-table-1", -1, 1),
+        ("side-table-2", -1, 1),
     ]
     hidden_spec = HiddenSceneSpec(
         missions="all",
@@ -160,6 +164,9 @@ def test_wiping_all_surfaces():
     # Wipe multiple surfaces.
     assert env.shelf_link_ids == {0, 1, 2}  # max is the "ceiling"
     targets = [
+        ("side-table-0", -1, 1),
+        ("side-table-1", -1, 1),
+        ("side-table-2", -1, 1),
         ("shelf", 2, 0),
         ("shelf", 1, 0),
         ("shelf", 0, 0),

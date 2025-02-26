@@ -59,7 +59,7 @@ def get_kinematic_state_from_pybullet_state(
         sim.shelf_id: sim.scene_spec.shelf_pose,
     }
     for side_table_id, side_table_pose in zip(
-        sim.book_ids, sim.scene_spec.side_table_poses, strict=True
+        sim.side_table_ids, sim.scene_spec.side_table_poses, strict=True
     ):
         object_poses[side_table_id] = side_table_pose
     for book_id, book_pose in zip(sim.book_ids, pybullet_state.book_poses, strict=True):
