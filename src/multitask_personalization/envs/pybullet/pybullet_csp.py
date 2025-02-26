@@ -491,7 +491,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             for surface in sim.get_surface_names()
             for l in sim.get_surface_link_ids(sim.get_object_id_from_name(surface))
         }
-        self._steps_since_last_cleaning_admonishment: int | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._max_motion_planning_time = max_motion_planning_time
         self._motion_planning_time_constraint_scale = (
@@ -1642,13 +1641,6 @@ Return this description and nothing else. Do not explain anything."""
         # Only update when holding the duster.
         if obs.held_object != "duster":
             return
-        # Wait while retraction happens.
-        if (
-            self._steps_since_last_cleaning_admonishment is not None
-            and self._steps_since_last_cleaning_admonishment
-            <= self._sim.scene_spec.cleaning_admonishment_min_time_interval
-        ):
-            return
         # Figure out which surface, if any, was touched based on patch change.
         surface_wiped: tuple[str, int] | None = None
         for surf in obs.surface_dust_patches:
@@ -1659,24 +1651,17 @@ Return this description and nothing else. Do not explain anything."""
             if np.any(new_clean & ~old_clean):
                 assert surface_wiped is None
                 surface_wiped = surf
+        if surface_wiped is None:
+            return
+        # Assuming no noise, so only update once.
+        if self._surface_can_be_cleaned[surface_wiped] != "unknown":
+            return
         human_admonished = (
             next_obs.human_text is not None and "Don't clean" in next_obs.human_text
         )
-        if human_admonished:
-            assert surface_wiped is not None
-            self._steps_since_last_cleaning_admonishment = 0
-        else:
-            if self._steps_since_last_cleaning_admonishment is not None:
-                self._steps_since_last_cleaning_admonishment += 1
-        if surface_wiped is not None:
-            # If the human complained, we should not clean anymore.
-            can_clean = not human_admonished
-            if self._surface_can_be_cleaned[surface_wiped] == "unknown":
-                self._surface_can_be_cleaned[surface_wiped] = can_clean
-                logging.info(
-                    f"Updated can-clean status for {surface_wiped}: " f"{can_clean}"
-                )
-            assert self._surface_can_be_cleaned[surface_wiped] == can_clean
+        can_clean = not human_admonished
+        self._surface_can_be_cleaned[surface_wiped] = can_clean
+        logging.info(f"Updated can-clean status for {surface_wiped}: " f"{can_clean}")
 
     def _update_current_mission(self, obs: PyBulletState) -> None:
         mission = _infer_mission_from_obs(obs)
