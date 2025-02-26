@@ -377,7 +377,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         grasp_base_pose = self._get_value("grasp_base_pose")
         assert isinstance(grasp_base_pose, Pose)
         joint_state = joint_arr.tolist()
-        num_rots = 1 if surface_name == "table" else 0
+        num_rots = 1 if "table" in surface_name else 0
         if obs.held_object is None or obs.held_object == "duster":
             logging.debug("Getting plan to wipe surface")
             plan = get_plan_to_wipe_surface(
@@ -1171,7 +1171,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ) -> dict[CSPVariable, Any] | None:
                 # Sample base pose.
                 surface_name, surface_link_id = sol[surface]
-                num_rots = 1 if surface_name == "table" else 0
+                num_rots = 1 if "table" in surface_name else 0
                 # Help with the bottom shelf since it's sensitive.
                 if surface_name == "shelf" and surface_link_id == 0:
                     dx, dy = 0.067020, 0.023298

@@ -58,6 +58,10 @@ def get_kinematic_state_from_pybullet_state(
         sim.table_id: sim.scene_spec.table_pose,
         sim.shelf_id: sim.scene_spec.shelf_pose,
     }
+    for side_table_id, side_table_pose in zip(
+        sim.book_ids, sim.scene_spec.side_table_poses, strict=True
+    ):
+        object_poses[side_table_id] = side_table_pose
     for book_id, book_pose in zip(sim.book_ids, pybullet_state.book_poses, strict=True):
         object_poses[book_id] = book_pose
     attachments: dict[int, Pose] = {}
@@ -168,12 +172,28 @@ def get_target_base_pose(
         return sim.scene_spec.robot_base_pose  # initial base pose
     if object_name == "bed":
         return Pose((1.0, 0.2, 0.0))
+    table_base_x = sim.scene_spec.robot_base_pose.position[0]
+    table_base_y = sim.scene_spec.robot_base_pose.position[1] - 0.1
+    table_base_z = sim.scene_spec.robot_base_pose.position[2]
     if object_name == "table":
         return Pose(
             (
-                sim.scene_spec.robot_base_pose.position[0],
-                sim.scene_spec.robot_base_pose.position[1] - 0.1,
-                sim.scene_spec.robot_base_pose.position[2],
+                table_base_x,
+                table_base_y,
+                table_base_z,
+            ),
+            sim.scene_spec.robot_base_pose.orientation,
+        )
+    if object_name.startswith("side-table"):
+        table_y = sim.scene_spec.table_pose.position[1]
+        side_table_idx = int(object_name[len("side-table-")])
+        side_table_y = sim.scene_spec.side_table_poses[side_table_idx].position[1]
+        dy = side_table_y - table_y
+        return Pose(
+            (
+                table_base_x,
+                table_base_y + dy,
+                table_base_z,
             ),
             sim.scene_spec.robot_base_pose.orientation,
         )

@@ -162,7 +162,11 @@ class PyBulletSceneSpec(PublicSceneSpec):
     def side_table_poses(self) -> tuple[Pose, ...]:
         """The side table poses."""
         x = self.table_pose.position[0]
-        y = self.table_pose.position[1] - self.table_half_extents[1] - self.side_table_spacing
+        y = (
+            self.table_pose.position[1]
+            - self.table_half_extents[1]
+            - self.side_table_spacing
+        )
         z = self.table_pose.position[2]
 
         poses: list[Pose] = []

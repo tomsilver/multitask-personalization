@@ -204,6 +204,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 physicsClientId=self.physics_client_id,
             )
             self.side_table_ids.append(side_table_id)
+        self._side_table_name_to_id = {
+            f"side-table-{i}": d for i, d in enumerate(self.side_table_ids)
+        }
 
         # Create cup.
         self.cup_id = create_pybullet_cylinder(
@@ -792,6 +795,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "duster": self.duster_id,
             "bed": self.bed_id,
             **book_name_to_id,
+            **self._side_table_name_to_id,
         }
 
     def get_object_id_from_name(self, object_name: str) -> int:
@@ -806,7 +810,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def get_surface_names(self) -> set[str]:
         """Get all possible surfaces in the environment."""
-        return {"table", "shelf"}
+        return {"table", "shelf"} | set(self._side_table_name_to_id)
 
     def get_surface_ids(self) -> set[int]:
         """Get all possible surfaces in the environment."""
@@ -839,12 +843,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def get_collision_ids(self, ignore_current_collisions: bool = False) -> set[int]:
         """Get all collision IDs for the environment."""
-        collision_ids = set(self.book_ids) | {
-            self.table_id,
-            self.shelf_id,
-            self.duster_id,
-            self.cup_id,
-        }
+        collision_ids = (
+            set(self.book_ids)
+            | set(self.side_table_ids)
+            | {
+                self.table_id,
+                self.shelf_id,
+                self.duster_id,
+                self.cup_id,
+            }
+        )
         if ignore_current_collisions:
             currently_in_collision: set[int] = set()
             for obj_id in collision_ids:
