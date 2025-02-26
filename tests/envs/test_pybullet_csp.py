@@ -23,7 +23,7 @@ from multitask_personalization.rom.models import SphericalROMModel
 def test_pybullet_csp():
     """Tests for pybullet_csp.py."""
     seed = 123
-    scene_spec = PyBulletSceneSpec(num_books=3)
+    scene_spec = PyBulletSceneSpec(num_books=3, num_side_tables=0)
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
         scene_spec.human_spec, min_possible_radius=0.29, max_possible_radius=0.31
@@ -33,6 +33,9 @@ def test_pybullet_csp():
         ("shelf", 0),
         ("shelf", 1),
         ("shelf", 2),
+        ("side-table-0", -1, 1),
+        ("side-table-1", -1, 1),
+        ("side-table-2", -1, 1),
     ]
     hidden_spec = HiddenSceneSpec(
         missions="all",
