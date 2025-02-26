@@ -72,6 +72,10 @@ class PyBulletSceneSpec(PublicSceneSpec):
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.2)
 
+    num_side_tables: int = 3
+    default_side_table_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
+    side_table_spacing: float = 0.05
+
     object_pose: Pose = Pose(position=(-1000, -1000, 0.05))
     object_rgba: tuple[float, float, float, float] = (0.9, 0.6, 0.3, 1.0)
     object_radius: float = 0.025
@@ -148,6 +152,27 @@ class PyBulletSceneSpec(PublicSceneSpec):
             ),
             (np.pi / 2, np.pi, -np.pi / 2),
         )
+
+    @property
+    def side_table_half_extents(self) -> tuple[tuple[float, float, float], ...]:
+        """The half extents for all side tables."""
+        return tuple([self.default_side_table_half_extents] * self.num_side_tables)
+
+    @property
+    def side_table_poses(self) -> tuple[Pose, ...]:
+        """The side table poses."""
+        x = self.table_pose.position[0]
+        y = self.table_pose.position[1] - self.table_half_extents[1] - self.side_table_spacing
+        z = self.table_pose.position[2]
+
+        poses: list[Pose] = []
+        for side_table_half_extent in self.side_table_half_extents:
+            y -= side_table_half_extent[1]
+            pose = Pose((x, y, z))
+            poses.append(pose)
+            y -= side_table_half_extent[1] + self.side_table_spacing
+
+        return poses
 
     @property
     def book_half_extents(self) -> tuple[tuple[float, float, float], ...]:

@@ -189,6 +189,22 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             physicsClientId=self.physics_client_id,
         )
 
+        # Create side tables.
+        self.side_table_ids: list[int] = []
+        for side_table_half_extents in self.scene_spec.side_table_half_extents:
+            side_table_id = create_pybullet_block(
+                self.scene_spec.table_rgba,
+                half_extents=side_table_half_extents,
+                physics_client_id=self.physics_client_id,
+            )
+            p.changeVisualShape(
+                side_table_id,
+                -1,
+                textureUniqueId=surface_texture_id,
+                physicsClientId=self.physics_client_id,
+            )
+            self.side_table_ids.append(side_table_id)
+
         # Create cup.
         self.cup_id = create_pybullet_cylinder(
             self.scene_spec.object_rgba,
@@ -289,8 +305,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Uncomment for debug / development.
         # if use_gui:
         #     while True:
-        #         self._step_simulator((1, GripperAction.OPEN))
-        #         p.stepSimulation(self.physics_client_id)
+        #         p.getMouseEvents(self.physics_client_id)
 
     def get_state(self) -> PyBulletState:
         """Get the underlying state from the simulator."""
@@ -394,6 +409,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Reset table.
         set_pose(self.table_id, self.scene_spec.table_pose, self.physics_client_id)
+
+        # Reset side tables.
+        for side_table_pose, side_table_id in zip(
+            self.scene_spec.side_table_poses,
+            self.side_table_ids,
+            strict=True,
+        ):
+            set_pose(side_table_id, side_table_pose, self.physics_client_id)
 
         # Reset cup.
         set_pose(self.cup_id, self.scene_spec.object_pose, self.physics_client_id)
