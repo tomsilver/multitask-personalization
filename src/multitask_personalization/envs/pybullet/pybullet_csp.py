@@ -1171,19 +1171,21 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ) -> dict[CSPVariable, Any] | None:
                 # Sample base pose.
                 surface_name, surface_link_id = sol[surface]
+                # TODO move this into helper function and then use it in the
+                # pybullet_skills test file too.
                 num_rots = 1 if "table" in surface_name else 0
-                # Help with the bottom shelf since it's sensitive.
-                if surface_name == "shelf" and surface_link_id == 0:
-                    dx, dy = 0.067020, 0.023298
-                else:
-                    dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
-                position = (
-                    self._sim.scene_spec.robot_base_pose.position[0] + dx,
-                    self._sim.scene_spec.robot_base_pose.position[1] + dy,
-                    self._sim.scene_spec.robot_base_pose.position[2],
-                )
-                orientation = self._sim.scene_spec.robot_base_pose.orientation
-                base_pose = Pose(position, orientation)
+                # # Help with the bottom shelf since it's sensitive.
+                # if surface_name == "shelf" and surface_link_id == 0:
+                #     dx, dy = 0.067020, 0.023298
+                # else:
+                #     dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
+                # position = (
+                #     self._sim.scene_spec.robot_base_pose.position[0] + dx,
+                #     self._sim.scene_spec.robot_base_pose.position[1] + dy,
+                #     self._sim.scene_spec.robot_base_pose.position[2],
+                # )
+                # orientation = self._sim.scene_spec.robot_base_pose.orientation
+                base_pose = get_target_base_pose(obs, surface_name, self._sim)
                 # Sample joints.
                 self._sim.set_robot_base(base_pose)
                 ee_init_pose = self._get_prewipe_end_effector_pose(

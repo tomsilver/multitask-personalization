@@ -18,6 +18,7 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_duster_head_frame_wiping_plan,
     get_plan_to_pick_object,
     get_plan_to_wipe_surface,
+    get_target_base_pose,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -148,7 +149,7 @@ def test_wiping_all_surfaces():
     assert isinstance(obs, PyBulletState)
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
 
     # Pick the duster.
     grasp_pose = scene_spec.duster_grasp
@@ -192,14 +193,7 @@ def test_wiping_all_surfaces():
         for _ in range(1000):
             sim.set_state(obs)
             # Sample base pose.
-            dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
-            position = (
-                scene_spec.robot_base_pose.position[0] + dx,
-                scene_spec.robot_base_pose.position[1] + dy,
-                scene_spec.robot_base_pose.position[2],
-            )
-            orientation = scene_spec.robot_base_pose.orientation
-            base_pose_candidate = Pose(position, orientation)
+            base_pose_candidate = get_target_base_pose(obs, surface_name, sim)
             # Sample joint state.
             sim.robot.set_base(base_pose_candidate)
             try:
