@@ -65,7 +65,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
                 x="training_execution_time",
                 y="eval_mean_user_satisfaction",
                 estimator="mean",
-                errorbar="sd",
+                errorbar="se",
                 ax=ax,
                 color=color,
                 label=approach_display_name,
