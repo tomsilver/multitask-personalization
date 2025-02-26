@@ -73,10 +73,13 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._sync_csp_generator_train_eval()
         self._recompute_policy(obs)
 
-    def _recompute_policy(self, obs: _ObsType) -> None:
+    def _recompute_policy(
+        self, obs: _ObsType, force_exclude_personal_constraints: bool = False
+    ) -> None:
         assert isinstance(self._csp_generator, CSPGenerator)
         csp, samplers, policy, initialization = self._csp_generator.generate(
             obs,
+            force_exclude_personal_constraints=force_exclude_personal_constraints,
         )
         # Save the generated CSP.
         if self._csp_save_dir is not None:
@@ -91,6 +94,12 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             visualize_csp_graph(csp, viz_file)
         self._current_sol = self._csp_solver.solve(csp, initialization, samplers)
         if self._current_sol is None:
+            # Special case: if CSP is exploit-only, fall back to no personal
+            # constraints in the (rare) case of failure.
+            if self._explore_method == "exploit-only":
+                return self._recompute_policy(
+                    obs, force_exclude_personal_constraints=True
+                )
             raise ApproachFailure("No solution found for generated CSP")
         self._current_policy = policy
         self._current_policy.reset(self._current_sol)
