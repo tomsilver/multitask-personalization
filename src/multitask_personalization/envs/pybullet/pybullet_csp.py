@@ -10,7 +10,12 @@ import numpy as np
 import pybullet as p
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, multiply_poses, set_pose
+from pybullet_helpers.geometry import (
+    Pose,
+    get_half_extents_from_aabb,
+    multiply_poses,
+    set_pose,
+)
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     check_body_collisions,
@@ -1656,12 +1661,20 @@ Return this description and nothing else. Do not explain anything."""
         # Assuming no noise, so only update once.
         if self._surface_can_be_cleaned[surface_wiped] != "unknown":
             return
+        # Assume that whether or not a surface can be cleaned is determined by
+        # its z position (coarsely discretized).
+        discrete_surface_z = self._get_surface_discrete_z(surface_wiped)
         human_admonished = (
             next_obs.human_text is not None and "Don't clean" in next_obs.human_text
         )
         can_clean = not human_admonished
-        self._surface_can_be_cleaned[surface_wiped] = can_clean
-        logging.info(f"Updated can-clean status for {surface_wiped}: " f"{can_clean}")
+        # Update all surfaces with the same discrete z.
+        for surface in list(self._surface_can_be_cleaned.keys()):
+            dsz = self._get_surface_discrete_z(surface)
+            if dsz == discrete_surface_z:
+                self._surface_can_be_cleaned[surface] = can_clean
+                logging.info(f"Updated can-clean status for {surface}: " f"{can_clean}")
+        assert self._surface_can_be_cleaned[surface_wiped] == can_clean
 
     def _update_current_mission(self, obs: PyBulletState) -> None:
         mission = _infer_mission_from_obs(obs)
@@ -1699,6 +1712,23 @@ Return this description and nothing else. Do not explain anything."""
             surface_link_id=surface_link_id,
         )
         return multiply_poses(duster_head_plan[0], ee_to_duster_head.invert())
+
+    def _get_surface_discrete_z(self, surface: tuple[str, int]) -> int:
+        surface_body_id = self._sim.get_object_id_from_name(surface[0])
+        surface_link_id = surface[1]
+        surface_pose = get_link_pose(
+            surface_body_id, surface_link_id, self._sim.physics_client_id
+        )
+        surface_half_extents = get_half_extents_from_aabb(
+            surface_body_id,
+            self._sim.physics_client_id,
+            link_id=surface_link_id,
+            rotation_okay=True,
+        )
+        surface_z = surface_pose.position[2] + surface_half_extents[2]
+        dz = self._sim.scene_spec.shelf_height
+        discrete_surface_z = int(100 * round(surface_z / dz) * dz)
+        return discrete_surface_z
 
     def get_metrics(self) -> dict[str, float]:
         metrics: dict[str, float] = {}
