@@ -10,7 +10,12 @@ import numpy as np
 import pybullet as p
 from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose, multiply_poses, set_pose
+from pybullet_helpers.geometry import (
+    Pose,
+    get_half_extents_from_aabb,
+    multiply_poses,
+    set_pose,
+)
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     check_body_collisions,
@@ -491,7 +496,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             for surface in sim.get_surface_names()
             for l in sim.get_surface_link_ids(sim.get_object_id_from_name(surface))
         }
-        self._steps_since_last_cleaning_admonishment: int | None = None
         self._max_motion_planning_candidates = max_motion_planning_candidates
         self._max_motion_planning_time = max_motion_planning_time
         self._motion_planning_time_constraint_scale = (
@@ -890,7 +894,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "put away robot held object":
 
-            placement, surface, placement_base = variables[2:5]
+            placement, surface, placement_base = variables
             assert obs.held_object is not None
             placement_collision_free_constraint = (
                 self._generate_placement_is_collision_free_constraint(
@@ -1000,7 +1004,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             constraints.append(prewipe_pose_is_valid)
 
             if obs.held_object is not None:
-                first_placement, first_surface = variables[-3:-1]
+                first_placement, first_surface, first_base = variables[-3:]
                 first_placement_collision_free_constraint = (
                     self._generate_placement_is_collision_free_constraint(
                         obs,
@@ -1166,7 +1170,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 sol: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any] | None:
                 # Sample base pose.
-                dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
+                surface_name, surface_link_id = sol[surface]
+                num_rots = 1 if surface_name == "table" else 0
+                # Help with the bottom shelf since it's sensitive.
+                if surface_name == "shelf" and surface_link_id == 0:
+                    dx, dy = 0.067020, 0.023298
+                else:
+                    dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
                 position = (
                     self._sim.scene_spec.robot_base_pose.position[0] + dx,
                     self._sim.scene_spec.robot_base_pose.position[1] + dy,
@@ -1176,8 +1186,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 base_pose = Pose(position, orientation)
                 # Sample joints.
                 self._sim.set_robot_base(base_pose)
-                surface_name, surface_link_id = sol[surface]
-                num_rots = 1 if surface_name == "table" else 0
                 ee_init_pose = self._get_prewipe_end_effector_pose(
                     surface_name, surface_link_id, num_rots
                 )
@@ -1638,13 +1646,6 @@ Return this description and nothing else. Do not explain anything."""
         # Only update when holding the duster.
         if obs.held_object != "duster":
             return
-        # Wait while retraction happens.
-        if (
-            self._steps_since_last_cleaning_admonishment is not None
-            and self._steps_since_last_cleaning_admonishment
-            <= self._sim.scene_spec.cleaning_admonishment_min_time_interval
-        ):
-            return
         # Figure out which surface, if any, was touched based on patch change.
         surface_wiped: tuple[str, int] | None = None
         for surf in obs.surface_dust_patches:
@@ -1655,24 +1656,25 @@ Return this description and nothing else. Do not explain anything."""
             if np.any(new_clean & ~old_clean):
                 assert surface_wiped is None
                 surface_wiped = surf
+        if surface_wiped is None:
+            return
+        # Assuming no noise, so only update once.
+        if self._surface_can_be_cleaned[surface_wiped] != "unknown":
+            return
+        # Assume that whether or not a surface can be cleaned is determined by
+        # its z position (coarsely discretized).
+        discrete_surface_z = self._get_surface_discrete_z(surface_wiped)
         human_admonished = (
             next_obs.human_text is not None and "Don't clean" in next_obs.human_text
         )
-        if human_admonished:
-            assert surface_wiped is not None
-            self._steps_since_last_cleaning_admonishment = 0
-        else:
-            if self._steps_since_last_cleaning_admonishment is not None:
-                self._steps_since_last_cleaning_admonishment += 1
-        if surface_wiped is not None:
-            # If the human complained, we should not clean anymore.
-            can_clean = not human_admonished
-            if self._surface_can_be_cleaned[surface_wiped] == "unknown":
-                self._surface_can_be_cleaned[surface_wiped] = can_clean
-                logging.info(
-                    f"Updated can-clean status for {surface_wiped}: " f"{can_clean}"
-                )
-            assert self._surface_can_be_cleaned[surface_wiped] == can_clean
+        can_clean = not human_admonished
+        # Update all surfaces with the same discrete z.
+        for surface in list(self._surface_can_be_cleaned.keys()):
+            dsz = self._get_surface_discrete_z(surface)
+            if dsz == discrete_surface_z:
+                self._surface_can_be_cleaned[surface] = can_clean
+                logging.info(f"Updated can-clean status for {surface}: " f"{can_clean}")
+        assert self._surface_can_be_cleaned[surface_wiped] == can_clean
 
     def _update_current_mission(self, obs: PyBulletState) -> None:
         mission = _infer_mission_from_obs(obs)
@@ -1710,6 +1712,23 @@ Return this description and nothing else. Do not explain anything."""
             surface_link_id=surface_link_id,
         )
         return multiply_poses(duster_head_plan[0], ee_to_duster_head.invert())
+
+    def _get_surface_discrete_z(self, surface: tuple[str, int]) -> int:
+        surface_body_id = self._sim.get_object_id_from_name(surface[0])
+        surface_link_id = surface[1]
+        surface_pose = get_link_pose(
+            surface_body_id, surface_link_id, self._sim.physics_client_id
+        )
+        surface_half_extents = get_half_extents_from_aabb(
+            surface_body_id,
+            self._sim.physics_client_id,
+            link_id=surface_link_id,
+            rotation_okay=True,
+        )
+        surface_z = surface_pose.position[2] + surface_half_extents[2]
+        dz = self._sim.scene_spec.shelf_height
+        discrete_surface_z = int(100 * round(surface_z / dz) * dz)
+        return discrete_surface_z
 
     def get_metrics(self) -> dict[str, float]:
         metrics: dict[str, float] = {}
