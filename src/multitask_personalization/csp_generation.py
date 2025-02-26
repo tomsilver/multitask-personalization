@@ -62,6 +62,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     def generate(
         self,
         obs: ObsType,
+        force_exclude_personal_constraints: bool = False,
     ) -> tuple[
         CSP, list[CSPSampler], CSPPolicy[ObsType, ActType], dict[CSPVariable, Any]
     ]:
@@ -70,7 +71,11 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         # behavior between saving and loading, for example.
         self._rng = np.random.default_rng(self._seed)
         variables, initialization = self._generate_variables(obs)
-        constraints = self._generate_constraints(obs, variables)
+        constraints = self._generate_constraints(
+            obs,
+            variables,
+            force_exclude_personal_constraints=force_exclude_personal_constraints,
+        )
         cost = self._generate_cost(obs, variables)
         csp = CSP(variables, constraints, cost)
         samplers = self._generate_samplers(obs, csp)
@@ -88,16 +93,20 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
         self,
         obs: ObsType,
         variables: list[CSPVariable],
+        force_exclude_personal_constraints: bool = False,
     ) -> list[CSPConstraint]:
         """Generate CSP constraints."""
         nonpersonal_constraints = self._generate_nonpersonal_constraints(obs, variables)
         # Exclude personal constraints in the following cases.
-        exclude_personal_constraints = self._train_or_eval == "train" and (
-            self._explore_method == "nothing-personal"
-            or self._explore_method == "max-entropy"
-            or (
-                self._explore_method == "epsilon-greedy"
-                and self._rng.uniform() < self._epsilon_greedy_explore_threshold
+        exclude_personal_constraints = force_exclude_personal_constraints or (
+            self._train_or_eval == "train"
+            and (
+                self._explore_method == "nothing-personal"
+                or self._explore_method == "max-entropy"
+                or (
+                    self._explore_method == "epsilon-greedy"
+                    and self._rng.uniform() < self._epsilon_greedy_explore_threshold
+                )
             )
         )
         if exclude_personal_constraints:

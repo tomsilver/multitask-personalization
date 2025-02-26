@@ -504,6 +504,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     def generate(
         self,
         obs: PyBulletState,
+        force_exclude_personal_constraints: bool = False,
     ) -> tuple[
         CSP,
         list[CSPSampler],
@@ -512,7 +513,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     ]:
         # Important for the initial time step.
         self._update_current_mission(obs)
-        return super().generate(obs)
+        return super().generate(
+            obs, force_exclude_personal_constraints=force_exclude_personal_constraints
+        )
 
     def save(self, model_dir: Path) -> None:
         # Save ROM model.
