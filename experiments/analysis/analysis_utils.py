@@ -31,3 +31,16 @@ def combine_results_csvs(
                 df["seed"] = int(subdir)
                 combined_df = pd.concat([combined_df, df], ignore_index=True)
     return combined_df
+
+
+def check_for_missing_results(df: pd.DataFrame) -> None:
+    """Print warnings if any seeds have fewer rows than other seeds."""
+    seed_to_count: dict[int, int] = {}
+    for seed in sorted(set(df.seed)):
+        seed_to_count[seed] = sum(df.seed == seed)
+    seeds = sorted(seed_to_count)
+    print(f"Found {len(seed_to_count)} seeds in results: {seeds}")
+    max_count = max(seed_to_count.values())
+    for seed, count in seed_to_count.items():
+        if count < max_count:
+            print(f"WARNING: seed {seed} missing results ({count} < {max_count})")
