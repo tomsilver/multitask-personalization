@@ -176,7 +176,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
             poses.append(pose)
             y -= side_table_half_extent[1] + self.side_table_spacing
 
-        return poses
+        return tuple(poses)
 
     @property
     def book_half_extents(self) -> tuple[tuple[float, float, float], ...]:
