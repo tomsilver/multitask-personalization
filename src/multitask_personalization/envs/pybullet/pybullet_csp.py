@@ -873,12 +873,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
                 constraints.append(first_placement_collision_free_constraint)
 
+                assert obs.grasp_transform is not None
                 first_placement_reachable_constraint = (
                     self._generate_placement_is_reachable_constraint(
                         obs,
                         first_placement,
                         first_surface,
                         first_base,
+                        obs.grasp_transform,
                         constraint_name="first_placement_reachable",
                     )
                 )
@@ -902,12 +904,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
             )
 
+            assert obs.grasp_transform is not None
             placement_reachable_constraint = (
                 self._generate_placement_is_reachable_constraint(
                     obs,
                     placement,
                     surface,
                     placement_base,
+                    obs.grasp_transform,
                 )
             )
 
@@ -937,12 +941,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
                 constraints.append(first_placement_collision_free_constraint)
 
+                assert obs.grasp_transform is not None
                 first_placement_reachable_constraint = (
                     self._generate_placement_is_reachable_constraint(
                         obs,
                         first_placement,
                         first_surface,
                         first_base,
+                        obs.grasp_transform,
                         constraint_name="first_placement_reachable",
                     )
                 )
@@ -1016,12 +1022,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
                 constraints.append(first_placement_collision_free_constraint)
 
+                assert obs.grasp_transform is not None
                 first_placement_reachable_constraint = (
                     self._generate_placement_is_reachable_constraint(
                         obs,
                         first_placement,
                         first_surface,
                         first_base,
+                        obs.grasp_transform,
                         constraint_name="first_placement_reachable",
                     )
                 )
@@ -1461,6 +1469,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         placement_var: CSPVariable,
         surface_var: CSPVariable,
         base_var: CSPVariable,
+        grasp_transform: Pose | None = None,
         constraint_name: str = "placement_reachable",
     ) -> CSPConstraint:
 
@@ -1470,26 +1479,30 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             robot_base_pose: Pose,
         ) -> bool:
             self._sim.set_state(obs)
-            placement_surface_id = self._sim.get_object_id_from_name(
-                surface_name_and_link[0]
-            )
-            placement_surface_link_id = surface_name_and_link[1]
+            surface_name, surface_link_id = surface_name_and_link
+            placement_surface_id = self._sim.get_object_id_from_name(surface_name)
             placement_surface_link_pose = get_link_pose(
                 placement_surface_id,
-                placement_surface_link_id,
+                surface_link_id,
                 self._sim.physics_client_id,
             )
             absolute_placement = multiply_poses(
                 placement_surface_link_pose, placement_pose
             )
-            # At this point we don't know exactly how the object will be
-            # grasped but we know it will be some 90 degree yaw rotation, so
-            # try them all and if any work then say the pose is reachable.
-            for yaw in [-np.pi / 2, 0, np.pi / 2, np.pi]:
+            if grasp_transform is None:
+                # This is very hacky but it should only be used in the case
+                # where the placement is for the human-held object, which can
+                # only be a book at the moment...
+                assert obs.human_held_object in self._sim.book_descriptions
+                yaw = -np.pi / 2
                 relative_pose = _book_grasp_to_relative_pose(np.array([yaw]))
                 world_pose = multiply_poses(absolute_placement, relative_pose)
-                if _pose_is_reachable(world_pose, robot_base_pose, self._sim):
-                    return True
+            else:
+                world_pose = multiply_poses(
+                    absolute_placement, grasp_transform.invert()
+                )
+            if _pose_is_reachable(world_pose, robot_base_pose, self._sim):
+                return True
             return False
 
         placement_reachable_constraint = FunctionalCSPConstraint(
