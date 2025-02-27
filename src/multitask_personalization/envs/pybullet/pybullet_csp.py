@@ -1178,24 +1178,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     dx, dy = 0.067020, 0.023298
                 else:
                     dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
-
-                # TODO: if this reversion doesn't work, try removing side tables
-                position = (
-                    self._sim.scene_spec.robot_base_pose.position[0] + dx,
-                    self._sim.scene_spec.robot_base_pose.position[1] + dy,
-                    self._sim.scene_spec.robot_base_pose.position[2],
+                base_pose = Pose(
+                    (
+                        base_pose.position[0] + dx,
+                        base_pose.position[1] + dy,
+                        base_pose.position[2],
+                    ),
+                    base_pose.orientation,
                 )
-                orientation = self._sim.scene_spec.robot_base_pose.orientation
-                base_pose = Pose(position, orientation)
-
-                # base_pose = Pose(
-                #     (
-                #         base_pose.position[0] + dx,
-                #         base_pose.position[1] + dy,
-                #         base_pose.position[2],
-                #     ),
-                #     base_pose.orientation,
-                # )
                 # Sample joints.
                 self._sim.set_robot_base(base_pose)
                 ee_init_pose = self._get_prewipe_end_effector_pose(

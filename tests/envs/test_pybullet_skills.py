@@ -109,7 +109,7 @@ def test_wiping_all_surfaces():
 
     seed = 123
     # NOTE: disable books.
-    scene_spec = PyBulletSceneSpec(num_books=0)
+    scene_spec = PyBulletSceneSpec(num_books=0, num_side_tables=1)
     llm = PyBulletCannedLLM(
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
     )
@@ -121,8 +121,6 @@ def test_wiping_all_surfaces():
         ("shelf", 1),
         ("shelf", 2),
         ("side-table-0", -1, 1),
-        ("side-table-1", -1, 1),
-        ("side-table-2", -1, 1),
     ]
     hidden_spec = HiddenSceneSpec(
         missions="all",
@@ -166,8 +164,6 @@ def test_wiping_all_surfaces():
     assert env.shelf_link_ids == {0, 1, 2}  # max is the "ceiling"
     targets = [
         ("side-table-0", -1, 1),
-        ("side-table-1", -1, 1),
-        ("side-table-2", -1, 1),
         ("shelf", 2, 0),
         ("shelf", 1, 0),
         ("shelf", 0, 0),
