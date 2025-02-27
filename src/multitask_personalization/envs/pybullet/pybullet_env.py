@@ -271,7 +271,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.get_object_id_from_name(surface)
             )
         }
-        self._dust_patch_id_to_key: dict[int, tuple[tuple[str, int], tuple[int, int]]] = {}
+        self._dust_patch_id_to_key: dict[
+            int, tuple[tuple[str, int], tuple[int, int]]
+        ] = {}
         for surface_key in self._pybullet_dust_patches:
             arr = self._pybullet_dust_patches[surface_key]
             for r in range(arr.shape[0]):
@@ -394,7 +396,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Set PyBullet dust patch object colors from numpy array of levels.
         for surf, new_np_dust_array in state.surface_dust_patches.items():
             current_np_dust_array = self._numpy_dust_patches[surf]
-            for r, c in np.logical_not(np.isclose(current_np_dust_array, new_np_dust_array)):
+            for r, c in np.argwhere(
+                np.logical_not(np.isclose(current_np_dust_array, new_np_dust_array))
+            ):
                 pybullet_id = self._pybullet_dust_patches[surf][r, c]
                 new_value = new_np_dust_array[r, c]
                 self._set_pybullet_dust_level(pybullet_id, new_value)
@@ -519,7 +523,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             wiper_overlap_obj_links = p.getOverlappingObjects(
                 wiper_aabb_min, wiper_aabb_max, physicsClientId=self.physics_client_id
             )
-            contacted_patch_ids = {o for o, _ in wiper_overlap_obj_links}
+            contacted_patch_ids = {
+                o for o, _ in wiper_overlap_obj_links if o in self._dust_patch_id_to_key
+            }
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
         report_surface_should_not_be_cleaned = False
@@ -534,8 +540,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._set_pybullet_dust_level(patch_id, new_level)
         # Reset contacted dust patches.
         for patch_id in contacted_patch_ids:
-            new_level = 0.0
             surf, (r, c) = self._dust_patch_id_to_key[patch_id]
+            level = self._numpy_dust_patches[surf][r, c]
+            new_level = 0.0
             self._numpy_dust_patches[surf][r, c] = new_level
             self._set_pybullet_dust_level(patch_id, new_level)
             # Check if this surface should not be cleaned.
