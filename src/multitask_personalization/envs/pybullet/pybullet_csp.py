@@ -444,16 +444,12 @@ def _handover_position_to_pose(position: NDArray) -> Pose:
     return Pose.from_rpy(tuple(position), handover_rpy)
 
 
-def _pose_is_reachable(pose: Pose, robot_base_pose, sim: PyBulletEnv, debug=False) -> bool:
+def _pose_is_reachable(pose: Pose, robot_base_pose, sim: PyBulletEnv) -> bool:
     sim.set_robot_base(robot_base_pose)
     try:
         inverse_kinematics(sim.robot, pose)
     except InverseKinematicsError:
         return False
-    if debug:
-        import ipdb; ipdb.set_trace()
-        for _ in range(10000000):
-            p.getMouseEvents(sim.physics_client_id)
     return True
 
 
@@ -1484,9 +1480,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         ) -> bool:
             self._sim.set_state(obs)
             surface_name, surface_link_id = surface_name_and_link
-            placement_surface_id = self._sim.get_object_id_from_name(
-                surface_name
-            )
+            placement_surface_id = self._sim.get_object_id_from_name(surface_name)
             placement_surface_link_pose = get_link_pose(
                 placement_surface_id,
                 surface_link_id,
@@ -1496,13 +1490,18 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 placement_surface_link_pose, placement_pose
             )
             if grasp_transform is None:
-                # TODO update comment.
+                # This is very hacky but it should only be used in the case
+                # where the placement is for the human-held object, which can
+                # only be a book at the moment...
+                assert obs.human_held_object in self._sim.book_descriptions
                 yaw = -np.pi / 2
                 relative_pose = _book_grasp_to_relative_pose(np.array([yaw]))
                 world_pose = multiply_poses(absolute_placement, relative_pose)
             else:
-                world_pose = multiply_poses(absolute_placement, grasp_transform.invert())
-            if _pose_is_reachable(world_pose, robot_base_pose, self._sim, debug=True):
+                world_pose = multiply_poses(
+                    absolute_placement, grasp_transform.invert()
+                )
+            if _pose_is_reachable(world_pose, robot_base_pose, self._sim):
                 return True
             return False
 
