@@ -1669,7 +1669,10 @@ Return this description and nothing else. Do not explain anything."""
             old_clean = np.isclose(old_patch_arr, 0.0)
             new_clean = np.isclose(new_patch_arr, 0.0)
             if np.any(new_clean & ~old_clean):
-                assert surface_wiped is None
+                # In rare cases, multiple surfaces can be swiped in the same
+                # moment. The human feedback is ambiguous here so just ignore.
+                if surface_wiped is not None:
+                    return
                 surface_wiped = surf
         if surface_wiped is None:
             return
