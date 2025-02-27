@@ -348,6 +348,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if self.current_human_held_object_id is None
             else self.get_name_from_object_id(self.current_human_held_object_id)
         )
+        dust_patches = {k: v.copy() for k, v in self._numpy_dust_patches.items()}
         return PyBulletState(
             robot_base,
             robot_joints,
@@ -358,7 +359,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             book_poses,
             self.book_descriptions,
             self.current_grasp_transform,
-            self._numpy_dust_patches,
+            dust_patches,
             held_object,
             self.current_human_text,
             human_held_object,
