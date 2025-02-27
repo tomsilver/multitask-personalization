@@ -264,8 +264,25 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_human_held_object_id: int | None = None
 
         # Create and track dust patches.
-        self._dust_patches = {
+        self._pybullet_dust_patches = {
             (surface, link_id): self._create_dust_patch_array(surface, link_id)
+            for surface in self.get_surface_names()
+            for link_id in self.get_surface_link_ids(
+                self.get_object_id_from_name(surface)
+            )
+        }
+        self._dust_patch_id_to_key: dict[
+            int, tuple[tuple[str, int], tuple[int, int]]
+        ] = {}
+        for surface_key in self._pybullet_dust_patches:
+            arr = self._pybullet_dust_patches[surface_key]
+            for r in range(arr.shape[0]):
+                for c in range(arr.shape[1]):
+                    patch_id = arr[r, c]
+                    self._dust_patch_id_to_key[patch_id] = (surface_key, (r, c))
+        s = self.scene_spec.surface_dust_patch_size
+        self._numpy_dust_patches = {
+            (surface, link_id): np.zeros((s, s), dtype=np.float_)
             for surface in self.get_surface_names()
             for link_id in self.get_surface_link_ids(
                 self.get_object_id_from_name(surface)
@@ -331,15 +348,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             if self.current_human_held_object_id is None
             else self.get_name_from_object_id(self.current_human_held_object_id)
         )
-        # Convert PyBullet dust patch object colors into numpy array of levels.
-        np_dust_patches = {
-            k: np.empty(v.shape, dtype=np.float_) for k, v in self._dust_patches.items()
-        }
-        for surf, pybullet_id_arr in self._dust_patches.items():
-            for r in range(pybullet_id_arr.shape[0]):
-                for c in range(pybullet_id_arr.shape[1]):
-                    value = self._get_dust_level(pybullet_id_arr[r, c])
-                    np_dust_patches[surf][r, c] = value
         return PyBulletState(
             robot_base,
             robot_joints,
@@ -350,7 +358,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             book_poses,
             self.book_descriptions,
             self.current_grasp_transform,
-            np_dust_patches,
+            self._numpy_dust_patches,
             held_object,
             self.current_human_text,
             human_held_object,
@@ -386,12 +394,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
         self.current_human_grasp_transform = state.human_grasp_transform
         # Set PyBullet dust patch object colors from numpy array of levels.
-        for surf, np_dust_patch_array in state.surface_dust_patches.items():
-            for r in range(np_dust_patch_array.shape[0]):
-                for c in range(np_dust_patch_array.shape[1]):
-                    pybullet_id = self._dust_patches[surf][r, c]
-                    value = np_dust_patch_array[r, c]
-                    self._set_dust_level(pybullet_id, value)
+        for surf, new_np_dust_array in state.surface_dust_patches.items():
+            current_np_dust_array = self._numpy_dust_patches[surf]
+            for r, c in np.argwhere(
+                np.logical_not(np.isclose(current_np_dust_array, new_np_dust_array))
+            ):
+                pybullet_id = self._pybullet_dust_patches[surf][r, c]
+                new_value = new_np_dust_array[r, c]
+                self._set_pybullet_dust_level(pybullet_id, new_value)
+            self._numpy_dust_patches[surf] = new_np_dust_array.copy()
 
     def _reset_from_scene_spec(self) -> None:
 
@@ -445,7 +456,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_human_held_object_id = None
 
         # Reset dust patches.
-        for surface, link_id in self._dust_patches:
+        for surface, link_id in self._pybullet_dust_patches:
             self._reset_dust_patch_array(surface, link_id)
 
         # Reset human text.
@@ -506,33 +517,42 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.current_human_text = None
         # Handle dust: increase for any dust not touched, zero out dust that is
         # touched by the duster.
-        wiper_overlap_obj_ids = set()
+        contacted_patch_ids = set()
         if self.current_held_object_id == self.duster_id:
             wiper_aabb_min, wiper_aabb_max = self._get_duster_surface_aabb()
             wiper_overlap_obj_links = p.getOverlappingObjects(
                 wiper_aabb_min, wiper_aabb_max, physicsClientId=self.physics_client_id
             )
-            wiper_overlap_obj_ids = {o for o, _ in wiper_overlap_obj_links}
+            contacted_patch_ids = {
+                o for o, _ in wiper_overlap_obj_links if o in self._dust_patch_id_to_key
+            }
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
         report_surface_should_not_be_cleaned = False
-        for surf, pybullet_id_arr in self._dust_patches.items():
-            for patch_id in pybullet_id_arr.flat:
-                level = self._get_dust_level(patch_id)
+        # Increment all dust patches.
+        for surf, pybullet_id_arr in self._pybullet_dust_patches.items():
+            numpy_dust_arr = self._numpy_dust_patches[surf]
+            for r, c in np.argwhere(numpy_dust_arr < max_dust):
+                patch_id = pybullet_id_arr[r, c]
+                level = numpy_dust_arr[r, c]
                 new_level = np.clip(level + dust_delta, 0, max_dust)
-                # If the robot is holding the duster, check for contact between
-                # the duster and any patches and remove dust accordingly.
-                if patch_id in wiper_overlap_obj_ids:
-                    new_level = 0.0
-                    # Check if this surface should not be cleaned.
-                    if check_hidden_spec:
-                        assert self._hidden_spec is not None
-                        if (
-                            not np.isclose(level, 0.0)
-                            and surf not in self._hidden_spec.surfaces_robot_can_clean
-                        ):
-                            report_surface_should_not_be_cleaned = True
-                self._set_dust_level(patch_id, new_level)
+                numpy_dust_arr[r, c] = new_level
+                self._set_pybullet_dust_level(patch_id, new_level)
+        # Reset contacted dust patches.
+        for patch_id in contacted_patch_ids:
+            surf, (r, c) = self._dust_patch_id_to_key[patch_id]
+            level = self._numpy_dust_patches[surf][r, c]
+            new_level = 0.0
+            self._numpy_dust_patches[surf][r, c] = new_level
+            self._set_pybullet_dust_level(patch_id, new_level)
+            # Check if this surface should not be cleaned.
+            if check_hidden_spec:
+                assert self._hidden_spec is not None
+                if (
+                    not np.isclose(level, 0.0)
+                    and surf not in self._hidden_spec.surfaces_robot_can_clean
+                ):
+                    report_surface_should_not_be_cleaned = True
         if self._steps_since_last_cleaning_admonishment is not None:
             self._steps_since_last_cleaning_admonishment += 1
         if report_surface_should_not_be_cleaned:
@@ -1053,11 +1073,12 @@ Return that list and nothing else. Do not explain anything."""
         return patch_arr
 
     def _reset_dust_patch_array(self, surface_name: str, link_id: int) -> None:
-        patch_arr = self._dust_patches[(surface_name, link_id)]
+        patch_arr = self._pybullet_dust_patches[(surface_name, link_id)]
         for r, c, pose in self._get_dust_patch_poses(surface_name, link_id):
             patch_id = patch_arr[r, c]
             set_pose(patch_id, pose, self.physics_client_id)
-            self._set_dust_level(patch_id, 0.0)
+            self._set_pybullet_dust_level(patch_id, 0.0)
+            self._numpy_dust_patches[(surface_name, link_id)][r, c] = 0.0
 
     def _get_dust_patch_poses(
         self, surface_name: str, link_id: int
@@ -1137,7 +1158,7 @@ Return that list and nothing else. Do not explain anything."""
 
         return (aabb_min, aabb_max)
 
-    def _set_dust_level(self, patch_id: int, level: float) -> None:
+    def _set_pybullet_dust_level(self, patch_id: int, level: float) -> None:
         # Transparency alone doesn't seem to render correctly, so we also change
         # the color. But we still include alpha as the store of the dust value.
         clean_color_arr = np.array(self.scene_spec.table_rgba[:3])
@@ -1147,20 +1168,6 @@ Return that list and nothing else. Do not explain anything."""
         p.changeVisualShape(
             patch_id, -1, rgbaColor=color, physicsClientId=self.physics_client_id
         )
-
-    def _get_dust_level(self, patch_id: int) -> float:
-        while True:
-            try:
-                color = p.getVisualShapeData(
-                    patch_id, physicsClientId=self.physics_client_id
-                )[0][7]
-                break
-            except p.error:
-                # PyBullet rarely throws pybullet.error: "Error receiving visual
-                # shape info", probably some bug in pybullet.
-                pass
-        assert len(color) == 4
-        return color[-1]
 
     def _close_robot_fingers(self) -> None:
         # Very specific finger change logic, just for videos.
