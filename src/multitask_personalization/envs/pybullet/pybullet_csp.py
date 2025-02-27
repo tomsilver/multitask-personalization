@@ -377,7 +377,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         grasp_base_pose = self._get_value("grasp_base_pose")
         assert isinstance(grasp_base_pose, Pose)
         joint_state = joint_arr.tolist()
-        num_rots = 1 if surface_name == "table" else 0
+        num_rots = 1 if "table" in surface_name else 0
         if obs.held_object is None or obs.held_object == "duster":
             logging.debug("Getting plan to wipe surface")
             plan = get_plan_to_wipe_surface(
@@ -1171,19 +1171,21 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             ) -> dict[CSPVariable, Any] | None:
                 # Sample base pose.
                 surface_name, surface_link_id = sol[surface]
-                num_rots = 1 if surface_name == "table" else 0
+                num_rots = 1 if "table" in surface_name else 0
                 # Help with the bottom shelf since it's sensitive.
+                base_pose = get_target_base_pose(obs, surface_name, self._sim)
                 if surface_name == "shelf" and surface_link_id == 0:
                     dx, dy = 0.067020, 0.023298
                 else:
                     dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
-                position = (
-                    self._sim.scene_spec.robot_base_pose.position[0] + dx,
-                    self._sim.scene_spec.robot_base_pose.position[1] + dy,
-                    self._sim.scene_spec.robot_base_pose.position[2],
+                base_pose = Pose(
+                    (
+                        base_pose.position[0] + dx,
+                        base_pose.position[1] + dy,
+                        base_pose.position[2],
+                    ),
+                    base_pose.orientation,
                 )
-                orientation = self._sim.scene_spec.robot_base_pose.orientation
-                base_pose = Pose(position, orientation)
                 # Sample joints.
                 self._sim.set_robot_base(base_pose)
                 ee_init_pose = self._get_prewipe_end_effector_pose(

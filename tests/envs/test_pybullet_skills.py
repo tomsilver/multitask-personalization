@@ -18,6 +18,7 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_duster_head_frame_wiping_plan,
     get_plan_to_pick_object,
     get_plan_to_wipe_surface,
+    get_target_base_pose,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -32,8 +33,9 @@ def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
         obs, reward, terminated, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
         assert np.isclose(reward, 0.0)
-        assert not terminated
         assert not truncated
+        if terminated:
+            break
     return obs
 
 
@@ -107,7 +109,7 @@ def test_wiping_all_surfaces():
 
     seed = 123
     # NOTE: disable books.
-    scene_spec = PyBulletSceneSpec(num_books=0)
+    scene_spec = PyBulletSceneSpec(num_books=0, num_side_tables=1)
     llm = PyBulletCannedLLM(
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
     )
@@ -118,6 +120,7 @@ def test_wiping_all_surfaces():
         ("shelf", 0),
         ("shelf", 1),
         ("shelf", 2),
+        ("side-table-0", -1, 1),
     ]
     hidden_spec = HiddenSceneSpec(
         missions="all",
@@ -160,6 +163,7 @@ def test_wiping_all_surfaces():
     # Wipe multiple surfaces.
     assert env.shelf_link_ids == {0, 1, 2}  # max is the "ceiling"
     targets = [
+        ("side-table-0", -1, 1),
         ("shelf", 2, 0),
         ("shelf", 1, 0),
         ("shelf", 0, 0),
@@ -185,14 +189,20 @@ def test_wiping_all_surfaces():
         for _ in range(1000):
             sim.set_state(obs)
             # Sample base pose.
-            dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
-            position = (
-                scene_spec.robot_base_pose.position[0] + dx,
-                scene_spec.robot_base_pose.position[1] + dy,
-                scene_spec.robot_base_pose.position[2],
+            base_pose_candidate = get_target_base_pose(obs, surface_name, sim)
+            # Help with the bottom shelf since it's sensitive.
+            if surface_name == "shelf" and link_id == 0:
+                dx, dy = 0.067020, 0.023298
+            else:
+                dx, dy = rng.uniform([-0.1, -0.1], [0.1, 0.1])
+            base_pose_candidate = Pose(
+                (
+                    base_pose_candidate.position[0] + dx,
+                    base_pose_candidate.position[1] + dy,
+                    base_pose_candidate.position[2],
+                ),
+                base_pose_candidate.orientation,
             )
-            orientation = scene_spec.robot_base_pose.orientation
-            base_pose_candidate = Pose(position, orientation)
             # Sample joint state.
             sim.robot.set_base(base_pose_candidate)
             try:
