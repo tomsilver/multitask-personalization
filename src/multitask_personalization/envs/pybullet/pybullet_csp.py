@@ -528,6 +528,15 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         book_preference_outfile = model_dir / "learned_book_preferences.txt"
         with open(book_preference_outfile, "w", encoding="utf-8") as f:
             f.write(self._current_book_preference)
+        # Save cleaning preferences.
+        cleaning_outfile = model_dir / "learned_cleaning_preferences.json"
+        clean_save_dict: dict[str, dict[int, str | bool]] = {
+            s: {} for s, _ in self._surface_can_be_cleaned
+        }
+        for (surface, link), value in self._surface_can_be_cleaned.items():
+            clean_save_dict[surface][link] = value
+        with open(cleaning_outfile, "w", encoding="utf-8") as f:
+            json.dump(clean_save_dict, f)
         # Save all user feedback.
         user_feedback_dict = dict(enumerate(self._all_user_feedback))
         user_feedback_file = model_dir / "user_feedback_history.json"
@@ -541,6 +550,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         book_preference_outfile = model_dir / "learned_book_preferences.txt"
         with open(book_preference_outfile, "r", encoding="utf-8") as f:
             self._current_book_preference = f.read()
+        # Load cleaning preferences.
+        cleaning_outfile = model_dir / "learned_cleaning_preferences.json"
+        with open(cleaning_outfile, "r", encoding="utf-8") as f:
+            clean_save_dict = json.load(f)
+        for surface, link_dict in clean_save_dict.items():
+            for link_str, value in link_dict.items():
+                link = int(link_str)
+                assert value in ("unknown", True, False)
+                assert (surface, link) in self._surface_can_be_cleaned
+                self._surface_can_be_cleaned[(surface, link)] = value
         # Load all user feedback.
         user_feedback_file = model_dir / "user_feedback_history.json"
         with open(user_feedback_file, "r", encoding="utf-8") as f:
