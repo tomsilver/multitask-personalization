@@ -423,6 +423,7 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         return mission == "clean"
 
     def check_termination(self, obs: PyBulletState) -> bool:
+        # Terminate early if the human says you shouldn't clean there.
         if obs.human_text is not None and "Don't clean" in obs.human_text:
             return True
         return super().check_termination(obs)
@@ -1677,6 +1678,15 @@ Return this description and nothing else. Do not explain anything."""
     def _update_surface_can_be_cleaned(
         self, obs: PyBulletState, next_obs: PyBulletState
     ) -> None:
+        # Only update upon receiving cleaning-related feedback.
+        if next_obs.human_text is None:
+            return
+        if "Thanks for cleaning" in next_obs.human_text:
+            can_clean = True
+        elif "Don't clean" in next_obs.human_text:
+            can_clean = False
+        else:
+            return
         # Only update when holding the duster.
         if obs.held_object != "duster":
             return
@@ -1701,10 +1711,6 @@ Return this description and nothing else. Do not explain anything."""
         # Assume that whether or not a surface can be cleaned is determined by
         # its z position (coarsely discretized).
         discrete_surface_z = self._get_surface_discrete_z(surface_wiped)
-        human_admonished = (
-            next_obs.human_text is not None and "Don't clean" in next_obs.human_text
-        )
-        can_clean = not human_admonished
         # Update all surfaces with the same discrete z.
         for surface in list(self._surface_can_be_cleaned.keys()):
             dsz = self._get_surface_discrete_z(surface)
