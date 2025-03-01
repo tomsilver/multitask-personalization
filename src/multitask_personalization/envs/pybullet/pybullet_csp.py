@@ -390,6 +390,8 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
                 num_rots,
                 self._sim,
                 surface_link_id=link_id,
+                max_motion_planning_time=self._max_motion_planning_time,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
             )
             assert plan is not None
             # Indicate done.
@@ -1392,6 +1394,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # way to handle this would be to ensure that picking is an inverse of
         # placing, but at the moment, it seems that it is sometimes possible to
         # place, but then not pick, the duster from the top shelf.
+        if held_object == "duster":
+            surfaces.remove("shelf")
 
         def _sample_placement(
             _: dict[CSPVariable, Any], rng: np.random.Generator
