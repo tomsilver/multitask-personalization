@@ -1029,7 +1029,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             constraints.append(prewipe_pose_is_valid)
 
-            if obs.held_object is not None:
+            if obs.held_object not in [None, "duster"]:
+                assert obs.held_object is not None  # dumb mypy
                 first_placement, first_surface, first_base = variables[-3:]
                 first_placement_collision_free_constraint = (
                     self._generate_placement_is_collision_free_constraint(
