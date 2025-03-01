@@ -30,12 +30,10 @@ from multitask_personalization.rom.models import SphericalROMModel
 
 def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
     for act in plan:
-        obs, reward, terminated, truncated, _ = env.step(act)
+        obs, reward, _, truncated, _ = env.step(act)
         assert isinstance(obs, PyBulletState)
         assert np.isclose(reward, 0.0)
         assert not truncated
-        if terminated:
-            break
     return obs
 
 
