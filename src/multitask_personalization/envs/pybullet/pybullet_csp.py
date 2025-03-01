@@ -1388,6 +1388,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             held_object_id, held_object_link_id
         )
 
+        # Superhack: prevent placing the duster on the top shelf. The proper
+        # way to handle this would be to ensure that picking is an inverse of
+        # placing, but at the moment, it seems that it is sometimes possible to
+        # place, but then not pick, the duster from the top shelf.
+
         def _sample_placement(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
