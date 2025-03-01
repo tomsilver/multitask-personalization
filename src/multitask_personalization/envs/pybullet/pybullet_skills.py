@@ -575,6 +575,8 @@ def get_plan_to_wipe_surface(
         sim.robot.home_joint_positions,
         collision_bodies=collision_ids,
         seed=seed,
+        held_object=duster_id,
+        base_link_to_held_obj=kinematic_state.attachments[duster_id],
         physics_client_id=sim.physics_client_id,
     )
     if robot_joint_plan is None:
