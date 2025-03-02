@@ -372,6 +372,9 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         logging.debug("Starting planning for cleaning")
+        if obs.human_text is not None and "Don't clean" in obs.human_text:
+            logging.debug("Cleaning failed, returning done action")
+            return [(2, "Done")]  # failed, quit
         surface_name, link_id = self._get_value("surface")
         base_pose, joint_arr = self._get_value("robot_state")
         grasp_base_pose = self._get_value("grasp_base_pose")
@@ -1631,7 +1634,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return
         assert act[1] == "Here you go!"
         # Check if the trigger was successful.
-        label = next_obs.human_text != "I can't reach there"
+        assert next_obs.human_text is not None
+        label = "I can't reach there" not in next_obs.human_text
         # Get the current position.
         self._sim.set_state(obs)
         pose = self._sim.robot.forward_kinematics(obs.robot_joints)
@@ -1639,6 +1643,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._rom_model_training_data.append((np.array(pose.position), label))
         # Retrain the ROM model.
         self._rom_model.train(self._rom_model_training_data)
+        logging.debug(f"Updated ROM model with {pose.position}, {label}")
 
     def _update_book_preferences(
         self,
@@ -1662,6 +1667,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Update the history of things the user has told the robot.
         new_feedback = f'When I gave the user the book: "{next_obs.human_held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
         self._all_user_feedback.append(new_feedback)
+        logging.debug(f"Updated user feedback with {new_feedback}")
         # Learn from the history of all feedback.
         # For now, just do this once; in the future, get a distribution of
         # possibilities.

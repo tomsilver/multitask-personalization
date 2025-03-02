@@ -121,6 +121,7 @@ def _main(cfg: DictConfig) -> None:
                     del wandb_metrics["eval/training_step"]
                     wandb.log(wandb_metrics, step=t)
                 eval_metrics.append(step_eval_metrics)
+                logging.info("Resuming training")
             # Eval on the last time step but don't train anymore.
             if t >= cfg.env.max_environment_steps:
                 break
