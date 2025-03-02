@@ -372,6 +372,9 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
 
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         logging.debug("Starting planning for cleaning")
+        if obs.human_text is not None and "Don't clean" in obs.human_text:
+            logging.debug("Cleaning failed, returning done action")
+            return [(2, "Done")]  # failed, quit
         surface_name, link_id = self._get_value("surface")
         base_pose, joint_arr = self._get_value("robot_state")
         grasp_base_pose = self._get_value("grasp_base_pose")
@@ -1631,6 +1634,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return
         assert act[1] == "Here you go!"
         # Check if the trigger was successful.
+        assert next_obs.human_text is not None
         label = "I can't reach there" not in next_obs.human_text
         # Get the current position.
         self._sim.set_state(obs)
