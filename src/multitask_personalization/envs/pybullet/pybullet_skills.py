@@ -474,7 +474,9 @@ def get_plan_to_wipe_surface(
         sim.current_grasp_transform = grasp_pose.invert()
 
         # Motion plan back to home joint positions.
-        kinematic_move_to_home_plan = get_kinematic_plan_to_move_arm_home(kinematic_state, sim, seed=seed)
+        kinematic_move_to_home_plan = get_kinematic_plan_to_move_arm_home(
+            kinematic_state, sim, seed=seed
+        )
         if kinematic_move_to_home_plan is None:
             return None
         kinematic_plan.extend(kinematic_move_to_home_plan)
@@ -578,7 +580,9 @@ def get_plan_to_wipe_surface(
 
     # Motion plan back to home joint positions.
     kinematic_state = kinematic_plan[-1]
-    move_to_home_plan = get_kinematic_plan_to_move_arm_home(kinematic_state, sim, seed=seed)
+    move_to_home_plan = get_kinematic_plan_to_move_arm_home(
+        kinematic_state, sim, seed=seed
+    )
     if move_to_home_plan is None:
         return None
     kinematic_plan.extend(move_to_home_plan)
@@ -621,7 +625,7 @@ def get_plan_to_move_arm_home(
     """Motion plan back to home joint positions."""
     sim.set_state(state)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    kinematic_plan = get_kinematic_plan_to_move_arm_home(state, sim, seed)
+    kinematic_plan = get_kinematic_plan_to_move_arm_home(kinematic_state, sim, seed)
     if kinematic_plan is None:
         return None
     kinematic_state = kinematic_plan[-1]
