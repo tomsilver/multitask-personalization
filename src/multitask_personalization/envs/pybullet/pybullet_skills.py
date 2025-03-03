@@ -473,6 +473,16 @@ def get_plan_to_wipe_surface(
         sim.current_held_object_id = duster_id
         sim.current_grasp_transform = grasp_pose.invert()
 
+        # Motion plan back to home joint positions.
+        kinematic_move_to_home_plan = get_kinematic_plan_to_move_arm_home(
+            kinematic_state, sim, seed=seed
+        )
+        if kinematic_move_to_home_plan is None:
+            return None
+        kinematic_plan.extend(kinematic_move_to_home_plan)
+        kinematic_state = kinematic_plan[-1]
+        kinematic_state.set_pybullet(sim.robot)
+
     assert duster_id in kinematic_state.attachments
 
     # First motion plan in SE2 to the robot base pose.
@@ -569,22 +579,20 @@ def get_plan_to_wipe_surface(
                 return None
 
     # Motion plan back to home joint positions.
-    wipe_plan = get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
     kinematic_state = kinematic_plan[-1]
-    kinematic_state.set_pybullet(sim.robot)
-    state = sim.get_state()
-    move_to_home_plan = get_plan_to_move_arm_home(state, sim, seed=seed)
+    move_to_home_plan = get_kinematic_plan_to_move_arm_home(
+        kinematic_state, sim, seed=seed
+    )
     if move_to_home_plan is None:
         return None
-    return wipe_plan + move_to_home_plan
+    kinematic_plan.extend(move_to_home_plan)
+    return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 
-def get_plan_to_move_arm_home(
-    state: PyBulletState, sim: PyBulletEnv, seed: int = 0
-) -> list[PyBulletAction] | None:
+def get_kinematic_plan_to_move_arm_home(
+    kinematic_state: KinematicState, sim: PyBulletEnv, seed: int = 0
+) -> list[KinematicState] | None:
     """Motion plan back to home joint positions."""
-    sim.set_state(state)
-    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     collision_ids = sim.get_collision_ids()
     if kinematic_state.attachments:
         assert len(kinematic_state.attachments) == 1
@@ -592,6 +600,7 @@ def get_plan_to_move_arm_home(
         collision_ids.discard(held_obj_id)
     else:
         held_obj_id, held_obj_tf = None, None
+    kinematic_state.set_pybullet(sim.robot)
     robot_joint_plan = run_motion_planning(
         sim.robot,
         kinematic_state.robot_joints,
@@ -607,9 +616,20 @@ def get_plan_to_move_arm_home(
     kinematic_plan: list[KinematicState] = []
     for robot_joints in robot_joint_plan:
         kinematic_plan.append(kinematic_state.copy_with(robot_joints=robot_joints))
+    return kinematic_plan
+
+
+def get_plan_to_move_arm_home(
+    state: PyBulletState, sim: PyBulletEnv, seed: int = 0
+) -> list[PyBulletAction] | None:
+    """Motion plan back to home joint positions."""
+    sim.set_state(state)
+    kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
+    kinematic_plan = get_kinematic_plan_to_move_arm_home(kinematic_state, sim, seed)
+    if kinematic_plan is None:
+        return None
     kinematic_state = kinematic_plan[-1]
     kinematic_state.set_pybullet(sim.robot)
-
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
 

@@ -1191,17 +1191,24 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if self._current_mission == "clean":
 
-            surfaces = sorted(self._sim.get_surface_names())
             surface, robot_state = csp.variables[:2]
+            surfaces = sorted(self._sim.get_surface_names())
+            clear_surface_links: list[tuple[str, int]] = []
+            self._sim.set_state(obs)
+            for surface_name in surfaces:
+                surface_id = self._sim.get_object_id_from_name(surface_name)
+                link_ids = sorted(self._sim.get_surface_link_ids(surface_id))
+                for link_id in link_ids:
+                    if self._sim.surface_is_clear(surface_id, link_id):
+                        clear_surface_links.append((surface_name, link_id))
+
+            assert clear_surface_links
 
             def _sample_surface(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any]:
-                surface_name = surfaces[rng.choice(len(surfaces))]
-                surface_id = self._sim.get_object_id_from_name(surface_name)
-                candidates = sorted(self._sim.get_surface_link_ids(surface_id))
-                surface_link_id = candidates[rng.choice(len(candidates))]
-                return {surface: (surface_name, surface_link_id)}
+                choice = clear_surface_links[rng.choice(len(clear_surface_links))]
+                return {surface: choice}
 
             surface_sampler = FunctionalCSPSampler(_sample_surface, csp, {surface})
 
