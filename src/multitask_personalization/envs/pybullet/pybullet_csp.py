@@ -37,6 +37,7 @@ from multitask_personalization.envs.pybullet.pybullet_env import (
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_duster_head_frame_wiping_plan,
     get_plan_to_handover_object,
+    get_plan_to_move_arm_home,
     get_plan_to_move_to_pose,
     get_plan_to_pick_object,
     get_plan_to_place_object,
@@ -373,8 +374,12 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         logging.debug("Starting planning for cleaning")
         if obs.human_text is not None and "Don't clean" in obs.human_text:
-            logging.debug("Cleaning failed, returning done action")
-            return [(2, "Done")]  # failed, quit
+            logging.debug("Cleaning failed, retracting and returning done")
+            home_plan = get_plan_to_move_arm_home(obs, self._sim)
+            if home_plan is None:
+                return None
+            home_plan.append((2, "Done"))  # failed, quit
+            return home_plan
         surface_name, link_id = self._get_value("surface")
         base_pose, joint_arr = self._get_value("robot_state")
         grasp_base_pose = self._get_value("grasp_base_pose")
@@ -1403,7 +1408,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         def _sample_placement(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            surface_name = surfaces[rng.choice(len(surfaces))]
+            # surface_name = surfaces[rng.choice(len(surfaces))]
+            surface_name = "table"
             surface_id = self._sim.get_object_id_from_name(surface_name)
             candidates = sorted(self._sim.get_surface_link_ids(surface_id))
             surface_link_id = candidates[rng.choice(len(candidates))]
