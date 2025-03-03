@@ -1022,7 +1022,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 # Necessary to escape from initialization.
                 surface_name, surface_link_id = surface_name_and_link
                 base_pose, robot_joint_arr = candidate_robot_state
-                num_rots = 1 if surface_name == "table" else 0
+                num_rots = 1 if "table" in surface_name else 0
                 self._sim.set_robot_base(base_pose)
                 self._sim.robot.set_joints(robot_joint_arr.tolist())
                 current_pose = self._sim.robot.get_end_effector_pose()
