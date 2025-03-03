@@ -1408,8 +1408,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         def _sample_placement(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            # surface_name = surfaces[rng.choice(len(surfaces))]
-            surface_name = "table"
+            surface_name = surfaces[rng.choice(len(surfaces))]
             surface_id = self._sim.get_object_id_from_name(surface_name)
             candidates = sorted(self._sim.get_surface_link_ids(surface_id))
             surface_link_id = candidates[rng.choice(len(candidates))]
