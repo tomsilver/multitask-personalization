@@ -589,9 +589,9 @@ def get_plan_to_move_arm_home(
     if kinematic_state.attachments:
         assert len(kinematic_state.attachments) == 1
         held_obj_id, held_obj_tf = next(iter(kinematic_state.attachments.items()))
+        collision_ids.discard(held_obj_id)
     else:
         held_obj_id, held_obj_tf = None, None
-    collision_ids.discard(held_obj_id)
     robot_joint_plan = run_motion_planning(
         sim.robot,
         kinematic_state.robot_joints,
