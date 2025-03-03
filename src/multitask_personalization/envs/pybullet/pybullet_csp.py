@@ -1195,11 +1195,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             surfaces = sorted(self._sim.get_surface_names())
             clear_surface_links: list[tuple[str, int]] = []
             self._sim.set_state(obs)
+            book_ids = set(self._sim.book_ids)
             for surface_name in surfaces:
                 surface_id = self._sim.get_object_id_from_name(surface_name)
                 link_ids = sorted(self._sim.get_surface_link_ids(surface_id))
                 for link_id in link_ids:
-                    if self._sim.surface_is_clear(surface_id, link_id):
+                    if self._sim.surface_is_clear(surface_id, link_id, book_ids):
                         clear_surface_links.append((surface_name, link_id))
 
             assert clear_surface_links
