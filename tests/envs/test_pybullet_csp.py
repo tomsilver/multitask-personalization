@@ -23,7 +23,7 @@ from multitask_personalization.rom.models import SphericalROMModel
 def test_pybullet_csp():
     """Tests for pybullet_csp.py."""
     seed = 123
-    scene_spec = PyBulletSceneSpec(num_books=6, num_side_tables=3)
+    scene_spec = PyBulletSceneSpec(num_books=3, num_side_tables=1)
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
         scene_spec.human_spec, min_possible_radius=0.29, max_possible_radius=0.31
@@ -61,7 +61,7 @@ def test_pybullet_csp():
     # env = RecordVideo(env, "videos/test-pybullet-csp")
 
     # Create a simulator.
-    sim = PyBulletEnv(scene_spec, llm, use_gui=True, seed=seed)
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
 
     # Create the CSP.
     csp_generator = PyBulletCSPGenerator(
@@ -83,7 +83,6 @@ def test_pybullet_csp():
     book_handover_mission = mission_id_to_mission["book handover"]
     clean_mission = mission_id_to_mission["clean"]
     store_human_mission = mission_id_to_mission["store human held object"]
-    store_robot_mission = mission_id_to_mission["store robot held object"]
 
     def _run_mission(mission):
         # Override the mission and regenerate the observation.
@@ -123,19 +122,9 @@ def test_pybullet_csp():
     env.reset()
 
     # Uncomment to test from custom saved state.
-    custom_saved_state_fp = Path(
-        "/Users/tom/multitask-personalization/logs/2025-03-03/08-17-18/7/saved_states/crash_train_env_state.p"
-    )
-    env.load_state(custom_saved_state_fp)
-    # import pybullet as p
-    # while True:
-    #     p.getMouseEvents(env.physics_client_id)
-    # _run_mission(store_human_mission)
-    # import ipdb; ipdb.set_trace()
-    _run_mission(clean_mission)
-    import ipdb
-
-    ipdb.set_trace()
+    # custom_saved_state_fp = Path("...")
+    # env.load_state(custom_saved_state_fp)
+    # _run_mission(clean_mission)
 
     # Start with book handover.
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
