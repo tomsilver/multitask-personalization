@@ -862,10 +862,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         raise ValueError(f"Object {object_id} not on any surface.")
 
     def surface_is_clear(
-        self, surface_id: int, link_id: int, distance_threshold: float = 1e-3
+        self,
+        surface_id: int,
+        link_id: int,
+        collision_ids: set[int],
+        distance_threshold: float = 1e-3,
     ) -> bool:
         """Check whether any objects are on this surface."""
-        for obj_id in set(self.book_ids) | {self.duster_id}:
+        for obj_id in collision_ids:
             if check_body_collisions(
                 surface_id,
                 obj_id,
