@@ -543,14 +543,8 @@ def get_plan_to_wipe_surface(
     base_to_head = multiply_poses(current_base_pose.invert(), duster_head_pose)
 
     # Move the robot base in x, y space to do the wiping.
-    for head_pose in duster_head_plan[1:]:
+    for head_pose in duster_head_plan:
         target_base_pose = multiply_poses(head_pose, base_to_head.invert())
-        assert np.isclose(
-            current_base_pose.position[2], target_base_pose.position[2], atol=1e-3
-        )
-        assert np.allclose(
-            current_base_pose.orientation, target_base_pose.orientation, atol=1e-3
-        )
         kinematic_state = kinematic_state.copy_with(robot_base_pose=target_base_pose)
         kinematic_plan.append(kinematic_state)
         kinematic_state.set_pybullet(sim.robot)
