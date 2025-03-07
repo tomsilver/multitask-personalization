@@ -1093,7 +1093,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             book, book_grasp, handover_position, grasp_base_pose = csp.variables[:4]
 
-            books = self._sim.book_descriptions
+            books = [
+                b for b in self._sim.book_descriptions if b != obs.human_held_object
+            ]
 
             def _sample_book_fn(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -1412,6 +1414,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # place, but then not pick, the duster from the top shelf.
         if held_object == "duster":
             surfaces.remove("shelf")
+
+        # Superhack: prevent placing books on the table so that we can be sure
+        # that there is always somewhere to place the duster.
+        if held_object != "duster":
+            surfaces.remove("table")
 
         def _sample_placement(
             _: dict[CSPVariable, Any], rng: np.random.Generator
