@@ -1438,6 +1438,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                     parallel_yaws_only=True,
                 )
             )
+            # Force perfect placement to simplify things.
+            relative_placement_orn = tuple(p.getQuaternionFromEuler([0, 0, 0]))
+            placement_pose = Pose(placement_pose.position, relative_placement_orn)
             return {
                 placement_var: placement_pose,
                 surface_var: (surface_name, surface_link_id),
