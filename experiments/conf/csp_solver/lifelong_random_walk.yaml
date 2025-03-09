@@ -2,8 +2,8 @@ _target_: "multitask_personalization.csp_solvers.LifelongCSPSolverWrapper"
 base_solver:
   _target_: "multitask_personalization.csp_solvers.RandomWalkCSPSolver"
   seed: ${seed}
-  max_iters: 100000
-  num_improvements: 500
-  max_improvement_attempts: 10_000
+  max_iters: ${env.csp_solver.max_iters}
+  num_improvements: ${env.csp_solver.num_improvements}
+  max_improvement_attempts: ${env.csp_solver.max_improvement_attempts}
   show_progress_bar: True
 seed: ${seed}

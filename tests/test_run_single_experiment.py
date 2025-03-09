@@ -27,8 +27,8 @@ def test_run_single_experiment():
         "env.eval_frequency=5",
         "env.num_eval_trials=1",
         "csp_solver=random_walk",
-        "csp_solver.max_improvement_attempts=1",
-        "csp_solver.max_iters=1000",
+        "env.csp_solver.max_improvement_attempts=1",
+        "env.csp_solver.max_iters=1000",
     ]
 
     # Run the script using subprocess.
