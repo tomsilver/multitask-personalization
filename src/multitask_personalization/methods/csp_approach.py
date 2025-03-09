@@ -96,7 +96,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         if self._current_sol is None:
             # Special case: if CSP is exploit-only, fall back to no personal
             # constraints in the (rare) case of failure.
-            if self._explore_method == "exploit-only":
+            if self._explore_method in ("exploit-only", "epsilon-greedy"):
                 return self._recompute_policy(
                     obs, force_exclude_personal_constraints=True
                 )
