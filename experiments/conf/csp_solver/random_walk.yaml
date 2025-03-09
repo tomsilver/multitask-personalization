@@ -3,4 +3,4 @@ seed: ${seed}
 max_iters: ${env.csp_solver.max_iters}
 num_improvements: ${env.csp_solver.num_improvements}
 max_improvement_attempts: ${env.csp_solver.max_improvement_attempts}
-show_progress_bar: True
+show_progress_bar: False
