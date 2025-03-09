@@ -31,3 +31,7 @@ eval_frequency: 100
 max_eval_episode_length: 100
 num_eval_trials: 10
 dt: 0.01
+csp_solver:
+  max_iters: 100_000
+  num_improvements: 500
+  max_improvement_attempts: 10_000
