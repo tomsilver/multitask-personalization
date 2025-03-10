@@ -1439,7 +1439,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 )
             )
             # Force perfect placement to simplify things.
-            relative_placement_orn = tuple(p.getQuaternionFromEuler([0, 0, 0]))
+            yaw = 0 if surface_name == "shelf" else np.pi / 2
+            relative_placement_orn = tuple(p.getQuaternionFromEuler([0, 0, yaw]))
             placement_pose = Pose(placement_pose.position, relative_placement_orn)
             return {
                 placement_var: placement_pose,
