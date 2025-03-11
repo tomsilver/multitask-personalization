@@ -83,6 +83,11 @@ def test_cooking_csp():
     csp_generator = CookingCSPGenerator(scene_spec, meal_model, seed=seed)
     csp, samplers, policy, initialization = csp_generator.generate(obs)
 
+    # TODO need to reconsider this... and specifically need to fix the exploit
+    # only approach / test-time approach with poorly learned classifiers...
+    # but first just see if it's worthwhile to modify the bounded classifiers
+    # for the pybullet environment in terms of improving prediction.
+
     # Solve the CSP.
     solver = RandomWalkCSPSolver(seed, show_progress_bar=False)
     sol = solver.solve(

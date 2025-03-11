@@ -151,6 +151,7 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
         ) -> float:
             meal = self._derive_meal(meal_name, total_cooking_time, *ingredients)
             lp = self._meal_model.predict_enjoyment_logprob(meal)
+            print(np.exp(lp))
             return lp
 
         user_enjoys_meal_constraint = LogProbCSPConstraint(

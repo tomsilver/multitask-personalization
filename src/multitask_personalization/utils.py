@@ -112,7 +112,7 @@ class Bounded1DClassifier:
     See notebooks/ for more explanation.
     """
 
-    def __init__(self, a_lo: float, b_hi: float) -> None:
+    def __init__(self, a_lo: float, b_hi: float, num_grid_steps: int = 100) -> None:
         self.a_lo = a_lo
         self.b_hi = b_hi
 
@@ -120,6 +120,16 @@ class Bounded1DClassifier:
         self.x2 = a_lo
         self.x3 = b_hi
         self.x4 = b_hi
+
+        # In the absence of positive examples we resort to grid inference.
+        # Otherwise there is an analytic solution.
+        self.num_grid_steps = num_grid_steps
+        self.grid = []
+        step_size = (b_hi - a_lo) / num_grid_steps
+        for a in np.arange(a_lo, b_hi, step_size):
+            for b in np.arange(a + step_size, b_hi + step_size, step_size):
+                self.grid.append((a, b))
+        self.active_grid = list(self.grid)
 
         self.incremental_X: list[float] = []
         self.incremental_Y: list[bool] = []
@@ -134,6 +144,12 @@ class Bounded1DClassifier:
                 X_neg.add(x)
         # Can't fit if there is no positive data.
         if not X_pos:
+            # Use grid inference.
+            self.active_grid = []
+            for a, b in self.grid:
+                preds = np.logical_and(X >= a, X <= b)
+                if np.all(preds == Y):
+                    self.active_grid.append((a, b))
             return
         m = next(iter(X_pos))
         X_neg_lo, X_neg_hi = set(), set()
@@ -161,6 +177,16 @@ class Bounded1DClassifier:
 
     def predict_proba(self, X: list[float]) -> list[float]:
         """Batch predict class probabilities."""
+        # In the absence of positive data, use grid prediction.
+        if not np.any(self.incremental_Y):
+            all_preds = []
+            for a, b in self.active_grid:
+                preds = np.logical_and(X >= a, X <= b)
+                all_preds.append(preds)
+            mean_preds = np.mean(all_preds, axis=0)
+            return mean_preds
+
+        # Otherwise use analytic solution.
         X_arr = np.array(X)
         return np.piecewise(
             X_arr,
