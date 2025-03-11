@@ -1,7 +1,6 @@
 """Plot prediction error over time for learned ROM models."""
 
 import argparse
-import json
 import os
 from pathlib import Path
 
@@ -51,8 +50,8 @@ def _create_eval_data(
     labels: list[bool] = []
     assert isinstance(ground_truth_rom_model, SphericalROMModel)
     sphere_center = (
-        ground_truth_rom_model._sphere_center
-    )  # pylint: disable=protected-access
+        ground_truth_rom_model._sphere_center  # pylint: disable=protected-access
+    )
     rng = np.random.default_rng(seed)
     while len(positions) < num_samples:
         position = np.array(
