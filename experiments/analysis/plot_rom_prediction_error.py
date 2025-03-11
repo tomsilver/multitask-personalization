@@ -1,35 +1,58 @@
 """Plot prediction error over time for learned ROM models."""
 
 import argparse
-from pathlib import Path
-import pandas as pd
+import json
 import os
+from pathlib import Path
 
+import hydra
+import numpy as np
+import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
-from omegaconf import DictConfig, OmegaConf
-import hydra
-from multitask_personalization.rom.models import ROMModel, SphericalROMModel
 from numpy.typing import NDArray
-import numpy as np
+from omegaconf import DictConfig, OmegaConf
+from plot_main_results import (
+    APPROACH_TO_COLOR,
+    APPROACH_TO_DISPLAY_NAME,
+    ENV_TO_DISPLAY_NAME,
+)
+
+from multitask_personalization.rom.models import ROMModel, SphericalROMModel
 from multitask_personalization.utils import (
     sample_within_sphere,
 )
 
-from plot_main_results import ENV_TO_DISPLAY_NAME, APPROACH_TO_DISPLAY_NAME, APPROACH_TO_COLOR
+
+def _calculate_prediction_error(
+    checkpoint_dir: Path, cfg: DictConfig, eval_data: tuple[list[NDArray], list[bool]]
+) -> float:
+    model = hydra.utils.instantiate(cfg.rom_model)
+    assert isinstance(model, ROMModel)
+    model.load(checkpoint_dir)
+    predictions: list[bool] = []
+    positions, labels = eval_data
+    for position in positions:
+        prediction = model.check_position_reachable(position)
+        predictions.append(prediction)
+    error = sum(np.not_equal(predictions, labels)) / len(labels)
+    return error
 
 
-def _calculate_prediction_error(checkpoint_dir: Path, eval_data: tuple[list[NDArray], list[bool]]) -> float:
-    import ipdb; ipdb.set_trace()
-
-
-def _create_eval_data(ground_truth_rom_model: ROMModel, seed: int, num_samples: int = 1000,
-                      min_radius: float = 0.0, max_radius: float = 1.5,
-                      balance_data: bool = True) -> tuple[list[NDArray], list[bool]]:
+def _create_eval_data(
+    ground_truth_rom_model: ROMModel,
+    seed: int,
+    num_samples: int = 100,
+    min_radius: float = 0.0,
+    max_radius: float = 1.5,
+    balance_data: bool = True,
+) -> tuple[list[NDArray], list[bool]]:
     positions: list[NDArray] = []
     labels: list[bool] = []
     assert isinstance(ground_truth_rom_model, SphericalROMModel)
-    sphere_center = ground_truth_rom_model._sphere_center  # pylint: disable=protected-access
+    sphere_center = (
+        ground_truth_rom_model._sphere_center
+    )  # pylint: disable=protected-access
     rng = np.random.default_rng(seed)
     while len(positions) < num_samples:
         position = np.array(
@@ -46,7 +69,9 @@ def _create_eval_data(ground_truth_rom_model: ROMModel, seed: int, num_samples: 
     return positions, labels
 
 
-def _main( results_dir: Path, outfile: Path, config_filename: str = "config.yaml") -> None:
+def _main(
+    results_dir: Path, outfile: Path, config_filename: str = "config.yaml"
+) -> None:
     """Creates and saves a plot."""
     env_name = "pybullet"
 
@@ -73,7 +98,7 @@ def _main( results_dir: Path, outfile: Path, config_filename: str = "config.yaml
             ):
                 num_training_steps = int(checkpoint_dir.name)
                 training_time = num_training_steps * cfg.env.dt
-                error = _calculate_prediction_error(checkpoint_dir, eval_data)
+                error = _calculate_prediction_error(checkpoint_dir, cfg, eval_data)
                 result = (approach, seed, training_time, error)
                 results.append(result)
     df = pd.DataFrame(results, columns=columns)
