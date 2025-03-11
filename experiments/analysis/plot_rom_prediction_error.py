@@ -8,8 +8,42 @@ import os
 import seaborn as sns
 from matplotlib import pyplot as plt
 from omegaconf import DictConfig, OmegaConf
+import hydra
+from multitask_personalization.rom.models import ROMModel, SphericalROMModel
+from numpy.typing import NDArray
+import numpy as np
+from multitask_personalization.utils import (
+    sample_within_sphere,
+)
 
 from plot_main_results import ENV_TO_DISPLAY_NAME, APPROACH_TO_DISPLAY_NAME, APPROACH_TO_COLOR
+
+
+def _calculate_prediction_error(checkpoint_dir: Path, eval_data: tuple[list[NDArray], list[bool]]) -> float:
+    import ipdb; ipdb.set_trace()
+
+
+def _create_eval_data(ground_truth_rom_model: ROMModel, seed: int, num_samples: int = 1000,
+                      min_radius: float = 0.0, max_radius: float = 1.5,
+                      balance_data: bool = True) -> tuple[list[NDArray], list[bool]]:
+    positions: list[NDArray] = []
+    labels: list[bool] = []
+    assert isinstance(ground_truth_rom_model, SphericalROMModel)
+    sphere_center = ground_truth_rom_model._sphere_center  # pylint: disable=protected-access
+    rng = np.random.default_rng(seed)
+    while len(positions) < num_samples:
+        position = np.array(
+            sample_within_sphere(sphere_center, min_radius, max_radius, rng)
+        )
+        label = ground_truth_rom_model.check_position_reachable(position)
+        if balance_data:
+            if label and (sum(labels) >= num_samples // 2):
+                continue
+            if not label and (len(labels) - sum(labels) >= num_samples // 2):
+                continue
+        positions.append(position)
+        labels.append(label)
+    return positions, labels
 
 
 def _main( results_dir: Path, outfile: Path, config_filename: str = "config.yaml") -> None:
@@ -29,13 +63,17 @@ def _main( results_dir: Path, outfile: Path, config_filename: str = "config.yaml
             assert cfg["env_name"] == env_name
             approach = cfg["approach_name"]
             seed = cfg["seed"]
+            # Create ground-truth model from this config.
+            rom_model = hydra.utils.instantiate(cfg.rom_model)
+            # Create eval data.
+            eval_data = _create_eval_data(rom_model, seed)
             for checkpoint_dir in sorted(
                 [d for d in model_dir.iterdir() if d.is_dir() and d.name.isdigit()],
                 key=lambda d: int(d.name),
             ):
                 num_training_steps = int(checkpoint_dir.name)
                 training_time = num_training_steps * cfg.env.dt
-                error = 0.0  # TODO
+                error = _calculate_prediction_error(checkpoint_dir, eval_data)
                 result = (approach, seed, training_time, error)
                 results.append(result)
     df = pd.DataFrame(results, columns=columns)
