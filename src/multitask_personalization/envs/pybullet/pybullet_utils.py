@@ -62,7 +62,6 @@ class PyBulletCannedLLM(LargeLanguageModel):
     ) -> list[str]:
 
         assert num_completions == 1
-        rng = np.random.default_rng(seed)
 
         if prompt.startswith("Generate a list of "):
             # pylint: disable=line-too-long
@@ -73,7 +72,11 @@ class PyBulletCannedLLM(LargeLanguageModel):
             if num_books == 0:
                 return []
             assert num_books >= 1
-            book_nums = rng.choice(list(range(1, 101)), size=num_books, replace=False)
+            # NOTE: it's important to not randomize here because it doesn't make
+            # sense to test generalization over book numbers! For example, if
+            # we randomized, the robot could be evaluated on never-before-seen
+            # book numbers, and there's no way it could do anything useful.
+            book_nums = list(range(num_books))
             books = [
                 f"1. [The user would love] Title: Book {book_nums[0]}. Author: Love.",
             ]
@@ -117,6 +120,11 @@ class PyBulletCannedLLM(LargeLanguageModel):
         # Book is either unknown, known hate, or known love.
         status = "unknown"
         if f"<SEEN>{book_number}</SEEN>" in user_description:
+            status = love_or_hate
+
+        # If the user description is a ground-truth description then the status
+        # is known. For example, "I enjoy some fiction, ..."
+        if not ("<SEEN>" in user_description or "Unknown" in user_description):
             status = love_or_hate
 
         if status == "unknown":
