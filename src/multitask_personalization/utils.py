@@ -144,12 +144,13 @@ class Bounded1DClassifier:
                 X_neg.add(x)
         # Can't fit if there is no positive data.
         if not X_pos:
-            # Use grid inference.
-            self.active_grid = []
-            for a, b in self.grid:
-                preds = np.logical_and(X >= a, X <= b)
-                if np.all(preds == Y):
-                    self.active_grid.append((a, b))
+            # Use grid inference if there is negative data only.
+            if X_neg:
+                self.active_grid = []
+                for a, b in self.grid:
+                    preds = np.logical_and(X >= a, X <= b)
+                    if np.all(preds == Y):
+                        self.active_grid.append((a, b))
             return
         m = next(iter(X_pos))
         X_neg_lo, X_neg_hi = set(), set()
@@ -178,7 +179,7 @@ class Bounded1DClassifier:
     def predict_proba(self, X: list[float]) -> list[float]:
         """Batch predict class probabilities."""
         # In the absence of positive data, use grid prediction.
-        if not np.any(self.incremental_Y):
+        if len(self.incremental_Y) > 0 and not np.any(self.incremental_Y):
             all_preds = []
             for a, b in self.active_grid:
                 preds = np.logical_and(X >= a, X <= b)
