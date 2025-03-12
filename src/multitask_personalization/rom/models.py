@@ -160,7 +160,7 @@ class SphericalROMModel(TrainableROMModel):
         position: NDArray,
     ) -> bool:
         distance = self._distance_to_center(position)
-        return self._radius_model.predict_proba([distance])[0] >= 0.5
+        return self._radius_model.predict_proba([distance])[0] >= 0.1
 
     def sample_reachable_position(self, rng: np.random.Generator) -> NDArray:
         min_radius = (self._radius_model.x1 + self._radius_model.x2) / 2
