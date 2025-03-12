@@ -58,6 +58,10 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletMission,
     PyBulletState,
 )
+from multitask_personalization.envs.pybullet.pybullet_utils import (
+    BANISH_POSE,
+    user_would_enjoy_book,
+)
 
 
 class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
@@ -71,6 +75,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         llm: LargeLanguageModel,
         hidden_spec: HiddenSceneSpec | None = None,
         use_gui: bool = False,
+        vary_books: bool = False,
         seed: int = 0,
     ) -> None:
 
@@ -83,6 +88,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._seed = seed
         self.scene_spec = scene_spec
         self._hidden_spec = hidden_spec
+        self._vary_books = vary_books
         self.render_mode = "rgb_array"
         self._llm = llm
         # Prevent accidentally talking to the robot while it's trying to retract
@@ -494,6 +500,25 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     textureUniqueId=texture_id,
                     physicsClientId=self.physics_client_id,
                 )
+
+        # Randomly pick only of the liked books and banish the rest.
+        if self._vary_books:
+            assert self._hidden_spec is not None
+            enjoyed_books = [
+                b
+                for b in self.book_descriptions
+                if user_would_enjoy_book(
+                    b, self._hidden_spec.book_preferences, self._llm, self._seed
+                )
+            ]
+            assert len(enjoyed_books) >= 1
+            selected_idx = self._rng.choice(len(enjoyed_books))
+            for book_idx in range(len(enjoyed_books)):
+                if book_idx == selected_idx:
+                    continue
+                # Banish.
+                book_id = self.book_ids[book_idx]
+                set_pose(book_id, BANISH_POSE, self.physics_client_id)
 
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:
@@ -1000,12 +1025,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # pylint: disable=line-too-long
         prompt = f"""Generate a list of {num_books} real English-language book titles and authors. Be creative.
 
-Generate one book that the user would love and other books that the user would hate, based on the following user preferences: "{user_preferences}"
+Generate two books that the user would love and {num_books-2} books that the user would hate, based on the following user preferences: "{user_preferences}"
         
 Return the list in the following format:
 
 1. [The user would love] Title: <title>. Author: <author>.
-2. [The user would hate] Title: <title>. Author: <author>.
+2. [The user would love] Title: <title>. Author: <author>.
 3. [The user would hate] Title: <title>. Author: <author>.
 etc.
 
