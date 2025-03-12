@@ -51,6 +51,7 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_utils import (
+    BANISH_POSE,
     get_user_book_enjoyment_logprob,
 )
 from multitask_personalization.rom.models import ROMModel, TrainableROMModel
@@ -593,7 +594,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "hand over book":
 
             # Choose a book to fetch.
-            books = self._sim.book_descriptions
+            books = [
+                b
+                for i, b in enumerate(self._sim.book_descriptions)
+                if not obs.book_poses[i].allclose(BANISH_POSE)
+            ]
             book = CSPVariable("book", EnumSpace(books))
 
             # Choose a grasp on the book. Only the grasp yaw is unknown.
@@ -1094,7 +1099,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             book, book_grasp, handover_position, grasp_base_pose = csp.variables[:4]
 
             books = [
-                b for b in self._sim.book_descriptions if b != obs.human_held_object
+                b
+                for i, b in enumerate(self._sim.book_descriptions)
+                if b != obs.human_held_object
+                and not obs.book_poses[i].allclose(BANISH_POSE)
             ]
 
             def _sample_book_fn(

@@ -4,7 +4,10 @@ import re
 
 import numpy as np
 import PIL
+from pybullet_helpers.geometry import Pose
 from tomsutils.llm import LargeLanguageModel
+
+BANISH_POSE = Pose((-1000, -1000, -1000))
 
 
 def get_user_book_enjoyment_logprob(
@@ -76,13 +79,18 @@ class PyBulletCannedLLM(LargeLanguageModel):
             # sense to test generalization over book numbers! For example, if
             # we randomized, the robot could be evaluated on never-before-seen
             # book numbers, and there's no way it could do anything useful.
-            book_nums = list(range(num_books))
-            books = [
-                f"1. [The user would love] Title: Book {book_nums[0]}. Author: Love.",
-            ]
-            for i in range(1, num_books):
-                book = f"{i+1}. [The user would hate] Title: Book {book_nums[i]}. Author: Hate."
-                books.append(book)
+            num_loved_books = 2
+            books: list[str] = []
+            for i in range(num_books):
+                if i < num_loved_books:
+                    title = (
+                        f"{i+1}. [The user would love] Title: Book {i}. Author: Love."
+                    )
+                else:
+                    title = (
+                        f"{i+1}. [The user would hate] Title: Book {i}. Author: Hate."
+                    )
+                books.append(title)
             resp = "\n".join(books)
             return [resp]
 

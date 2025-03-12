@@ -4,7 +4,7 @@ env:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PyBulletSceneSpec"
     surface_dust_patch_size: 2
     use_standard_books: false
-    num_books: 6
+    num_books: 9
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     missions: "all"
@@ -14,12 +14,15 @@ env:
       - ["shelf", 0]
       - ["shelf", 2]
   use_gui: false  # need to define, but will be override by train/eval
+  vary_books: false  # need to define, but will be override by train/eval
   llm: ${llm}
   # note: seed is excluded because it varies for train/eval envs
 train_env:
   use_gui: false
+  vary_books: false
 eval_env:
   use_gui: false
+  vary_books: true
 max_environment_steps: 10000
 eval_frequency: 1000
 max_eval_episode_length: 250
