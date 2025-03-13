@@ -52,7 +52,6 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_utils import (
-    BANISH_POSE,
     get_user_book_enjoyment_logprob,
 )
 from multitask_personalization.rom.models import ROMModel, TrainableROMModel
