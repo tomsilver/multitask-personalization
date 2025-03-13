@@ -3,6 +3,7 @@
 import abc
 import json
 import logging
+from functools import partial
 from pathlib import Path
 from typing import Any, Collection
 
@@ -594,11 +595,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "hand over book":
 
             # Choose a book to fetch.
-            books = [
-                b
-                for i, b in enumerate(self._sim.book_descriptions)
-                if not obs.book_poses[i].allclose(BANISH_POSE)
-            ]
+            books = self._sim.get_pickable_books(obs)
             book = CSPVariable("book", EnumSpace(books))
 
             # Choose a grasp on the book. Only the grasp yaw is unknown.
@@ -757,10 +754,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "hand over book":
             book, _, handover_position = variables[:3]
 
+            active_books = self._sim.get_pickable_books(obs)
             book_preference_constraint = LogProbCSPConstraint(
                 "book_preference",
                 [book],
-                self._book_is_preferred_logprob,
+                partial(self._book_is_preferred_logprob, active_books),
                 threshold=np.log(0.95),
             )
 
@@ -1098,12 +1096,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             book, book_grasp, handover_position, grasp_base_pose = csp.variables[:4]
 
-            books = [
-                b
-                for i, b in enumerate(self._sim.book_descriptions)
-                if b != obs.human_held_object
-                and not obs.book_poses[i].allclose(BANISH_POSE)
-            ]
+            books = self._sim.get_pickable_books(obs)
 
             def _sample_book_fn(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -1644,7 +1637,9 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         return policy_success_constraint
 
-    def _book_is_preferred_logprob(self, book_description: str) -> float:
+    def _book_is_preferred_logprob(
+        self, all_book_descriptions: list[str], book_description: str
+    ) -> float:
         # Scale book preference log probabilities so that the most-preferred
         # book is always given a logprob of 0.0. Note that these LLM calls will
         # be cached so it's not a big deal to rerun things here.
@@ -1652,7 +1647,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             b: get_user_book_enjoyment_logprob(
                 b, self._current_book_preference, self._llm, seed=self._seed
             )
-            for b in self._sim.book_descriptions
+            for b in all_book_descriptions
         }
         max_lp = max(book_to_lp.values())
         if np.isneginf(max_lp):
@@ -1837,7 +1832,9 @@ Return this description and nothing else. Do not explain anything."""
         if isinstance(self._rom_model, TrainableROMModel):
             metrics.update(self._rom_model.get_metrics())
         for book_description in self._sim.book_descriptions:
-            lp = self._book_is_preferred_logprob(book_description)
+            lp = self._book_is_preferred_logprob(
+                self._sim.book_descriptions, book_description
+            )
             entropy = bernoulli_entropy(lp)
             metrics[f"entropy-{book_description}"] = entropy
         return metrics

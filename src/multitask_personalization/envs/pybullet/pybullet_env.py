@@ -1244,6 +1244,15 @@ Return that list and nothing else. Do not explain anything."""
         """Get half extents for object and link id in default pose."""
         return self._default_half_extents[(object_id, link_id)]
 
+    def get_pickable_books(self, obs: PyBulletState) -> list[str]:
+        """Get all books that could currently be picked."""
+        return [
+            b
+            for i, b in enumerate(obs.book_descriptions)
+            if b != obs.human_held_object
+            and not obs.book_poses[i].allclose(BANISH_POSE)
+        ]
+
 
 def _create_duster(
     duster_head_forward_length: float,
