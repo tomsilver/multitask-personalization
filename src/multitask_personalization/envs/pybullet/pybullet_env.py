@@ -315,13 +315,16 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Save the default half extents.
-        obj_links_to_save = [
-            (self.duster_id, self.duster_head_link_id),
-        ] + [(book_id, -1) for book_id in self.book_ids]
+        duster_head_half_extents = get_half_extents_from_aabb(
+            self.duster_id, self.physics_client_id, link_id=self.duster_head_link_id
+        )
         self._default_half_extents = {
-            (o, l): get_half_extents_from_aabb(o, self.physics_client_id, link_id=l)
-            for o, l in obj_links_to_save
+            (self.duster_id, self.duster_head_link_id): duster_head_half_extents
         }
+        for book_id, book_half_extents in zip(
+            self.book_ids, self.scene_spec.book_half_extents, strict=True
+        ):
+            self._default_half_extents[(book_id, -1)] = book_half_extents
 
         # Create another robot for mission simulation.
         self._mission_sim_robot = self._create_robot(
