@@ -761,7 +761,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 "book_preference",
                 [book],
                 self._book_is_preferred_logprob,
-                threshold=np.log(0.5) - 1e-3,
+                threshold=np.log(0.95),
             )
 
             # Create a handover constraint given the user ROM.
@@ -1645,9 +1645,20 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         return policy_success_constraint
 
     def _book_is_preferred_logprob(self, book_description: str) -> float:
-        return get_user_book_enjoyment_logprob(
-            book_description, self._current_book_preference, self._llm, seed=self._seed
-        )
+        # Scale book preference log probabilities so that the most-preferred
+        # book is always given a logprob of 0.0. Note that these LLM calls will
+        # be cached so it's not a big deal to rerun things here.
+        book_to_lp = {
+            b: get_user_book_enjoyment_logprob(
+                b, self._current_book_preference, self._llm, seed=self._seed
+            )
+            for b in self._sim.book_descriptions
+        }
+        max_lp = max(book_to_lp.values())
+        if np.isneginf(max_lp):
+            return 0.0
+        scaled_lp = book_to_lp[book_description] - max_lp
+        return scaled_lp
 
     def _update_rom_model(
         self,
