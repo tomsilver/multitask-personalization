@@ -504,9 +504,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     physicsClientId=self.physics_client_id,
                 )
 
-        # Randomly pick only of the liked books and banish the rest.
+        # Randomly pick only one of the liked books and banish the rest.
+        # Then randomly banish half of the disliked books.
         if self._vary_books:
             assert self._hidden_spec is not None
+            # Select enjoyed book to banish.
             enjoyed_books = [
                 b
                 for b in self.book_descriptions
@@ -516,11 +518,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             ]
             assert len(enjoyed_books) >= 1
             selected_idx = self._rng.choice(len(enjoyed_books))
-            for book_idx in range(len(enjoyed_books)):
-                if book_idx == selected_idx:
-                    continue
-                # Banish.
-                book_id = self.book_ids[book_idx]
+            banned_books = [enjoyed_books[selected_idx]]
+            disliked_books = [
+                b for b in self.book_descriptions if b not in enjoyed_books
+            ]
+            num_dislike_banish = len(disliked_books) // 2
+            selected_idxs = self._rng.choice(
+                len(disliked_books), size=num_dislike_banish, replace=False
+            )
+            for idx in selected_idxs:
+                banned_books.append(disliked_books[idx])
+            for book in banned_books:
+                book_id = self.get_object_id_from_name(book)
                 set_pose(book_id, BANISH_POSE, self.physics_client_id)
 
         # Randomize robot mission.
