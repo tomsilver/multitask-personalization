@@ -1114,7 +1114,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             def _sample_handover_pose(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any]:
-                position = self._rom_model.sample_reachable_position(rng)
+                # If the CSP contains a constraint for reachable handover
+                # position, might as well sample within that constraint,
+                # since we know how. Otherwise rejection sampling would just
+                # be slower.
+                if (
+                    csp.cost is not None and csp.cost.name == "maximize-entropy"
+                ) or any(c.name == "handover_rom_constraint" for c in csp.constraints):
+                    position = self._rom_model.sample_reachable_position(rng)
+                else:
+                    position = self._rom_model.sample_position(rng)
                 return {handover_position: position}
 
             handover_sampler = FunctionalCSPSampler(

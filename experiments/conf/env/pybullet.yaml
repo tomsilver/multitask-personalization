@@ -31,4 +31,4 @@ dt: 0.00416667
 csp_solver:
   max_iters: 2500
   num_improvements: 500
-  max_improvement_attempts: 50
+  max_improvement_attempts: 100

@@ -60,6 +60,10 @@ class ROMModel(abc.ABC):
         """Sample a reachable position."""
 
     @abc.abstractmethod
+    def sample_position(self, rng: np.random.Generator) -> NDArray:
+        """Sample any position, not necessarily reachable."""
+
+    @abc.abstractmethod
     def get_position_reachable_logprob(
         self,
         position: NDArray,
@@ -121,6 +125,8 @@ class SphericalROMModel(TrainableROMModel):
         origin_distance: float = 0.2,
     ) -> None:
         super().__init__(human_spec, seed=seed)
+        self._min_possible_radius = min_possible_radius
+        self._max_possible_radius = max_possible_radius
 
         # Set the sphere origin to be in front of the hand.
         ee_pose = self._human.get_end_effector_pose()
@@ -167,6 +173,16 @@ class SphericalROMModel(TrainableROMModel):
         max_radius = (self._radius_model.x3 + self._radius_model.x4) / 2
         return np.array(
             sample_within_sphere(self._sphere_center, min_radius, max_radius, rng)
+        )
+
+    def sample_position(self, rng: np.random.Generator) -> NDArray:
+        return np.array(
+            sample_within_sphere(
+                self._sphere_center,
+                self._min_possible_radius,
+                self._max_possible_radius,
+                rng,
+            )
         )
 
     def get_position_reachable_logprob(
