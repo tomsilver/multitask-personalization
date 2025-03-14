@@ -177,7 +177,12 @@ class SphericalROMModel(TrainableROMModel):
 
     def sample_position(self, rng: np.random.Generator) -> NDArray:
         return np.array(
-            sample_within_sphere(self._sphere_center, self._min_possible_radius, self._max_possible_radius, rng)
+            sample_within_sphere(
+                self._sphere_center,
+                self._min_possible_radius,
+                self._max_possible_radius,
+                rng,
+            )
         )
 
     def get_position_reachable_logprob(
