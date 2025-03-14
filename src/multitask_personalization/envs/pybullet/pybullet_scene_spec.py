@@ -140,6 +140,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     )
 
     cleaning_feedback_min_time_interval: int = 25
+    cleaning_mission_eval_prob: float = 0.1
 
     @property
     def duster_grasp(self) -> Pose:
