@@ -75,7 +75,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         llm: LargeLanguageModel,
         hidden_spec: HiddenSceneSpec | None = None,
         use_gui: bool = False,
-        vary_books: bool = False,
+        use_eval_distribution: bool = False,
         seed: int = 0,
     ) -> None:
 
@@ -88,7 +88,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._seed = seed
         self.scene_spec = scene_spec
         self._hidden_spec = hidden_spec
-        self._vary_books = vary_books
+        self._use_eval_distribution = use_eval_distribution
         self.render_mode = "rgb_array"
         self._llm = llm
         # Prevent accidentally talking to the robot while it's trying to retract
@@ -303,6 +303,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Track the current mission for the robot.
         self._current_mission: PyBulletMission | None = None
+        self._force_next_mission_id: str | None = None
 
         # Reset all states.
         self._reset_from_scene_spec()
@@ -504,30 +505,43 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     physicsClientId=self.physics_client_id,
                 )
 
-        # Randomly pick only one of the liked books and banish the rest.
-        # Then randomly banish half of the disliked books.
-        if self._vary_books:
+        self._force_next_mission_id = None
+        if self._use_eval_distribution:
             assert self._hidden_spec is not None
-            # Select enjoyed book to banish.
-            enjoyed_books = [
-                b
-                for b in self.book_descriptions
-                if user_would_enjoy_book(
-                    b, self._hidden_spec.book_preferences, self._llm, self._seed
+            # With some probability, force a cleaning mission.
+            banned_books: list[str] = []
+            if self._hidden_spec.missions == "clean-only" or (
+                self._hidden_spec.missions == "all"
+                and self._rng.uniform() < self.scene_spec.cleaning_mission_eval_prob
+            ):
+                self._force_next_mission_id = "clean"
+                banned_books = list(self.book_descriptions)
+            else:
+                self._force_next_mission_id = "book handover"
+                # Otherwise, do a book handover mission.
+                # Randomly pick only one of the liked books and banish the rest.
+                # Then randomly banish half of the disliked books.
+                assert self._hidden_spec is not None
+                # Select enjoyed book to banish.
+                enjoyed_books = [
+                    b
+                    for b in self.book_descriptions
+                    if user_would_enjoy_book(
+                        b, self._hidden_spec.book_preferences, self._llm, self._seed
+                    )
+                ]
+                assert len(enjoyed_books) >= 1
+                selected_idx = self._rng.choice(len(enjoyed_books))
+                banned_books = [enjoyed_books[selected_idx]]
+                disliked_books = [
+                    b for b in self.book_descriptions if b not in enjoyed_books
+                ]
+                num_dislike_banish = len(disliked_books) // 2
+                selected_idxs = self._rng.choice(
+                    len(disliked_books), size=num_dislike_banish, replace=False
                 )
-            ]
-            assert len(enjoyed_books) >= 1
-            selected_idx = self._rng.choice(len(enjoyed_books))
-            banned_books = [enjoyed_books[selected_idx]]
-            disliked_books = [
-                b for b in self.book_descriptions if b not in enjoyed_books
-            ]
-            num_dislike_banish = len(disliked_books) // 2
-            selected_idxs = self._rng.choice(
-                len(disliked_books), size=num_dislike_banish, replace=False
-            )
-            for idx in selected_idxs:
-                banned_books.append(disliked_books[idx])
+                for idx in selected_idxs:
+                    banned_books.append(disliked_books[idx])
             for book in banned_books:
                 book_id = self.get_object_id_from_name(book)
                 set_pose(book_id, BANISH_POSE, self.physics_client_id)
@@ -1021,6 +1035,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self._hidden_spec.missions in ["all", "clean-only"]:
             clean_mission = CleanSurfacesMission()
             possible_missions.append(clean_mission)
+
+        if self._force_next_mission_id is not None:
+            possible_missions = [
+                m
+                for m in possible_missions
+                if m.get_id() == self._force_next_mission_id
+            ]
 
         return possible_missions
 
