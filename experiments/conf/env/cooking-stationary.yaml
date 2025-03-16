@@ -1,0 +1,9 @@
+defaults:
+  - cooking
+  - _self_
+
+env:
+  hidden_spec:
+    meal_preference_model:
+      preference_shift_spec:
+        shift_prob: 0.0 
