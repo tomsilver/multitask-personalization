@@ -11,8 +11,8 @@ from omegaconf import DictConfig
 
 ENV_TO_DISPLAY_NAME = {
     # "tiny": "Tiny",
-    "pybullet": "Overnight Care",
-    # "cooking": "Cooking",
+    "overnight-stationary": "Overnight Care",
+    "cooking-stationary": "Cooking",
 }
 
 APPROACH_TO_DISPLAY_NAME = {
