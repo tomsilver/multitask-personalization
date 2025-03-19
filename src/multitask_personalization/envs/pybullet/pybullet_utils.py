@@ -1,5 +1,6 @@
 """Utilities for the pybullet environment and models."""
 
+import logging
 import re
 
 import numpy as np
@@ -25,6 +26,7 @@ User description: {user_preferences}
 
 How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 0 means hate and {num_bins-1} means love?
 """
+    logging.debug(f"LLM prompt: {prompt}")
     choices = [str(i) for i in range(num_bins)]
     logprobs = llm.get_multiple_choice_logprobs(prompt, choices, seed)
     # Interpretation: 8 out of 10 means that 8 times out of 10, the user would
@@ -34,6 +36,7 @@ How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 
         enjoy_prob = i / (num_bins - 1)
         logprob = logprobs[str(i)]
         expectation += enjoy_prob * np.exp(logprob)
+    logging.debug("Expectation: %f", expectation)
     return np.log(expectation)
 
 

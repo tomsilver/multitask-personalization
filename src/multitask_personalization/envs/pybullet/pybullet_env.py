@@ -1047,12 +1047,22 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
         if self.scene_spec.use_standard_books:
-            assert num_books == 3
-            return [
+            standard_books = [
+                "Title: Cosmos. Author: Carl Sagan.",
+                "Title: The Diary of Anne Frank. Author: Anne Frank.",
                 "Title: Moby Dick. Author: Herman Melville.",
                 "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams.",
                 "Title: The Lord of the Rings. Author: J. R. R. Tolkien.",
+                "Title: And Then There Were None. Author: Agatha Christie.",
+                "Title: To Kill a Mockingbird. Author: Harper Lee.",
+                "Title: The Great Gatsby. Author: F. Scott Fitzgerald.",
+                "Title: 1984. Author: George Orwell.",
+                "Title: Pride and Prejudice. Author: Jane Austen.",
+                "Title: Harry Potter and the Philosopher's Stone. Author: J. K. Rowling.",
+                "Title: A Tale of Two Cities. Author: Charles Dickens.",
             ]
+            assert num_books <= len(standard_books)
+            return standard_books[:num_books]
         assert self._hidden_spec is not None
         user_preferences = self._hidden_spec.book_preferences
         # pylint: disable=line-too-long
@@ -1068,6 +1078,7 @@ Return the list in the following format:
 etc.
 
 Return that list and nothing else. Do not explain anything."""
+        logging.debug(f"LLM prompt: {prompt}")
         for _ in range(100):  # retry until parsing works
             response = self._llm.sample_completions(
                 prompt,
@@ -1087,6 +1098,7 @@ Return that list and nothing else. Do not explain anything."""
                         book_descriptions.append(book_description)
                         break
             if len(book_descriptions) == num_books:  # success
+                logging.debug(f"LLM response: {response}")
                 return book_descriptions
         raise RuntimeError("LLM book description generation failed")
 
