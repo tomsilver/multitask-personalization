@@ -77,7 +77,7 @@ class PyBulletCannedLLM(LargeLanguageModel):
             assert len(matches) == 1
             num_books = int(matches[0])
             if num_books == 0:
-                return [], {}
+                return [""], {}
             assert num_books >= 1
             # NOTE: it's important to not randomize here because it doesn't make
             # sense to test generalization over book numbers! For example, if

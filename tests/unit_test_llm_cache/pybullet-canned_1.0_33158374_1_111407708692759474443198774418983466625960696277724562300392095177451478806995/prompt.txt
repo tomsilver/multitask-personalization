@@ -10,7 +10,3 @@ Return the list in the following format:
 etc.
 
 Return that list and nothing else. Do not explain anything.
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-1. [The user would love] Title: Book 0. Author: Love.
-2. [The user would love] Title: Book 1. Author: Love.
-3. [The user would hate] Title: Book 2. Author: Hate.
