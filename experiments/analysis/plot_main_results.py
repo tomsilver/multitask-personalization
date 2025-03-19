@@ -46,13 +46,20 @@ def _create_config_fn(
 def _main(results_dir: Path, outfile: Path) -> None:
     plt.style.use(Path(__file__).parent / "custom.mplstyle")
 
-    plt.title("Main Results")
+    num_envs = len(ENV_TO_DISPLAY_NAME)
+    fig, axes = plt.subplots(
+        1, len(ENV_TO_DISPLAY_NAME), figsize=(6 * num_envs, 5), squeeze=False
+    )
 
-    _, axes = plt.subplots(1, len(ENV_TO_DISPLAY_NAME), squeeze=False)
-    for ax, (env_name, env_display_name) in zip(axes[0], ENV_TO_DISPLAY_NAME.items()):
+    lines = []  # To collect line handles for legend
+    labels = []  # To collect labels for legend
+
+    for i, (ax, (env_name, env_display_name)) in enumerate(
+        zip(axes[0], ENV_TO_DISPLAY_NAME.items())
+    ):
         ax.set_title(env_display_name)
         ax.set_xlabel("Simulated Execution Time")
-        ax.set_ylabel("Simulated User Satisfaction")
+
         for approach_name, approach_display_name in APPROACH_TO_DISPLAY_NAME.items():
             print(f"Combining results for {env_name}, {approach_name}")
             color = APPROACH_TO_COLOR[approach_name]
@@ -62,7 +69,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
                 print(f"WARNING: no data found for {env_name}: {approach_name}")
                 continue
             check_for_missing_results(df)
-            sns.lineplot(
+            line = sns.lineplot(
                 data=df,
                 x="training_execution_time",
                 y="eval_mean_user_satisfaction",
@@ -70,12 +77,26 @@ def _main(results_dir: Path, outfile: Path) -> None:
                 errorbar="se",
                 ax=ax,
                 color=color,
-                label=approach_display_name,
+                label=None,
             )
 
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(outfile, dpi=500)
+            # Only add to legend collection for the first subplot.
+            if env_name == list(ENV_TO_DISPLAY_NAME.keys())[0]:
+                lines.append(line.get_lines()[-1])
+                labels.append(approach_display_name)
+
+        if i == 0:
+            ax.set_ylabel("Simulated User Satisfaction")
+        else:
+            ax.set_ylabel("")
+
+    # Place a single shared legend to the right of the subplots.
+    fig.legend(lines, labels, loc="center right", bbox_to_anchor=(1.15, 0.5))
+
+    # Adjust layout with extra space for legend.
+    plt.tight_layout(rect=(0, 0, 0.85, 1))
+
+    plt.savefig(outfile, dpi=500, bbox_inches="tight")
     print(f"Wrote out to {outfile}")
 
 
