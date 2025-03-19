@@ -207,11 +207,10 @@ Do not directly reveal the user preferences.
 
 Return short dialogue as if you were the human user. Return only this. Do not explain anything."""
     logging.debug(f"LLM prompt: {prompt}")
-    response = llm.sample_completions(
+    response, _ = llm.query(
         prompt,
-        imgs=None,
         temperature=llm_temperature,
         seed=seed,
-    )[0]
-    logging.debug(f"LLM response: %s", response)
+    )
+    logging.debug(f"LLM response: {response}")
     return response

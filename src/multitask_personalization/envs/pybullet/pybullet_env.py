@@ -1058,7 +1058,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 "Title: The Great Gatsby. Author: F. Scott Fitzgerald.",
                 "Title: 1984. Author: George Orwell.",
                 "Title: Pride and Prejudice. Author: Jane Austen.",
-                "Title: Harry Potter and the Philosopher's Stone. Author: J. K. Rowling.",
                 "Title: A Tale of Two Cities. Author: Charles Dickens.",
             ]
             assert num_books <= len(standard_books)
@@ -1080,12 +1079,11 @@ etc.
 Return that list and nothing else. Do not explain anything."""
         logging.debug(f"LLM prompt: {prompt}")
         for _ in range(100):  # retry until parsing works
-            response = self._llm.sample_completions(
+            response, _ = self._llm.query(
                 prompt,
-                imgs=None,
                 temperature=1.0,
                 seed=seed,
-            )[0]
+            )
             book_descriptions: list[str] = []
             for i, line in enumerate(response.split("\n")):
                 prefixes = (

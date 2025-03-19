@@ -2,6 +2,7 @@
 
 import logging
 import re
+from typing import Any
 
 import numpy as np
 import PIL
@@ -28,7 +29,7 @@ How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 
 """
     logging.debug(f"LLM prompt: {prompt}")
     choices = [str(i) for i in range(num_bins)]
-    logprobs = llm.get_multiple_choice_logprobs(prompt, choices, seed)
+    logprobs, _ = llm.get_multiple_choice_logprobs(prompt, choices, seed)
     # Interpretation: 8 out of 10 means that 8 times out of 10, the user would
     # report liking it; 2 times out of 10, they would report not liking it.
     expectation = 0.0
@@ -65,7 +66,7 @@ class PyBulletCannedLLM(LargeLanguageModel):
         temperature: float,
         seed: int,
         num_completions: int = 1,
-    ) -> list[str]:
+    ) -> tuple[list[str], dict[str, Any]]:
 
         assert num_completions == 1
 
@@ -76,7 +77,7 @@ class PyBulletCannedLLM(LargeLanguageModel):
             assert len(matches) == 1
             num_books = int(matches[0])
             if num_books == 0:
-                return []
+                return [], {}
             assert num_books >= 1
             # NOTE: it's important to not randomize here because it doesn't make
             # sense to test generalization over book numbers! For example, if
@@ -95,27 +96,27 @@ class PyBulletCannedLLM(LargeLanguageModel):
                     )
                 books.append(title)
             resp = "\n".join(books)
-            return [resp]
+            return [resp], {}
 
         if prompt.startswith(
             "Pretend you are a human user with the following preferences"
         ):
             book_number = self._get_book_number_from_description(prompt)
             resp = f"<SEEN>{book_number}</SEEN>"
-            return [resp]
+            return [resp], {}
 
         if prompt.startswith("Below is a first-person history of interactions"):
             pattern = r"<SEEN>(\d+)</SEEN>"
             matches = re.findall(pattern, prompt)
             numbers = [int(num) for num in matches]
             resp = " ".join([f"<SEEN>{i}</SEEN>" for i in numbers])
-            return [resp]
+            return [resp], {}
 
         raise NotImplementedError
 
     def get_multiple_choice_logprobs(
         self, prompt: str, choices: list[str], seed: int
-    ) -> dict[str, float]:
+    ) -> tuple[dict[str, float], dict[str, Any]]:
         book_description, _, user_description, remainder = prompt.split("\n", 3)
         assert book_description.startswith("Book description: ")
         assert user_description.startswith("User description: ")
@@ -148,7 +149,7 @@ class PyBulletCannedLLM(LargeLanguageModel):
 
         logprobs = {str(i): -np.inf for i in choices}
         logprobs[str(response_num)] = 0.0
-        return logprobs
+        return logprobs, {}
 
     def _get_book_number_from_description(self, description: str) -> int:
         prefix = "Book description: Title: Book "
