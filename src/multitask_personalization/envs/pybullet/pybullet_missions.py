@@ -201,11 +201,13 @@ A robot is handing you the following book:
 
 Book description: {book_description}
 
-You want to explain to the robot why you {do_or_do_not_enjoy} enjoy this book.
+You {do_or_do_not_enjoy} enjoy this book.
 
-Do not directly reveal the user preferences.
+If you enjoy the book, say something like "Thanks, I love this book!"
 
-Return short dialogue as if you were the human user. Return only this. Do not explain anything."""
+If you don't enjoy the book, say something like "Thanks, but I don't like this book."
+
+Do not explain why."""
     logging.debug(f"LLM prompt: {prompt}")
     response, _ = llm.query(
         prompt,

@@ -1049,9 +1049,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self.scene_spec.use_standard_books:
             standard_books = [
                 "Title: Cosmos. Author: Carl Sagan.",
-                "Title: The Diary of Anne Frank. Author: Anne Frank.",
-                "Title: Moby Dick. Author: Herman Melville.",
                 "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams.",
+                "Title: The Immortal Life of Henrietta Lacks. Author: Rebecca Skloot.",
+                "Title: The Diary of Anne Frank. Author: Anne Frank.",
+                "Title: Into the Wild. Author: Jon Krakauer.",
+                "Title: Moby Dick. Author: Herman Melville.",
                 "Title: The Lord of the Rings. Author: J. R. R. Tolkien.",
                 "Title: And Then There Were None. Author: Agatha Christie.",
                 "Title: To Kill a Mockingbird. Author: Harper Lee.",
