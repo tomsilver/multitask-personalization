@@ -201,7 +201,7 @@ A robot is handing you the following book:
 
 Book description: {book_description}
 
-You want to tell the robot whether or not you {do_or_do_not_enjoy} enjoy this book.
+You want to tell the robot why you {do_or_do_not_enjoy} enjoy this book.
 
 Do not directly reveal the user preferences.
 
