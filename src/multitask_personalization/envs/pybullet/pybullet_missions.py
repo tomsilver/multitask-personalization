@@ -1,5 +1,7 @@
 """Specific missions for the robot in the PyBullet environment."""
 
+import logging
+
 import numpy as np
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from tomsutils.llm import LargeLanguageModel
@@ -204,11 +206,11 @@ You want to explain to the robot why you {do_or_do_not_enjoy} enjoy this book.
 Do not directly reveal the user preferences.
 
 Return short dialogue as if you were the human user. Return only this. Do not explain anything."""
-
-    response = llm.sample_completions(
+    logging.debug(f"LLM prompt: {prompt}")
+    response, _ = llm.query(
         prompt,
-        imgs=None,
         temperature=llm_temperature,
         seed=seed,
-    )[0]
+    )
+    logging.debug(f"LLM response: {response}")
     return response

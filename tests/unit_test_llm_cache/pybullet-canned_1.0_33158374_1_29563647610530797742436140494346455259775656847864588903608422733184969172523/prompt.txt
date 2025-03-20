@@ -10,4 +10,3 @@ Return the list in the following format:
 etc.
 
 Return that list and nothing else. Do not explain anything.
-####$$$###$$$####$$$$###$$$####$$$###$$$###

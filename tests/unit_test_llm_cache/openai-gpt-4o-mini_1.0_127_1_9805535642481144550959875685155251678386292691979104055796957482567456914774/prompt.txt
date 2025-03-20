@@ -1,7 +1,0 @@
-Book description: Title: "The Endless Clutter of Obscurity." Author: Reginald Muddle.
-
-User preferences: I like everything!
-
-Do these user preferences say anything directly about the book description? Say 'yes' or 'no' and nothing else. Do not explain anything.
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-No.

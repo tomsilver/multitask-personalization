@@ -10,7 +10,3 @@ Return the list in the following format:
 etc.
 
 Return that list and nothing else. Do not explain anything.
-####$$$###$$$####$$$$###$$$####$$$###$$$###
-1. [The user would love] Title: The Whispering Trees. Author: Elara Moonlight.  
-2. [The user would love] Title: Midnight Journeys. Author: Jasper T. Hollis.  
-3. [The user would hate] Title: The Algebra of Despair. Author: Thaddeus Clough.  
