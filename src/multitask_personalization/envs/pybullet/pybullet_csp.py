@@ -1714,32 +1714,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         new_feedback = f'When I gave the user the book: "{next_obs.human_held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
         self._all_user_feedback.append(new_feedback)
         logging.debug(f"Updated user feedback with {new_feedback}")
-        # Learn from the history of all feedback.
-        # For now, just do this once; in the future, get a distribution of
-        # possibilities.
-        all_feedback_str = "\n".join(self._all_user_feedback)
-        # pylint: disable=line-too-long
-        prompt = f"""Below is a first-person history of interactions between you, a robot, and a single human user:
-
-{all_feedback_str}
-
-Based on this history, concisely describe the user's taste in books.
-
-Your description should be in the following format:
-
-"I know that the user likes the following books: <list of books> and they do not like the following books: <list of books>. Based on this, here are some possible summaries of their preferences:
-1. <summary of preferences>
-2. <summary of preferences>
-3. <summary of preferences>"
-
-Return this description and nothing else. Do not explain anything."""
-        response, _ = self._llm.query(
-            prompt,
-            temperature=1.0,
-            seed=self._seed,
+        new_user_book_preferences = _get_book_preferences_from_history(
+            self._all_user_feedback, self._llm, self._seed
         )
-        self._current_book_preference = response
-        logging.info(f"Updated learned user book preferences: {response}")
+        self._current_book_preference = new_user_book_preferences
+        logging.info(
+            f"Updated learned user book preferences: {new_user_book_preferences}"
+        )
 
     def _update_surface_can_be_cleaned(
         self, obs: PyBulletState, next_obs: PyBulletState
@@ -1850,3 +1831,33 @@ Return this description and nothing else. Do not explain anything."""
             entropy = bernoulli_entropy(lp)
             metrics[f"entropy-{book_description}"] = entropy
         return metrics
+
+
+def _get_book_preferences_from_history(
+    all_user_feedback: list[str], llm: LargeLanguageModel, seed
+) -> str:
+    # Learn from the history of all feedback.
+    # For now, just do this once; in the future, get a distribution of
+    # possibilities.
+    all_feedback_str = "\n".join(all_user_feedback)
+    # pylint: disable=line-too-long
+    prompt = f"""Below is a first-person history of interactions between you, a robot, and a single human user:
+
+{all_feedback_str}
+
+Based on this history, concisely describe the user's taste in books.
+
+Your description should be in the following format:
+
+"I know that the user likes the following books: <list of books> and they do not like the following books: <list of books>. Based on this, here are some possible summaries of their preferences:
+1. <summary of preferences>
+2. <summary of preferences>
+3. <summary of preferences>"
+
+Return this description and nothing else. Do not explain anything."""
+    response, _ = llm.query(
+        prompt,
+        temperature=1.0,
+        seed=seed,
+    )
+    return response
