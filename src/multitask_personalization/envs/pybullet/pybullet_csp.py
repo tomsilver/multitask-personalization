@@ -1728,12 +1728,11 @@ Based on this history, concisely describe the user's taste in books.
 NOTE: you should list an example or two of books that the user loves and another example or two of books that the user hates.
 
 Return this description and nothing else. Do not explain anything."""
-        response, _ = self._llm.sample_completions(
+        response, _ = self._llm.query(
             prompt,
-            imgs=None,
             temperature=1.0,
             seed=self._seed,
-        )[0]
+        )
         self._current_book_preference = response
         logging.info(f"Updated learned user book preferences: {response}")
 
