@@ -1725,7 +1725,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
 Based on this history, concisely describe the user's taste in books.
 
-NOTE: you should list an example or two of books that the user loves and another example or two of books that the user hates.
+Your description should be in the following format:
+
+"I know that the user likes the following books: <list of books> and they do not like the following books: <list of books>. Based on this, here are some possible summaries of their preferences:
+1. <summary of preferences>
+2. <summary of preferences>
+3. <summary of preferences>"
 
 Return this description and nothing else. Do not explain anything."""
         response, _ = self._llm.query(
