@@ -50,7 +50,7 @@ def user_would_enjoy_book(
     book_description: str,
     user_preferences: str,
     llm: LargeLanguageModel,
-    seed: int = 0,
+    seed: int,
 ) -> float:
     """Return whether the user would enjoy the book."""
     lp = get_user_book_enjoyment_logprob(book_description, user_preferences, llm, seed)

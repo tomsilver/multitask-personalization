@@ -8,7 +8,7 @@ env:
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     missions: "all"
-    book_preferences: "I only like books that take place in outer space."
+    book_preferences: "I only like two kinds of books: fictional romances, and grand, nonfictional reflections on the universe. I hate any other book that is not in one of these two categories."
     rom_model: ${rom_model}
     surfaces_robot_can_clean:
       - ["shelf", 0]
