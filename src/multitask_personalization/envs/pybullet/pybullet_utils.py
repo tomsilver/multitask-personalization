@@ -27,7 +27,13 @@ def get_user_book_enjoyment_logprob(
 
 User description: {user_preferences}
 
+I will ask you to rate how much the user would enjoy this book on a scale from 0 to 10.
+
+IMPORTANT: if you have already seen this book before, please answer based on the user's previous enjoyment of the book.
+
 How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 0 means hate and {num_bins-1} means love?
+
+Return a number from 0 to {num_bins-1} and nothing else.
 """
     logging.debug(f"LLM prompt: {prompt}")
     choices = [str(i) for i in range(num_bins)]
