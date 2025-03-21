@@ -45,7 +45,7 @@ How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 
 
 # NOTE: cache the results of this function to enforce consistency about whether
 # a user with constant preferences would enjoy a book.
-@cachetools.cached(cache={}, key=lambda b, u, _, s: hashkey((b, u, s)))
+@cachetools.cached(cache={}, key=lambda b, u, _, seed: hashkey((b, u, seed)))
 def user_would_enjoy_book(
     book_description: str,
     user_preferences: str,
