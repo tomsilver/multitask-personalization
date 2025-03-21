@@ -687,9 +687,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.current_human_grasp_transform = (
                 self.scene_spec.human_spec.grasp_transform
             )
-            logging.info(
-                f"Handed over object: {self.get_name_from_object_id(self.current_human_held_object_id)}"
-            )
+            obj_name = self.get_name_from_object_id(self.current_human_held_object_id)
+            if self._hidden_spec is not None:
+                logging.info(f"Handed over object: {obj_name}")
             self.current_held_object_id = None
             self.current_grasp_transform = None
             return
