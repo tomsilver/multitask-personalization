@@ -1713,7 +1713,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._all_user_feedback.append(new_feedback)
         logging.debug(f"Updated user feedback with {new_feedback}")
         new_user_book_preferences = _get_book_preferences_from_history(
-            self._all_user_feedback, self._llm, self._seed
+            self._all_user_feedback,
+            self._current_book_preference,
+            self._llm,
+            self._seed,
         )
         self._current_book_preference = new_user_book_preferences
         logging.info(
@@ -1832,18 +1835,25 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
 
 def _get_book_preferences_from_history(
-    all_user_feedback: list[str], llm: LargeLanguageModel, seed
+    all_user_feedback: list[str],
+    current_book_preferences: str,
+    llm: LargeLanguageModel,
+    seed,
 ) -> str:
     # Learn from the history of all feedback.
     # For now, just do this once; in the future, get a distribution of
     # possibilities.
     all_feedback_str = "\n".join(all_user_feedback)
     # pylint: disable=line-too-long
-    prompt = f"""Below is a first-person history of interactions between you, a robot, and a single human user:
+    prompt = f"""You are a helpful assistant that infers a user's book preferences based on their feedback. Your current estimate of their preferences is:
+
+{current_book_preferences}
+    
+You have received the following feedback from the user:
 
 {all_feedback_str}
 
-Based on this history, concisely describe the user's taste in books.
+Based on this history, provide an updated description of the user's book preferences..
 
 Your description should be in the following format:
 
