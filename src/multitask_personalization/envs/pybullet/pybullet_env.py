@@ -34,10 +34,7 @@ from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
-from tomsutils.utils import (
-    render_textbox_on_image,
-    sample_seed_from_rng,
-)
+from tomsutils.utils import render_textbox_on_image, sample_seed_from_rng
 
 from multitask_personalization.envs.pybullet.pybullet_human import (
     create_human_from_spec,

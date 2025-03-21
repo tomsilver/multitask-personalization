@@ -23,9 +23,7 @@ from multitask_personalization.envs.tiny.tiny_env import (
     TinyHiddenSpec,
     TinySceneSpec,
 )
-from multitask_personalization.methods.csp_approach import (
-    CSPApproach,
-)
+from multitask_personalization.methods.csp_approach import CSPApproach
 
 
 @pytest.mark.parametrize(

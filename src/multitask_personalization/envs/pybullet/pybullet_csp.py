@@ -32,9 +32,7 @@ from tomsutils.spaces import EnumSpace
 from tomsutils.utils import create_rng_from_rng
 
 from multitask_personalization.csp_generation import CSPGenerator
-from multitask_personalization.envs.pybullet.pybullet_env import (
-    PyBulletEnv,
-)
+from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_duster_head_frame_wiping_plan,
     get_plan_to_handover_object,

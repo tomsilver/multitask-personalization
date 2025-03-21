@@ -2,11 +2,7 @@
 
 import numpy as np
 import pybullet as p
-from pybullet_helpers.geometry import (
-    Pose,
-    iter_between_poses,
-    multiply_poses,
-)
+from pybullet_helpers.geometry import Pose, iter_between_poses, multiply_poses
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
     check_collisions_with_held_object,
@@ -26,9 +22,7 @@ from pybullet_helpers.motion_planning import (
 )
 from pybullet_helpers.states import KinematicState
 
-from multitask_personalization.envs.pybullet.pybullet_env import (
-    PyBulletEnv,
-)
+from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     GripperAction,
     PyBulletAction,

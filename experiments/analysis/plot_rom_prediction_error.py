@@ -18,9 +18,7 @@ from plot_main_results import (
 )
 
 from multitask_personalization.rom.models import ROMModel, SphericalROMModel
-from multitask_personalization.utils import (
-    sample_within_sphere,
-)
+from multitask_personalization.utils import sample_within_sphere
 
 
 def _calculate_prediction_error(

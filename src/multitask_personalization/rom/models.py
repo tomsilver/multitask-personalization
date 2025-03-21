@@ -15,10 +15,7 @@ from multitask_personalization.envs.pybullet.pybullet_human import (
     HumanSpec,
     create_human_from_spec,
 )
-from multitask_personalization.utils import (
-    Bounded1DClassifier,
-    sample_within_sphere,
-)
+from multitask_personalization.utils import Bounded1DClassifier, sample_within_sphere
 
 
 class ROMModel(abc.ABC):
