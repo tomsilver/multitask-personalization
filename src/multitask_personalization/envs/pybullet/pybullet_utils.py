@@ -4,8 +4,10 @@ import logging
 import re
 from typing import Any
 
+import cachetools
 import numpy as np
 import PIL
+from cachetools.keys import hashkey
 from pybullet_helpers.geometry import Pose
 from tomsutils.llm import LargeLanguageModel
 
@@ -41,6 +43,9 @@ How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 
     return np.log(expectation)
 
 
+# NOTE: cache the results of this function to enforce consistency about whether
+# a user with constant preferences would enjoy a book.
+@cachetools.cached(cache={}, key=lambda b, u, _, s: hashkey((b, u, s)))
 def user_would_enjoy_book(
     book_description: str,
     user_preferences: str,

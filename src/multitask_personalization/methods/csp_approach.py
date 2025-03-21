@@ -30,11 +30,7 @@ from multitask_personalization.methods.approach import (
     _ObsType,
 )
 from multitask_personalization.rom.models import SphericalROMModel
-from multitask_personalization.structs import (
-    CSPPolicy,
-    CSPVariable,
-    PublicSceneSpec,
-)
+from multitask_personalization.structs import CSPPolicy, CSPVariable, PublicSceneSpec
 from multitask_personalization.utils import visualize_csp_graph
 
 

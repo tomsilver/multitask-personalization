@@ -6,9 +6,7 @@ from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     PyBulletSceneSpec,
 )
 from multitask_personalization.rom.models import SphericalROMModel
-from multitask_personalization.utils import (
-    sample_within_sphere,
-)
+from multitask_personalization.utils import sample_within_sphere
 
 
 def test_spherical_rom_model():

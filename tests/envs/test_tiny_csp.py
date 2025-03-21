@@ -3,9 +3,7 @@
 import numpy as np
 
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
-from multitask_personalization.envs.tiny.tiny_csp import (
-    TinyCSPGenerator,
-)
+from multitask_personalization.envs.tiny.tiny_csp import TinyCSPGenerator
 from multitask_personalization.envs.tiny.tiny_env import (
     TinyEnv,
     TinyHiddenSpec,

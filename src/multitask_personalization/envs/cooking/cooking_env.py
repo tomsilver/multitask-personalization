@@ -12,9 +12,7 @@ from tomsgeoms2d.structs import Circle
 from tomsutils.spaces import FunctionalSpace
 from tomsutils.utils import fig2data
 
-from multitask_personalization.envs.cooking.cooking_hidden_spec import (
-    CookingHiddenSpec,
-)
+from multitask_personalization.envs.cooking.cooking_hidden_spec import CookingHiddenSpec
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
 from multitask_personalization.envs.cooking.cooking_structs import (
     AddIngredientCookingAction,

@@ -25,6 +25,7 @@ dependencies = [
    "tqdm",
    "types-tqdm",
    "wandb",
+   "cachetools",
    "pybullet==3.2.7",
    "pybullet_helpers@git+https://github.com/tomsilver/pybullet-helpers.git",
    "gymnasium==1.0.0",
@@ -80,5 +81,6 @@ module = [
     "moviepy.*",
     "sklearn.*",
     "graphviz.*",
+    "cachetools.*",
 ]
 ignore_missing_imports = true

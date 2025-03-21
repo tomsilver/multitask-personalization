@@ -3,9 +3,7 @@
 import numpy as np
 
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
-from multitask_personalization.envs.cooking.cooking_csp import (
-    CookingCSPGenerator,
-)
+from multitask_personalization.envs.cooking.cooking_csp import CookingCSPGenerator
 from multitask_personalization.envs.cooking.cooking_env import CookingEnv
 from multitask_personalization.envs.cooking.cooking_hidden_spec import (
     CookingHiddenSpec,
@@ -20,9 +18,7 @@ from multitask_personalization.envs.cooking.cooking_scene_spec import (
     CookingPot,
     CookingSceneSpec,
 )
-from multitask_personalization.envs.cooking.cooking_structs import (
-    CookingState,
-)
+from multitask_personalization.envs.cooking.cooking_structs import CookingState
 
 
 def test_cooking_csp():
