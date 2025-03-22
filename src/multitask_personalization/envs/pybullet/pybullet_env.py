@@ -687,6 +687,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.current_human_grasp_transform = (
                 self.scene_spec.human_spec.grasp_transform
             )
+            obj_name = self.get_name_from_object_id(self.current_human_held_object_id)
+            if self._hidden_spec is not None:
+                logging.info(f"Handed over object: {obj_name}")
             self.current_held_object_id = None
             self.current_grasp_transform = None
             return
@@ -1046,6 +1049,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self.scene_spec.use_standard_books:
             standard_books = [
                 "Title: Cosmos. Author: Carl Sagan.",
+                "Title: Pride and Prejudice. Author: Jane Austen.",
                 "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams.",
                 "Title: The Immortal Life of Henrietta Lacks. Author: Rebecca Skloot.",
                 "Title: The Diary of Anne Frank. Author: Anne Frank.",
@@ -1056,7 +1060,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 "Title: To Kill a Mockingbird. Author: Harper Lee.",
                 "Title: The Great Gatsby. Author: F. Scott Fitzgerald.",
                 "Title: 1984. Author: George Orwell.",
-                "Title: Pride and Prejudice. Author: Jane Austen.",
                 "Title: A Tale of Two Cities. Author: Charles Dickens.",
             ]
             assert num_books <= len(standard_books)
