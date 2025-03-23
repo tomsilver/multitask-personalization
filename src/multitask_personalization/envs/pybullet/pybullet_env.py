@@ -503,45 +503,55 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 )
 
         self._force_next_mission_id = None
-        if self._use_eval_distribution:
-            assert self._hidden_spec is not None
+
+        # Figure out which books to remove on this episode.
+        banned_books: list[str] = []
+        assert self._hidden_spec is not None
+
+        # We're training in clean-only mode, so remove all the books.
+        if (
+            not self._use_eval_distribution
+            and self._hidden_spec.missions == "clean-only"
+        ):
+            banned_books = list(self.book_descriptions)
+
+        # We're evaluating in clean-only mode, so remove all the books EXCEPT
+        # for one that will be an obstacle on one of the "good" surfaces.
+        elif self._use_eval_distribution and self._hidden_spec.missions == "clean-only":
+            banned_books = self._get_eval_banned_books_clean_mission()
+
+        # We're evaluating in "all" mode, so decide whether this is a cleaning
+        # or a book handover mission and remove books accordingly.
+        elif self._use_eval_distribution and self._hidden_spec.missions == "all":
             # With some probability, force a cleaning mission.
-            banned_books: list[str] = []
-            if self._hidden_spec.missions == "clean-only" or (
-                self._hidden_spec.missions == "all"
-                and self._rng.uniform() < self.scene_spec.cleaning_mission_eval_prob
-            ):
+            if self._rng.uniform() < self.scene_spec.cleaning_mission_eval_prob:
                 self._force_next_mission_id = "clean"
-                banned_books = list(self.book_descriptions)
+                banned_books = self._get_eval_banned_books_clean_mission()
+            # Otherwise, force a book handover mission.
+            # Randomly pick only one of the liked books and banish the rest.
+            # Then randomly banish half of the disliked books.
             else:
                 self._force_next_mission_id = "book handover"
-                # Otherwise, do a book handover mission.
-                # Randomly pick only one of the liked books and banish the rest.
-                # Then randomly banish half of the disliked books.
-                assert self._hidden_spec is not None
-                # Select enjoyed book to banish.
-                enjoyed_books = [
-                    b
-                    for b in self.book_descriptions
-                    if user_would_enjoy_book(
-                        b, self._hidden_spec.book_preferences, self._llm, self._seed
-                    )
-                ]
-                assert len(enjoyed_books) >= 1
-                selected_idx = self._rng.choice(len(enjoyed_books))
-                banned_books = [enjoyed_books[selected_idx]]
-                disliked_books = [
-                    b for b in self.book_descriptions if b not in enjoyed_books
-                ]
-                num_dislike_banish = len(disliked_books) // 2
-                selected_idxs = self._rng.choice(
-                    len(disliked_books), size=num_dislike_banish, replace=False
-                )
-                for idx in selected_idxs:
-                    banned_books.append(disliked_books[idx])
-            for book in banned_books:
-                book_id = self.get_object_id_from_name(book)
-                set_pose(book_id, BANISH_POSE, self.physics_client_id)
+                banned_books = self._get_eval_banned_books_handover_mission()
+
+        # We're evaluating in "handover-only" mode, so ban certain books, same
+        # as above.
+        elif self._use_eval_distribution and self._hidden_spec.missions == "all":
+            self._force_next_mission_id = "book handover"
+            banned_books = self._get_eval_banned_books_handover_mission()
+
+        # The only case left should be training in "all" or "handover-only", in
+        # which case we don't banish any books.
+        else:
+            assert not self._use_eval_distribution and self._hidden_spec.missions in (
+                "all",
+                "handover-only",
+            )
+
+        # Ban the books.
+        for book in banned_books:
+            book_id = self.get_object_id_from_name(book)
+            set_pose(book_id, BANISH_POSE, self.physics_client_id)
 
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:
@@ -1285,6 +1295,49 @@ Return that list and nothing else. Do not explain anything."""
             if b != obs.human_held_object
             and not obs.book_poses[i].allclose(BANISH_POSE)
         ]
+
+    def _get_eval_banned_books_handover_mission(self) -> list[str]:
+        assert self._hidden_spec is not None
+        enjoyed_books = [
+            b
+            for b in self.book_descriptions
+            if user_would_enjoy_book(
+                b, self._hidden_spec.book_preferences, self._llm, self._seed
+            )
+        ]
+        assert len(enjoyed_books) >= 1
+        selected_idx = self._rng.choice(len(enjoyed_books))
+        banned_books = [enjoyed_books[selected_idx]]
+        disliked_books = [b for b in self.book_descriptions if b not in enjoyed_books]
+        num_dislike_banish = len(disliked_books) // 2
+        selected_idxs = self._rng.choice(
+            len(disliked_books), size=num_dislike_banish, replace=False
+        )
+        for idx in selected_idxs:
+            banned_books.append(disliked_books[idx])
+        return banned_books
+
+    def _get_eval_banned_books_clean_mission(
+        self, distance_threshold: float = 1e-3
+    ) -> list[str]:
+        # Pick a surface to leave open.
+        assert self._hidden_spec is not None
+        surfaces = self._hidden_spec.surfaces_robot_can_clean
+        surface_to_block_idx = self._rng.choice(len(surfaces))
+        surface_name, surface_link_id = surfaces[surface_to_block_idx]
+        surface_id = self.get_object_id_from_name(surface_name)
+        banned_books: list[str] = []
+        for book in self.book_descriptions:
+            book_id = self.get_object_id_from_name(book)
+            if check_body_collisions(
+                book_id,
+                surface_id,
+                self.physics_client_id,
+                link2=surface_link_id,
+                distance_threshold=distance_threshold,
+            ):
+                banned_books.append(book)
+        return banned_books
 
 
 def _create_duster(

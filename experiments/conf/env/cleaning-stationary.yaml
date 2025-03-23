@@ -1,0 +1,7 @@
+defaults:
+  - pybullet
+  - _self_
+
+env:
+  hidden_spec:
+    missions: "clean-only"
