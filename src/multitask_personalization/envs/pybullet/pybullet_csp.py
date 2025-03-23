@@ -13,7 +13,6 @@ from gymnasium.spaces import Box, Discrete, Tuple
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import (
     Pose,
-    get_half_extents_from_aabb,
     multiply_poses,
     set_pose,
 )
