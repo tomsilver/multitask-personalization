@@ -30,6 +30,6 @@ defaults:
   - _self_
   - approach: random
   - env: tiny
-  - csp_solver: random_walk
+  - csp_solver: lifelong_random_walk
   - rom_model: spherical
   - llm: canned  # change to openai for final experiments
