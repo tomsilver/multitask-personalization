@@ -6,7 +6,7 @@ env:
   hidden_spec:
     missions: "clean-only"
 
-max_environment_steps: 2500
-eval_frequency: 250
+max_environment_steps: 5000
+eval_frequency: 500
 num_eval_trials: 10
-dt: 0.04
+dt: 0.02
