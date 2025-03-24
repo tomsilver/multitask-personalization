@@ -11,9 +11,9 @@ from omegaconf import DictConfig
 
 ENV_TO_DISPLAY_NAME = {
     # "tiny": "Tiny",
-    # "cooking-stationary": "Cooking",
-    # "overnight-stationary": "Overnight Assistance",
+    "cooking-stationary": "Cooking",
     "cleaning-stationary": "Cleaning",
+    "overnight-stationary": "Books",
 }
 
 APPROACH_TO_DISPLAY_NAME = {
@@ -92,7 +92,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
             ax.set_ylabel("")
 
     # Place a single shared legend to the right of the subplots.
-    fig.legend(lines, labels, loc="center right", bbox_to_anchor=(1.15, 0.5))
+    fig.legend(lines, labels, loc="center right", bbox_to_anchor=(1.0, 0.5))
 
     # Adjust layout with extra space for legend.
     plt.tight_layout(rect=(0, 0, 0.85, 1))
