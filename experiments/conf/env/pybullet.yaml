@@ -11,8 +11,8 @@ env:
     book_preferences: "I only like two kinds of books: fictional romances, and grand, nonfictional reflections on the universe. I hate any other book that is not in one of these two categories."
     rom_model: ${rom_model}
     surfaces_robot_can_clean:
-      - ["shelf", 0]
-      - ["shelf", 2]
+      - ["shelf", 1]
+      - ["side-table-0", -1]
   use_gui: false  # need to define, but will be override by train/eval
   use_eval_distribution: false  # need to define, but will be override by train/eval
   llm: ${llm}
