@@ -16,20 +16,23 @@ def combine_results_csvs(
 ) -> pd.DataFrame:
     """Combine experimental results over runs into one dataframe."""
     combined_df = pd.DataFrame()
-    for subdir in os.listdir(directory):
-        subdir_path = directory / subdir
-        if os.path.isdir(subdir_path) and subdir_path.name.isdigit():
-            csv_path = subdir_path / results_filename
-            config_path = subdir_path / config_filename
-            cfg = OmegaConf.load(config_path)
-            assert isinstance(cfg, DictConfig)
-            if config_fn is not None and not config_fn(cfg):
-                continue
-            if os.path.exists(csv_path):
-                df = pd.read_csv(csv_path)
-                assert subdir.isdigit()
-                df["run"] = int(subdir)
-                combined_df = pd.concat([combined_df, df], ignore_index=True)
+    for root, dirs, _ in os.walk(directory):
+        for subdir in dirs:
+            subdir_path = Path(root) / subdir
+            if os.path.isdir(subdir_path) and subdir_path.name.isdigit():
+                csv_path = subdir_path / results_filename
+                config_path = subdir_path / config_filename
+                if not config_path.exists():
+                    continue
+                cfg = OmegaConf.load(config_path)
+                assert isinstance(cfg, DictConfig)
+                if config_fn is not None and not config_fn(cfg):
+                    continue
+                if os.path.exists(csv_path):
+                    df = pd.read_csv(csv_path)
+                    assert subdir.isdigit()
+                    df["run"] = int(subdir)
+                    combined_df = pd.concat([combined_df, df], ignore_index=True)
     return combined_df
 
 
