@@ -1151,6 +1151,11 @@ Return that list and nothing else. Do not explain anything."""
             == "Title: Into the Wild. Author: Jon Krakauer."
         ):
             filepath = book_dir / "into_the_wild" / "combined.jpg"
+        elif (
+            book_description
+            == "Title: And Then There Were None. Author: Agatha Christie."
+        ):
+            filepath = book_dir / "agatha_christie" / "combined.jpg"        
         else:
             return None
         return p.loadTexture(str(filepath), self.physics_client_id)
