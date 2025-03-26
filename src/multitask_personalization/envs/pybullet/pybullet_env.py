@@ -1126,6 +1126,24 @@ Return that list and nothing else. Do not explain anything."""
             == "Title: The Lord of the Rings. Author: J. R. R. Tolkien."
         ):
             filepath = book_dir / "lor" / "combined.jpg"
+        elif book_description == "Title: Cosmos. Author: Carl Sagan.":
+            filepath = book_dir / "cosmos" / "combined.jpg"
+        elif book_description == "Title: Pride and Prejudice. Author: Jane Austen.":
+            filepath = book_dir / "pride_and_prejudice" / "combined.jpg"
+        elif (
+            book_description
+            == "Title: The Immortal Life of Henrietta Lacks. Author: Rebecca Skloot."
+        ):
+            filepath = book_dir / "immortal" / "combined.jpg"
+        elif book_description == "Title: The Diary of Anne Frank. Author: Anne Frank.":
+            filepath = book_dir / "anne_frank" / "combined.jpg"
+        elif book_description == "Title: Into the Wild. Author: Jon Krakauer.":
+            filepath = book_dir / "into_the_wild" / "combined.jpg"
+        elif (
+            book_description
+            == "Title: And Then There Were None. Author: Agatha Christie."
+        ):
+            filepath = book_dir / "agatha_christie" / "combined.jpg"
         else:
             return None
         return p.loadTexture(str(filepath), self.physics_client_id)
