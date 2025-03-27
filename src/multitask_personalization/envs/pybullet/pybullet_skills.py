@@ -13,6 +13,7 @@ from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
     get_kinematic_plan_to_retract,
+    remap_kinematic_state_plan_to_constant_distance
 )
 from pybullet_helpers.motion_planning import (
     MotionPlanningHyperparameters,
@@ -240,6 +241,7 @@ def get_plan_to_move_to_pose(
         platform=sim.robot_stand_id,
         held_object=held_obj_id,
         base_link_to_held_obj=held_obj_tf,
+        hyperparameters=MotionPlanningHyperparameters(birrt_extend_num_interp=50, birrt_num_attempts=100, birrt_num_iters=100, birrt_smooth_amt=250)
     )
 
     assert base_motion_plan is not None
@@ -247,6 +249,8 @@ def get_plan_to_move_to_pose(
     kinematic_plan: list[KinematicState] = []
     for base_pose in base_motion_plan:
         kinematic_plan.append(kinematic_state.copy_with(robot_base_pose=base_pose))
+
+    kinematic_plan = remap_kinematic_state_plan_to_constant_distance(kinematic_plan, sim.robot)
 
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
