@@ -959,6 +959,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self.shelf_id,
                 self.duster_id,
                 self.cup_id,
+                self.human.robot_id,
             }
         )
         if ignore_current_collisions:
