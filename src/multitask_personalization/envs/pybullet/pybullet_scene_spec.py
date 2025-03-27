@@ -239,12 +239,12 @@ class PyBulletSceneSpec(PublicSceneSpec):
         # Views the whole scene.
         default = {
             "camera_target": (0.0, 0.0, 0.2),
-            "camera_distance": 2.0,
+            "camera_distance": 2.5,
             "camera_pitch": -35,
             "camera_yaw": -35,
         }
 
-        if state is None:
+        if state is None or timestep is None:
             return default
 
         # Look at the cover of into the wild.
@@ -292,22 +292,33 @@ class PyBulletSceneSpec(PublicSceneSpec):
                 "camera_yaw": wp1["camera_yaw"] * (1 - t) + wp2["camera_yaw"] * t,
             }
 
-        if timestep is None:
-            return default
-        
-        # TODO pick up from ehre
-        return human_waypoint
-        
-        t = timestep / 25
-        if 0 <= t < 1:
-            waypoint = _interpolate_waypoints(bookshelf_waypoint1, bookshelf_waypoint2, t)
-        elif 1 <= t < 2:
-            waypoint = _interpolate_waypoints(bookshelf_waypoint2, robot_waypoint, t - 1)
-        else:
-            waypoint = robot_waypoint
-            
-        return waypoint
+        # Sequence of (waypoints, relative pause, relative transition) time.
+        script = [
+            (bookshelf_waypoint1, 0.5, 1.0),
+            (robot_waypoint, 1.0, 1.0),
+            (human_waypoint, 1.0, 1.0),
+            (default, None, None),
+        ]
+        fps = 25
+        timestep_secs = timestep / fps
+        t = 0
+        for idx, (waypoint, relative_pause, relative_transition) in enumerate(script):
+            if relative_pause is None or relative_transition is None:
+                return waypoint  # End of script
 
+            # Pause phase
+            if t + relative_pause > timestep_secs:
+                return waypoint
+            t += relative_pause  # Advance time after pause
+
+            # Transition phase
+            if t + relative_transition > timestep_secs:
+                interp_t = (timestep_secs - t) / relative_transition
+                next_waypoint = script[idx + 1][0]
+                return _interpolate_waypoints(waypoint, next_waypoint, interp_t)
+            t += relative_transition  # Advance time after transition
+
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
