@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
 from multitask_personalization.envs.pybullet.pybullet_human import HumanSpec
+from multitask_personalization.envs.pybullet.pybullet_structs import PyBulletState
 from multitask_personalization.rom.models import ROMModel
 from multitask_personalization.structs import PublicSceneSpec
 
@@ -81,10 +83,6 @@ class PyBulletSceneSpec(PublicSceneSpec):
     object_radius: float = 0.025
     object_length: float = 0.1
 
-    camera_target: tuple[float, float, float] = (0.0, 0.0, 0.2)
-    camera_distance: float = 2.0
-    camera_pitch: float = -35
-    camera_yaw: float = -35
     image_height: int = 1024
     image_width: int = 1600
 
@@ -235,6 +233,81 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
         assert len(all_possible_poses) >= self.num_books
         return tuple(all_possible_poses[: self.num_books])
+    
+    def get_camera_kwargs(self, state: PyBulletState | None = None, timestep: int | None = None) -> dict[str, Any]:
+
+        # Views the whole scene.
+        default = {
+            "camera_target": (0.0, 0.0, 0.2),
+            "camera_distance": 2.0,
+            "camera_pitch": -35,
+            "camera_yaw": -35,
+        }
+
+        if state is None:
+            return default
+
+        # Look at the cover of into the wild.
+        bookshelf_waypoint1 = {
+            "camera_target": (0.4, 0.65, 0.5),
+            "camera_distance": 0.15,
+            "camera_pitch": 0,
+            "camera_yaw": 90,
+        }
+
+        # Look at the book shelf from the right side.
+        bookshelf_waypoint2 = {
+            "camera_target": (0.0, 0.65, 0.5),
+            "camera_distance": 1.0,
+            "camera_pitch": -15,
+            "camera_yaw": 65,
+        }
+
+        # Look at the human while the robot is handing over a book.
+        human_waypoint = {
+            "camera_target": (self.human_spec.base_pose.position[0], self.human_spec.base_pose.position[1], self.human_spec.base_pose.position[2] + 0.1), 
+            "camera_distance": 2.5,
+            "camera_pitch": -15,
+            "camera_yaw": -45,
+        }
+
+        # Look at the robot from behind.
+        robot_waypoint = {
+            "camera_target": (state.robot_base.position[0], state.robot_base.position[1], state.robot_base.position[2] + 0.5),
+            "camera_distance": 1.0,
+            "camera_pitch": -35,
+            "camera_yaw": state.robot_base.rpy[2],
+        }
+
+        def _interpolate_waypoints(wp1, wp2, t):
+            return {
+                "camera_target": tuple(
+                    np.array(wp1["camera_target"]) * (1 - t)
+                    + np.array(wp2["camera_target"]) * t
+                ),
+                "camera_distance": wp1["camera_distance"] * (1 - t)
+                + wp2["camera_distance"] * t,
+                "camera_pitch": wp1["camera_pitch"] * (1 - t)
+                + wp2["camera_pitch"] * t,
+                "camera_yaw": wp1["camera_yaw"] * (1 - t) + wp2["camera_yaw"] * t,
+            }
+
+        if timestep is None:
+            return default
+        
+        # TODO pick up from ehre
+        return human_waypoint
+        
+        t = timestep / 25
+        if 0 <= t < 1:
+            waypoint = _interpolate_waypoints(bookshelf_waypoint1, bookshelf_waypoint2, t)
+        elif 1 <= t < 2:
+            waypoint = _interpolate_waypoints(bookshelf_waypoint2, robot_waypoint, t - 1)
+        else:
+            waypoint = robot_waypoint
+            
+        return waypoint
+
 
 
 @dataclass(frozen=True)

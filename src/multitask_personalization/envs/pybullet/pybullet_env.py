@@ -104,11 +104,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Create the PyBullet client.
         if use_gui:
+            camera_kwargs = self.scene_spec.get_camera_kwargs()
             self.physics_client_id = create_gui_connection(
-                camera_target=self.scene_spec.camera_target,
-                camera_distance=self.scene_spec.camera_distance,
-                camera_pitch=self.scene_spec.camera_pitch,
-                camera_yaw=self.scene_spec.camera_yaw,
+                **camera_kwargs
             )
         else:
             self.physics_client_id = p.connect(p.DIRECT)
@@ -329,6 +327,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.scene_spec, p.connect(p.DIRECT)
         )
 
+        # For rendering.
+        self._timestep = 0
+
         # Uncomment for debug / development.
         # if use_gui:
         #     while True:
@@ -479,6 +480,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Add more randomization in future PR.
         super().reset(seed=seed, options=options)
         self._reset_from_scene_spec()
+        self._timestep = 0
 
         # Reset user satisfaction.
         self._user_satisfaction = 0.0
@@ -767,6 +769,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Advance the simulator.
         state = self.get_state()
         self.step_simulator(action)
+        self._timestep += 1
 
         # Advance the mission.
         assert self._current_mission is not None
@@ -806,15 +809,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         }
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
+        camera_kwargs = self.scene_spec.get_camera_kwargs(self.get_state(), self._timestep)
         img = capture_image(
             self.physics_client_id,
-            camera_target=self.scene_spec.camera_target,
-            camera_distance=self.scene_spec.camera_distance,
-            camera_pitch=self.scene_spec.camera_pitch,
-            camera_yaw=self.scene_spec.camera_yaw,
             image_width=self.scene_spec.image_width,
             image_height=self.scene_spec.image_height,
+            **camera_kwargs,
         )
+
         # In non-render mode, PyBullet does not render background correctly.
         # We want the background to be black instead of white. Here, make the
         # assumption that all perfectly white pixels belong to the background
@@ -829,6 +831,12 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 textbox_color=(125, 0, 125, 125),
                 max_chars_per_line=100,
             )
+
+        # Uncomment to debug.
+        import cv2
+        cv2.imshow("Rendered Image", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        cv2.waitKey(1)
+
         return img  # type: ignore
 
     def save_state(self, filepath: Path) -> None:
