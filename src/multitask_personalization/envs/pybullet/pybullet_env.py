@@ -471,6 +471,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Reset human text.
         self.current_human_text = None
 
+        self._animation_actions = []
+
     def reset(
         self,
         *,
@@ -481,6 +483,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         super().reset(seed=seed, options=options)
         self._reset_from_scene_spec()
         self._timestep = 0
+
+        self._animation_actions = []
 
         # Reset user satisfaction.
         self._user_satisfaction = 0.0
@@ -695,15 +699,45 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 ):
                     return
             # Otherwise, handover.
-            self.current_human_held_object_id = self.current_held_object_id
-            self.current_human_grasp_transform = (
-                self.scene_spec.human_spec.grasp_transform
-            )
-            obj_name = self.get_name_from_object_id(self.current_human_held_object_id)
+
+            # Run motion planning for the human.
             if self._hidden_spec is not None:
-                logging.info(f"Handed over object: {obj_name}")
-            self.current_held_object_id = None
-            self.current_grasp_transform = None
+                from pybullet_helpers.motion_planning import run_smooth_motion_planning_to_pose
+                # from pybullet_helpers.motion_planning import run_motion_planning
+                # from pybullet_helpers.inverse_kinematics import inverse_kinematics
+                collision_ids = {self.bed_id, self.robot.robot_id} | set(self.book_ids)
+                # target_joints = inverse_kinematics(self._sim_human, handover_pose,
+                #                                  best_effort=True, validate=False)
+                # init_joints = self.human.get_joint_positions()
+                # human_plan = run_motion_planning(
+                #     self._sim_human,
+                #     init_joints,
+                #     target_joints,
+                #     collision_ids,
+                #     self._seed,
+                #     self._sim_human_physics_client_id
+                # )
+                self._sim_human.set_joints(self.human.get_joint_positions())
+                human_plan = run_smooth_motion_planning_to_pose(handover_pose,
+                                                                self._sim_human,
+                                                                collision_ids,
+                                                                Pose.identity(),
+                                                                self._seed,
+                                                                max_time=1.0)
+                assert human_plan is not None
+                self._animation_actions = [(5, j) for j in human_plan]
+                self._animation_actions.append((5, GripperAction.CLOSE))
+                self._animation_actions.extend([(5, j) for j in human_plan[::-1]])
+            else:
+                self.current_human_held_object_id = self.current_held_object_id
+                self.current_human_grasp_transform = (
+                    self.scene_spec.human_spec.grasp_transform
+                )
+                obj_name = self.get_name_from_object_id(self.current_human_held_object_id)
+                if self._hidden_spec is not None:
+                    logging.info(f"Handed over object: {obj_name}")
+                self.current_held_object_id = None
+                self.current_grasp_transform = None
             return
         # Robot indicated done.
         if np.isclose(action[0], 2) and action[1] == "Done":
@@ -766,9 +800,38 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     def step(
         self, action: PyBulletAction
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
+
+        if np.isclose(action[0], 5):
+            if isinstance(action[1], GripperAction):
+                if GripperAction.CLOSE == action[1]:
+                    self.current_human_held_object_id = self.current_held_object_id
+                    self.current_human_grasp_transform = (
+                        self.scene_spec.human_spec.grasp_transform
+                    )
+                    self.current_held_object_id = None
+                    self.current_grasp_transform = None
+                else:
+                    import ipdb; ipdb.set_trace()
+            else:
+                self.human.set_joints(action[1])
+
+            if self.current_human_grasp_transform:
+                world_to_human = self.human.get_end_effector_pose()
+                world_to_object = multiply_poses(
+                    world_to_human, self.current_human_grasp_transform
+                )
+                assert self.current_human_held_object_id is not None
+                set_pose(
+                    self.current_human_held_object_id,
+                    world_to_object,
+                    self.physics_client_id,
+                )
+            return
+    
         # Advance the simulator.
         state = self.get_state()
         self.step_simulator(action)
+
         self._timestep += 1
 
         # Advance the mission.
@@ -824,13 +887,13 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         background_mask = (img == [255, 255, 255]).all(axis=2)
         img[background_mask] = 0
         # If the human has just said something, render it in the image.
-        if self.current_human_text is not None:
-            img = render_textbox_on_image(
-                img,
-                self.current_human_text,
-                textbox_color=(125, 0, 125, 125),
-                max_chars_per_line=100,
-            )
+        # if self.current_human_text is not None:
+        #     img = render_textbox_on_image(
+        #         img,
+        #         self.current_human_text,
+        #         textbox_color=(125, 0, 125, 125),
+        #         max_chars_per_line=100,
+        #     )
 
         # Uncomment to debug.
         import cv2
@@ -1365,6 +1428,9 @@ Return that list and nothing else. Do not explain anything."""
             ):
                 banned_books.append(book)
         return banned_books
+    
+    def get_animation_actions(self) -> list[PyBulletAction]:
+        return list(self._animation_actions)
 
 
 def _create_duster(

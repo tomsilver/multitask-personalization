@@ -141,6 +141,8 @@ def _main(cfg: DictConfig) -> None:
                 "env_video_should_pause": env_video_should_pause,
                 **train_approach.get_step_metrics(),
             }
+            for animation_action in train_env.get_animation_actions():
+                train_env.step(animation_action)
             if cfg.wandb.enable:
                 wandb_metrics = {f"train/{k}": v for k, v in step_train_metrics.items()}
                 del wandb_metrics["train/step"]
