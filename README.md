@@ -33,7 +33,7 @@ python experiments/run_single_experiment.py -m \
 To create a training-time video:
 
 ```
-python experiments/run_single_experiment.py -m     env=pybullet     approach=ours     seed=1 env.csp_solver.max_improvement_attempts=0 env.num_eval_trials=0 env.train_env.use_gui=True llm=openai approach.max_motion_planning_candidates=25 record_train_videos=true
+python experiments/run_single_experiment.py -m     env=pybullet     approach=ours     seed=1 env.csp_solver.max_improvement_attempts=0 env.num_eval_trials=0 env.train_env.use_gui=True llm=openai approach.motion_planning_quality=good record_train_videos=true
 ```
 
 ### G2 (SLURM cluster)

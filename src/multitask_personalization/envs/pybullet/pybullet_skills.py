@@ -200,21 +200,11 @@ def get_target_base_pose(
     raise NotImplementedError
 
 
-def get_plan_to_move_next_to_object(
-    state: PyBulletState,
-    object_name: str,
-    sim: PyBulletEnv,
-    seed: int = 0,
-) -> list[PyBulletAction]:
-    """Get a plan to move next to a given object."""
-    target_base_pose = get_target_base_pose(state, object_name, sim)
-    return get_plan_to_move_to_pose(state, target_base_pose, sim, seed)
-
-
 def get_plan_to_move_to_pose(
     state: PyBulletState,
     target_base_pose: Pose,
     sim: PyBulletEnv,
+    mp_hyperparameters: MotionPlanningHyperparameters,
     seed: int = 0,
 ) -> list[PyBulletAction]:
     """Get a plan to move next to a given object."""
@@ -241,12 +231,7 @@ def get_plan_to_move_to_pose(
         platform=sim.robot_stand_id,
         held_object=held_obj_id,
         base_link_to_held_obj=held_obj_tf,
-        hyperparameters=MotionPlanningHyperparameters(
-            birrt_extend_num_interp=50,
-            birrt_num_attempts=100,
-            birrt_num_iters=100,
-            birrt_smooth_amt=250,
-        ),
+        hyperparameters=mp_hyperparameters,
     )
 
     assert base_motion_plan is not None

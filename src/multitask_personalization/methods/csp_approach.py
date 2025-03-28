@@ -7,6 +7,7 @@ from typing import Any
 
 import gymnasium as gym
 import numpy as np
+from pybullet_helpers.motion_planning import MotionPlanningHyperparameters
 from tomsutils.llm import LargeLanguageModel
 
 from multitask_personalization.csp_generation import CSPGenerator
@@ -43,7 +44,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         action_space: gym.spaces.Space[_ActType],
         csp_solver: CSPSolver,
         llm: LargeLanguageModel | None = None,
-        max_motion_planning_candidates: int = 1,
+        motion_planning_quality: str = "normal",
         explore_method: str = "nothing-personal",
         disable_learning: bool = False,
         csp_save_dir: str | None = None,
@@ -56,7 +57,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._current_sol: dict[CSPVariable, Any] | None = None
         self._explore_method = explore_method
         self._disable_learning = disable_learning
-        self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._motion_planning_quality = motion_planning_quality
         self._csp_save_dir = Path(csp_save_dir) if csp_save_dir else None
         self._csp_generator = self._create_csp_generator()
 
@@ -159,6 +160,21 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 self._scene_spec, self._llm, seed=self._seed, use_gui=False
             )
             rom_model = SphericalROMModel(self._scene_spec.human_spec, self._seed)
+            if self._motion_planning_quality == "normal":
+                max_motion_planning_candidates = 1
+                base_mp_hyperparameters = MotionPlanningHyperparameters()
+            elif self._motion_planning_quality == "good":
+                max_motion_planning_candidates = 25
+                base_mp_hyperparameters = MotionPlanningHyperparameters(
+                    birrt_extend_num_interp=50,
+                    birrt_num_attempts=100,
+                    birrt_num_iters=100,
+                    birrt_smooth_amt=250,
+                )
+            else:
+                raise ValueError(
+                    f"Unknown motion planning quality: {self._motion_planning_quality}"
+                )
             return PyBulletCSPGenerator(
                 sim,
                 rom_model,
@@ -166,7 +182,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 seed=self._seed,
                 explore_method=self._explore_method,
                 disable_learning=self._disable_learning,
-                max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_candidates=max_motion_planning_candidates,
+                base_mp_hyperparameters=base_mp_hyperparameters,
             )
         if isinstance(self._scene_spec, CookingSceneSpec):
             meal_model = MealSpecMealPreferenceModel(
