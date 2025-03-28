@@ -1,5 +1,5 @@
 _target_: "multitask_personalization.methods.csp_approach.CSPApproach"
-max_motion_planning_candidates: 1
+motion_planning_quality: normal
 explore_method: max-entropy
 csp_solver: ${csp_solver}
 llm: ${llm}

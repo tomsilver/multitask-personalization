@@ -25,6 +25,7 @@ from pybullet_helpers.inverse_kinematics import (
 from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.manipulation import generate_surface_placements
 from pybullet_helpers.math_utils import get_poses_facing_line
+from pybullet_helpers.motion_planning import MotionPlanningHyperparameters
 from pybullet_helpers.spaces import PoseSpace
 from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
@@ -75,12 +76,14 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         seed: int = 0,
         max_motion_planning_time: float = np.inf,
         max_motion_planning_candidates: int = 1,
+        base_mp_hyperparameters: MotionPlanningHyperparameters = MotionPlanningHyperparameters(),  # pylint: disable=line-too-long
     ) -> None:
         super().__init__(csp_variables, seed)
         self._sim = sim
         self._current_plan: list[PyBulletAction] = []
         self._max_motion_planning_time = max_motion_planning_time
         self._max_motion_planning_candidates = max_motion_planning_candidates
+        self._base_motion_planning_hyperparameters = base_mp_hyperparameters
         self._terminated = False
 
     @abc.abstractmethod
@@ -124,6 +127,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         seed: int = 0,
         max_motion_planning_time: float = np.inf,
         max_motion_planning_candidates: int = 1,
+        base_mp_hyperparameters: MotionPlanningHyperparameters = MotionPlanningHyperparameters(),  # pylint: disable=line-too-long
     ) -> None:
         super().__init__(
             sim,
@@ -131,6 +135,7 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
             seed,
             max_motion_planning_time,
             max_motion_planning_candidates,
+            base_mp_hyperparameters,
         )
         # Need to track whether the user has been alerted to handle the rare
         # case where the policy is initiated from a state where the handover
@@ -174,7 +179,11 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
             if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
                 logging.debug("Getting plan to move next to book")
                 return get_plan_to_move_to_pose(
-                    obs, grasp_base_pose, self._sim, seed=self._seed
+                    obs,
+                    grasp_base_pose,
+                    self._sim,
+                    self._base_motion_planning_hyperparameters,
+                    seed=self._seed,
                 )
             # Pick up the target book.
             logging.debug("Getting plan to pick book")
@@ -203,7 +212,11 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
             if not handover_base_pose.allclose(obs.robot_base, atol=1e-3):
                 logging.debug("Getting plan to move to handover base pose")
                 return get_plan_to_move_to_pose(
-                    obs, handover_base_pose, self._sim, seed=self._seed
+                    obs,
+                    handover_base_pose,
+                    self._sim,
+                    self._base_motion_planning_hyperparameters,
+                    seed=self._seed,
                 )
             # Handover the book.
             logging.debug("Getting plan to do the handover")
@@ -228,7 +241,11 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
         if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
             logging.debug("Getting plan to move to place before handover")
             return get_plan_to_move_to_pose(
-                obs, placement_base_pose, self._sim, seed=self._seed
+                obs,
+                placement_base_pose,
+                self._sim,
+                self._base_motion_planning_hyperparameters,
+                seed=self._seed,
             )
         surface_name, surface_link_id = self._get_value("surface")
         assert obs.held_object is not None
@@ -260,7 +277,11 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
         if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
             logging.debug("Getting plan to move the placement base pose")
             return get_plan_to_move_to_pose(
-                obs, placement_base_pose, self._sim, seed=self._seed
+                obs,
+                placement_base_pose,
+                self._sim,
+                self._base_motion_planning_hyperparameters,
+                seed=self._seed,
             )
         assert obs.held_object is not None
         logging.debug("Getting plan to place")
@@ -298,7 +319,11 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
             if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
                 logging.debug("Getting plan to move the placement base pose")
                 return get_plan_to_move_to_pose(
-                    obs, placement_base_pose, self._sim, seed=self._seed
+                    obs,
+                    placement_base_pose,
+                    self._sim,
+                    self._base_motion_planning_hyperparameters,
+                    seed=self._seed,
                 )
             logging.debug("Getting plan to place")
             place_plan = get_plan_to_place_object(
@@ -325,7 +350,11 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
             if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
                 logging.debug("Getting plan to move to place first object")
                 return get_plan_to_move_to_pose(
-                    obs, placement_base_pose, self._sim, seed=self._seed
+                    obs,
+                    placement_base_pose,
+                    self._sim,
+                    self._base_motion_planning_hyperparameters,
+                    seed=self._seed,
                 )
             logging.debug("Getting plan to place first object")
             place_plan = get_plan_to_place_object(
@@ -346,7 +375,11 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
         if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
             logging.debug("Getting plan to move next to object")
             return get_plan_to_move_to_pose(
-                obs, grasp_base_pose, self._sim, seed=self._seed
+                obs,
+                grasp_base_pose,
+                self._sim,
+                self._base_motion_planning_hyperparameters,
+                seed=self._seed,
             )
         # Do the reverse handover.
         grasp_yaw = np.array([-np.pi / 2])
@@ -413,7 +446,11 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
             logging.debug("Getting plan to move to place object")
             return get_plan_to_move_to_pose(
-                obs, placement_base_pose, self._sim, seed=self._seed
+                obs,
+                placement_base_pose,
+                self._sim,
+                self._base_motion_planning_hyperparameters,
+                seed=self._seed,
             )
         logging.debug("Getting plan to place object")
         return get_plan_to_place_object(
@@ -490,6 +527,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         max_motion_planning_time: float = 10,
         max_policy_steps: int = 1000,
         motion_planning_time_constraint_scale: float = 0.5,
+        base_mp_hyperparameters: MotionPlanningHyperparameters = MotionPlanningHyperparameters(),  # pylint: disable=line-too-long
         placement_distance_threshold: float = 0.1,
         **kwargs,
     ) -> None:
@@ -510,6 +548,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._motion_planning_time_constraint_scale = (
             motion_planning_time_constraint_scale
         )
+        self._base_mp_hyperparameters = base_mp_hyperparameters
         self._max_policy_steps = max_policy_steps
         self._placement_distance_threshold = placement_distance_threshold
         self._current_mission: str | None = None
@@ -1312,6 +1351,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 max_motion_planning_time=max_motion_planning_time,
+                base_mp_hyperparameters=self._base_mp_hyperparameters,
             )
 
         if self._current_mission == "put away robot held object":
@@ -1322,6 +1362,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 max_motion_planning_time=max_motion_planning_time,
+                base_mp_hyperparameters=self._base_mp_hyperparameters,
             )
 
         if self._current_mission == "put away human held object":
@@ -1332,6 +1373,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 max_motion_planning_time=max_motion_planning_time,
+                base_mp_hyperparameters=self._base_mp_hyperparameters,
             )
 
         if self._current_mission == "clean":
@@ -1342,6 +1384,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 seed=self._seed,
                 max_motion_planning_candidates=self._max_motion_planning_candidates,
                 max_motion_planning_time=max_motion_planning_time,
+                base_mp_hyperparameters=self._base_mp_hyperparameters,
             )
 
         raise NotImplementedError

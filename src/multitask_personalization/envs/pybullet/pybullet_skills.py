@@ -13,6 +13,7 @@ from pybullet_helpers.manipulation import (
     get_kinematic_plan_to_pick_object,
     get_kinematic_plan_to_place_object,
     get_kinematic_plan_to_retract,
+    remap_kinematic_state_plan_to_constant_distance,
 )
 from pybullet_helpers.motion_planning import (
     MotionPlanningHyperparameters,
@@ -199,21 +200,11 @@ def get_target_base_pose(
     raise NotImplementedError
 
 
-def get_plan_to_move_next_to_object(
-    state: PyBulletState,
-    object_name: str,
-    sim: PyBulletEnv,
-    seed: int = 0,
-) -> list[PyBulletAction]:
-    """Get a plan to move next to a given object."""
-    target_base_pose = get_target_base_pose(state, object_name, sim)
-    return get_plan_to_move_to_pose(state, target_base_pose, sim, seed)
-
-
 def get_plan_to_move_to_pose(
     state: PyBulletState,
     target_base_pose: Pose,
     sim: PyBulletEnv,
+    mp_hyperparameters: MotionPlanningHyperparameters,
     seed: int = 0,
 ) -> list[PyBulletAction]:
     """Get a plan to move next to a given object."""
@@ -240,6 +231,7 @@ def get_plan_to_move_to_pose(
         platform=sim.robot_stand_id,
         held_object=held_obj_id,
         base_link_to_held_obj=held_obj_tf,
+        hyperparameters=mp_hyperparameters,
     )
 
     assert base_motion_plan is not None
@@ -247,6 +239,10 @@ def get_plan_to_move_to_pose(
     kinematic_plan: list[KinematicState] = []
     for base_pose in base_motion_plan:
         kinematic_plan.append(kinematic_state.copy_with(robot_base_pose=base_pose))
+
+    kinematic_plan = remap_kinematic_state_plan_to_constant_distance(
+        kinematic_plan, sim.robot
+    )
 
     return get_pybullet_action_plan_from_kinematic_plan(kinematic_plan)
 
