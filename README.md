@@ -21,13 +21,19 @@ Run `./run_ci_checks.sh`. It should complete with all green successes 1 minute o
 
 ### Local
 
-The main command for running experiments is below. This will be updated as we go on.
+The main command for running experiments is below.
 
 ```
 python experiments/run_single_experiment.py -m \
-    env=cooking-stationary,overnight-stationary \
+    env=cooking-stationary,overnight-stationary,cleaning-stationary \
     approach=ours,nothing_personal,exploit_only,epsilon_greedy,no_learning \
     seed="range(1, 11)"
+```
+
+To create a training-time video:
+
+```
+python experiments/run_single_experiment.py -m     env=pybullet     approach=ours     seed=1 env.csp_solver.max_improvement_attempts=0 env.num_eval_trials=0 env.train_env.use_gui=True llm=openai approach.max_motion_planning_candidates=25 record_train_videos=true
 ```
 
 ### G2 (SLURM cluster)
