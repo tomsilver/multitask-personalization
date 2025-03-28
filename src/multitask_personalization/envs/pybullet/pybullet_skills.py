@@ -210,7 +210,9 @@ def get_plan_to_move_to_pose(
     """Get a plan to move next to a given object."""
     sim.set_state(state)
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
-    collision_ids = sim.get_collision_ids() - set(kinematic_state.attachments)
+    collision_ids = sim.get_collision_ids(ignore_current_collisions=True) - set(
+        kinematic_state.attachments
+    )
     current_base_pose = state.robot_base
 
     if kinematic_state.attachments:
