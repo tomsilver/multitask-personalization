@@ -39,11 +39,8 @@ class GripperAction(Enum):
     CLOSE = 2
 
 
-HumanAction = JointPositions | GripperAction
-
-
 PyBulletAction: TypeAlias = tuple[
-    int, JointPositions | GripperAction | str | None | HumanAction
+    int, JointPositions | GripperAction | str | None
 ]  # OneOf
 
 
