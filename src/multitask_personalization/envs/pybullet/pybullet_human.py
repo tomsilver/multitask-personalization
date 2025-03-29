@@ -70,6 +70,12 @@ class SmoothHumanSpec(HumanSpec):
 
     base_pose: Pose = Pose(position=(2.0, 0.53, 0.25))
 
+    # right_arm_kwargs: dict[str, Any] = field(
+    #     default_factory=lambda: {
+    #         "home_joint_positions": [-0.5, 1.0, 0.56, -0.48, -0.31, 0.0, -1.44],
+    #     }
+    # )
+
     right_leg_kwargs: dict[str, Any] = field(
         default_factory=lambda: {
             "home_joint_positions": [-np.pi / 2, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -120,6 +126,7 @@ def create_smooth_human_from_spec(
     human = Human(
         physics_client_id,
         base_pose=human_spec.base_pose,
+        # right_arm_kwargs=human_spec.right_arm_kwargs,
         right_leg_kwargs=human_spec.right_leg_kwargs,
         left_leg_kwargs=human_spec.left_leg_kwargs,
     )
