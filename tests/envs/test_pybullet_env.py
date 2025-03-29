@@ -117,6 +117,14 @@ def test_pybullet_human_handover():
        [1., 1.]])}, held_object='Title: Book 1. Author: Love.', human_text=None, human_held_object=None, human_grasp_transform=None)
     env.set_state(pre_handover_state)
 
+    from pybullet_helpers.inverse_kinematics import inverse_kinematics
+    from pybullet_helpers.geometry import rotate_pose
+    from pybullet_helpers.gui import visualize_pose
+    handover_pose = rotate_pose(env.robot.get_end_effector_pose(), roll=np.pi)
+    visualize_pose(handover_pose, env.physics_client_id)
+    visualize_pose(env.human.get_end_effector_pose(), env.physics_client_id)
+    joints = inverse_kinematics(env.human, handover_pose)
+
     import pybullet as p
     while True:
         p.getMouseEvents(env.physics_client_id)
