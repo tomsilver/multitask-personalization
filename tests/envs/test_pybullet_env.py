@@ -111,7 +111,7 @@ def test_pybullet_human_handover():
         ("shelf", 2),
     ]
     hidden_spec = HiddenSceneSpec(
-        missions="all",
+        missions="handover-only",
         book_preferences=book_preferences,
         rom_model=rom_model,
         surfaces_robot_can_clean=surfaces_robot_can_clean,
@@ -142,6 +142,9 @@ def test_pybullet_human_handover():
        [1., 1.]])}, held_object='Title: Book 1. Author: Love.', human_text=None, human_held_object=None, human_grasp_transform=None)
     env.unwrapped.set_state(pre_handover_state)
     env.step((2, "Here you go!"))
+    env.step((2, "Done"))
+    env.step((1, [0.0] * 7))
+
     env.close()
 
     # from pybullet_helpers.inverse_kinematics import inverse_kinematics

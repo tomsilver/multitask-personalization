@@ -840,6 +840,33 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             next_mission = self._generate_mission()
             self._reset_mission(next_mission)
 
+            if next_mission.get_id() == "store human held object":
+                reverse_handover_joint_positions = [-0.5, 1.0, 0.56, -0.48, -0.31, 0.0, -1.44]
+                # from pybullet_helpers.gui import run_interactive_joint_gui
+                # run_interactive_joint_gui(self.human)
+
+                collision_ids = set()
+                human_motion_plan = run_motion_planning(self._sim_human,
+                                                        self.human.get_joint_positions(), 
+                                                        reverse_handover_joint_positions,
+                                                        collision_ids,
+                                                        seed=self._seed,
+                                                        physics_client_id=self._sim_human.physics_client_id)
+                for human_joint_positions in human_motion_plan:
+                    # Set the human joints to the planned positions.
+                    self.human.set_joints(human_joint_positions)
+                    world_to_human = self.human.get_end_effector_pose()
+                    world_to_object = multiply_poses(
+                        world_to_human, self.current_human_grasp_transform
+                    )
+                    assert self.current_human_held_object_id is not None
+                    set_pose(
+                        self.current_human_held_object_id,
+                        world_to_object,
+                        self.physics_client_id,
+                    )
+                    self.interstates.append(self.get_state())
+
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
 

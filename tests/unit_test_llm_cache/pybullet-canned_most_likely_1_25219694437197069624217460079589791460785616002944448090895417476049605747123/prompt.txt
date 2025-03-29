@@ -1,0 +1,15 @@
+Pretend you are a human user with the following preferences about books:
+    
+User preferences: I like pretty much anything!
+
+A robot is handing you the following book:
+
+Book description: Title: Book 1. Author: Love.
+
+You DO enjoy this book.
+
+If you enjoy the book, say something like "Thanks, I love this book!"
+
+If you don't enjoy the book, say something like "Thanks, but I don't like this book."
+
+Do not explain why.
