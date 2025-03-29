@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 import pybullet as p
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, multiply_poses
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.human import Human
@@ -18,6 +18,8 @@ class HumanSpec:
 
     base_pose: Pose = Pose(position=(2.0, 0.53, 0.51))
     grasp_transform: Pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0.0, 0.0, np.sqrt(2) / 2))
+    # TODO
+    # reading_pose: Pose = multiply_poses(base_pose, Pose.from_rpy((-0.3, -0.5, 0.0), (np.pi / 2, -np.pi / 6, np.pi / 4)))
 
 
 @dataclass(frozen=True)

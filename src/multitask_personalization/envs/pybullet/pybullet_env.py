@@ -21,7 +21,7 @@ from pybullet_helpers.geometry import (
     rotate_pose,
     set_pose,
 )
-from pybullet_helpers.motion_planning import run_smooth_motion_planning_to_pose
+from pybullet_helpers.motion_planning import run_smooth_motion_planning_to_pose, run_motion_planning
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
@@ -699,13 +699,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     np.array(handover_pose.position)
                 ):
                     return
+
             # Otherwise, handover. Call step multiple times. TODO toggle this as an option.
             self._sim_human.set_joints(self._sim_human.get_joint_positions())
             set_pose(self._sim_human_book_id, get_pose(self.current_held_object_id, self.physics_client_id), self._sim_human_physics_client_id)
             collision_ids = {self._sim_human_book_id}
             pre_handover_pose = multiply_poses(handover_pose, Pose((-0.065, 0.0, 0.0)))
             human_motion_plan = run_smooth_motion_planning_to_pose(pre_handover_pose, self._sim_human, collision_ids, end_effector_frame_to_plan_frame=Pose.identity(),
-                                               seed=self._seed, max_time=5.0)
+                                               seed=self._seed, max_time=1.0)
             for human_joint_positions in human_motion_plan:
                 # Set the human joints to the planned positions.
                 self.human.set_joints(human_joint_positions)
@@ -723,7 +724,20 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 logging.info(f"Handed over object: {obj_name}")
             self.current_held_object_id = None
             self.current_grasp_transform = None
-            for human_joint_positions in human_motion_plan[::-1]:
+            self._sim_human.set_joints(self.human.get_joint_positions())
+            collision_ids = set()
+
+            # from pybullet_helpers.gui import run_interactive_joint_gui
+            # run_interactive_joint_gui(self.human)
+            reading_joint_positions = [-0.5, 0.919, 0.463, -1.329, 0.250, -0.7, -2.75]
+
+            human_motion_plan2 = run_motion_planning(self._sim_human,
+                                                     self.human.get_joint_positions(), 
+                                                     reading_joint_positions,
+                                                     collision_ids,
+                                                     seed=self._seed,
+                                                     physics_client_id=self._sim_human.physics_client_id)
+            for human_joint_positions in human_motion_plan2:
                 # Set the human joints to the planned positions.
                 self.human.set_joints(human_joint_positions)
                 world_to_human = self.human.get_end_effector_pose()
