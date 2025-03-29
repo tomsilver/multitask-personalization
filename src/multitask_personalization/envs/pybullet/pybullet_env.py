@@ -676,6 +676,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             return
         # Robot indicating hand over.
         if np.isclose(action[0], 2) and action[1] == "Here you go!":
+            import ipdb; ipdb.set_trace()
             # If the action is invalid, do nothing.
             if self.current_held_object_id is None:
                 return

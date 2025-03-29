@@ -119,7 +119,7 @@ class SphericalROMModel(TrainableROMModel):
         seed: int = 0,
         min_possible_radius: float = 0.0,
         max_possible_radius: float = 1.25,
-        origin_distance: float = 0.2,
+        origin_distance: float = 0.1,
     ) -> None:
         super().__init__(human_spec, seed=seed)
         self._min_possible_radius = min_possible_radius

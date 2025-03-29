@@ -22,7 +22,7 @@ def test_pybullet_csp():
     scene_spec = PyBulletSceneSpec(num_books=3, num_side_tables=1)
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
-        scene_spec.human_spec, min_possible_radius=0.29, max_possible_radius=0.31
+        scene_spec.human_spec, min_possible_radius=0.0, max_possible_radius=0.01
     )
     surfaces_robot_can_clean = [
         ("table", -1),
