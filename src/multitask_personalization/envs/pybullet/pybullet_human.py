@@ -66,7 +66,7 @@ class AssistiveHumanSpec(HumanSpec):
 class SmoothHumanSpec(HumanSpec):
     """Smoother robot with right arm animated."""
 
-    base_pose: Pose = Pose(position=(2.0, 0.53, 0.2))
+    base_pose: Pose = Pose(position=(2.0, 0.53, 0.25))
 
     right_leg_kwargs: dict[str, Any] = field(
         default_factory=lambda: {
