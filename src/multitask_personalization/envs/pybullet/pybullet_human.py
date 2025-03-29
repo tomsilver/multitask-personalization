@@ -1,12 +1,14 @@
 """Utilities specific to pybullet environment, skills, etc."""
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import pybullet as p
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots import create_pybullet_robot
+from pybullet_helpers.robots.human import Human
 from pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 
 
@@ -20,7 +22,7 @@ class HumanSpec:
 
 @dataclass(frozen=True)
 class AssistiveHumanSpec(HumanSpec):
-    """Defines the spec for a human user in the pybullet environment."""
+    """Avatar derived from assistive gym."""
 
     # Default arm joints.
     init_joints: JointPositions = field(
@@ -60,12 +62,33 @@ class AssistiveHumanSpec(HumanSpec):
         return known_names[human_readable_name]
 
 
+@dataclass(frozen=True)
+class SmoothHumanSpec(HumanSpec):
+    """Smoother robot with right arm animated."""
+
+    base_pose: Pose = Pose(position=(2.0, 0.53, 0.2))
+
+    right_leg_kwargs: dict[str, Any] = field(
+        default_factory=lambda: {
+            "home_joint_positions": [-np.pi / 2, 0.0, 0.0, 0.0, 0.0, 0.0],
+        }
+    )
+
+    left_leg_kwargs: dict[str, Any] = field(
+        default_factory=lambda: {
+            "home_joint_positions": [-np.pi / 2, 0.0, 0.0, 0.0, 0.0, 0.0],
+        }
+    )
+
+
 def create_human_from_spec(
     human_spec: HumanSpec, physics_client_id: int
 ) -> SingleArmPyBulletRobot:
     """Create a human in pybullet from a specification."""
     if isinstance(human_spec, AssistiveHumanSpec):
         return create_assistive_human_from_spec(human_spec, physics_client_id)
+    if isinstance(human_spec, SmoothHumanSpec):
+        return create_smooth_human_from_spec(human_spec, physics_client_id)
     raise NotImplementedError(
         f"Creating a human from spec of type {type(human_spec)} is not implemented."
     )
@@ -86,3 +109,16 @@ def create_assistive_human_from_spec(
             human.robot_id, joint_idx, joint_value, physicsClientId=physics_client_id
         )
     return human
+
+
+def create_smooth_human_from_spec(
+    human_spec: SmoothHumanSpec, physics_client_id: int
+) -> SingleArmPyBulletRobot:
+    """Create a smoother human in pybullet from a specification."""
+    human = Human(
+        physics_client_id,
+        base_pose=human_spec.base_pose,
+        right_leg_kwargs=human_spec.right_leg_kwargs,
+        left_leg_kwargs=human_spec.left_leg_kwargs,
+    )
+    return human.right_arm
