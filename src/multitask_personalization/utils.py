@@ -25,6 +25,10 @@ DIMENSION_LIMITS = {
 # TODO
 class RecordVideoWithIntermediateFrames(gym.wrappers.RecordVideo):
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.env._recording_video_with_intermediate_frames = True
+
     def _capture_frame(self):
         if hasattr(self.env, "interstates") and hasattr(self.env, "set_state"):
             # Capture intermediate frames from the environment's interstates.

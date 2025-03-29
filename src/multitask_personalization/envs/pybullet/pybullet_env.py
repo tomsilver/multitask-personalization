@@ -65,7 +65,7 @@ from multitask_personalization.envs.pybullet.pybullet_utils import (
 class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     """A pybullet based environment."""
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 20}
 
     def __init__(
         self,
@@ -701,56 +701,57 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     return
 
             # Otherwise, handover. Call step multiple times. TODO toggle this as an option.
-            self._sim_human.set_joints(self._sim_human.get_joint_positions())
-            set_pose(self._sim_human_book_id, get_pose(self.current_held_object_id, self.physics_client_id), self._sim_human_physics_client_id)
-            collision_ids = {self._sim_human_book_id}
-            pre_handover_pose = multiply_poses(handover_pose, Pose((-0.065, 0.0, 0.0)))
-            human_motion_plan = run_smooth_motion_planning_to_pose(pre_handover_pose, self._sim_human, collision_ids, end_effector_frame_to_plan_frame=Pose.identity(),
-                                               seed=self._seed, max_time=1.0)
-            for human_joint_positions in human_motion_plan:
-                # Set the human joints to the planned positions.
-                self.human.set_joints(human_joint_positions)
-                self.interstates.append(self.get_state())
-            # from pybullet_helpers.gui import visualize_pose
-            # visualize_pose(pre_handover_pose, self.physics_client_id)
-            # while True:
-            #     p.getMouseEvents(self.physics_client_id)
-            self.current_human_held_object_id = self.current_held_object_id
-            self.current_human_grasp_transform = (
-                self.scene_spec.human_spec.grasp_transform
-            )
-            obj_name = self.get_name_from_object_id(self.current_human_held_object_id)
-            if self._hidden_spec is not None:
-                logging.info(f"Handed over object: {obj_name}")
-            self.current_held_object_id = None
-            self.current_grasp_transform = None
-            self._sim_human.set_joints(self.human.get_joint_positions())
-            collision_ids = set()
-
-            # from pybullet_helpers.gui import run_interactive_joint_gui
-            # run_interactive_joint_gui(self.human)
-            reading_joint_positions = [-0.5, 0.919, 0.463, -1.329, 0.250, -0.7, -2.75]
-
-            human_motion_plan2 = run_motion_planning(self._sim_human,
-                                                     self.human.get_joint_positions(), 
-                                                     reading_joint_positions,
-                                                     collision_ids,
-                                                     seed=self._seed,
-                                                     physics_client_id=self._sim_human.physics_client_id)
-            for human_joint_positions in human_motion_plan2:
-                # Set the human joints to the planned positions.
-                self.human.set_joints(human_joint_positions)
-                world_to_human = self.human.get_end_effector_pose()
-                world_to_object = multiply_poses(
-                    world_to_human, self.current_human_grasp_transform
+            if hasattr(self, "_recording_video_with_intermediate_frames"):
+                self._sim_human.set_joints(self._sim_human.get_joint_positions())
+                set_pose(self._sim_human_book_id, get_pose(self.current_held_object_id, self.physics_client_id), self._sim_human_physics_client_id)
+                collision_ids = {self._sim_human_book_id}
+                pre_handover_pose = multiply_poses(handover_pose, Pose((-0.065, 0.0, 0.0)))
+                human_motion_plan = run_smooth_motion_planning_to_pose(pre_handover_pose, self._sim_human, collision_ids, end_effector_frame_to_plan_frame=Pose.identity(),
+                                                seed=self._seed, max_time=1.0)
+                for human_joint_positions in human_motion_plan:
+                    # Set the human joints to the planned positions.
+                    self.human.set_joints(human_joint_positions)
+                    self.interstates.append(self.get_state())
+                # from pybullet_helpers.gui import visualize_pose
+                # visualize_pose(pre_handover_pose, self.physics_client_id)
+                # while True:
+                #     p.getMouseEvents(self.physics_client_id)
+                self.current_human_held_object_id = self.current_held_object_id
+                self.current_human_grasp_transform = (
+                    self.scene_spec.human_spec.grasp_transform
                 )
-                assert self.current_human_held_object_id is not None
-                set_pose(
-                    self.current_human_held_object_id,
-                    world_to_object,
-                    self.physics_client_id,
-                )
-                self.interstates.append(self.get_state())
+                obj_name = self.get_name_from_object_id(self.current_human_held_object_id)
+                if self._hidden_spec is not None:
+                    logging.info(f"Handed over object: {obj_name}")
+                self.current_held_object_id = None
+                self.current_grasp_transform = None
+                self._sim_human.set_joints(self.human.get_joint_positions())
+                collision_ids = set()
+
+                # from pybullet_helpers.gui import run_interactive_joint_gui
+                # run_interactive_joint_gui(self.human)
+                reading_joint_positions = [-0.5, 0.919, 0.463, -1.329, 0.250, -0.7, -2.75]
+
+                human_motion_plan2 = run_motion_planning(self._sim_human,
+                                                        self.human.get_joint_positions(), 
+                                                        reading_joint_positions,
+                                                        collision_ids,
+                                                        seed=self._seed,
+                                                        physics_client_id=self._sim_human.physics_client_id)
+                for human_joint_positions in human_motion_plan2:
+                    # Set the human joints to the planned positions.
+                    self.human.set_joints(human_joint_positions)
+                    world_to_human = self.human.get_end_effector_pose()
+                    world_to_object = multiply_poses(
+                        world_to_human, self.current_human_grasp_transform
+                    )
+                    assert self.current_human_held_object_id is not None
+                    set_pose(
+                        self.current_human_held_object_id,
+                        world_to_object,
+                        self.physics_client_id,
+                    )
+                    self.interstates.append(self.get_state())
             return
         # Robot indicated done.
         if np.isclose(action[0], 2) and action[1] == "Done":
@@ -840,7 +841,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             next_mission = self._generate_mission()
             self._reset_mission(next_mission)
 
-            if next_mission.get_id() == "store human held object":
+            if next_mission.get_id() == "store human held object" and hasattr(self, "_recording_video_with_intermediate_frames"):
                 reverse_handover_joint_positions = [-0.5, 1.0, 0.56, -0.48, -0.31, 0.0, -1.44]
                 # from pybullet_helpers.gui import run_interactive_joint_gui
                 # run_interactive_joint_gui(self.human)
