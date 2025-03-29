@@ -10,7 +10,10 @@ import numpy as np
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
-from multitask_personalization.envs.pybullet.pybullet_human import HumanSpec
+from multitask_personalization.envs.pybullet.pybullet_human import (
+    AssistiveHumanSpec,
+    HumanSpec,
+)
 from multitask_personalization.envs.pybullet.pybullet_structs import PyBulletState
 from multitask_personalization.rom.models import ROMModel
 from multitask_personalization.structs import PublicSceneSpec
@@ -68,7 +71,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     robot_stand_radius: float = 0.1
     robot_stand_length: float = 0.4
 
-    human_spec: HumanSpec = HumanSpec()
+    human_spec: HumanSpec = AssistiveHumanSpec()
 
     table_pose: Pose = Pose(position=(-0.75, 0.0, -0.2))
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
