@@ -77,7 +77,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.2)
 
-    num_side_tables: int = 3
+    num_side_tables: int = 2
     default_side_table_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
     side_table_spacing: float = 0.05
 
@@ -247,8 +247,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
         # Views the whole scene.
         default = {
             "camera_target": (0.0, 0.0, 0.2),
-            "camera_distance": 2.5,
-            "camera_pitch": -35,
+            "camera_distance": 2.0,
+            "camera_pitch": -15,
             "camera_yaw": -35,
         }
 
