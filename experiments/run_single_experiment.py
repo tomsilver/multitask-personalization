@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 
 import gymnasium as gym
+from multitask_personalization.utils import RecordVideoWithIntermediateFrames
 import hydra
 import numpy as np
 import pandas as pd
@@ -54,7 +55,7 @@ def _main(cfg: DictConfig) -> None:
     train_env = hydra.utils.instantiate(train_env_cfg, seed=cfg.seed)
     assert isinstance(train_env, gym.Env)
     if cfg.record_train_videos:
-        train_env = gym.wrappers.RecordVideo(
+        train_env = RecordVideoWithIntermediateFrames(
             train_env, str(Path(cfg.video_dir) / "train")
         )
     train_env.action_space.seed(cfg.seed)
@@ -65,7 +66,7 @@ def _main(cfg: DictConfig) -> None:
     eval_env = hydra.utils.instantiate(eval_env_cfg, seed=eval_seed)
     assert isinstance(eval_env, gym.Env)
     if cfg.record_eval_videos:
-        eval_env = gym.wrappers.RecordVideo(eval_env, str(Path(cfg.video_dir) / "eval"))
+        eval_env = RecordVideoWithIntermediateFrames(eval_env, str(Path(cfg.video_dir) / "eval"))
     eval_env.action_space.seed(eval_seed)
 
     # Create two copies of the approach. The eval approach will load model files

@@ -79,22 +79,6 @@ def test_pybullet_env(llm):
     env.close()
 
 
-# TODO extract this if it works
-class RecordVideoWithIntermediateFrames(gym.wrappers.RecordVideo):
-
-    def _capture_frame(self):
-        if hasattr(self.env, "interstates") and hasattr(self.env, "set_state"):
-            # Capture intermediate frames from the environment's interstates.
-            state = self.env.get_state()
-            for interstate in self.env.interstates:
-                self.env.set_state(interstate)
-                # Call the original method to capture the frame.
-                super()._capture_frame()
-            self.env.set_state(state)
-        return super()._capture_frame()
-
-
-
 def test_pybullet_human_handover():
     """Tests for handing the human a book."""
     seed = 123
@@ -125,6 +109,7 @@ def test_pybullet_human_handover():
     )
 
     # TODO
+    from multitask_personalization.utils import RecordVideoWithIntermediateFrames
     env = RecordVideoWithIntermediateFrames(
         env, "test_handover"
     )

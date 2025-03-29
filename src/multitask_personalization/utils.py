@@ -9,6 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose3D
 from scipy.spatial.transform import Rotation as R
+import gymnasium as gym
 
 from multitask_personalization.structs import CSP, CSPVariable
 
@@ -19,6 +20,21 @@ DIMENSION_LIMITS = {
     "shoulder_rot": (-50, 300),
     "elbow_flexion": (-10, 180),
 }
+
+
+# TODO
+class RecordVideoWithIntermediateFrames(gym.wrappers.RecordVideo):
+
+    def _capture_frame(self):
+        if hasattr(self.env, "interstates") and hasattr(self.env, "set_state"):
+            # Capture intermediate frames from the environment's interstates.
+            state = self.env.get_state()
+            for interstate in self.env.interstates:
+                self.env.set_state(interstate)
+                # Call the original method to capture the frame.
+                super()._capture_frame()
+            self.env.set_state(state)
+        return super()._capture_frame()
 
 
 def denormalize_samples(samples: NDArray, points_scale_factor=1.0) -> NDArray:
