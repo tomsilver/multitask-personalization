@@ -15,22 +15,17 @@ class HumanSpec:
     """Defines the spec for a human user in the pybullet environment."""
 
     base_pose: Pose = Pose(position=(2.0, 0.53, 0.51))
+    grasp_transform: Pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0.0, 0.0, np.sqrt(2) / 2))
+
+
+@dataclass(frozen=True)
+class AssistiveHumanSpec(HumanSpec):
+    """Defines the spec for a human user in the pybullet environment."""
 
     # Default arm joints.
     init_joints: JointPositions = field(
-        default_factory=lambda: [0.0, 0.0, 0.0, np.pi / 10, 0.0, 0.0, -np.pi / 2]
-    )
-    # Arm joints during reading.
-    reading_joints: JointPositions = field(
-        default_factory=lambda: [0.0, 0.0, 0.0, np.pi / 10, 0.0, 0.0, -np.pi / 2]
-    )
-    # Arm joints for reverse handover.
-    reverse_handover_joints: JointPositions = field(
         default_factory=lambda: [0.0, 0.0, 0.0, np.pi / 10, 0.0, -np.pi / 4, -np.pi / 2]
     )
-
-    # Grasp transform.
-    grasp_transform: Pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0.0, 0.0, np.sqrt(2) / 2))
 
     # Joints for the rest of the human body that remain static.
     setup_joints: dict[str, float] = field(
@@ -67,6 +62,17 @@ class HumanSpec:
 
 def create_human_from_spec(
     human_spec: HumanSpec, physics_client_id: int
+) -> SingleArmPyBulletRobot:
+    """Create a human in pybullet from a specification."""
+    if isinstance(human_spec, AssistiveHumanSpec):
+        return create_assistive_human_from_spec(human_spec, physics_client_id)
+    raise NotImplementedError(
+        f"Creating a human from spec of type {type(human_spec)} is not implemented."
+    )
+
+
+def create_assistive_human_from_spec(
+    human_spec: AssistiveHumanSpec, physics_client_id: int
 ) -> SingleArmPyBulletRobot:
     """Create a human in pybullet from a specification."""
     human = create_pybullet_robot(

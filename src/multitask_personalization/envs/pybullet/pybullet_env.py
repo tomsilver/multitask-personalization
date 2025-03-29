@@ -164,7 +164,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.human = create_human_from_spec(
             self.scene_spec.human_spec, self.physics_client_id
         )
-        self.human.set_joints(self.scene_spec.human_spec.reverse_handover_joints)
 
         # Create a sim human on which we will do motion planning, IK, etc.
         self._sim_human_physics_client_id = p.connect(p.DIRECT)
@@ -417,9 +416,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.robot.set_base(self.scene_spec.robot_base_pose)
         self.robot.set_joints(self.scene_spec.initial_joints)
         self.robot.open_fingers()
-
-        # Reset human.
-        self.human.set_joints(self.scene_spec.human_spec.reverse_handover_joints)
 
         # Reset robot stand.
         set_pose(
