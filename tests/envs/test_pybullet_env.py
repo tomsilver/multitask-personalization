@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+import gymnasium as gym
+
 import numpy as np
 import pytest
 from tomsutils.llm import OpenAILLM
@@ -77,12 +79,29 @@ def test_pybullet_env(llm):
     env.close()
 
 
+# TODO extract this if it works
+class RecordVideoWithIntermediateFrames(gym.wrappers.RecordVideo):
+
+    def _capture_frame(self):
+        if hasattr(self.env, "interstates") and hasattr(self.env, "set_state"):
+            # Capture intermediate frames from the environment's interstates.
+            state = self.env.get_state()
+            for interstate in self.env.interstates:
+                self.env.set_state(interstate)
+                # Call the original method to capture the frame.
+                super()._capture_frame()
+            self.env.set_state(state)
+        return super()._capture_frame()
+
+
+
 def test_pybullet_human_handover():
     """Tests for handing the human a book."""
     seed = 123
     llm = PyBulletCannedLLM(_LLM_CACHE_DIR)
     scene_spec = PyBulletSceneSpec(num_books=3, num_side_tables=1,
-                                   human_spec=SmoothHumanSpec())
+                                   human_spec=SmoothHumanSpec(),
+                                   use_default_camera_kwargs=True)
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
     surfaces_robot_can_clean = [
@@ -104,6 +123,12 @@ def test_pybullet_human_handover():
         use_gui=True,
         seed=seed,
     )
+
+    # TODO
+    env = RecordVideoWithIntermediateFrames(
+        env, "test_handover"
+    )
+
     env.action_space.seed(seed)
     obs, _ = env.reset()
     assert isinstance(obs, PyBulletState)
@@ -115,16 +140,18 @@ def test_pybullet_human_handover():
        [1., 1.]]), ('side-table-0', -1): np.array([[1., 1.],
        [1., 1.]]), ('table', -1): np.array([[1., 1.],
        [1., 1.]])}, held_object='Title: Book 1. Author: Love.', human_text=None, human_held_object=None, human_grasp_transform=None)
-    env.set_state(pre_handover_state)
+    env.unwrapped.set_state(pre_handover_state)
+    env.step((2, "Here you go!"))
+    env.close()
 
-    from pybullet_helpers.inverse_kinematics import inverse_kinematics
-    from pybullet_helpers.geometry import rotate_pose
-    from pybullet_helpers.gui import visualize_pose
-    handover_pose = rotate_pose(env.robot.get_end_effector_pose(), roll=np.pi)
-    visualize_pose(handover_pose, env.physics_client_id)
-    visualize_pose(env.human.get_end_effector_pose(), env.physics_client_id)
-    joints = inverse_kinematics(env.human, handover_pose)
+    # from pybullet_helpers.inverse_kinematics import inverse_kinematics
+    # from pybullet_helpers.geometry import rotate_pose
+    # from pybullet_helpers.gui import visualize_pose
+    # handover_pose = rotate_pose(env.robot.get_end_effector_pose(), roll=np.pi)
+    # visualize_pose(handover_pose, env.physics_client_id)
+    # visualize_pose(env.human.get_end_effector_pose(), env.physics_client_id)
+    # joints = inverse_kinematics(env.human, handover_pose)
 
-    import pybullet as p
-    while True:
-        p.getMouseEvents(env.physics_client_id)
+    # import pybullet as p
+    # while True:
+    #     p.getMouseEvents(env.physics_client_id)

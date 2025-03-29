@@ -21,6 +21,7 @@ from pybullet_helpers.geometry import (
     rotate_pose,
     set_pose,
 )
+from pybullet_helpers.motion_planning import run_smooth_motion_planning_to_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     check_body_collisions,
@@ -465,6 +466,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Reset human text.
         self.current_human_text = None
 
+        self.interstates: list[PyBulletState] = []
+
     def reset(
         self,
         *,
@@ -475,6 +478,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         super().reset(seed=seed, options=options)
         self._reset_from_scene_spec()
         self._timestep = 0
+        self.interstates = []
 
         # Reset user satisfaction.
         self._user_satisfaction = 0.0
@@ -688,7 +692,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                     np.array(handover_pose.position)
                 ):
                     return
-            # Otherwise, handover.
+            # Otherwise, handover. Call step multiple times. TODO toggle this as an option.
+            self._sim_human.set_joints(self._sim_human.get_joint_positions())
+            collision_ids = set()  # TODO
+            human_motion_plan = run_smooth_motion_planning_to_pose(handover_pose, self._sim_human, collision_ids, end_effector_frame_to_plan_frame=Pose.identity(),
+                                               seed=self._seed, max_time=1.0)
+            for human_joint_positions in human_motion_plan:
+                # Set the human joints to the planned positions.
+                self.human.set_joints(human_joint_positions)
+                self.interstates.append(self.get_state())
             self.current_human_held_object_id = self.current_held_object_id
             self.current_human_grasp_transform = (
                 self.scene_spec.human_spec.grasp_transform
@@ -758,8 +770,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return
 
     def step(
-        self, action: PyBulletAction
+        self, action: PyBulletAction,
     ) -> tuple[PyBulletState, float, bool, bool, dict[str, Any]]:
+        
+        self.interstates = []
+
         # Advance the simulator.
         state = self.get_state()
         self.step_simulator(action)

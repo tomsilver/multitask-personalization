@@ -143,6 +143,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
     cleaning_feedback_min_time_interval: int = 25
     cleaning_mission_eval_prob: float = 0.1
 
+    use_default_camera_kwargs: bool = False
+
     @property
     def duster_grasp(self) -> Pose:
         """Hardcode a good relative grasp for the duster."""
@@ -250,7 +252,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
             "camera_yaw": -35,
         }
 
-        if state is None or timestep is None:
+        if state is None or timestep is None or self.use_default_camera_kwargs:
             return default
 
         # Look at the cover of into the wild.
