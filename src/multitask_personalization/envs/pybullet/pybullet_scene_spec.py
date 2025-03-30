@@ -301,9 +301,9 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
         # Sequence of (waypoints, relative pause, relative transition) time.
         script = [
-            (bookshelf_waypoint, 0.5, 2.0),
+            (bookshelf_waypoint, 2.0, 1.0),
             (robot_waypoint, 1.0, 1.0),
-            (human_waypoint, 1.0, 4.0),
+            (human_waypoint, 4.0, 3.0),
             (default, None, None),
         ]
         fps = 25

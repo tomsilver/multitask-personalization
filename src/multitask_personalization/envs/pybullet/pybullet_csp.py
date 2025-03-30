@@ -736,7 +736,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             # Choose a surface to clean and a robot base pose / joint state to
             # initiate the cleaning. Also determine where to stand while picking
             # the duster.
-            surface, surface_init = self._generate_surface_variable()
+            surface, surface_init = self._generate_surface_variable(exclude_side_tables=True)
             robot_state = CSPVariable(
                 "robot_state",
                 Tuple(
@@ -1136,7 +1136,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             def _sample_book_fn(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any]:
-                book_description = books[rng.choice(len(books))]
+
+                if obs.human_held_object is None:
+                    book_description = books[5]
+
+                elif obs.human_held_object == books[5]:
+                    book_description = books[1]
+
+                else:
+                    book_description = books[rng.choice(len(books))]
+
                 if obs.held_object == book_description:
                     base_pose = obs.robot_base
                 else:
@@ -1244,6 +1253,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             self._sim.set_state(obs)
             book_ids = set(self._sim.book_ids)
             for surface_name in surfaces:
+                if "side-table" in surface_name:
+                    continue
                 surface_id = self._sim.get_object_id_from_name(surface_name)
                 link_ids = sorted(self._sim.get_surface_link_ids(surface_id))
                 for link_id in link_ids:
@@ -1404,13 +1415,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._update_current_mission(obs)
 
     def _generate_surface_variable(
-        self, surface_name: str = "surface"
+        self, surface_name: str = "surface", exclude_side_tables=False,
     ) -> tuple[CSPVariable, Any]:
         # Choose a surface (and link ID on the surface).
         surfaces = sorted(self._sim.get_surface_names())
         surface = CSPVariable(
             surface_name, Tuple([EnumSpace(surfaces), Discrete(1000000, start=-1)])
         )
+
+        if exclude_side_tables:
+            surfaces = [s for s in surfaces if "side-table" not in s]
 
         init_surface = surfaces[self._rng.choice(len(surfaces))]
         init_surface_id = self._sim.get_object_id_from_name(init_surface)
