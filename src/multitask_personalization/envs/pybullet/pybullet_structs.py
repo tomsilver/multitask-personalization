@@ -26,6 +26,7 @@ class PyBulletState:
     book_descriptions: list[str]
     grasp_transform: Pose | None
     surface_dust_patches: dict[tuple[str, int], NDArray]
+    timestep: int
     held_object: str | None = None
     human_text: str | None = None
     human_held_object: str | None = None

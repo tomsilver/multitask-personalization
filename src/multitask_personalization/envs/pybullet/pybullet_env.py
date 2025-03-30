@@ -373,6 +373,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             self.book_descriptions,
             self.current_grasp_transform,
             dust_patches,
+            self._timestep,
             held_object,
             self.current_human_text,
             human_held_object,

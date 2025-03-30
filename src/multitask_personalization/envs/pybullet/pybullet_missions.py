@@ -164,7 +164,7 @@ class CleanSurfacesMission(PyBulletMission):
         return "Clean the dirty surfaces"
 
     def check_initiable(self, state: PyBulletState) -> bool:
-        return True
+        return state.human_held_object != "duster"
 
     def check_complete(self, state: PyBulletState, action: PyBulletAction) -> bool:
         robot_indicated_done = bool(np.isclose(action[0], 2) and action[1] == "Done")

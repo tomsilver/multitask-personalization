@@ -77,9 +77,9 @@ class PyBulletSceneSpec(PublicSceneSpec):
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.2)
 
-    num_side_tables: int = 2
+    num_side_tables: int = 1
     default_side_table_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
-    side_table_spacing: float = 0.05
+    side_table_spacing: float = 0.15
 
     object_pose: Pose = Pose(position=(-1000, -1000, 0.05))
     object_rgba: tuple[float, float, float, float] = (0.9, 0.6, 0.3, 1.0)
@@ -302,8 +302,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
         # Sequence of (waypoints, relative pause, relative transition) time.
         script = [
             (bookshelf_waypoint, 2.0, 1.0),
-            (robot_waypoint, 1.0, 1.0),
-            (human_waypoint, 4.0, 3.0),
+            # (robot_waypoint, 0.25, 0.25),
+            (human_waypoint, 1.0, 1.0),
             (default, None, None),
         ]
         fps = 25

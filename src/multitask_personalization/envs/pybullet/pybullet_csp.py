@@ -1137,11 +1137,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 _: dict[CSPVariable, Any], rng: np.random.Generator
             ) -> dict[CSPVariable, Any]:
 
-                if obs.human_held_object is None:
+                if obs.timestep == 0:
                     book_description = books[5]
-
-                elif obs.human_held_object == books[5]:
-                    book_description = books[1]
 
                 else:
                     book_description = books[rng.choice(len(books))]
@@ -1416,6 +1413,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
     def _generate_surface_variable(
         self, surface_name: str = "surface", exclude_side_tables=False,
+        exclude_table: bool = False,
     ) -> tuple[CSPVariable, Any]:
         # Choose a surface (and link ID on the surface).
         surfaces = sorted(self._sim.get_surface_names())
@@ -1425,6 +1423,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
         if exclude_side_tables:
             surfaces = [s for s in surfaces if "side-table" not in s]
+        if exclude_table:
+            surfaces = [s for s in surfaces if s != "table"]
 
         init_surface = surfaces[self._rng.choice(len(surfaces))]
         init_surface_id = self._sim.get_object_id_from_name(init_surface)

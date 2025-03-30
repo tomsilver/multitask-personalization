@@ -2,7 +2,7 @@ env:
   _target_: "multitask_personalization.envs.pybullet.pybullet_env.PyBulletEnv"
   scene_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PyBulletSceneSpec"
-    surface_dust_patch_size: 2
+    surface_dust_patch_size: 4
     use_standard_books: true
     num_books: 6
     human_spec: ${human_spec}
