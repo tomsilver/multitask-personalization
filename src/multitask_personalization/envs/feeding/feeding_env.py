@@ -2,37 +2,15 @@
 
 from __future__ import annotations
 
-import logging
-import pickle as pkl
-from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import gymnasium as gym
 import numpy as np
 import pybullet as p
-from gymnasium.core import RenderFrame
-from numpy.typing import NDArray
-from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import (
-    Pose,
-    get_half_extents_from_aabb,
-    get_pose,
-    multiply_poses,
-    rotate_pose,
-    set_pose,
-)
 from pybullet_helpers.gui import create_gui_connection
-from pybullet_helpers.inverse_kinematics import (
-    check_body_collisions,
-    check_collisions_with_held_object,
-)
-from pybullet_helpers.joint import JointPositions
-from pybullet_helpers.link import get_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
-from pybullet_helpers.robots.kinova import KinovaGen3RobotiqGripperPyBulletRobot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
-from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
-from tomsutils.spaces import EnumSpace
+from pybullet_helpers.utils import create_pybullet_block
 
 from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
