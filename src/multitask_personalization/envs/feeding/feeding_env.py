@@ -11,16 +11,22 @@ from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block
+from pybullet_helpers.geometry import Pose
+from pybullet_helpers.joint import JointPositions
+import time
 from tomsutils.spaces import FunctionalSpace
 
 from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
     FeedingState,
     MoveToJointPositions,
+    CloseGripper,
+    MoveToEEPose,
 )
 from multitask_personalization.envs.feeding.feeding_hidden_spec import (
     FeedingHiddenSceneSpec,
 )
+from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
 
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
 
@@ -203,8 +209,34 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             new_joints = list(current_joints)
             new_joints[:7] = action.joint_positions
             self.robot.set_joints(new_joints)
+        elif isinstance(action, CloseGripper):
+            self.robot.close_fingers()
+        elif isinstance(action, MoveToEEPose):
+            self._move_to_ee_pose(action.pose)
         else:
             raise NotImplementedError("TODO")
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, False, False, self._get_info()
+    
+    def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
+        initial_fingers_positions = self.robot.get_joint_positions()[7:]
+    
+        joint_trajectory: list[JointPositions] = []
+            
+        start_time = time.time()
+        target_reached = False
+        while time.time() - start_time < max_control_time:
+            current_pose = self.robot.get_end_effector_pose()
+            if pose.allclose(current_pose, atol=1e-2):
+                target_reached = True
+                break
+            current_joint_positions = self.robot.get_joint_positions()
+            joint_trajectory.append(current_joint_positions)
+            current_jacobian = self.robot.get_jacobian()
+            target_positions = cartesian_control_step(current_joint_positions, current_jacobian, current_pose, pose)
+            target_positions = np.concatenate((target_positions, initial_fingers_positions))
+            self.robot.set_joints(target_positions)
+        
+        if not target_reached:
+            raise RuntimeError("Sim cartesian controller: Failed to reach target pose in time")
