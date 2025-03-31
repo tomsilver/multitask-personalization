@@ -12,6 +12,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     GraspTool,
     MoveToEEPose,
     MoveToJointPositions,
+    WaitForUserInput,
 )
 from multitask_personalization.structs import (
     CSP,
@@ -54,6 +55,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.before_transfer_pos),
             MoveToEEPose(scene_spec.before_transfer_pose),
             MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
+            WaitForUserInput("bite done"),
         ]
 
         plan = pick_utensil_plan + acquire_bite_plan + transfer_bite_plan

@@ -8,7 +8,7 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 import pybullet as p
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, set_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
 from pybullet_helpers.joint import JointPositions
@@ -29,6 +29,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     GraspTool,
     MoveToEEPose,
     MoveToJointPositions,
+    WaitForUserInput,
 )
 from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
 
@@ -188,6 +189,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_name = None
         self.held_object_tf = None
 
+        # Reset the tools.
+        set_pose(self.utensil_id,
+            self.scene_spec.utensil_pose,
+            self.physics_client_id)
+
         return self.get_state(), self._get_info()
 
     def get_state(self) -> FeedingState:
@@ -232,6 +238,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             else None
         )
 
+        done = False
+
         if isinstance(action, MoveToJointPositions):
             current_joints = self.robot.get_joint_positions()
             new_joints = list(current_joints)
@@ -249,11 +257,14 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self._move_to_ee_pose(action.pose)
         elif isinstance(action, GraspTool):
             self._execute_grasp_tool(action.tool)
+        elif isinstance(action, WaitForUserInput):
+            if action.user_input == "bite done":
+                done = True
         else:
             raise NotImplementedError("TODO")
 
         # Return the next state and default gym API stuff.
-        return self.get_state(), 0.0, False, False, self._get_info()
+        return self.get_state(), 0.0, done, False, self._get_info()
 
     def get_object_id_from_name(self, name: str) -> int:
         if name == "utensil":
