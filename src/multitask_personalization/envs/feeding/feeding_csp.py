@@ -3,12 +3,11 @@
 from pathlib import Path
 from typing import Any, Collection
 
-import numpy as np
-
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingState,
     FeedingAction,
+    MoveToJointPositions,
 )
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
 from multitask_personalization.structs import (
@@ -28,7 +27,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         self._sim = sim
 
     def _get_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
-        import ipdb; ipdb.set_trace()
+        return [MoveToJointPositions([0.0] * len(obs.robot_joints))]
 
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)

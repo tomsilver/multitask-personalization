@@ -11,10 +11,12 @@ from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block
+from tomsutils.spaces import FunctionalSpace
 
 from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
     FeedingState,
+    MoveToJointPositions,
 )
 from multitask_personalization.envs.feeding.feeding_hidden_spec import (
     FeedingHiddenSceneSpec,
@@ -40,6 +42,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.scene_spec = scene_spec
         self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
+        self.action_space = FunctionalSpace(contains_fn=lambda action: isinstance(action, FeedingAction))
 
         # Create the PyBullet client.
         if use_gui:
@@ -68,10 +71,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         assert isinstance(robot, FingeredSingleArmPyBulletRobot)
         robot.close_fingers()
         self.robot = robot
-
-        # For now, the action space is just the joint positions of the robot,
-        # but we will probably change this soon.
-        self.action_space = robot.action_space
 
         # Create a holder (vention stand).
         self.robot_holder_id = create_pybullet_block(
@@ -199,8 +198,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self, action: FeedingAction
     ) -> tuple[FeedingState, float, bool, bool, dict[str, Any]]:
 
-        # The robot joints.
-        self.robot.set_joints(action)
+        if isinstance(action, MoveToJointPositions):
+            self.robot.set_joints(action.joint_positions)
+        else:
+            raise NotImplementedError("TODO")
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, False, False, self._get_info()
