@@ -81,6 +81,24 @@ class FeedingSceneSpec(PublicSceneSpec):
     table_urdf_path: Path = Path(__file__).parent / "assets" / "table" / "table.urdf"
     table_mesh_path: Path = Path(__file__).parent / "assets" / "table" / "table.obj"
 
+    # Plate.
+    plate_pose: Pose = Pose((0.3, 0.25, 0.16))
+    plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.urdf"
+    plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.obj"
+
+    # Utensil.
+    utensil_urdf_path: Path = (
+        Path(__file__).parent
+        / "assets"
+        / "feeding_utensil"
+        / "feeding_utensil.urdf"
+    )
+    utensil_inside_mount: Pose = Pose((0.242, -0.077, 0.07), (-1, 0, 0, 0))
+
+    @property
+    def utensil_pose(self):
+        return self.utensil_inside_mount.multiply(self.tool_frame_to_finger_tip)
+
     def get_camera_kwargs(self) -> dict[str, Any]:
         """Get camera kwargs."""
         return {

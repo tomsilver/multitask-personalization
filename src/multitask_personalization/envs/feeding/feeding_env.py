@@ -144,6 +144,38 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             physicsClientId=self.physics_client_id,
         )
 
+        # Create plate.
+        self.plate_id = p.loadURDF(
+            str(self.scene_spec.plate_urdf_path),
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+
+        p.resetBasePositionAndOrientation(
+            self.plate_id,
+            self.scene_spec.plate_pose.position,
+            self.scene_spec.plate_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Create feeding utensil.
+        self.utensil_id = p.loadURDF(
+            str(self.scene_spec.utensil_urdf_path),
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self.utensil_id,
+            self.scene_spec.utensil_pose.position,
+            self.scene_spec.utensil_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+        self.utensil_joints = []
+        for i in range(p.getNumJoints(self.utensil_id)):
+            joint_info = p.getJointInfo(self.utensil_id, i)
+            if joint_info[2] != 4: # Skip fixed joints.
+                self.utensil_joints.append(i)
+
         # Uncomment to debug.
         if use_gui:
             while True:
