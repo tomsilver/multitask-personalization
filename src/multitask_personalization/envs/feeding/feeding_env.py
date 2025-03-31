@@ -78,8 +78,22 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             physicsClientId=self.physics_client_id,
         )
 
+        # Create robot.
+        robot = create_pybullet_robot(
+            self.scene_spec.robot_name,
+            self.physics_client_id,
+            base_pose=self.scene_spec.robot_base_pose,
+            control_mode="reset",
+            home_joint_positions=self.scene_spec.initial_joints,
+            custom_urdf_path=self.scene_spec.robot_urdf_path,
+        )
+        assert isinstance(robot, FingeredSingleArmPyBulletRobot)
+        robot.close_fingers()
+        self.robot = robot
+
         # Uncomment to debug.
         if use_gui:
             while True:
                 p.getMouseEvents(self.physics_client_id)
 
+                
