@@ -53,14 +53,9 @@ def cartesian_control_step(
         )  # second last is also aligned
         target_waypoint_orientation = interp_rotations[0].as_quat()
 
-    # visualize_pose(current_pose, sim.physics_client_id)
-    # visualize_pose(Pose(position=target_waypoint_position, orientation=target_waypoint_orientation), sim.physics_client_id)
-    # input("Press Enter to continue...")
-
-    n_dof = 7  # Rajat ToDo: Remove hardcoding
+    n_dof = 7
 
     J = current_jacobian
-    # print("J.shape", J.shape)
     J = J[:, :n_dof]
 
     pos_error = source_position - target_waypoint_position
@@ -98,11 +93,11 @@ def cartesian_control_step(
 
     # J_damped = np.linalg.inv(J_JT) @ J.T
 
-    # this is faster than the above commented computation
+    # This is faster than the above commented computation.
     c, lower = cho_factor(J_JT)
     J_n_damped = cho_solve((c, lower), J.T)
 
-    joint_velocities = -J_n_damped @ error
+    joint_velocities = -J_n_damped @ error  # pylint: disable=invalid-unary-operand-type
 
     target_positions = current_joint_positions[:n_dof] + joint_velocities * TIMESTEP
 

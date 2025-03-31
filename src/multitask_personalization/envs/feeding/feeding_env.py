@@ -8,6 +8,8 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 import pybullet as p
+from gymnasium.core import RenderFrame
+from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, set_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
@@ -37,7 +39,7 @@ from multitask_personalization.envs.feeding.feeding_utils import cartesian_contr
 class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
     """An assistive feeding environment."""
 
-    metadata = {"render_modes": ["rgb_array"], "render_fps": 10}
+    metadata = {"render_modes": ["rgb_array"], "render_fps": 2}
 
     def __init__(
         self,
@@ -190,9 +192,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_tf = None
 
         # Reset the tools.
-        set_pose(self.utensil_id,
-            self.scene_spec.utensil_pose,
-            self.physics_client_id)
+        set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
 
         return self.get_state(), self._get_info()
 
@@ -267,9 +267,27 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         return self.get_state(), 0.0, done, False, self._get_info()
 
     def get_object_id_from_name(self, name: str) -> int:
+        """Get the PyBullet ID from the object name."""
         if name == "utensil":
             return self.utensil_id
         raise NotImplementedError(f"Object name '{name}' not recognized.")
+
+    def render(self) -> RenderFrame | list[RenderFrame] | None:
+        camera_kwargs = self.scene_spec.get_camera_kwargs()
+        img = capture_image(
+            self.physics_client_id,
+            **camera_kwargs,
+            image_width=self.scene_spec.image_width,
+            image_height=self.scene_spec.image_height,
+        )
+        # In non-render mode, PyBullet does not render background correctly.
+        # We want the background to be black instead of white. Here, make the
+        # assumption that all perfectly white pixels belong to the background
+        # and manually swap in black.
+        background_mask = (img == [255, 255, 255]).all(axis=2)
+        img[background_mask] = 0
+
+        return img  # type: ignore
 
     def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
         initial_fingers_positions = self.robot.get_joint_positions()[7:]
@@ -296,13 +314,13 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             )
             target_positions = np.concatenate(
                 (target_positions, initial_fingers_positions)
-            )
+            ).tolist()
             set_robot_joints_with_held_object(
                 self.robot,
                 self.physics_client_id,
                 held_object_id,
                 self.held_object_tf,
-                target_positions.tolist(),
+                target_positions,
             )
 
         if not target_reached:

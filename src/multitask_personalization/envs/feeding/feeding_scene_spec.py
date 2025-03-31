@@ -142,8 +142,13 @@ class FeedingSceneSpec(PublicSceneSpec):
     before_transfer_pose: Pose = Pose((0.504, 0.303, 0.529), (0.0, 0.707, 0.707, 0))
     outside_mouth_transfer_pose: Pose = Pose((0.0, 0.5, 0.67), (0.0, 0.707, 0.707, 0))
 
+    # Rendering.
+    image_height: int = 1024
+    image_width: int = 1600
+
     @property
     def utensil_pose(self):
+        """The initial utensil pose."""
         return self.utensil_inside_mount.multiply(self.tool_frame_to_finger_tip)
 
     def get_camera_kwargs(self) -> dict[str, Any]:

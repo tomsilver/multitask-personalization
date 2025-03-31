@@ -159,7 +159,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             )
         if isinstance(self._scene_spec, PyBulletSceneSpec):
             assert self._llm is not None
-            sim = PyBulletEnv(
+            pybullet_sim = PyBulletEnv(
                 self._scene_spec, self._llm, seed=self._seed, use_gui=False
             )
             rom_model = SphericalROMModel(self._scene_spec.human_spec, self._seed)
@@ -179,7 +179,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                     f"Unknown motion planning quality: {self._motion_planning_quality}"
                 )
             return PyBulletCSPGenerator(
-                sim,
+                pybullet_sim,
                 rom_model,
                 self._llm,
                 seed=self._seed,
@@ -200,9 +200,9 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 disable_learning=self._disable_learning,
             )
         if isinstance(self._scene_spec, FeedingSceneSpec):
-            sim = FeedingEnv(self._scene_spec)
+            feeding_sim = FeedingEnv(self._scene_spec)
             return FeedingCSPGenerator(
-                sim,
+                feeding_sim,
                 self._seed,
                 explore_method=self._explore_method,
                 disable_learning=self._disable_learning,

@@ -31,8 +31,10 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
     ) -> None:
         super().__init__(csp_variables=csp_variables, seed=seed)
         self._sim = sim
+        self._current_plan: list[FeedingAction] = []
 
     def _get_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
+        del obs  # not used right now
 
         scene_spec = self._sim.scene_spec
 
@@ -65,7 +67,6 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
         self._current_plan = []
-        self._terminated = False
 
     def step(self, obs: FeedingState) -> FeedingAction:
         if not self._current_plan:
