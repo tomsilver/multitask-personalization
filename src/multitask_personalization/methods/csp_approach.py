@@ -17,6 +17,9 @@ from multitask_personalization.envs.cooking.cooking_hidden_spec import (
     MealSpecMealPreferenceModel,
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
+from multitask_personalization.envs.feeding.feeding_csp import FeedingCSPGenerator
+from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
+from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
 from multitask_personalization.envs.pybullet.pybullet_csp import PyBulletCSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
@@ -156,7 +159,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             )
         if isinstance(self._scene_spec, PyBulletSceneSpec):
             assert self._llm is not None
-            sim = PyBulletEnv(
+            pybullet_sim = PyBulletEnv(
                 self._scene_spec, self._llm, seed=self._seed, use_gui=False
             )
             rom_model = SphericalROMModel(self._scene_spec.human_spec, self._seed)
@@ -176,7 +179,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                     f"Unknown motion planning quality: {self._motion_planning_quality}"
                 )
             return PyBulletCSPGenerator(
-                sim,
+                pybullet_sim,
                 rom_model,
                 self._llm,
                 seed=self._seed,
@@ -196,6 +199,15 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 explore_method=self._explore_method,
                 disable_learning=self._disable_learning,
             )
+        if isinstance(self._scene_spec, FeedingSceneSpec):
+            feeding_sim = FeedingEnv(self._scene_spec)
+            return FeedingCSPGenerator(
+                feeding_sim,
+                self._seed,
+                explore_method=self._explore_method,
+                disable_learning=self._disable_learning,
+            )
+
         raise NotImplementedError()
 
     def _sync_csp_generator_train_eval(self) -> None:

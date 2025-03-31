@@ -1,0 +1,21 @@
+env:
+  _target_: "multitask_personalization.envs.feeding.feeding_env.FeedingEnv"
+  scene_spec:
+    _target_: "multitask_personalization.envs.feeding.feeding_scene_spec.FeedingSceneSpec"
+  hidden_spec:
+    _target_: "multitask_personalization.envs.feeding.feeding_hidden_spec.FeedingHiddenSceneSpec"
+  use_gui: false  # need to define, but will be override by train/eval
+  # note: seed is excluded because it varies for train/eval envs
+train_env:
+  use_gui: false
+eval_env:
+  use_gui: false
+max_environment_steps: 10000
+eval_frequency: 1000
+max_eval_episode_length: 250
+num_eval_trials: 10
+dt: 0.01
+csp_solver:
+  max_iters: 2500
+  num_improvements: 500
+  max_improvement_attempts: 100

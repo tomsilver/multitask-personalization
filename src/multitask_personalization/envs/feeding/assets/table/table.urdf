@@ -1,0 +1,23 @@
+<?xml version="1.0" ?>
+<robot name="table">
+  <link name="table">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="1.821E-05" ixy="-4.1084E-09" ixz="-1.448E-07" iyy="1.062E-05" iyz="-1.5136E-09" izz="1.0557E-05"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="table.obj"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="simplified_table.obj"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>
+
