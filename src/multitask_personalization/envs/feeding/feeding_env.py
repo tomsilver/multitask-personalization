@@ -199,7 +199,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
     ) -> tuple[FeedingState, float, bool, bool, dict[str, Any]]:
 
         if isinstance(action, MoveToJointPositions):
-            self.robot.set_joints(action.joint_positions)
+            current_joints = self.robot.get_joint_positions()
+            new_joints = list(current_joints)
+            new_joints[:7] = action.joint_positions
+            self.robot.set_joints(new_joints)
         else:
             raise NotImplementedError("TODO")
 

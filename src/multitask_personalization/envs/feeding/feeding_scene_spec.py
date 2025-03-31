@@ -91,6 +91,9 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
     utensil_inside_mount: Pose = Pose((0.242, -0.077, 0.07), (-1, 0, 0, 0))
 
+    # Skill positions.
+    retract_pos: JointPositions = field(default_factory= lambda: [0.0, -0.34903602299465675, -3.141591055693139, -2.5482592711638783, 0.0, -0.872688061814757, 1.57075917569769])
+
     @property
     def utensil_pose(self):
         return self.utensil_inside_mount.multiply(self.tool_frame_to_finger_tip)
