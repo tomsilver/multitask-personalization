@@ -91,6 +91,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         robot.close_fingers()
         self.robot = robot
 
+        # For now, the action space is just the joint positions of the robot,
+        # but we will probably change this soon.
+        self.action_space = robot.action_space
+
         # Create a holder (vention stand).
         self.robot_holder_id = create_pybullet_block(
             self.scene_spec.robot_holder_rgba,
@@ -173,12 +177,47 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.utensil_joints = []
         for i in range(p.getNumJoints(self.utensil_id)):
             joint_info = p.getJointInfo(self.utensil_id, i)
-            if joint_info[2] != 4: # Skip fixed joints.
+            if joint_info[2] != 4:  # Skip fixed joints.
                 self.utensil_joints.append(i)
 
         # Uncomment to debug.
-        if use_gui:
-            while True:
-                p.getMouseEvents(self.physics_client_id)
+        # if use_gui:
+        #     while True:
+        #         p.getMouseEvents(self.physics_client_id)
 
-                
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[FeedingState, dict[str, Any]]:
+
+        # Reset the robot.
+        self.robot.set_joints(self.scene_spec.initial_joints)
+
+        return self.get_state(), self._get_info()
+
+    def get_state(self) -> FeedingState:
+        """Get the current state of the environment."""
+        # Get the joint positions of the robot.
+        robot_joints = self.robot.get_joint_positions()
+
+        # Create and return the FeedingState.
+        state = FeedingState(
+            robot_joints=robot_joints,
+        )
+        return state
+
+    def _get_info(self) -> dict[str, Any]:
+        """Get additional information about the environment."""
+        return {}
+
+    def step(
+        self, action: FeedingAction
+    ) -> tuple[FeedingState, float, bool, bool, dict[str, Any]]:
+
+        # The robot joints.
+        self.robot.set_joints(action)
+
+        # Return the next state and default gym API stuff.
+        return self.get_state(), 0.0, False, False, self._get_info()

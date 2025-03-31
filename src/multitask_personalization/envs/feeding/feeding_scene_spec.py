@@ -27,8 +27,23 @@ class FeedingSceneSpec(PublicSceneSpec):
         (0.0, 0.0, 0.0),
         (0.0, 0.0, 0.0, 1.0),
     )
-    initial_joints: JointPositions = field(default_factory=lambda :
-                                           [0.0, -0.34903602299465675, -3.141591055693139, -2.5482592711638783, 0.0, -0.872688061814757, 1.57075917569769, 0.8, 0.8, 0.8, 0.8, -0.8, -0.8])
+    initial_joints: JointPositions = field(
+        default_factory=lambda: [
+            0.0,
+            -0.34903602299465675,
+            -3.141591055693139,
+            -2.5482592711638783,
+            0.0,
+            -0.872688061814757,
+            1.57075917569769,
+            0.8,
+            0.8,
+            0.8,
+            0.8,
+            -0.8,
+            -0.8,
+        ]
+    )
     tool_frame_to_finger_tip: Pose = Pose(
         (0.0, 0.0, 0.05955),
         (0.0, 0.0, 0.0, 1.0),
@@ -45,35 +60,20 @@ class FeedingSceneSpec(PublicSceneSpec):
     robot_holder_half_extents: tuple[float, float, float] = (0.10, 0.10, 0.33)
 
     # Wheelchair.
-    wheelchair_pose: Pose = Pose(
-        (-0.3, 0.45, -0.06), (0.0, 0.0, 0.0, 1.0)
-    )
-    wheelchair_relative_head_pose: Pose = Pose(
-        (0.0, -0.25, 0.75), (0.0, 0.0, 0.0, 1.0)
-    )
+    wheelchair_pose: Pose = Pose((-0.3, 0.45, -0.06), (0.0, 0.0, 0.0, 1.0))
+    wheelchair_relative_head_pose: Pose = Pose((0.0, -0.25, 0.75), (0.0, 0.0, 0.0, 1.0))
     wheelchair_urdf_path: Path = (
-        Path(__file__).parent
-        / "assets"
-        / "wheelchair"
-        / "wheelchair.urdf"
+        Path(__file__).parent / "assets" / "wheelchair" / "wheelchair.urdf"
     )
     wheelchair_mesh_path: Path = (
-        Path(__file__).parent
-        / "assets"
-        / "wheelchair"
-        / "wheelchair.obj"
+        Path(__file__).parent / "assets" / "wheelchair" / "wheelchair.obj"
     )
 
     # User head.
-    user_head_pose: Pose = Pose(
-        (-0.4, 0.5, 0.67), (0.5, 0.5, 0.5, 0.5)
-    )
+    user_head_pose: Pose = Pose((-0.4, 0.5, 0.67), (0.5, 0.5, 0.5, 0.5))
 
     user_head_urdf_path: Path = (
-        Path(__file__).parent
-        / "assets"
-        / "head_models"
-        / "mouth_open.urdf"
+        Path(__file__).parent / "assets" / "head_models" / "mouth_open.urdf"
     )
 
     # Table.
@@ -88,10 +88,7 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     # Utensil.
     utensil_urdf_path: Path = (
-        Path(__file__).parent
-        / "assets"
-        / "feeding_utensil"
-        / "feeding_utensil.urdf"
+        Path(__file__).parent / "assets" / "feeding_utensil" / "feeding_utensil.urdf"
     )
     utensil_inside_mount: Pose = Pose((0.242, -0.077, 0.07), (-1, 0, 0, 0))
 
