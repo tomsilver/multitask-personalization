@@ -12,6 +12,8 @@ from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block
 from pybullet_helpers.geometry import Pose
+from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
+from pybullet_helpers.link import get_relative_link_pose
 from pybullet_helpers.joint import JointPositions
 import time
 from tomsutils.spaces import FunctionalSpace
@@ -22,6 +24,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     MoveToJointPositions,
     CloseGripper,
     MoveToEEPose,
+    GraspTool,
 )
 from multitask_personalization.envs.feeding.feeding_hidden_spec import (
     FeedingHiddenSceneSpec,
@@ -163,6 +166,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             if joint_info[2] != 4:  # Skip fixed joints.
                 self.utensil_joints.append(i)
 
+        # Initialize held object.
+        self.held_object_name: str | None = None
+        self.held_object_tf: Pose | None = None
+
         # Uncomment to debug.
         # if use_gui:
         #     while True:
@@ -177,6 +184,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         # Reset the robot.
         self.robot.set_joints(self.scene_spec.initial_joints)
+        self.held_object_name = None
+        self.held_object_tf = None
 
         return self.get_state(), self._get_info()
 
@@ -188,13 +197,16 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Create and return the FeedingState.
         state = FeedingState(
             robot_joints=robot_joints,
+            held_obj_name=self.held_object_name,
+            held_obj_tf=self.held_object_tf
         )
         return state
     
     def set_state(self, state: FeedingState) -> None:
         """Set the current state of the environment."""
-        # Set the robot joints to the specified state.
-        self.robot.set_joints(state.robot_joints)
+        held_object_id = self.get_object_id_from_name(self.held_object_name) if self.held_object_name else None
+        set_robot_joints_with_held_object(self.robot, self.physics_client_id, held_object_id,
+                                            state.held_obj_tf, state.robot_joints)
 
     def _get_info(self) -> dict[str, Any]:
         """Get additional information about the environment."""
@@ -213,11 +225,18 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):
             self._move_to_ee_pose(action.pose)
+        elif isinstance(action, GraspTool):
+            self._execute_grasp_tool(action.tool)
         else:
             raise NotImplementedError("TODO")
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, False, False, self._get_info()
+    
+    def get_object_id_from_name(self, name: str) -> int:
+        if name == "utensil":
+            return self.utensil_id
+        raise NotImplementedError(f"Object name '{name}' not recognized.")
     
     def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
         initial_fingers_positions = self.robot.get_joint_positions()[7:]
@@ -226,6 +245,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             
         start_time = time.time()
         target_reached = False
+        held_object_id = self.get_object_id_from_name(self.held_object_name) if self.held_object_name else None
         while time.time() - start_time < max_control_time:
             current_pose = self.robot.get_end_effector_pose()
             if pose.allclose(current_pose, atol=1e-2):
@@ -236,7 +256,18 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             current_jacobian = self.robot.get_jacobian()
             target_positions = cartesian_control_step(current_joint_positions, current_jacobian, current_pose, pose)
             target_positions = np.concatenate((target_positions, initial_fingers_positions))
-            self.robot.set_joints(target_positions)
+            set_robot_joints_with_held_object(self.robot, self.physics_client_id, held_object_id,
+                                                self.held_object_tf, target_positions.tolist())
         
         if not target_reached:
             raise RuntimeError("Sim cartesian controller: Failed to reach target pose in time")
+
+    def _execute_grasp_tool(self, tool: str) -> None:
+        self.robot.set_finger_state(self.scene_spec.tool_grasp_fingers_value)
+        self.held_object_name = tool
+        finger_frame_id = self.robot.link_from_name("finger_tip")
+        end_effector_link_id = self.robot.link_from_name(self.robot.tool_link_name)
+        finger_from_end_effector = get_relative_link_pose(
+            self.robot.robot_id, finger_frame_id, end_effector_link_id, self.physics_client_id
+        )
+        self.held_object_tf = finger_from_end_effector

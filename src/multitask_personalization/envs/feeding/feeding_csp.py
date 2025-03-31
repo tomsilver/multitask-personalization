@@ -10,6 +10,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     MoveToJointPositions,
     CloseGripper,
     MoveToEEPose,
+    GraspTool,
 )
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
 from multitask_personalization.structs import (
@@ -37,6 +38,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             CloseGripper(),
             MoveToJointPositions(scene_spec.utensil_above_mount_pos),
             MoveToEEPose(scene_spec.utensil_inside_mount),
+            GraspTool("utensil"),
+            MoveToEEPose(scene_spec.utensil_outside_mount)
         ]
 
         # self.move_to_joint_positions(self.sim.scene_description.retract_pos)

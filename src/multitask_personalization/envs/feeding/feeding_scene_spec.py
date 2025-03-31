@@ -47,6 +47,7 @@ class FeedingSceneSpec(PublicSceneSpec):
         (0.0, 0.0, 0.05955),
         (0.0, 0.0, 0.0, 1.0),
     )
+    tool_grasp_fingers_value: float = 0.44
     # end_effector_link to camera_color_optical_frame
     camera_pose: Pose = Pose(
         (-0.046, 0.083, 0.125),
@@ -94,6 +95,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     # Skill positions.
     retract_pos: JointPositions = field(default_factory= lambda: [0.0, -0.34903602299465675, -3.141591055693139, -2.5482592711638783, 0.0, -0.872688061814757, 1.57075917569769])
     utensil_above_mount_pos: JointPositions = field(default_factory=lambda: [-0.3081224117999879, 0.1449308244187662, -2.4515079603418446, -2.3539334664268674, -0.14376009880356744, -0.6872590793313744, 0.5028097739444904])
+    utensil_outside_mount: Pose = Pose((0.372, -0.077, 0.07), (-1, 0, 0, 0))
 
     @property
     def utensil_pose(self):

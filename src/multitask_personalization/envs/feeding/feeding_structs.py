@@ -14,6 +14,8 @@ class FeedingState:
     """A state in the feeding environment."""
 
     robot_joints: JointPositions
+    held_obj_name: str | None
+    held_obj_tf: Pose | None
 
 
 class FeedingAction(abc.ABC):
