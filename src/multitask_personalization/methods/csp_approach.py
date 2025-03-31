@@ -30,6 +30,8 @@ from multitask_personalization.methods.approach import (
     _ActType,
     _ObsType,
 )
+from multitask_personalization.envs.feeding.feeding_csp import FeedingCSPGenerator
+from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import CSPPolicy, CSPVariable, PublicSceneSpec
 from multitask_personalization.utils import visualize_csp_graph
@@ -196,6 +198,13 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 explore_method=self._explore_method,
                 disable_learning=self._disable_learning,
             )
+        if isinstance(self._scene_spec, FeedingSceneSpec):
+            return FeedingCSPGenerator(
+                self._seed,
+                explore_method=self._explore_method,
+                disable_learning=self._disable_learning,
+            )
+
         raise NotImplementedError()
 
     def _sync_csp_generator_train_eval(self) -> None:
