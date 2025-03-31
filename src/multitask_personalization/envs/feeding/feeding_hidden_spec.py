@@ -1,6 +1,7 @@
 """Hidden spec for assistive feeding environment."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 

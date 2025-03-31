@@ -2,36 +2,35 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import gymnasium as gym
 import numpy as np
 import pybullet as p
+from pybullet_helpers.geometry import Pose
 from pybullet_helpers.gui import create_gui_connection
+from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
+from pybullet_helpers.joint import JointPositions
+from pybullet_helpers.link import get_relative_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block
-from pybullet_helpers.geometry import Pose
-from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
-from pybullet_helpers.link import get_relative_link_pose
-from pybullet_helpers.joint import JointPositions
-import time
 from tomsutils.spaces import FunctionalSpace
 
-from multitask_personalization.envs.feeding.feeding_structs import (
-    FeedingAction,
-    FeedingState,
-    MoveToJointPositions,
-    CloseGripper,
-    MoveToEEPose,
-    GraspTool,
-)
 from multitask_personalization.envs.feeding.feeding_hidden_spec import (
     FeedingHiddenSceneSpec,
 )
-from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
-
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
+from multitask_personalization.envs.feeding.feeding_structs import (
+    CloseGripper,
+    FeedingAction,
+    FeedingState,
+    GraspTool,
+    MoveToEEPose,
+    MoveToJointPositions,
+)
+from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
 
 
 class FeedingEnv(gym.Env[FeedingState, FeedingAction]):

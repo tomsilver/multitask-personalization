@@ -17,6 +17,9 @@ from multitask_personalization.envs.cooking.cooking_hidden_spec import (
     MealSpecMealPreferenceModel,
 )
 from multitask_personalization.envs.cooking.cooking_scene_spec import CookingSceneSpec
+from multitask_personalization.envs.feeding.feeding_csp import FeedingCSPGenerator
+from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
+from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
 from multitask_personalization.envs.pybullet.pybullet_csp import PyBulletCSPGenerator
 from multitask_personalization.envs.pybullet.pybullet_env import PyBulletEnv
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
@@ -30,9 +33,6 @@ from multitask_personalization.methods.approach import (
     _ActType,
     _ObsType,
 )
-from multitask_personalization.envs.feeding.feeding_csp import FeedingCSPGenerator
-from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
-from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import CSPPolicy, CSPVariable, PublicSceneSpec
 from multitask_personalization.utils import visualize_csp_graph

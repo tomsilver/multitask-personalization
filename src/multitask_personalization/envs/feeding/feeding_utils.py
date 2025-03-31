@@ -1,12 +1,11 @@
 """Utilites for the feeding environment."""
 
 import numpy as np
+from pybullet_helpers.geometry import Pose
+from pybullet_helpers.joint import JointPositions
 from scipy.linalg import cho_factor, cho_solve
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
-from pybullet_helpers.geometry import Pose
-from pybullet_helpers.joint import JointPositions
-
 
 DAMPING_FACTOR = 0.05
 DISTANCE_LOOKAHEAD = 0.04

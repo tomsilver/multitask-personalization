@@ -128,6 +128,19 @@ class FeedingSceneSpec(PublicSceneSpec):
             2.05515862,
         ]
     )
+    above_plate_pos: JointPositions = field(
+        default_factory=lambda: [
+            -2.86495014,
+            -1.61460533,
+            -2.6115943,
+            -1.37673391,
+            1.11842806,
+            -1.17904586,
+            -2.6957422,
+        ]
+    )
+    before_transfer_pose: Pose = Pose((0.504, 0.303, 0.529), (0.0, 0.707, 0.707, 0))
+    outside_mouth_transfer_pose: Pose = Pose((0.0, 0.5, 0.67), (0.0, 0.707, 0.707, 0))
 
     @property
     def utensil_pose(self):

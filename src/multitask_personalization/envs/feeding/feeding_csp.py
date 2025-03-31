@@ -4,15 +4,15 @@ from pathlib import Path
 from typing import Any, Collection
 
 from multitask_personalization.csp_generation import CSPGenerator
-from multitask_personalization.envs.feeding.feeding_structs import (
-    FeedingState,
-    FeedingAction,
-    MoveToJointPositions,
-    CloseGripper,
-    MoveToEEPose,
-    GraspTool,
-)
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
+from multitask_personalization.envs.feeding.feeding_structs import (
+    CloseGripper,
+    FeedingAction,
+    FeedingState,
+    GraspTool,
+    MoveToEEPose,
+    MoveToJointPositions,
+)
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
@@ -46,7 +46,17 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.before_transfer_pos),
         ]
 
-        plan = pick_utensil_plan
+        acquire_bite_plan: list[FeedingAction] = [
+            MoveToJointPositions(scene_spec.above_plate_pos),
+        ]
+
+        transfer_bite_plan: list[FeedingAction] = [
+            MoveToJointPositions(scene_spec.before_transfer_pos),
+            MoveToEEPose(scene_spec.before_transfer_pose),
+            MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
+        ]
+
+        plan = pick_utensil_plan + acquire_bite_plan + transfer_bite_plan
 
         return plan
 
