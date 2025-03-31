@@ -25,7 +25,9 @@ from multitask_personalization.structs import (
 
 class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
-    def __init__(self, sim: FeedingEnv, csp_variables: Collection[CSPVariable], seed: int = 0) -> None:
+    def __init__(
+        self, sim: FeedingEnv, csp_variables: Collection[CSPVariable], seed: int = 0
+    ) -> None:
         super().__init__(csp_variables=csp_variables, seed=seed)
         self._sim = sim
 
@@ -33,35 +35,18 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
         scene_spec = self._sim.scene_spec
 
-        plan: list[FeedingAction] = [
+        pick_utensil_plan: list[FeedingAction] = [
             MoveToJointPositions(scene_spec.retract_pos),
             CloseGripper(),
             MoveToJointPositions(scene_spec.utensil_above_mount_pos),
             MoveToEEPose(scene_spec.utensil_inside_mount),
             GraspTool("utensil"),
-            MoveToEEPose(scene_spec.utensil_outside_mount)
+            MoveToEEPose(scene_spec.utensil_outside_mount),
+            MoveToEEPose(scene_spec.utensil_outside_above_mount),
+            MoveToJointPositions(scene_spec.before_transfer_pos),
         ]
 
-        # self.move_to_joint_positions(self.sim.scene_description.retract_pos)
-        # self.close_gripper()
-        # self.move_to_joint_positions(self.sim.scene_description.utensil_above_mount_pos)
-        # self.move_to_ee_pose(self.sim.scene_description.utensil_inside_mount)
-        # self.grasp_tool("utensil")
-
-        # if self.wrist_interface is not None:
-        #     time.sleep(1.0) # wait for the utensil to be connected
-        #     print("Resetting wrist controller ...")
-        #     self.wrist_interface.set_velocity_mode()
-        #     self.wrist_interface.reset()
-
-        # self.move_to_ee_pose(self.sim.scene_description.utensil_outside_mount)
-        # if self.sim.scene_description.scene_label == "vention":
-        #     self.move_to_ee_pose(self.sim.scene_description.utensil_outside_above_mount)
-        # elif self.sim.scene_description.scene_label == "wheelchair":
-        #     # Not sure if this is necessary.
-        #     self.move_to_joint_positions(self.sim.scene_description.retract_pos)
-        # # Pre-emptively move to the before_transfer_pos because moving to above_plate_pos from retract_pos is unsafe.
-        # self.move_to_joint_positions(self.sim.scene_description.before_transfer_pos)
+        plan = pick_utensil_plan
 
         return plan
 

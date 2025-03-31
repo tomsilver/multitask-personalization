@@ -51,7 +51,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.scene_spec = scene_spec
         self._hidden_spec = hidden_spec
         self.render_mode = "rgb_array"
-        self.action_space = FunctionalSpace(contains_fn=lambda action: isinstance(action, FeedingAction))
+        self.action_space = FunctionalSpace(
+            contains_fn=lambda action: isinstance(action, FeedingAction)
+        )
 
         # Create the PyBullet client.
         if use_gui:
@@ -197,16 +199,25 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Create and return the FeedingState.
         state = FeedingState(
             robot_joints=robot_joints,
-            held_obj_name=self.held_object_name,
-            held_obj_tf=self.held_object_tf
+            held_object_name=self.held_object_name,
+            held_object_tf=self.held_object_tf,
         )
         return state
-    
+
     def set_state(self, state: FeedingState) -> None:
         """Set the current state of the environment."""
-        held_object_id = self.get_object_id_from_name(self.held_object_name) if self.held_object_name else None
-        set_robot_joints_with_held_object(self.robot, self.physics_client_id, held_object_id,
-                                            state.held_obj_tf, state.robot_joints)
+        held_object_id = (
+            self.get_object_id_from_name(self.held_object_name)
+            if self.held_object_name
+            else None
+        )
+        set_robot_joints_with_held_object(
+            self.robot,
+            self.physics_client_id,
+            held_object_id,
+            state.held_object_tf,
+            state.robot_joints,
+        )
 
     def _get_info(self) -> dict[str, Any]:
         """Get additional information about the environment."""
@@ -216,11 +227,23 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self, action: FeedingAction
     ) -> tuple[FeedingState, float, bool, bool, dict[str, Any]]:
 
+        held_object_id = (
+            self.get_object_id_from_name(self.held_object_name)
+            if self.held_object_name
+            else None
+        )
+
         if isinstance(action, MoveToJointPositions):
             current_joints = self.robot.get_joint_positions()
             new_joints = list(current_joints)
             new_joints[:7] = action.joint_positions
-            self.robot.set_joints(new_joints)
+            set_robot_joints_with_held_object(
+                self.robot,
+                self.physics_client_id,
+                held_object_id,
+                self.held_object_tf,
+                new_joints,
+            )
         elif isinstance(action, CloseGripper):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):
@@ -232,20 +255,24 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, False, False, self._get_info()
-    
+
     def get_object_id_from_name(self, name: str) -> int:
         if name == "utensil":
             return self.utensil_id
         raise NotImplementedError(f"Object name '{name}' not recognized.")
-    
+
     def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
         initial_fingers_positions = self.robot.get_joint_positions()[7:]
-    
+
         joint_trajectory: list[JointPositions] = []
-            
+
         start_time = time.time()
         target_reached = False
-        held_object_id = self.get_object_id_from_name(self.held_object_name) if self.held_object_name else None
+        held_object_id = (
+            self.get_object_id_from_name(self.held_object_name)
+            if self.held_object_name
+            else None
+        )
         while time.time() - start_time < max_control_time:
             current_pose = self.robot.get_end_effector_pose()
             if pose.allclose(current_pose, atol=1e-2):
@@ -254,13 +281,24 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             current_joint_positions = self.robot.get_joint_positions()
             joint_trajectory.append(current_joint_positions)
             current_jacobian = self.robot.get_jacobian()
-            target_positions = cartesian_control_step(current_joint_positions, current_jacobian, current_pose, pose)
-            target_positions = np.concatenate((target_positions, initial_fingers_positions))
-            set_robot_joints_with_held_object(self.robot, self.physics_client_id, held_object_id,
-                                                self.held_object_tf, target_positions.tolist())
-        
+            target_positions = cartesian_control_step(
+                current_joint_positions, current_jacobian, current_pose, pose
+            )
+            target_positions = np.concatenate(
+                (target_positions, initial_fingers_positions)
+            )
+            set_robot_joints_with_held_object(
+                self.robot,
+                self.physics_client_id,
+                held_object_id,
+                self.held_object_tf,
+                target_positions.tolist(),
+            )
+
         if not target_reached:
-            raise RuntimeError("Sim cartesian controller: Failed to reach target pose in time")
+            raise RuntimeError(
+                "Sim cartesian controller: Failed to reach target pose in time"
+            )
 
     def _execute_grasp_tool(self, tool: str) -> None:
         self.robot.set_finger_state(self.scene_spec.tool_grasp_fingers_value)
@@ -268,6 +306,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         finger_frame_id = self.robot.link_from_name("finger_tip")
         end_effector_link_id = self.robot.link_from_name(self.robot.tool_link_name)
         finger_from_end_effector = get_relative_link_pose(
-            self.robot.robot_id, finger_frame_id, end_effector_link_id, self.physics_client_id
+            self.robot.robot_id,
+            finger_frame_id,
+            end_effector_link_id,
+            self.physics_client_id,
         )
         self.held_object_tf = finger_from_end_effector

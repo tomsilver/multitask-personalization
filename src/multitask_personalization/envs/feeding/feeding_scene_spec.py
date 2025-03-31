@@ -92,10 +92,42 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
     utensil_inside_mount: Pose = Pose((0.242, -0.077, 0.07), (-1, 0, 0, 0))
 
-    # Skill positions.
-    retract_pos: JointPositions = field(default_factory= lambda: [0.0, -0.34903602299465675, -3.141591055693139, -2.5482592711638783, 0.0, -0.872688061814757, 1.57075917569769])
-    utensil_above_mount_pos: JointPositions = field(default_factory=lambda: [-0.3081224117999879, 0.1449308244187662, -2.4515079603418446, -2.3539334664268674, -0.14376009880356744, -0.6872590793313744, 0.5028097739444904])
+    # Skill waypoints.
+    retract_pos: JointPositions = field(
+        default_factory=lambda: [
+            0.0,
+            -0.34903602299465675,
+            -3.141591055693139,
+            -2.5482592711638783,
+            0.0,
+            -0.872688061814757,
+            1.57075917569769,
+        ]
+    )
+    utensil_above_mount_pos: JointPositions = field(
+        default_factory=lambda: [
+            -0.3081224117999879,
+            0.1449308244187662,
+            -2.4515079603418446,
+            -2.3539334664268674,
+            -0.14376009880356744,
+            -0.6872590793313744,
+            0.5028097739444904,
+        ]
+    )
     utensil_outside_mount: Pose = Pose((0.372, -0.077, 0.07), (-1, 0, 0, 0))
+    utensil_outside_above_mount: Pose = Pose((0.372, -0.077, 0.17), (-1, 0, 0, 0))
+    before_transfer_pos: JointPositions = field(
+        default_factory=lambda: [
+            -2.86554642,
+            -1.61951779,
+            -2.60986085,
+            -1.37302839,
+            1.11779249,
+            -1.18028264,
+            2.05515862,
+        ]
+    )
 
     @property
     def utensil_pose(self):

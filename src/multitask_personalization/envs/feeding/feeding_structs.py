@@ -14,8 +14,8 @@ class FeedingState:
     """A state in the feeding environment."""
 
     robot_joints: JointPositions
-    held_obj_name: str | None
-    held_obj_tf: Pose | None
+    held_object_name: str | None
+    held_object_tf: Pose | None
 
 
 class FeedingAction(abc.ABC):
@@ -45,4 +45,3 @@ class GraspTool(FeedingAction):
     """Grasp a given tool."""
 
     tool: str
-

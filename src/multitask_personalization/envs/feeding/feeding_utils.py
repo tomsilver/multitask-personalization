@@ -10,11 +10,16 @@ from pybullet_helpers.joint import JointPositions
 
 DAMPING_FACTOR = 0.05
 DISTANCE_LOOKAHEAD = 0.04
-ANGULAR_LOOKAHEAD = 5*np.pi/180
-TIMESTEP = 1/240 # Default timestep in pybullet
+ANGULAR_LOOKAHEAD = 5 * np.pi / 180
+TIMESTEP = 1 / 240  # Default timestep in pybullet
 
 
-def cartesian_control_step(current_joint_positions: JointPositions, current_jacobian: np.ndarray, current_pose: Pose, target_pose: Pose) -> JointPositions:
+def cartesian_control_step(
+    current_joint_positions: JointPositions,
+    current_jacobian: np.ndarray,
+    current_pose: Pose,
+    target_pose: Pose,
+) -> JointPositions:
     """Cartesian control for the feeding environment."""
 
     source_position = np.array(current_pose.position)
@@ -23,12 +28,19 @@ def cartesian_control_step(current_joint_positions: JointPositions, current_jaco
     target_orientation = R.from_quat(target_pose.orientation)
 
     position_error = np.linalg.norm(source_position - target_position)
-    orientation_error = np.linalg.norm(R.from_matrix(np.dot(source_orientation.as_matrix(), target_orientation.as_matrix().T)).as_rotvec())
+    orientation_error = np.linalg.norm(
+        R.from_matrix(
+            np.dot(source_orientation.as_matrix(), target_orientation.as_matrix().T)
+        ).as_rotvec()
+    )
 
     if position_error <= DISTANCE_LOOKAHEAD:
         target_waypoint_position = target_position
     else:
-        target_waypoint_position = source_position + DISTANCE_LOOKAHEAD*(target_position - source_position)/position_error
+        target_waypoint_position = (
+            source_position
+            + DISTANCE_LOOKAHEAD * (target_position - source_position) / position_error
+        )
 
     if orientation_error <= ANGULAR_LOOKAHEAD:
         target_waypoint_orientation = target_orientation.as_quat()
@@ -37,14 +49,16 @@ def cartesian_control_step(current_joint_positions: JointPositions, current_jaco
         key_rots = R.concatenate((source_orientation, target_orientation))
         slerp = Slerp(key_times, key_rots)
 
-        interp_rotations = slerp([ANGULAR_LOOKAHEAD/orientation_error]) #second last is also aligned
+        interp_rotations = slerp(
+            [ANGULAR_LOOKAHEAD / orientation_error]
+        )  # second last is also aligned
         target_waypoint_orientation = interp_rotations[0].as_quat()
 
     # visualize_pose(current_pose, sim.physics_client_id)
     # visualize_pose(Pose(position=target_waypoint_position, orientation=target_waypoint_orientation), sim.physics_client_id)
     # input("Press Enter to continue...")
 
-    n_dof = 7 # Rajat ToDo: Remove hardcoding
+    n_dof = 7  # Rajat ToDo: Remove hardcoding
 
     J = current_jacobian
     # print("J.shape", J.shape)
@@ -78,11 +92,11 @@ def cartesian_control_step(current_joint_positions: JointPositions, current_jaco
     # Assemble error
     error = np.zeros(6)
     error[:3] = pos_error
-    error[3:] = orient_error 
+    error[3:] = orient_error
 
     damping_lambda = DAMPING_FACTOR * np.eye(n_dof)
     J_JT = J.T @ J + damping_lambda
-            
+
     # J_damped = np.linalg.inv(J_JT) @ J.T
 
     # this is faster than the above commented computation
