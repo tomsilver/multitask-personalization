@@ -185,6 +185,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             robot_joints=robot_joints,
         )
         return state
+    
+    def set_state(self, state: FeedingState) -> None:
+        """Set the current state of the environment."""
+        # Set the robot joints to the specified state.
+        self.robot.set_joints(state.robot_joints)
 
     def _get_info(self) -> dict[str, Any]:
         """Get additional information about the environment."""

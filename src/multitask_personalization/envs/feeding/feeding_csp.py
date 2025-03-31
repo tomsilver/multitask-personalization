@@ -10,6 +10,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingState,
     FeedingAction,
 )
+from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
 from multitask_personalization.structs import (
     CSP,
     CSPConstraint,
@@ -22,8 +23,26 @@ from multitask_personalization.structs import (
 
 class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
+    def __init__(self, sim: FeedingEnv, csp_variables: Collection[CSPVariable], seed: int = 0) -> None:
+        super().__init__(csp_variables=csp_variables, seed=seed)
+        self._sim = sim
+
+    def _get_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
+        import ipdb; ipdb.set_trace()
+
+    def reset(self, solution: dict[CSPVariable, Any]) -> None:
+        super().reset(solution)
+        self._current_plan = []
+        self._terminated = False
+
     def step(self, obs: FeedingState) -> FeedingAction:
-        return np.zeros(len(obs.robot_joints))
+        if not self._current_plan:
+            self._sim.set_state(obs)
+            plan = self._get_plan(obs)
+            assert plan is not None
+            self._current_plan = plan
+        action = self._current_plan.pop(0)
+        return action
 
     def check_termination(self, obs: FeedingState) -> bool:
         return False
@@ -31,6 +50,10 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
 class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
     """Generate CSPs for the feeding environment."""
+
+    def __init__(self, sim: FeedingEnv, *args, **kwargs) -> None:
+        self._sim = sim
+        super().__init__(*args, **kwargs)
 
     def save(self, model_dir: Path) -> None:
         print("WARNING: saving not yet implemented for FeedingCSPGenerator.")
@@ -77,7 +100,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         obs: FeedingState,
         csp_variables: Collection[CSPVariable],
     ) -> CSPPolicy:
-        return _FeedingCSPPolicy(csp_variables, self._seed)
+        return _FeedingCSPPolicy(self._sim, csp_variables, self._seed)
 
     def observe_transition(
         self,

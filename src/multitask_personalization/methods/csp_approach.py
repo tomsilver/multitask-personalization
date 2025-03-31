@@ -31,6 +31,7 @@ from multitask_personalization.methods.approach import (
     _ObsType,
 )
 from multitask_personalization.envs.feeding.feeding_csp import FeedingCSPGenerator
+from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import CSPPolicy, CSPVariable, PublicSceneSpec
@@ -199,7 +200,9 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 disable_learning=self._disable_learning,
             )
         if isinstance(self._scene_spec, FeedingSceneSpec):
+            sim = FeedingEnv(self._scene_spec)
             return FeedingCSPGenerator(
+                sim,
                 self._seed,
                 explore_method=self._explore_method,
                 disable_learning=self._disable_learning,
