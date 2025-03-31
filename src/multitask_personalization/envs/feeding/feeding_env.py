@@ -91,6 +91,59 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         robot.close_fingers()
         self.robot = robot
 
+        # Create a holder (vention stand).
+        self.robot_holder_id = create_pybullet_block(
+            self.scene_spec.robot_holder_rgba,
+            half_extents=self.scene_spec.robot_holder_half_extents,
+            physics_client_id=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self.robot_holder_id,
+            self.scene_spec.robot_holder_pose.position,
+            self.scene_spec.robot_holder_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Create wheelchair.
+        self._wheelchair_id = p.loadURDF(
+            str(self.scene_spec.wheelchair_urdf_path),
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self._wheelchair_id,
+            self.scene_spec.wheelchair_pose.position,
+            self.scene_spec.wheelchair_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Create user.
+        self._user_head = p.loadURDF(
+            str(self.scene_spec.user_head_urdf_path),
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self._user_head,
+            self.scene_spec.user_head_pose.position,
+            self.scene_spec.user_head_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # Create table.
+        self.table_id = p.loadURDF(
+            str(self.scene_spec.table_urdf_path),
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+
+        p.resetBasePositionAndOrientation(
+            self.table_id,
+            self.scene_spec.table_pose.position,
+            self.scene_spec.table_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
         # Uncomment to debug.
         if use_gui:
             while True:
