@@ -32,6 +32,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     MoveToEEPose,
     MoveToJointPositions,
     WaitForUserInput,
+    UngraspTool,
 )
 from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
 
@@ -170,6 +171,19 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             if joint_info[2] != 4:  # Skip fixed joints.
                 self.utensil_joints.append(i)
 
+        # Create drink.
+        self.drink_id = p.loadURDF(
+            str(self.scene_spec.drink_urdf_path),
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self.drink_id,
+            self.scene_spec.drink_pose.position,
+            self.scene_spec.drink_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
         # Initialize held object.
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
@@ -257,8 +271,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self._move_to_ee_pose(action.pose)
         elif isinstance(action, GraspTool):
             self._execute_grasp_tool(action.tool)
+        elif isinstance(action, UngraspTool):
+            self._execute_ungrasp_tool()
         elif isinstance(action, WaitForUserInput):
-            if action.user_input == "bite done":
+            if action.user_input == "done":
                 done = True
         else:
             raise NotImplementedError("TODO")
@@ -340,3 +356,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.physics_client_id,
         )
         self.held_object_tf = finger_from_end_effector
+
+    def _execute_ungrasp_tool(self) -> None:
+        self.robot.close_fingers()
+        self.held_object_name = None
+        self.held_object_tf = None

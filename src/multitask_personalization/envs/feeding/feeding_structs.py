@@ -47,6 +47,10 @@ class GraspTool(FeedingAction):
     tool: str
 
 
+class UngraspTool(FeedingAction):
+    """Ungrasp the currently held tool."""
+
+
 @dataclass(frozen=True)
 class WaitForUserInput(FeedingAction):
     """Wait for user input."""
