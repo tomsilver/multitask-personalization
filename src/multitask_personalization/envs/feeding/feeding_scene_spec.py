@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-import numpy as np
 
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
@@ -94,18 +93,16 @@ class FeedingSceneSpec(PublicSceneSpec):
     utensil_inside_mount: Pose = Pose((0.242, -0.077, 0.07), (-1, 0, 0, 0))
     utensil_above_mount: Pose = Pose((0.242, -0.077, 0.17), (-1, 0, 0, 0))
     utensil_outside_above_mount_pos: JointPositions = field(
-        default_factory=lambda: [-0.2692035082617874, 0.4127082432063301, -2.513398492494741, -1.9930522355357558, -0.31928105676741936, -0.8392446174777604, 0.5472652562309106]
+        default_factory=lambda: [
+            -0.2692035082617874,
+            0.4127082432063301,
+            -2.513398492494741,
+            -1.9930522355357558,
+            -0.31928105676741936,
+            -0.8392446174777604,
+            0.5472652562309106,
+        ]
     )
-
-    # Drink.
-    drink_urdf_path: Path = (
-        Path(__file__).parent / "assets" / "drinking_utensil" / "drinking_utensil.urdf"
-    )
-    drink_pose: Pose = Pose((0.42, 0.53, 0.34), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
-    drink_gaze_pos: JointPositions = field(
-        default_factory=lambda: [-0.004187021865822871, 0.6034579885210962, -3.1259047705564633, -2.3538005746884725, 0.01149092320739253, 1.3411586039000891, 1.6825233913747728])
-    drink_staging_pos: JointPositions = field(
-        default_factory=lambda: [-2.5860902733967808, -1.105096803823792, -1.0315333702969696, -1.3979449215077393, -0.7852325147776451, -0.8370922506847585, -2.7182634909296315])
 
     # Skill waypoints.
     retract_pos: JointPositions = field(

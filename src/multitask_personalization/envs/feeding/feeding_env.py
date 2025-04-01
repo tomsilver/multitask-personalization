@@ -10,7 +10,7 @@ import numpy as np
 import pybullet as p
 from gymnasium.core import RenderFrame
 from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import Pose, set_pose
+from pybullet_helpers.geometry import Pose, get_pose, set_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
 from pybullet_helpers.joint import JointPositions
@@ -29,10 +29,11 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
     FeedingState,
     GraspTool,
+    MovePlate,
     MoveToEEPose,
     MoveToJointPositions,
-    WaitForUserInput,
     UngraspTool,
+    WaitForUserInput,
 )
 from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
 
@@ -171,19 +172,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             if joint_info[2] != 4:  # Skip fixed joints.
                 self.utensil_joints.append(i)
 
-        # Create drink.
-        self.drink_id = p.loadURDF(
-            str(self.scene_spec.drink_urdf_path),
-            useFixedBase=True,
-            physicsClientId=self.physics_client_id,
-        )
-        p.resetBasePositionAndOrientation(
-            self.drink_id,
-            self.scene_spec.drink_pose.position,
-            self.scene_spec.drink_pose.orientation,
-            physicsClientId=self.physics_client_id,
-        )
-
         # Initialize held object.
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
@@ -208,6 +196,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
 
+        # Reset the plate.
+        set_pose(self.plate_id, self.scene_spec.plate_pose, self.physics_client_id)
+
         return self.get_state(), self._get_info()
 
     def get_state(self) -> FeedingState:
@@ -215,9 +206,13 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Get the joint positions of the robot.
         robot_joints = self.robot.get_joint_positions()
 
+        # Get the plate pose.
+        plate_pose = get_pose(self.plate_id, self.physics_client_id)
+
         # Create and return the FeedingState.
         state = FeedingState(
             robot_joints=robot_joints,
+            plate_pose=plate_pose,
             held_object_name=self.held_object_name,
             held_object_tf=self.held_object_tf,
         )
@@ -225,6 +220,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
     def set_state(self, state: FeedingState) -> None:
         """Set the current state of the environment."""
+        # Update the robot and any held object.
         held_object_id = (
             self.get_object_id_from_name(self.held_object_name)
             if self.held_object_name
@@ -237,6 +233,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             state.held_object_tf,
             state.robot_joints,
         )
+        # Update the plate pose.
+        set_pose(self.plate_id, state.plate_pose, self.physics_client_id)
 
     def _get_info(self) -> dict[str, Any]:
         """Get additional information about the environment."""
@@ -273,6 +271,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self._execute_grasp_tool(action.tool)
         elif isinstance(action, UngraspTool):
             self._execute_ungrasp_tool()
+        elif isinstance(action, MovePlate):
+            set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
         elif isinstance(action, WaitForUserInput):
             if action.user_input == "done":
                 done = True

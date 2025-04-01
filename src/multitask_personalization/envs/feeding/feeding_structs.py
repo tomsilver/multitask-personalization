@@ -14,6 +14,7 @@ class FeedingState:
     """A state in the feeding environment."""
 
     robot_joints: JointPositions
+    plate_pose: Pose
     held_object_name: str | None
     held_object_tf: Pose | None
 
@@ -56,3 +57,10 @@ class WaitForUserInput(FeedingAction):
     """Wait for user input."""
 
     user_input: str
+
+
+@dataclass(frozen=True)
+class MovePlate(FeedingAction):
+    """Move the plate to a specific pose."""
+
+    plate_pose: Pose
