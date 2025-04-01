@@ -91,6 +91,18 @@ class FeedingSceneSpec(PublicSceneSpec):
         Path(__file__).parent / "assets" / "feeding_utensil" / "feeding_utensil.urdf"
     )
     utensil_inside_mount: Pose = Pose((0.242, -0.077, 0.07), (-1, 0, 0, 0))
+    utensil_above_mount: Pose = Pose((0.242, -0.077, 0.17), (-1, 0, 0, 0))
+    utensil_outside_above_mount_pos: JointPositions = field(
+        default_factory=lambda: [
+            -0.2692035082617874,
+            0.4127082432063301,
+            -2.513398492494741,
+            -1.9930522355357558,
+            -0.31928105676741936,
+            -0.8392446174777604,
+            0.5472652562309106,
+        ]
+    )
 
     # Skill waypoints.
     retract_pos: JointPositions = field(

@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any, Collection
 
+from pybullet_helpers.geometry import Pose
+
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
 from multitask_personalization.envs.feeding.feeding_structs import (
@@ -10,8 +12,10 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
     FeedingState,
     GraspTool,
+    MovePlate,
     MoveToEEPose,
     MoveToJointPositions,
+    UngraspTool,
     WaitForUserInput,
 )
 from multitask_personalization.structs import (
@@ -34,7 +38,6 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         self._current_plan: list[FeedingAction] = []
 
     def _get_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
-        del obs  # not used right now
 
         scene_spec = self._sim.scene_spec
 
@@ -57,10 +60,40 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.before_transfer_pos),
             MoveToEEPose(scene_spec.before_transfer_pose),
             MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
-            WaitForUserInput("bite done"),
+            MoveToEEPose(scene_spec.before_transfer_pose),
         ]
 
-        plan = pick_utensil_plan + acquire_bite_plan + transfer_bite_plan
+        stow_utensil_plan: list[FeedingAction] = [
+            MoveToJointPositions(scene_spec.utensil_outside_above_mount_pos),
+            MoveToEEPose(scene_spec.utensil_outside_mount),
+            MoveToEEPose(scene_spec.utensil_inside_mount),
+            UngraspTool(),
+            MoveToEEPose(scene_spec.utensil_above_mount),
+            MoveToJointPositions(scene_spec.retract_pos),
+        ]
+
+        current_plate_pose = obs.plate_pose
+        dx, dy = 0.1, 0.1
+        new_plate_pose = Pose(
+            (
+                current_plate_pose.position[0] + dx,
+                current_plate_pose.position[1] + dy,
+                current_plate_pose.position[2],
+            ),
+            current_plate_pose.orientation,
+        )
+        move_plate_plan: list[FeedingAction] = [MovePlate(new_plate_pose)]
+
+        finish = [WaitForUserInput("done")]
+
+        plan = (
+            pick_utensil_plan
+            + acquire_bite_plan
+            + transfer_bite_plan
+            + stow_utensil_plan
+            + move_plate_plan
+            + finish
+        )
 
         return plan
 
