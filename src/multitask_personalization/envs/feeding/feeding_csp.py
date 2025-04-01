@@ -68,10 +68,18 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             UngraspTool(),
             MoveToEEPose(scene_spec.utensil_above_mount),
             MoveToJointPositions(scene_spec.retract_pos),
-            WaitForUserInput("done"),
         ]
 
-        plan = pick_utensil_plan + acquire_bite_plan + transfer_bite_plan + stow_utensil_plan
+        pick_drink_plan: list[FeedingAction] = [
+            MoveToJointPositions(scene_spec.retract_pos),
+            CloseGripper(),
+            MoveToJointPositions(scene_spec.drink_gaze_pos),
+            MoveToJointPositions(scene_spec.drink_staging_pos),
+        ]
+
+        finish = [WaitForUserInput("done")]
+
+        plan = pick_utensil_plan + acquire_bite_plan + transfer_bite_plan + stow_utensil_plan + pick_drink_plan + finish
 
         return plan
 
