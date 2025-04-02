@@ -1,5 +1,5 @@
 _target_: "tomsutils.llm.OpenAILLM"
-model_name: "gpt-4o-mini"
+model_name: "gpt-4o"
 cache_dir:
   _target_: "pathlib.Path"
   _args_:

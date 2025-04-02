@@ -1065,7 +1065,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             standard_books = [
                 "Title: 1984. Author: George Orwell.",
                 "Title: Fahrenheit 451. Author: Ray Bradbury.",
-                "Title: Moby Dick. Author: Herman Melville."
+                "Title: Cosmos. Author: Carl Sagan.",
+                "Title: The Double Helix. Author: James Watson.",
             ]
             assert num_books <= len(standard_books)
             return standard_books[:num_books]

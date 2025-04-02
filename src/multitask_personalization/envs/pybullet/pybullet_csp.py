@@ -1910,7 +1910,11 @@ Based on this history, provide an updated description of the user's book prefere
 
 Your description should be in the following format:
 
-"I know that the user likes the following books: <list of books> and they do not like the following books: <list of books>. Based on this, here are some possible summaries of their preferences:
+"I know that the user likes the following books: <list of books> and they do not like the following books: <list of books>.
+
+They have also said generally: <something general about their preferences>.
+
+Based on this, here are some possible summaries of their preferences:
 1. <summary of preferences>
 2. <summary of preferences>
 3. <summary of preferences>"

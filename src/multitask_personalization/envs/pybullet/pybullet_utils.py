@@ -27,9 +27,11 @@ def get_user_book_enjoyment_logprob(
 
 User description: {user_preferences}
 
-I will ask you to rate how much the user would enjoy this book on a scale from 0 to 10.
+Rate how much the user would enjoy this book on a scale from 0 to 10 (inclusive).
 
-IMPORTANT: if you have already seen this book before, please answer based on the user's previous enjoyment of the book.
+IMPORTANT: if the user told you that they like the book, return 10.
+IMPORTANT: if the user told you that they do like the book, return 0.
+IMPORTANT: if you don't know anything about the user, guess 4 or 5.
 
 How much would the user enjoy the book on a scale from 0 to {num_bins-1}, where 0 means hate and {num_bins-1} means love?
 
