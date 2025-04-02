@@ -1,5 +1,5 @@
 _target_: "multitask_personalization.rom.models.SphericalROMModel"
 human_spec: ${human_spec}
 seed: ${seed}
-min_possible_radius: 0.1
-max_possible_radius: 0.3
+min_possible_radius: 0.0
+max_possible_radius: 1.5

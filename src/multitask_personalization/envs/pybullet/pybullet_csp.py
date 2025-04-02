@@ -1700,7 +1700,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         max_lp = max(book_to_lp.values())
         if np.isneginf(max_lp):
             return 0.0
-        scaled_lp = book_to_lp[book_description] - max_lp
+        scaled_lp = book_to_lp[book_description] #- max_lp  # TODO
         return scaled_lp
 
     def _update_rom_model(

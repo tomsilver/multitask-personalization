@@ -4,12 +4,12 @@ env:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.PyBulletSceneSpec"
     surface_dust_patch_size: 2
     use_standard_books: true
-    num_books: 9
+    num_books: 3
     human_spec: ${human_spec}
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     missions: "all"
-    book_preferences: "I only like two kinds of books: fictional romances, and grand, nonfictional reflections on the universe. I hate any other book that is not in one of these two categories."
+    book_preferences: "I like dystopian books with social and political commentary. "
     rom_model: ${rom_model}
     surfaces_robot_can_clean:
       - ["shelf", 1]

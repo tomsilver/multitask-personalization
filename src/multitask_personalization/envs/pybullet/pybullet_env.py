@@ -1063,19 +1063,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     def _generate_book_descriptions(self, num_books: int, seed: int) -> list[str]:
         if self.scene_spec.use_standard_books:
             standard_books = [
-                "Title: Cosmos. Author: Carl Sagan.",
-                "Title: Pride and Prejudice. Author: Jane Austen.",
-                "Title: The Hitchhiker's Guide to the Galaxy. Author: Douglas Adams.",
-                "Title: The Immortal Life of Henrietta Lacks. Author: Rebecca Skloot.",
-                "Title: The Diary of Anne Frank. Author: Anne Frank.",
-                "Title: Into the Wild. Author: Jon Krakauer.",
-                "Title: Moby Dick. Author: Herman Melville.",
-                "Title: The Lord of the Rings. Author: J. R. R. Tolkien.",
-                "Title: And Then There Were None. Author: Agatha Christie.",
-                "Title: To Kill a Mockingbird. Author: Harper Lee.",
-                "Title: The Great Gatsby. Author: F. Scott Fitzgerald.",
                 "Title: 1984. Author: George Orwell.",
-                "Title: A Tale of Two Cities. Author: Charles Dickens.",
+                "Title: Fahrenheit 451. Author: Ray Bradbury.",
+                "Title: Moby Dick. Author: Herman Melville."
             ]
             assert num_books <= len(standard_books)
             return standard_books[:num_books]
