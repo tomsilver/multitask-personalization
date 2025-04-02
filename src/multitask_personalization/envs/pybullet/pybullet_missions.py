@@ -207,7 +207,7 @@ If you enjoy the book, say something like "Thanks, I love this book!"
 
 If you don't enjoy the book, say something like "Thanks, but I don't like this book."
 
-IMPORTANT: if the book is nonfiction, ignore the previous and say: "Thanks, but I don't like nonfiction."
+IMPORTANT: if the book is nonfiction, ignore the previous and say: "Thanks, but I usually don't enjoy nonfiction."
 
 Do not explain why."""
     logging.debug(f"LLM prompt: {prompt}")

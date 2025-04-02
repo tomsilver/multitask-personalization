@@ -30,6 +30,6 @@ max_eval_episode_length: 250
 num_eval_trials: 10
 dt: 0.01
 csp_solver:
-  max_iters: 2500
-  num_improvements: 500
-  max_improvement_attempts: 100
+  max_iters: 3000
+  num_improvements: 600
+  max_improvement_attempts: 150
