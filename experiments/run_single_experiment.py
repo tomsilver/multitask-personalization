@@ -101,6 +101,7 @@ def _main(cfg: DictConfig) -> None:
         train_approach.reset(obs, info)
         # Main training and eval loop.
         for t in range(cfg.env.max_environment_steps + 1):
+            print("Training", t)
             if t % cfg.train_logging_interval == 0:
                 logging.info(f"Starting training step {t}")
             # Check if it's time to eval.
