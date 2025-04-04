@@ -112,7 +112,7 @@ class FeedingSceneSpec(PublicSceneSpec):
         Path(__file__).parent / "assets" / "occlusion_body" / "occlusion_body.urdf"
     )
     occlusion_body_relative_pose: Pose = Pose.from_rpy(
-        (0.0, 0.05, 0.3),
+        (0.0, 0.05, 1.2),
         (-np.pi / 2, 0.0, 0.0),
     )
 
