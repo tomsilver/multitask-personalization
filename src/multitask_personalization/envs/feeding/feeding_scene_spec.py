@@ -86,7 +86,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     plate_init_pose: Pose = Pose((0.3, 0.25, 0.16))
     plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.urdf"
     plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.obj"
-    plate_position_lower: tuple[float, float] = (0.35, 0.45)
+    plate_position_lower: tuple[float, float] = (0.3, 0.25)
     plate_position_upper: tuple[float, float] = (0.38, 0.64)
 
     # Utensil.
