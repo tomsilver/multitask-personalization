@@ -202,8 +202,15 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
 
-        # Reset the plate.
-        set_pose(self.plate_id, self.scene_spec.plate_init_pose, self.physics_client_id)
+        # Randomly reset the plate.
+        plate_x, plate_y = self._rng.uniform(
+            low=self.scene_spec.plate_position_lower,
+            high=self.scene_spec.plate_position_upper,
+        )
+        plate_z = self.scene_spec.plate_init_pose.position[2]
+        plate_orn = self.scene_spec.plate_init_pose.orientation
+        plate_pose = Pose((plate_x, plate_y, plate_z), plate_orn)
+        set_pose(self.plate_id, plate_pose, self.physics_client_id)
 
         return self.get_state(), self._get_info()
 
