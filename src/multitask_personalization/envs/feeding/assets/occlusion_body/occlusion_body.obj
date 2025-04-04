@@ -4,17 +4,17 @@
 o occlusion_body
 
 # List of vertices (v): x y z
-# Bottom face (y = 0.00)
-v -0.1  0.00 -0.1   # 1
-v  0.1  0.00 -0.1   # 2
-v  0.1  0.00  0.1   # 3
-v -0.1  0.00  0.1   # 4
+# Bottom face
+v -0.25  0.00 -0.25   # 1
+v  0.25  0.00 -0.25   # 2
+v  0.25  0.00  0.25   # 3
+v -0.25  0.00  0.25   # 4
 
-# Top face (y = 1.00) — 5x original height
-v -0.05  1.00 -0.05   # 5
-v  0.05  1.00 -0.05   # 6
-v  0.05  1.00  0.05   # 7
-v -0.05  1.00  0.05   # 8
+# Top face
+v -0.05  5.00 -0.05   # 5
+v  0.05  5.00 -0.05   # 6
+v  0.05  5.00  0.05   # 7
+v -0.05  5.00  0.05   # 8
 
 # Faces (f) in quads. 
 # Each face is defined in a winding order that gives outward normals for a closed prism.
@@ -27,14 +27,14 @@ f 1 2 3 4
 #   Reversed order so normal points up.
 f 5 8 7 6
 
-# Front face (z = -0.075): (1,2) on bottom to (5,6) on top
+# Front face
 f 1 5 6 2
 
-# Back face (z = 0.075): (4,3) on bottom to (8,7) on top
+# Back face
 f 4 3 7 8
 
-# Left face (x ~ -0.07): (1,4) on bottom to (5,8) on top
+# Left face
 f 1 4 8 5
 
-# Right face (x ~ +0.07): (2,3) on bottom to (6,7) on top
+# Right face
 f 2 6 7 3

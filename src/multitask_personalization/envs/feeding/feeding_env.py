@@ -187,11 +187,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 globalScaling=self._hidden_spec.occlusion_preference_scale,
                 physicsClientId=self.physics_client_id,
             )
-            # self._occlusion_body_id = create_pybullet_block(
-            #     (1.0, 0.0, 0.0, 1.0),
-            #     [0.05, 0.05, 0.05],
-            #     self.physics_client_id,
-            # )
             p.resetBasePositionAndOrientation(
                 self._occlusion_body_id,
                 self.scene_spec.occlusion_body_pose.position,
