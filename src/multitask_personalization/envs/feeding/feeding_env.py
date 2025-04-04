@@ -58,6 +58,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.action_space = FunctionalSpace(
             contains_fn=lambda action: isinstance(action, FeedingAction)
         )
+        self._use_gui = use_gui
 
         # Create the PyBullet client.
         if use_gui:
@@ -149,8 +150,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         p.resetBasePositionAndOrientation(
             self.plate_id,
-            self.scene_spec.plate_pose.position,
-            self.scene_spec.plate_pose.orientation,
+            self.scene_spec.plate_init_pose.position,
+            self.scene_spec.plate_init_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
 
@@ -197,7 +198,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
 
         # Reset the plate.
-        set_pose(self.plate_id, self.scene_spec.plate_pose, self.physics_client_id)
+        set_pose(self.plate_id, self.scene_spec.plate_init_pose, self.physics_client_id)
 
         return self.get_state(), self._get_info()
 
@@ -263,6 +264,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 self.held_object_tf,
                 new_joints,
             )
+            if self._use_gui:
+                time.sleep(1.0)  # visualize the motion in GUI mode
         elif isinstance(action, CloseGripper):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):
