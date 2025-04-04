@@ -10,7 +10,7 @@ import numpy as np
 import pybullet as p
 from gymnasium.core import RenderFrame
 from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import Pose, get_pose, set_pose
+from pybullet_helpers.geometry import Pose, get_pose, iter_between_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
 from pybullet_helpers.joint import JointPositions
@@ -177,6 +177,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
 
+        # Create an occlusion body if occlusion preference is set in the hidden spec.
+        self._occlusion_body_id: int | None = None
+        if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
+            self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
+
         # Uncomment to debug.
         # if use_gui:
         #     while True:
@@ -197,8 +202,15 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
 
-        # Reset the plate.
-        set_pose(self.plate_id, self.scene_spec.plate_init_pose, self.physics_client_id)
+        # Randomly reset the plate.
+        plate_x, plate_y = self._rng.uniform(
+            low=self.scene_spec.plate_position_lower,
+            high=self.scene_spec.plate_position_upper,
+        )
+        plate_z = self.scene_spec.plate_init_pose.position[2]
+        plate_orn = self.scene_spec.plate_init_pose.orientation
+        plate_pose = Pose((plate_x, plate_y, plate_z), plate_orn)
+        set_pose(self.plate_id, plate_pose, self.physics_client_id)
 
         return self.get_state(), self._get_info()
 
@@ -275,7 +287,16 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         elif isinstance(action, UngraspTool):
             self._execute_ungrasp_tool()
         elif isinstance(action, MovePlate):
-            set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
+            if self._use_gui:
+                for plate_pose in iter_between_poses(
+                    get_pose(self.plate_id, self.physics_client_id),
+                    action.plate_pose,
+                    include_start=False,
+                ):
+                    set_pose(self.plate_id, plate_pose, self.physics_client_id)
+                    time.sleep(0.1)
+            else:
+                set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
         elif isinstance(action, WaitForUserInput):
             if action.user_input == "done":
                 done = True
@@ -289,6 +310,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         """Get the PyBullet ID from the object name."""
         if name == "utensil":
             return self.utensil_id
+        if name == "occlusion_body":
+            assert self._occlusion_body_id is not None
+            return self._occlusion_body_id
         raise NotImplementedError(f"Object name '{name}' not recognized.")
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -307,6 +331,25 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         img[background_mask] = 0
 
         return img  # type: ignore
+
+    def set_occlusion_scale(self, scale: float) -> None:
+        """Update the scale of the occlusion body."""
+        if self._occlusion_body_id is not None:
+            p.removeBody(
+                self._occlusion_body_id, physicsClientId=self.physics_client_id
+            )
+        self._occlusion_body_id = p.loadURDF(
+            str(self.scene_spec.occlusion_body_urdf_path),
+            useFixedBase=True,
+            globalScaling=scale,
+            physicsClientId=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self._occlusion_body_id,
+            self.scene_spec.occlusion_body_pose.position,
+            self.scene_spec.occlusion_body_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
 
     def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
         initial_fingers_positions = self.robot.get_joint_positions()[7:]

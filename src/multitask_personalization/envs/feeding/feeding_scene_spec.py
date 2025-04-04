@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
@@ -85,7 +86,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     plate_init_pose: Pose = Pose((0.3, 0.25, 0.16))
     plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.urdf"
     plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.obj"
-    plate_position_lower: tuple[float, float] = (0.35, 0.45)
+    plate_position_lower: tuple[float, float] = (0.3, 0.25)
     plate_position_upper: tuple[float, float] = (0.38, 0.64)
 
     # Utensil.
@@ -104,6 +105,15 @@ class FeedingSceneSpec(PublicSceneSpec):
             -0.8392446174777604,
             0.5472652562309106,
         ]
+    )
+
+    # Occlusion body.
+    occlusion_body_urdf_path: Path = (
+        Path(__file__).parent / "assets" / "occlusion_body" / "occlusion_body.urdf"
+    )
+    occlusion_body_relative_pose: Pose = Pose.from_rpy(
+        (0.0, 0.05, 0.0),
+        (-np.pi / 2, 0.0, 0.0),
     )
 
     # Skill waypoints.
@@ -167,11 +177,17 @@ class FeedingSceneSpec(PublicSceneSpec):
         """The initial utensil pose."""
         return self.utensil_inside_mount.multiply(self.tool_frame_to_finger_tip)
 
+    @property
+    def occlusion_body_pose(self) -> Pose:
+        """The occlusion body pose in the world frame based on the user head
+        pose."""
+        return self.user_head_pose.multiply(self.occlusion_body_relative_pose)
+
     def get_camera_kwargs(self) -> dict[str, Any]:
         """Get camera kwargs."""
         return {
             "camera_target": (0.0, 0.0, 0.2),
-            "camera_distance": 2.5,
+            "camera_distance": 2.0,
             "camera_pitch": -35,
-            "camera_yaw": -35,
+            "camera_yaw": 90,
         }

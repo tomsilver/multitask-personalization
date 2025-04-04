@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<robot name="occlusion_body">
+  <link name="occlusion_link">
+    <!-- Visual -->
+    <visual>
+      <origin xyz="0 -5.2 0.0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="occlusion_body.obj" scale="1 1 1"/>
+      </geometry>
+      <material name="red">
+        <color rgba="0.7 0.0 0.0 0.5"/>
+      </material>
+    </visual>
+
+    <!-- Collision -->
+    <collision>
+      <origin xyz="0 -5.2 0.0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="occlusion_body.obj" scale="1 1 1"/>
+      </geometry>
+    </collision>
+
+    <!-- Inertial -->
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0"
+               iyy="0.01" iyz="0.0"
+               izz="0.01"/>
+    </inertial>
+  </link>
+</robot>
