@@ -58,6 +58,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.action_space = FunctionalSpace(
             contains_fn=lambda action: isinstance(action, FeedingAction)
         )
+        self._use_gui = use_gui
 
         # Create the PyBullet client.
         if use_gui:
@@ -263,6 +264,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 self.held_object_tf,
                 new_joints,
             )
+            if self._use_gui:
+                time.sleep(5.0)  # visualize the motion in GUI mode
         elif isinstance(action, CloseGripper):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):

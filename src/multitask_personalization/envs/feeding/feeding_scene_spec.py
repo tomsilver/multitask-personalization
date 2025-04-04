@@ -142,6 +142,8 @@ class FeedingSceneSpec(PublicSceneSpec):
             2.05515862,
         ]
     )
+    # NOTE: this value is with respect to the init plate pose. We will transform
+    # it when the plate moves.
     above_plate_pos: JointPositions = field(
         default_factory=lambda: [
             -2.86495014,
