@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any, Collection
 
+import numpy as np
+from gymnasium.spaces import Box
 from pybullet_helpers.geometry import Pose
 
 from multitask_personalization.csp_generation import CSPGenerator
@@ -25,6 +27,7 @@ from multitask_personalization.structs import (
     CSPPolicy,
     CSPSampler,
     CSPVariable,
+    FunctionalCSPSampler,
 )
 
 
@@ -40,6 +43,19 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
     def _get_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
 
         scene_spec = self._sim.scene_spec
+
+        current_plate_pose = obs.plate_pose
+        new_plate_x, new_plate_y = self._get_value("plate_position")
+        new_plate_pose = Pose(
+            (
+                new_plate_x,
+                new_plate_y,
+                current_plate_pose.position[2],
+            ),
+            current_plate_pose.orientation,
+        )
+
+        move_plate_plan: list[FeedingAction] = [MovePlate(new_plate_pose)]
 
         pick_utensil_plan: list[FeedingAction] = [
             MoveToJointPositions(scene_spec.retract_pos),
@@ -72,26 +88,14 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.retract_pos),
         ]
 
-        current_plate_pose = obs.plate_pose
-        dx, dy = 0.1, 0.1
-        new_plate_pose = Pose(
-            (
-                current_plate_pose.position[0] + dx,
-                current_plate_pose.position[1] + dy,
-                current_plate_pose.position[2],
-            ),
-            current_plate_pose.orientation,
-        )
-        move_plate_plan: list[FeedingAction] = [MovePlate(new_plate_pose)]
-
         finish = [WaitForUserInput("done")]
 
         plan = (
-            pick_utensil_plan
+            move_plate_plan
+            + pick_utensil_plan
             + acquire_bite_plan
             + transfer_bite_plan
             + stow_utensil_plan
-            + move_plate_plan
             + finish
         )
 
@@ -131,7 +135,19 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         self,
         obs: FeedingState,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
-        return [], {}
+
+        # XY position of the plate.
+        plate_position_domain = Box(
+            np.array(self._sim.scene_spec.plate_position_lower),
+            np.array(self._sim.scene_spec.plate_position_upper),
+            dtype=np.float32,
+        )
+        plate_position = CSPVariable("plate_position", plate_position_domain)
+        init_plate_position = (obs.plate_pose.position[0], obs.plate_pose.position[1])
+
+        return [plate_position], {
+            plate_position: init_plate_position,
+        }
 
     def _generate_personal_constraints(
         self,
@@ -159,7 +175,24 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         obs: FeedingState,
         csp: CSP,
     ) -> list[CSPSampler]:
-        return []
+
+        # Sample plate positions.
+        plate_position = csp.variables[0]
+
+        def _sample_plate_position(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            new_pos = rng.uniform(
+                low=self._sim.scene_spec.plate_position_lower,
+                high=self._sim.scene_spec.plate_position_upper,
+            ).astype(np.float32)
+            return {plate_position: new_pos}
+
+        plate_position_sampler = FunctionalCSPSampler(
+            _sample_plate_position, csp, {plate_position}
+        )
+
+        return [plate_position_sampler]
 
     def _generate_policy(
         self,
