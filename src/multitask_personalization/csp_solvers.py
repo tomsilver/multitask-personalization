@@ -102,6 +102,7 @@ class RandomWalkCSPSolver(CSPSolver):
                 if solution_found:
                     num_improve_found += 1
                 solution_found = True
+                # TODO
                 # if csp.cost is None:
                 #     return sol
                 # best_satisfying_cost = cost

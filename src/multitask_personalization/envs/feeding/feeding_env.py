@@ -180,19 +180,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Create an occlusion body if occlusion preference is set in the hidden spec.
         self._occlusion_body_id: int | None = None
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
-            # Create an occlusion body (a simple box for now).
-            self._occlusion_body_id = p.loadURDF(
-                str(self.scene_spec.occlusion_body_urdf_path),
-                useFixedBase=True,
-                globalScaling=self._hidden_spec.occlusion_preference_scale,
-                physicsClientId=self.physics_client_id,
-            )
-            p.resetBasePositionAndOrientation(
-                self._occlusion_body_id,
-                self.scene_spec.occlusion_body_pose.position,
-                self.scene_spec.occlusion_body_pose.orientation,
-                physicsClientId=self.physics_client_id,
-            )
+            self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
 
         # Uncomment to debug.
         # if use_gui:
@@ -327,6 +315,23 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         img[background_mask] = 0
 
         return img  # type: ignore
+    
+    def set_occlusion_scale(self, scale: float) -> None:
+        """Update the scale of the occlusion body."""
+        if self._occlusion_body_id is not None:
+            p.removeBody(self._occlusion_body_id, physicsClientId=self.physics_client_id)
+        self._occlusion_body_id = p.loadURDF(
+            str(self.scene_spec.occlusion_body_urdf_path),
+            useFixedBase=True,
+            globalScaling=scale,
+            physicsClientId=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self._occlusion_body_id,
+            self.scene_spec.occlusion_body_pose.position,
+            self.scene_spec.occlusion_body_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
 
     def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
         initial_fingers_positions = self.robot.get_joint_positions()[7:]
