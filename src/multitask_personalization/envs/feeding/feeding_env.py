@@ -177,10 +177,32 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
 
+        # Create an occlusion body if occlusion preference is set in the hidden spec.
+        self._occlusion_body_id: int | None = None
+        if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
+            # Create an occlusion body (a simple box for now).
+            self._occlusion_body_id = p.loadURDF(
+                str(self.scene_spec.occlusion_body_urdf_path),
+                useFixedBase=True,
+                globalScaling=self._hidden_spec.occlusion_preference_scale,
+                physicsClientId=self.physics_client_id,
+            )
+            # self._occlusion_body_id = create_pybullet_block(
+            #     (1.0, 0.0, 0.0, 1.0),
+            #     [0.05, 0.05, 0.05],
+            #     self.physics_client_id,
+            # )
+            p.resetBasePositionAndOrientation(
+                self._occlusion_body_id,
+                self.scene_spec.occlusion_body_pose.position,
+                self.scene_spec.occlusion_body_pose.orientation,
+                physicsClientId=self.physics_client_id,
+            )
+
         # Uncomment to debug.
-        # if use_gui:
-        #     while True:
-        #         p.getMouseEvents(self.physics_client_id)
+        if use_gui:
+            while True:
+                p.getMouseEvents(self.physics_client_id)
 
     def reset(
         self,
@@ -289,6 +311,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         """Get the PyBullet ID from the object name."""
         if name == "utensil":
             return self.utensil_id
+        if name == "occlusion_body":
+            assert self._occlusion_body_id is not None
+            return self._occlusion_body_id
         raise NotImplementedError(f"Object name '{name}' not recognized.")
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:

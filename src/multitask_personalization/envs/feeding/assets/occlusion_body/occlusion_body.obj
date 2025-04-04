@@ -1,0 +1,40 @@
+# OBJ file for a trapezoidal prism ~ head-sized
+# Units: meters
+
+o occlusion_body
+
+# List of vertices (v): x y z
+# Bottom face (y=0):
+v -0.07  0.00 -0.075   # 1
+v  0.07  0.00 -0.075   # 2
+v  0.07  0.00  0.075   # 3
+v -0.07  0.00  0.075   # 4
+
+# Top face (y=0.20):
+v -0.05  0.20 -0.075   # 5
+v  0.05  0.20 -0.075   # 6
+v  0.05  0.20  0.075   # 7
+v -0.05  0.20  0.075   # 8
+
+# Faces (f) in quads. 
+# Each face is defined in a winding order that gives outward normals for a closed prism.
+
+# Bottom face (indices 1–4). 
+#   Looking down: these are in clockwise order so the normal points down.
+f 1 2 3 4
+
+# Top face (indices 5–8).
+#   Reversed order so normal points up.
+f 5 8 7 6
+
+# Front face (z = -0.075): (1,2) on bottom to (5,6) on top
+f 1 5 6 2
+
+# Back face (z = 0.075): (4,3) on bottom to (8,7) on top
+f 4 3 7 8
+
+# Left face (x ~ -0.07): (1,4) on bottom to (5,8) on top
+f 1 4 8 5
+
+# Right face (x ~ +0.07): (2,3) on bottom to (6,7) on top
+f 2 6 7 3

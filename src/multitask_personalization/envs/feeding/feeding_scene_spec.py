@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+import numpy as np
 
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
@@ -106,6 +107,15 @@ class FeedingSceneSpec(PublicSceneSpec):
         ]
     )
 
+    # Occlusion body.
+    occlusion_body_urdf_path: Path = (
+        Path(__file__).parent / "assets" / "occlusion_body" / "occlusion_body.urdf"
+    )
+    occlusion_body_relative_pose: Pose = Pose.from_rpy(
+        (0.0, 0.05, 0.3),
+        (-np.pi / 2, 0.0, 0.0),
+    )
+
     # Skill waypoints.
     retract_pos: JointPositions = field(
         default_factory=lambda: [
@@ -166,6 +176,11 @@ class FeedingSceneSpec(PublicSceneSpec):
     def utensil_pose(self):
         """The initial utensil pose."""
         return self.utensil_inside_mount.multiply(self.tool_frame_to_finger_tip)
+    
+    @property
+    def occlusion_body_pose(self) -> Pose:
+        """The occlusion body pose in the world frame based on the user head pose."""
+        return self.user_head_pose.multiply(self.occlusion_body_relative_pose)
 
     def get_camera_kwargs(self) -> dict[str, Any]:
         """Get camera kwargs."""
