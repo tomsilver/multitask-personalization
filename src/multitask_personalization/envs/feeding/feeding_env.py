@@ -265,7 +265,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 new_joints,
             )
             if self._use_gui:
-                time.sleep(5.0)  # visualize the motion in GUI mode
+                time.sleep(1.0)  # visualize the motion in GUI mode
         elif isinstance(action, CloseGripper):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):

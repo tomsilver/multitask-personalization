@@ -7,7 +7,10 @@ import numpy as np
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
-from pybullet_helpers.inverse_kinematics import inverse_kinematics
+from pybullet_helpers.inverse_kinematics import (
+    inverse_kinematics,
+    InverseKinematicsError,
+)
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 
@@ -33,6 +36,7 @@ from multitask_personalization.structs import (
     CSPSampler,
     CSPVariable,
     FunctionalCSPSampler,
+    FunctionalCSPConstraint,
 )
 
 
@@ -176,7 +180,37 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         obs: FeedingState,
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
-        return []
+
+        constraints = []
+
+        plate_position = variables[0]
+
+        # The plate position must be valid w.r.t. IK.
+        def _plate_position_is_kinematically_valid(
+            plate_position: NDArray[np.float32],
+        ) -> bool:
+            new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
+            for field_name in ["before_transfer_pos", "above_plate_pos"]:
+                try:
+                    _transform_joints_relative_to_plate(
+                        field_name,
+                        new_plate_pose,
+                        self._sim.robot,
+                        self._sim.scene_spec,
+                    )
+                except InverseKinematicsError:
+                    return False
+            return True
+
+        plate_position_kinematically_valid_constraint = FunctionalCSPConstraint(
+            "plate_position_kinematically_valid",
+            [plate_position],
+            _plate_position_is_kinematically_valid,
+        )
+
+        constraints.append(plate_position_kinematically_valid_constraint)
+
+        return constraints
 
     def _generate_exploit_cost(
         self,
