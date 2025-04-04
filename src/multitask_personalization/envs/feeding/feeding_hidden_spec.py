@@ -15,4 +15,3 @@ class FeedingHiddenSceneSpec:
     # that body by this factor and then check for collisions between the body
     # and the robot.
     occlusion_preference_scale: float = 0.9
-

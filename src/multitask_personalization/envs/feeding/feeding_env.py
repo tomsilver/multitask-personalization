@@ -10,7 +10,7 @@ import numpy as np
 import pybullet as p
 from gymnasium.core import RenderFrame
 from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import Pose, get_pose, set_pose
+from pybullet_helpers.geometry import Pose, get_pose, iter_between_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
 from pybullet_helpers.joint import JointPositions
@@ -287,7 +287,16 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         elif isinstance(action, UngraspTool):
             self._execute_ungrasp_tool()
         elif isinstance(action, MovePlate):
-            set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
+            if self._use_gui:
+                for plate_pose in iter_between_poses(
+                    get_pose(self.plate_id, self.physics_client_id),
+                    action.plate_pose,
+                    include_start=False,
+                ):
+                    set_pose(self.plate_id, plate_pose, self.physics_client_id)
+                    time.sleep(0.1)
+            else:
+                set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
         elif isinstance(action, WaitForUserInput):
             if action.user_input == "done":
                 done = True
@@ -322,11 +331,13 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         img[background_mask] = 0
 
         return img  # type: ignore
-    
+
     def set_occlusion_scale(self, scale: float) -> None:
         """Update the scale of the occlusion body."""
         if self._occlusion_body_id is not None:
-            p.removeBody(self._occlusion_body_id, physicsClientId=self.physics_client_id)
+            p.removeBody(
+                self._occlusion_body_id, physicsClientId=self.physics_client_id
+            )
         self._occlusion_body_id = p.loadURDF(
             str(self.scene_spec.occlusion_body_urdf_path),
             useFixedBase=True,

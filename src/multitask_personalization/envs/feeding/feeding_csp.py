@@ -9,11 +9,11 @@ from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
+    check_collisions_with_held_object,
     inverse_kinematics,
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
-from pybullet_helpers.inverse_kinematics import check_collisions_with_held_object
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
@@ -175,7 +175,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         obs: FeedingState,
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
-        
+
         constraints: list[CSPConstraint] = []
         plate_position = variables[0]
 
@@ -196,7 +196,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                         new_plate_pose,
                         self._sim.robot,
                         self._sim.scene_spec,
-                        arm_joints_only=False
+                        arm_joints_only=False,
                     )
                 except InverseKinematicsError:
                     return False
@@ -206,12 +206,18 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                     held_object = None
                     held_object_tf = None
                 else:
-                    held_object = self._sim.get_object_id_from_name(self._sim.held_object_name)
+                    held_object = self._sim.get_object_id_from_name(
+                        self._sim.held_object_name
+                    )
                     held_object_tf = self._sim.held_object_tf
-                if check_collisions_with_held_object(self._sim.robot, {occlusion_id},
-                                                    self._sim.physics_client_id,
-                                                    held_object, held_object_tf,
-                                                    robot_joints):
+                if check_collisions_with_held_object(
+                    self._sim.robot,
+                    {occlusion_id},
+                    self._sim.physics_client_id,
+                    held_object,
+                    held_object_tf,
+                    robot_joints,
+                ):
                     return False
             return True
 
@@ -344,7 +350,6 @@ def _transform_joints_relative_to_plate(
     if arm_joints_only:
         return new_full_joints[:num_dof]
     return new_full_joints
-
 
 
 def _transform_pose_relative_to_plate(
