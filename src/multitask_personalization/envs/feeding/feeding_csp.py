@@ -39,6 +39,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         super().__init__(csp_variables=csp_variables, seed=seed)
         self._sim = sim
         self._current_plan: list[FeedingAction] = []
+        self._terminated = False
 
     def _get_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
 
@@ -104,6 +105,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
     def reset(self, solution: dict[CSPVariable, Any]) -> None:
         super().reset(solution)
         self._current_plan = []
+        self._terminated = False
 
     def step(self, obs: FeedingState) -> FeedingAction:
         if not self._current_plan:
@@ -112,10 +114,13 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             assert plan is not None
             self._current_plan = plan
         action = self._current_plan.pop(0)
+        self._terminated = (
+            isinstance(action, WaitForUserInput) and action.user_input == "done"
+        )
         return action
 
     def check_termination(self, obs: FeedingState) -> bool:
-        return False
+        return self._terminated
 
 
 class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
