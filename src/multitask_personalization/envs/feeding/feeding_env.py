@@ -195,9 +195,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             )
 
         # Uncomment to debug.
-        if use_gui:
-            while True:
-                p.getMouseEvents(self.physics_client_id)
+        # if use_gui:
+        #     while True:
+        #         p.getMouseEvents(self.physics_client_id)
 
     def reset(
         self,

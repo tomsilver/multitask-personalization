@@ -20,7 +20,7 @@
       </geometry>
     </collision>
 
-    <!-- Inertial (approximate) -->
+    <!-- Inertial -->
     <inertial>
       <mass value="1.0"/>
       <inertia ixx="0.01" ixy="0.0" ixz="0.0"
