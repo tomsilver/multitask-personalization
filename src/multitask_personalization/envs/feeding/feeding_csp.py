@@ -8,8 +8,8 @@ from gymnasium.spaces import Box
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.inverse_kinematics import (
-    inverse_kinematics,
     InverseKinematicsError,
+    inverse_kinematics,
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
@@ -35,8 +35,8 @@ from multitask_personalization.structs import (
     CSPPolicy,
     CSPSampler,
     CSPVariable,
-    FunctionalCSPSampler,
     FunctionalCSPConstraint,
+    FunctionalCSPSampler,
 )
 
 
@@ -181,7 +181,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
 
-        constraints = []
+        constraints: list[CSPConstraint] = []
 
         plate_position = variables[0]
 
