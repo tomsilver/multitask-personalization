@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
@@ -73,6 +74,9 @@ class FeedingSceneSpec(PublicSceneSpec):
     # User head.
     user_head_pose: Pose = Pose((-0.4, 0.5, 0.67), (0.5, 0.5, 0.5, 0.5))
 
+    # User eyes.
+    user_eyes_relative_pose: Pose = Pose((0.0, 0.1, 0.1))
+
     user_head_urdf_path: Path = (
         Path(__file__).parent / "assets" / "head_models" / "mouth_open.urdf"
     )
@@ -107,14 +111,12 @@ class FeedingSceneSpec(PublicSceneSpec):
         ]
     )
 
-    # Occlusion body.
-    occlusion_body_urdf_path: Path = (
-        Path(__file__).parent / "assets" / "occlusion_body" / "occlusion_body.urdf"
-    )
-    occlusion_body_relative_pose: Pose = Pose.from_rpy(
-        (0.0, 0.05, 0.0),
-        (-np.pi / 2, 0.0, 0.0),
-    )
+    # Occlusion model hyperparameters.
+    occlusion_grid_size: int = 5
+    occlusion_grid_delta: float = 0.1
+    occlusion_max_ray_length: float = 10.0
+    occlusion_alpha: float = 1.0
+    occlusion_sigma: NDArray = np.eye(2)
 
     # Skill waypoints.
     retract_pos: JointPositions = field(
@@ -168,6 +170,9 @@ class FeedingSceneSpec(PublicSceneSpec):
     before_transfer_pose: Pose = Pose((0.504, 0.303, 0.529), (0.0, 0.707, 0.707, 0))
     outside_mouth_transfer_pose: Pose = Pose((0.0, 0.5, 0.67), (0.0, 0.707, 0.707, 0))
 
+    # This is redundant, but it's convenient for the CSP solver.
+    utensil_held_object_tf: Pose = Pose(position=(0.0, 0.0, 0.05955))
+
     # Rendering.
     image_height: int = 1024
     image_width: int = 1600
@@ -178,10 +183,10 @@ class FeedingSceneSpec(PublicSceneSpec):
         return self.utensil_inside_mount.multiply(self.tool_frame_to_finger_tip)
 
     @property
-    def occlusion_body_pose(self) -> Pose:
-        """The occlusion body pose in the world frame based on the user head
+    def user_eyes_pose(self) -> Pose:
+        """The user eyes pose in the world frame based on the user head
         pose."""
-        return self.user_head_pose.multiply(self.occlusion_body_relative_pose)
+        return self.user_head_pose.multiply(self.user_eyes_relative_pose)
 
     def get_camera_kwargs(self) -> dict[str, Any]:
         """Get camera kwargs."""

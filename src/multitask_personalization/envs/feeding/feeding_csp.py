@@ -9,8 +9,8 @@ from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
-    check_collisions_with_held_object,
     inverse_kinematics,
+    set_robot_joints_with_held_object,
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
@@ -143,7 +143,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
 
     def __init__(self, sim: FeedingEnv, *args, **kwargs) -> None:
         self._sim = sim
-        self._occlusion_model = 0.9  # this is a placeholder for a real model
+        self._occlusion_model = 0.99  # this is a placeholder for a real model
         super().__init__(*args, **kwargs)
 
     def save(self, model_dir: Path) -> None:
@@ -189,37 +189,30 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             plate_position: NDArray[np.float32],
         ) -> bool:
             new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
-            for field_name in ["before_transfer_pos", "above_plate_pos"]:
-                try:
-                    robot_joints = _transform_joints_relative_to_plate(
-                        field_name,
-                        new_plate_pose,
-                        self._sim.robot,
-                        self._sim.scene_spec,
-                        arm_joints_only=False,
-                    )
-                except InverseKinematicsError:
-                    return False
-                # Check for collisions between the robot and occlusion body.
-                occlusion_id = self._sim.get_object_id_from_name("occlusion_body")
-                if self._sim.held_object_name is None:
-                    held_object = None
-                    held_object_tf = None
-                else:
-                    held_object = self._sim.get_object_id_from_name(
-                        self._sim.held_object_name
-                    )
-                    held_object_tf = self._sim.held_object_tf
-                if check_collisions_with_held_object(
+            field_name = "above_plate_pos"
+            try:
+                robot_joints = _transform_joints_relative_to_plate(
+                    field_name,
+                    new_plate_pose,
                     self._sim.robot,
-                    {occlusion_id},
-                    self._sim.physics_client_id,
-                    held_object,
-                    held_object_tf,
-                    robot_joints,
-                ):
-                    return False
-            return True
+                    self._sim.scene_spec,
+                    arm_joints_only=False,
+                )
+            except InverseKinematicsError:
+                return False
+            held_object_id = self._sim.get_object_id_from_name("utensil")
+            held_object_tf = self._sim.scene_spec.utensil_held_object_tf
+            set_robot_joints_with_held_object(
+                self._sim.robot,
+                self._sim.physics_client_id,
+                held_object_id,
+                held_object_tf,
+                robot_joints,
+            )
+            self._sim.robot.set_finger_state(
+                self._sim.scene_spec.tool_grasp_fingers_value
+            )
+            return not self._sim.robot_in_occlusion()
 
         user_view_unoccluded_constraint = FunctionalCSPConstraint(
             "user_view_unoccluded",
