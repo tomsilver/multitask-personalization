@@ -17,7 +17,8 @@ class FeedingState:
     plate_pose: Pose
     held_object_name: str | None
     held_object_tf: Pose | None
-    current_stage: str  # "transfer" or "acquisition"
+    stage: str  # "transfer" or "acquisition"
+    user_feedback: str | None = None
 
 
 class FeedingAction(abc.ABC):

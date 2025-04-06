@@ -244,7 +244,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             plate_pose=plate_pose,
             held_object_name=self.held_object_name,
             held_object_tf=self.held_object_tf,
-            current_stage=self.current_stage,
+            stage=self.current_stage,
+            user_feedback=self.current_user_feedback,
         )
         return state
 
@@ -326,7 +327,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Handle user feedback: if the current stage is transfer and there is
         # occlusion, tell the robot.
         self.current_user_feedback = None
-        if self.current_stage == "transfer" and self._hidden_spec and self.robot_in_occlusion(self.robot.get_joint_positions()):
+        if self.current_stage == "acquisition" and self._hidden_spec and self.robot_in_occlusion(self.robot.get_joint_positions()):
             self.current_user_feedback = "You're blocking my view!"
             logging.info("User feedback: %s", self.current_user_feedback)
 

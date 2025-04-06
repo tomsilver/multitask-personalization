@@ -305,7 +305,12 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        pass
+        # When we do real experiments, we will decide whether to take natural
+        # language here and detect whether it's feedback about occlusion, or
+        # to keep it simple we might just keep it binary (occluding or not).
+        if next_obs.user_feedback == "You're blocking my view!":
+            # The current scale is a negative example. 
+            import ipdb; ipdb.set_trace()
 
 
 def _plate_position_to_pose(
