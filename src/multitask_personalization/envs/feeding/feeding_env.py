@@ -12,7 +12,10 @@ from gymnasium.core import RenderFrame
 from pybullet_helpers.camera import capture_image
 from pybullet_helpers.geometry import Pose, get_pose, iter_between_poses, set_pose
 from pybullet_helpers.gui import create_gui_connection
-from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
+from pybullet_helpers.inverse_kinematics import (
+    check_collisions_with_held_object,
+    set_robot_joints_with_held_object,
+)
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_relative_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
@@ -407,3 +410,21 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.robot.close_fingers()
         self.held_object_name = None
         self.held_object_tf = None
+
+    def robot_in_occlusion(self, robot_joints: JointPositions) -> bool:
+        """Check if the robot is in occlusion."""
+        occlusion_id = self.get_object_id_from_name("occlusion_body")
+        if self.held_object_name is None:
+            held_object = None
+            held_object_tf = None
+        else:
+            held_object = self.get_object_id_from_name(self.held_object_name)
+            held_object_tf = self.held_object_tf
+        return check_collisions_with_held_object(
+            self.robot,
+            {occlusion_id},
+            self.physics_client_id,
+            held_object,
+            held_object_tf,
+            robot_joints,
+        )
