@@ -205,6 +205,112 @@ class Bounded1DClassifier:
         return f"x1={self.x1:.3f} x2={self.x2:.3f} x3={self.x3:.3f} x4={self.x4:.4f}"
 
 
+class Threshold1DModel:
+    """A Bayesian 1D threshold model with a uniform prior on [min_theta,
+    max_theta].
+
+    The likelihood is a step function:
+        P(y=1 | x, theta) = 1 if x >= theta, else 0
+    so each observation constrains the feasible region for theta.
+    The posterior is uniform over the intersection of those constraints.
+    The posterior predictive for a new x integrates over that region.
+    """
+
+    def __init__(self, min_theta: float, max_theta: float):
+        self.min_theta = min_theta
+        self.max_theta = max_theta
+
+        # We'll keep track of the "posterior" as an interval [post_min, post_max].
+        # Initially, it is the entire prior range.
+        self.post_min = min_theta
+        self.post_max = max_theta
+
+        self.incremental_X: list[float] = []
+        self.incremental_Y: list[bool] = []
+
+    def _update_posterior_from_data(self, X: list[float], Y: list[bool]) -> None:
+        """Update the posterior interval [post_min, post_max] given the
+        constraints from the data (X, Y)."""
+        # Start from the prior each time we do a "complete" fit:
+        self.post_min = self.min_theta
+        self.post_max = self.max_theta
+
+        for x_i, y_i in zip(X, Y):
+            if y_i:
+                # y_i = 1 => x_i >= theta => theta <= x_i
+                # so post_max is at most x_i
+                self.post_max = min(self.post_max, x_i)
+            else:
+                # y_i = 0 => x_i < theta => theta > x_i
+                # so post_min is at least x_i
+                self.post_min = max(self.post_min, x_i)
+            # If the posterior interval becomes invalid, break early
+            if self.post_min > self.post_max:
+                break
+
+    def fit(self, X: list[float], Y: list[bool]) -> None:
+        """Discard previous data, then update the posterior to account for the
+        new data."""
+        self.incremental_X = list(X)
+        self.incremental_Y = list(Y)
+        self._update_posterior_from_data(self.incremental_X, self.incremental_Y)
+
+    def fit_incremental(self, X: list[float], Y: list[bool]) -> None:
+        """Append new data and update the posterior accordingly."""
+        self.incremental_X.extend(X)
+        self.incremental_Y.extend(Y)
+        self._update_posterior_from_data(self.incremental_X, self.incremental_Y)
+
+    def predict_proba(self, X: list[float]) -> list[float]:
+        """Return the posterior predictive P(y=1 | x).
+
+        This is the proportion of the posterior interval [post_min,
+        post_max] over which (x >= theta).
+        """
+        # If the posterior is degenerate or invalid, we can handle that gracefully:
+        length = self.post_max - self.post_min
+        if length <= 0:
+            # Posterior measure is zero => data is inconsistent =>
+            # for demonstration, return 0.5 or something constant
+            return [0.5] * len(X)
+
+        probs = []
+        for x_i in X:
+            if x_i < self.post_min:
+                p = 0.0
+            elif x_i > self.post_max:
+                p = 1.0
+            else:
+                # x_i in [post_min, post_max]
+                # fraction of that interval that is <= x_i
+                # i.e. measure([post_min, min(post_max, x_i)]) /
+                #   measure([post_min, post_max])
+                p = (x_i - self.post_min) / length
+            probs.append(p)
+
+        return probs
+
+    def get_save_state(self) -> dict[str, Any]:
+        """Get everything needed to restore the model later."""
+        return {
+            "post_min": self.post_min,
+            "post_max": self.post_max,
+            "incremental_X": self.incremental_X,
+            "incremental_Y": self.incremental_Y,
+        }
+
+    def load_from_state(self, state_dict: dict[str, Any]) -> None:
+        """Load a model from a dictionary returned by get_save_state()."""
+        self.post_min = state_dict["post_min"]
+        self.post_max = state_dict["post_max"]
+        self.incremental_X = state_dict["incremental_X"]
+        self.incremental_Y = state_dict["incremental_Y"]
+
+    def get_summary(self) -> str:
+        """Get a short human-readable summary of the current model."""
+        return f"post_min={self.post_min:.3f}, post_max={self.post_max:.3f}"
+
+
 def print_csp_sol(sol: dict[CSPVariable, Any]) -> None:
     """Useful for debugging."""
     print("-" * 80)

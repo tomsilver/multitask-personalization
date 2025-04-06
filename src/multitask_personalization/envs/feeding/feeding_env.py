@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -185,6 +186,12 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
 
+        # Initialize stage.
+        self.current_stage = "acquisition"
+
+        # Initialize user feedback.
+        self.current_user_feedback: str | None = None
+
         # Initialize the occlusion scale.
         self._occlusion_scale = 0.0
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
@@ -206,6 +213,12 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.robot.set_joints(self.scene_spec.initial_joints)
         self.held_object_name = None
         self.held_object_tf = None
+
+        # Reset the stage.
+        self.current_stage = "acquisition"
+
+        # Reset the user feedback.
+        self.current_user_feedback = None
 
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
@@ -236,6 +249,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             plate_pose=plate_pose,
             held_object_name=self.held_object_name,
             held_object_tf=self.held_object_tf,
+            stage=self.current_stage,
+            user_feedback=self.current_user_feedback,
         )
         return state
 
@@ -308,8 +323,22 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         elif isinstance(action, WaitForUserInput):
             if action.user_input == "done":
                 done = True
+                self.current_stage = "acquisition"
+            elif action.user_input == "ready for transfer?":
+                self.current_stage = "transfer"
         else:
             raise NotImplementedError("TODO")
+
+        # Handle user feedback: if the current stage is transfer and there is
+        # occlusion, tell the robot.
+        self.current_user_feedback = None
+        if (
+            self.current_stage == "acquisition"
+            and self._hidden_spec
+            and self.robot_in_occlusion()
+        ):
+            self.current_user_feedback = "You're blocking my view!"
+            logging.info("User feedback: %s", self.current_user_feedback)
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, done, False, self._get_info()
@@ -402,6 +431,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
+        score = self.get_occlusion_score()
+        return score >= 1.0 - self._occlusion_scale
+
+    def get_occlusion_score(self) -> float:
+        """A score between 0 and 1 where higher is more occluded."""
 
         # Check for occlusion following https://arxiv.org/pdf/2111.11401 (Eq 11).
 
@@ -460,15 +494,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                     )
                 score += point_score
 
-                if self._use_gui:
-                    p.addUserDebugLine(
-                        ray_from,
-                        world_hit_pose.position,
-                        (point_score, point_score, 0.0),
-                        physicsClientId=self.physics_client_id,
-                    )
-
         if score > 0:
             score /= len(ray_outputs)
 
-        return score >= (1.0 - self._occlusion_scale)
+        return score

@@ -14,4 +14,4 @@ class FeedingHiddenSceneSpec:
     # sight "body" (e.g., a cuboid emanating from the user's face) and then scale
     # that body by this factor and then check for collisions between the body
     # and the robot.
-    occlusion_preference_scale: float = 0.99
+    occlusion_preference_scale: float = 0.95

@@ -1,5 +1,6 @@
 """CSP elements for the feeding environment."""
 
+import logging
 from pathlib import Path
 from typing import Any, Collection
 
@@ -39,6 +40,7 @@ from multitask_personalization.structs import (
     FunctionalCSPConstraint,
     FunctionalCSPSampler,
 )
+from multitask_personalization.utils import Threshold1DModel
 
 
 class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
@@ -88,6 +90,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(above_plate_pos),
         ]
 
+        ready_for_transfer = [WaitForUserInput("ready for transfer?")]
+
         transfer_bite_plan: list[FeedingAction] = [
             MoveToJointPositions(before_transfer_pos),
             MoveToEEPose(before_transfer_pose),
@@ -110,6 +114,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             move_plate_plan
             + pick_utensil_plan
             + acquire_bite_plan
+            + ready_for_transfer
             + transfer_bite_plan
             + stow_utensil_plan
             + finish
@@ -141,9 +146,11 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
     """Generate CSPs for the feeding environment."""
 
-    def __init__(self, sim: FeedingEnv, *args, **kwargs) -> None:
+    def __init__(
+        self, sim: FeedingEnv, occlusion_scale_model: Threshold1DModel, *args, **kwargs
+    ) -> None:
         self._sim = sim
-        self._occlusion_model = 0.99  # this is a placeholder for a real model
+        self._occlusion_model = occlusion_scale_model
         super().__init__(*args, **kwargs)
 
     def save(self, model_dir: Path) -> None:
@@ -179,11 +186,15 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         constraints: list[CSPConstraint] = []
         plate_position = variables[0]
 
-        # Make sure the simulator is up to date with respect to the current
-        # occlusion model. (Soon, we will get the value from a real model,
-        # rather than just using the value itself.)
-        occlusion_scale = self._occlusion_model
+        # NOTE: we are currently just using the MLE occlusion scale, rather than
+        # using the full distribution. That means that "ours" will be equivalent
+        # to "exploit_only". This is because we're not really running full
+        # experiments in this environment.
+        occlusion_scale = (
+            1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+        )
         self._sim.set_occlusion_scale(occlusion_scale)
+        logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
         def _user_view_unoccluded(
             plate_position: NDArray[np.float32],
@@ -307,7 +318,27 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
-        pass
+        above_plate_pos = _transform_joints_relative_to_plate(
+            "above_plate_pos", obs.plate_pose, self._sim.robot, self._sim.scene_spec
+        )
+        # When we do real experiments, we will decide whether to take natural
+        # language here and detect whether it's feedback about occlusion, or
+        # to keep it simple we might just keep it binary (occluding or not).
+        if next_obs.user_feedback == "You're blocking my view!":
+            label = True
+        # Positive examples are collected when the robot is at the above plate
+        # position and no negative feedback is given.
+        elif isinstance(act, MoveToJointPositions) and np.allclose(
+            act.joint_positions, above_plate_pos
+        ):
+            label = False
+        else:
+            return
+        self._sim.set_state(next_obs)
+        occlusion_score = self._sim.get_occlusion_score()
+        self._occlusion_model.fit_incremental([occlusion_score], [label])
+        logging.info(f"Updated occlusion model with {occlusion_score}, {label}")
+        logging.info(f"New params: {self._occlusion_model.get_summary()}")
 
 
 def _plate_position_to_pose(
