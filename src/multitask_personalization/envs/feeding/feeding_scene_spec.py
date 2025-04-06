@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from numpy.typing import NDArray
 import numpy as np
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
@@ -72,6 +73,9 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     # User head.
     user_head_pose: Pose = Pose((-0.4, 0.5, 0.67), (0.5, 0.5, 0.5, 0.5))
+    
+    # User eyes.
+    user_eyes_relative_pose: Pose = Pose((0.0, 0.1, 0.1))
 
     user_head_urdf_path: Path = (
         Path(__file__).parent / "assets" / "head_models" / "mouth_open.urdf"
@@ -107,14 +111,13 @@ class FeedingSceneSpec(PublicSceneSpec):
         ]
     )
 
-    # Occlusion body.
-    occlusion_body_urdf_path: Path = (
-        Path(__file__).parent / "assets" / "occlusion_body" / "occlusion_body.urdf"
-    )
-    occlusion_body_relative_pose: Pose = Pose.from_rpy(
-        (0.0, 0.05, 0.0),
-        (-np.pi / 2, 0.0, 0.0),
-    )
+
+    # Occlusion model hyperparameters.
+    occlusion_grid_size: int = 5
+    occlusion_grid_delta: float = 0.1
+    occlusion_max_ray_length: float = 10.0
+    occlusion_alpha: float = 1.0
+    occlusion_sigma: NDArray = np.eye(2)
 
     # Skill waypoints.
     retract_pos: JointPositions = field(
@@ -179,12 +182,11 @@ class FeedingSceneSpec(PublicSceneSpec):
     def utensil_pose(self):
         """The initial utensil pose."""
         return self.utensil_inside_mount.multiply(self.tool_frame_to_finger_tip)
-
+    
     @property
-    def occlusion_body_pose(self) -> Pose:
-        """The occlusion body pose in the world frame based on the user head
-        pose."""
-        return self.user_head_pose.multiply(self.occlusion_body_relative_pose)
+    def user_eyes_pose(self) -> Pose:
+        """The user eyes pose in the world frame based on the user head pose."""
+        return self.user_head_pose.multiply(self.user_eyes_relative_pose)
 
     def get_camera_kwargs(self) -> dict[str, Any]:
         """Get camera kwargs."""

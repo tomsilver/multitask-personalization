@@ -144,7 +144,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
 
     def __init__(self, sim: FeedingEnv, *args, **kwargs) -> None:
         self._sim = sim
-        self._occlusion_model = 0.9  # this is a placeholder for a real model
+        self._occlusion_model = 0.99  # this is a placeholder for a real model
         super().__init__(*args, **kwargs)
 
     def save(self, model_dir: Path) -> None:
@@ -211,7 +211,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 robot_joints,
             )
             self._sim.robot.set_finger_state(self._sim.scene_spec.tool_grasp_fingers_value)
-            return not self._sim.robot_in_occlusion()
+            return not self._sim.robot_in_occlusion(occlusion_scale)
 
         user_view_unoccluded_constraint = FunctionalCSPConstraint(
             "user_view_unoccluded",

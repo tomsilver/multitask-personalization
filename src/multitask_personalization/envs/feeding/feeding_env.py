@@ -305,9 +305,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         else:
             raise NotImplementedError("TODO")
 
-        # TODO remove
-        self.robot_in_occlusion()
-
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, done, False, self._get_info()
 
@@ -397,31 +394,24 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_name = None
         self.held_object_tf = None
 
-    def robot_in_occlusion(self) -> bool:
+    def robot_in_occlusion(self, score_threshold: float) -> bool:
         """Check if the robot is in occlusion."""
 
         # Check for occlusion following https://arxiv.org/pdf/2111.11401 (Eq 11).
 
         # The rays start in an array relative to the head position and point in
         # straight lines for a maximum distance.
-        eye_pose = multiply_poses(self.scene_spec.user_head_pose, Pose((0.0, 0.1, 0.1)))
-
-        num_rows, num_cols = 5, 5
-        max_ray_length = 10.0
-        row_delta, col_delta = 0.1, 0.1
-        assert (num_rows % 2 == 1) and (num_cols % 2 == 1)  # odd numbers
+        eye_pose = self.scene_spec.user_eyes_pose
 
         ray_from_positions = []
         ray_to_positions = []
-
-        # TODO
-        from pybullet_helpers.gui import visualize_pose
-        visualize_pose(eye_pose, self.physics_client_id)
-
-        for r in range(num_rows):
-            row_val = (r - num_rows // 2) * row_delta
-            for c in range(num_cols):
-                col_val = (c - num_cols // 2) * col_delta
+        grid_size = self.scene_spec.occlusion_grid_size
+        grid_delta = self.scene_spec.occlusion_grid_delta
+        max_ray_length = self.scene_spec.occlusion_max_ray_length
+        for r in range(grid_size):
+            row_val = (r - grid_size // 2) * grid_delta
+            for c in range(grid_size):
+                col_val = (c - grid_size // 2) * grid_delta
                 # Transform to world pose frame.
                 ray_from = Pose((row_val, col_val, 0.0))
                 ray_to = Pose((row_val, col_val, max_ray_length))
@@ -441,8 +431,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # during acquisition, so we actually give higher scores when the robot
         # is more in the line of SIGHT, as opposed to the paper, which considers
         # transfer, and gives lower scores for being in the line of the eye.
-        alpha = 1.0
-        sigma = np.eye(2)
+        alpha = self.scene_spec.occlusion_alpha
+        sigma = self.scene_spec.occlusion_sigma
         score = 0.0
         for i, output in enumerate(ray_outputs):
             if output[0] != -1:
@@ -459,17 +449,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                     point_score = np.exp(-alpha * np.transpose(vec) @ sigma @ vec / (hit_pose.position[2] ** 2))
                 score += point_score
 
-                p.addUserDebugLine(ray_from, world_hit_pose.position, (point_score, point_score, 0.0),
-                                   physicsClientId=self.physics_client_id)
+                if self._use_gui:
+                    p.addUserDebugLine(ray_from, world_hit_pose.position, (point_score, point_score, 0.0),
+                                    physicsClientId=self.physics_client_id)
 
         if score > 0:
             score /= len(ray_outputs)
-
-        print("SCORE:", score)
-
-        if self._use_gui:
-            time.sleep(0.1)
-            # p.removeAllUserDebugItems(physicsClientId=self.physics_client_id)
         
-        # TODO: use real threshold...
-        return score >= 0.01
+        return score >= (1.0 - score_threshold)
