@@ -239,14 +239,11 @@ class Threshold1DModel:
             if y_i:
                 # y_i = 1 => x_i >= theta => theta <= x_i
                 # so post_max is at most x_i
-                if x_i < self.post_max:
-                    self.post_max = x_i
+                post_max = min(post_max, x_i)
             else:
                 # y_i = 0 => x_i < theta => theta > x_i
                 # so post_min is at least x_i
-                if x_i > self.post_min:
-                    self.post_min = x_i
-
+                post_min = max(post_min, x_i)
             # If the posterior interval becomes invalid, break early
             if self.post_min > self.post_max:
                 break

@@ -20,7 +20,6 @@ from pybullet_helpers.geometry import (
 )
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
-    check_collisions_with_held_object,
     set_robot_joints_with_held_object,
 )
 from pybullet_helpers.joint import JointPositions
