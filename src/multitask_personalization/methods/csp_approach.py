@@ -200,7 +200,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 disable_learning=self._disable_learning,
             )
         if isinstance(self._scene_spec, FeedingSceneSpec):
-            occlusion_scale_model = Threshold1DModel(0.0, 1.0, 1.0)
+            occlusion_scale_model = Threshold1DModel(0.0, 1.0)
             feeding_sim = FeedingEnv(self._scene_spec)
             return FeedingCSPGenerator(
                 feeding_sim,

@@ -189,8 +189,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # using the full distribution. That means that "ours" will be equivalent
         # to "exploit_only". This is because we're not really running full
         # experiments in this environment.
-        self._sim.set_occlusion_scale(1.0 - self._occlusion_model.theta)
-        logging.info(f"Set sim occlusion scale to {self._occlusion_model.theta:.3f}")
+        occlusion_scale = 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+        self._sim.set_occlusion_scale(occlusion_scale)
+        logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
         def _user_view_unoccluded(
             plate_position: NDArray[np.float32],
