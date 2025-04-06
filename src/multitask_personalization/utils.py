@@ -203,6 +203,84 @@ class Bounded1DClassifier:
     def get_summary(self) -> str:
         """Get a short human-readable summary of the current model."""
         return f"x1={self.x1:.3f} x2={self.x2:.3f} x3={self.x3:.3f} x4={self.x4:.4f}"
+    
+
+class Threshold1DModel:
+    """Predicts the probability 1D x is true or false given data using a model
+    of the form:
+    
+        P(y = True | x) = 1 if x >= theta.
+    """
+    def __init__(self, min_theta: float, max_theta: float, init_theta: float) -> None:
+        self.min_theta = min_theta
+        self.max_theta = max_theta
+        self.theta = init_theta
+
+        self.incremental_X: list[float] = []
+        self.incremental_Y: list[bool] = []
+
+    def _fit(self, X: list[float], Y: list[bool]) -> None:
+        """Fit the model parameters."""
+        if not X:
+            # If there's no data, just clamp the current theta and return.
+            self.theta = max(self.min_theta, min(self.max_theta, self.theta))
+            return
+
+        # Function to compute number of misclassifications for a given threshold t.
+        def misclassification_count(t: float) -> int:
+            return sum(((x >= t) != y) for x, y in zip(X, Y))
+
+        # Gather all unique X values as candidate thresholds
+        unique_x = sorted(set(X))
+
+        best_threshold = self.theta
+        best_error = float('inf')
+
+        # Evaluate each candidate threshold and track the one with the lowest error.
+        for t in unique_x:
+            current_error = misclassification_count(t)
+            if current_error < best_error:
+                best_threshold = t
+                best_error = current_error
+
+        # Clamp to the allowable range.
+        best_threshold = max(self.min_theta, min(self.max_theta, best_threshold))
+
+        self.theta = best_threshold
+
+    def fit(self, X: list[float], Y: list[bool]) -> None:
+        """Discard any previous data and fit to the new data."""
+        self.incremental_X = list(X)
+        self.incremental_Y = list(Y)
+        self._fit(self.incremental_X, self.incremental_Y)
+
+    def fit_incremental(self, X: list[float], Y: list[bool]) -> None:
+        """Accumulate training data and re-fit."""
+        self.incremental_X.extend(X)
+        self.incremental_Y.extend(Y)
+        self._fit(self.incremental_X, self.incremental_Y)
+
+    def predict_proba(self, X: list[float]) -> list[float]:
+        """Batch predict class probabilities."""
+        return [1.0 if x_i >= self.theta else 0.0 for x_i in X]
+
+    def get_save_state(self) -> dict[str, Any]:
+        """Get everything needed to restore the model later."""
+        return {
+            "theta": self.theta,
+            "incremental_X": self.incremental_X,
+            "incremental_Y": self.incremental_Y,
+        }
+
+    def load_from_state(self, state_dict: dict[str, Any]) -> None:
+        """Load a model from a dictionary returned by get_save_state()."""
+        self.theta = state_dict["theta"]
+        self.incremental_X = state_dict["incremental_X"]
+        self.incremental_Y = state_dict["incremental_Y"]
+
+    def get_summary(self) -> str:
+        """Get a short human-readable summary of the current model."""
+        return f"theta={self.theta:.3f}"
 
 
 def print_csp_sol(sol: dict[CSPVariable, Any]) -> None:

@@ -282,6 +282,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
     def step(
         self, action: FeedingAction
     ) -> tuple[FeedingState, float, bool, bool, dict[str, Any]]:
+        
+        print("stage:", self.current_stage)
 
         held_object_id = (
             self.get_object_id_from_name(self.held_object_name)
@@ -335,7 +337,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Handle user feedback: if the current stage is transfer and there is
         # occlusion, tell the robot.
         self.current_user_feedback = None
-        if self.current_stage == "acquisition" and self._hidden_spec and self.robot_in_occlusion(self.robot.get_joint_positions()):
+        if self.current_stage == "acquisition" and self._hidden_spec and self.robot_in_occlusion():
             self.current_user_feedback = "You're blocking my view!"
             logging.info("User feedback: %s", self.current_user_feedback)
 
@@ -430,6 +432,12 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
+        score = self.get_occlusion_score()
+        print("score:", score)
+        return score >= 1.0 - self._occlusion_scale
+
+    def get_occlusion_score(self) -> float:
+        """A score between 0 and 1 where higher is more occluded."""
 
         # Check for occlusion following https://arxiv.org/pdf/2111.11401 (Eq 11).
 
@@ -488,15 +496,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                     )
                 score += point_score
 
-                if self._use_gui:
-                    p.addUserDebugLine(
-                        ray_from,
-                        world_hit_pose.position,
-                        (point_score, point_score, 0.0),
-                        physicsClientId=self.physics_client_id,
-                    )
-
         if score > 0:
             score /= len(ray_outputs)
 
-        return score >= (1.0 - self._occlusion_scale)
+        return score

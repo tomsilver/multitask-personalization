@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from typing import Any, Collection
+import logging
 
 import numpy as np
 from gymnasium.spaces import Box
@@ -39,7 +40,7 @@ from multitask_personalization.structs import (
     FunctionalCSPConstraint,
     FunctionalCSPSampler,
 )
-from multitask_personalization.utils import Bounded1DClassifier
+from multitask_personalization.utils import Threshold1DModel
 
 
 
@@ -90,6 +91,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(above_plate_pos),
         ]
 
+        ready_for_transfer = [WaitForUserInput("ready for transfer?")]
+
         transfer_bite_plan: list[FeedingAction] = [
             MoveToJointPositions(before_transfer_pos),
             MoveToEEPose(before_transfer_pose),
@@ -112,6 +115,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             move_plate_plan
             + pick_utensil_plan
             + acquire_bite_plan
+            + ready_for_transfer
             + transfer_bite_plan
             + stow_utensil_plan
             + finish
@@ -143,7 +147,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
     """Generate CSPs for the feeding environment."""
 
-    def __init__(self, sim: FeedingEnv, occlusion_scale_model: Bounded1DClassifier, *args, **kwargs) -> None:
+    def __init__(self, sim: FeedingEnv, occlusion_scale_model: Threshold1DModel, *args, **kwargs) -> None:
         self._sim = sim
         self._occlusion_model = occlusion_scale_model
         super().__init__(*args, **kwargs)
@@ -185,11 +189,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # using the full distribution. That means that "ours" will be equivalent
         # to "exploit_only". This is because we're not really running full
         # experiments in this environment.
-        if not self._occlusion_model.incremental_X:
-            occlusion_scale = 0.0
-        else:
-            occlusion_scale = (self._occlusion_model.x2 + self._occlusion_model.x3) / 2
-        self._sim.set_occlusion_scale(occlusion_scale)
+        self._sim.set_occlusion_scale(1.0 - self._occlusion_model.theta)
+        logging.info(f"Set sim occlusion scale to {self._occlusion_model.theta:.3f}")
 
         def _user_view_unoccluded(
             plate_position: NDArray[np.float32],
@@ -317,15 +318,18 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # language here and detect whether it's feedback about occlusion, or
         # to keep it simple we might just keep it binary (occluding or not).
         if next_obs.user_feedback == "You're blocking my view!":
-            label = False
+            label = True
         # Positive examples are collected when the robot is at the above plate
         # position and no negative feedback is given.
         elif isinstance(act, MoveToJointPositions) and np.allclose(act.joint_positions, self._sim.scene_spec.above_plate_pos):
-            label = True
+            label = False
         else:
             return
-        # TODO: need a different occlusion model I think.
-        import ipdb; ipdb.set_trace()
+        self._sim.set_state(next_obs)
+        occlusion_score = self._sim.get_occlusion_score()
+        self._occlusion_model.fit_incremental([occlusion_score], [label])
+        logging.info(f"Updated occlusion model with {occlusion_score}, {label}")
+        logging.info(f"New params: {self._occlusion_model.get_summary()}")
 
 
 def _plate_position_to_pose(
