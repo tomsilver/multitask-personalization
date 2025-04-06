@@ -11,9 +11,17 @@ import numpy as np
 import pybullet as p
 from gymnasium.core import RenderFrame
 from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import Pose, get_pose, iter_between_poses, set_pose
+from pybullet_helpers.geometry import (
+    Pose,
+    get_pose,
+    iter_between_poses,
+    multiply_poses,
+    set_pose,
+)
 from pybullet_helpers.gui import create_gui_connection
-from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
+from pybullet_helpers.inverse_kinematics import (
+    set_robot_joints_with_held_object,
+)
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_relative_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
@@ -187,8 +195,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Initialize user feedback.
         self.current_user_feedback: str | None = None
 
-        # Create an occlusion body if occlusion preference is set in the hidden spec.
-        self._occlusion_body_id: int | None = None
+        # Initialize the occlusion scale.
+        self._occlusion_scale = 0.0
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
             self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
 
@@ -338,9 +346,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         """Get the PyBullet ID from the object name."""
         if name == "utensil":
             return self.utensil_id
-        if name == "occlusion_body":
-            assert self._occlusion_body_id is not None
-            return self._occlusion_body_id
         raise NotImplementedError(f"Object name '{name}' not recognized.")
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -361,24 +366,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         return img  # type: ignore
 
     def set_occlusion_scale(self, scale: float) -> None:
-        """Update the scale of the occlusion body."""
-        if self._occlusion_body_id is not None:
-            p.removeBody(
-                self._occlusion_body_id, physicsClientId=self.physics_client_id
-            )
-        scale = max(scale, 1e-6)
-        self._occlusion_body_id = p.loadURDF(
-            str(self.scene_spec.occlusion_body_urdf_path),
-            useFixedBase=True,
-            globalScaling=scale,
-            physicsClientId=self.physics_client_id,
-        )
-        p.resetBasePositionAndOrientation(
-            self._occlusion_body_id,
-            self.scene_spec.occlusion_body_pose.position,
-            self.scene_spec.occlusion_body_pose.orientation,
-            physicsClientId=self.physics_client_id,
-        )
+        """Update the scale of the occlusion model."""
+        assert 0 <= scale <= 1.0, "Occlusion scale must be in [0, 1]"
+        self._occlusion_scale = scale
 
     def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
         initial_fingers_positions = self.robot.get_joint_positions()[7:]
@@ -431,28 +421,82 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.physics_client_id,
         )
         self.held_object_tf = finger_from_end_effector
+        assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
 
     def _execute_ungrasp_tool(self) -> None:
         self.robot.close_fingers()
         self.held_object_name = None
         self.held_object_tf = None
 
-    def robot_in_occlusion(self, robot_joints: JointPositions) -> bool:
+    def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
-        occlusion_id = self.get_object_id_from_name("occlusion_body")
-        if self.held_object_name is None:
-            held_object = None
-            held_object_tf = None
-        else:
-            held_object = self.get_object_id_from_name(
-                self.held_object_name
-            )
-            held_object_tf = self.held_object_tf
-        return check_collisions_with_held_object(
-            self.robot,
-            {occlusion_id},
-            self.physics_client_id,
-            held_object,
-            held_object_tf,
-            robot_joints,
+
+        # Check for occlusion following https://arxiv.org/pdf/2111.11401 (Eq 11).
+
+        # The rays start in an array relative to the head position and point in
+        # straight lines for a maximum distance.
+        eye_pose = self.scene_spec.user_eyes_pose
+
+        ray_from_positions = []
+        ray_to_positions = []
+        grid_size = self.scene_spec.occlusion_grid_size
+        grid_delta = self.scene_spec.occlusion_grid_delta
+        max_ray_length = self.scene_spec.occlusion_max_ray_length
+        for r in range(grid_size):
+            row_val = (r - grid_size // 2) * grid_delta
+            for c in range(grid_size):
+                col_val = (c - grid_size // 2) * grid_delta
+                # Transform to world pose frame.
+                ray_from = Pose((row_val, col_val, 0.0))
+                ray_to = Pose((row_val, col_val, max_ray_length))
+                eye_ray_from = multiply_poses(eye_pose, ray_from)
+                eye_ray_to = multiply_poses(eye_pose, ray_to)
+                ray_from_positions.append(eye_ray_from.position)
+                ray_to_positions.append(eye_ray_to.position)
+
+        ray_outputs = p.rayTestBatch(
+            rayFromPositions=ray_from_positions,
+            rayToPositions=ray_to_positions,
+            physicsClientId=self.physics_client_id,
         )
+
+        # See equation 11 in paper.
+        # NOTE: unlike the paper, we are primarily concerned with occlusion
+        # during acquisition, so we actually give higher scores when the robot
+        # is more in the line of SIGHT, as opposed to the paper, which considers
+        # transfer, and gives lower scores for being in the line of the eye.
+        alpha = self.scene_spec.occlusion_alpha
+        sigma = self.scene_spec.occlusion_sigma
+        score = 0.0
+        for output in ray_outputs:
+            if output[0] != -1:
+                world_hit_pose = Pose(output[3])
+                # Transform the hit position back into the eye frame.
+                hit_pose = multiply_poses(eye_pose.invert(), world_hit_pose)
+                # See equation 11 in paper.
+                vec = np.array(hit_pose.position[:2])
+                if np.isclose(hit_pose.position[2], 0.0):
+                    point_score = 0.0
+                else:
+                    # See note above: in the paper this is 1 - [quantity].
+                    point_score = np.exp(
+                        -alpha
+                        * np.transpose(vec)
+                        @ sigma
+                        @ vec
+                        / (hit_pose.position[2] ** 2)
+                    )
+                score += point_score
+
+                if self._use_gui:
+                    p.addUserDebugLine(
+                        ray_from,
+                        world_hit_pose.position,
+                        (point_score, point_score, 0.0),
+                        physicsClientId=self.physics_client_id,
+                    )
+
+        if score > 0:
+            score /= len(ray_outputs)
+
+        return score >= (1.0 - self._occlusion_scale)
