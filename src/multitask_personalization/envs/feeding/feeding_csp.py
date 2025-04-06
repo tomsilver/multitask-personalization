@@ -202,7 +202,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             except InverseKinematicsError:
                 return False
             held_object_id = self._sim.get_object_id_from_name("utensil")
-            held_object_tf = self._sim.scene_spec.held_object_tf
+            held_object_tf = self._sim.scene_spec.utensil_held_object_tf
             set_robot_joints_with_held_object(
                 self._sim.robot,
                 self._sim.physics_client_id,

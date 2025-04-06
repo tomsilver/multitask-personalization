@@ -390,7 +390,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.physics_client_id,
         )
         self.held_object_tf = finger_from_end_effector
-        import ipdb; ipdb.set_trace()
+        assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
 
     def _execute_ungrasp_tool(self) -> None:
         self.robot.close_fingers()

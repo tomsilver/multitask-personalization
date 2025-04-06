@@ -168,6 +168,9 @@ class FeedingSceneSpec(PublicSceneSpec):
     before_transfer_pose: Pose = Pose((0.504, 0.303, 0.529), (0.0, 0.707, 0.707, 0))
     outside_mouth_transfer_pose: Pose = Pose((0.0, 0.5, 0.67), (0.0, 0.707, 0.707, 0))
 
+    # This is redundant, but it's convenient for the CSP solver.
+    utensil_held_object_tf: Pose = Pose(position=(0.0, 0.0, 0.05955))
+
     # Rendering.
     image_height: int = 1024
     image_width: int = 1600
