@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from typing import Any
+import logging
 
 import gymnasium as gym
 import numpy as np
@@ -19,6 +20,9 @@ from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block
 from tomsutils.spaces import FunctionalSpace
+from pybullet_helpers.inverse_kinematics import (
+    check_collisions_with_held_object,
+)
 
 from multitask_personalization.envs.feeding.feeding_hidden_spec import (
     FeedingHiddenSceneSpec,
@@ -177,6 +181,12 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
 
+        # Initialize stage.
+        self.current_stage = "acquisition"
+
+        # Initialize user feedback.
+        self.current_user_feedback: str | None = None
+
         # Create an occlusion body if occlusion preference is set in the hidden spec.
         self._occlusion_body_id: int | None = None
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
@@ -198,6 +208,12 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.robot.set_joints(self.scene_spec.initial_joints)
         self.held_object_name = None
         self.held_object_tf = None
+
+        # Reset the stage.
+        self.current_stage = "acquisition"
+
+        # Reset the user feedback.
+        self.current_user_feedback = None
 
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
@@ -228,6 +244,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             plate_pose=plate_pose,
             held_object_name=self.held_object_name,
             held_object_tf=self.held_object_tf,
+            current_stage=self.current_stage,
         )
         return state
 
@@ -300,8 +317,18 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         elif isinstance(action, WaitForUserInput):
             if action.user_input == "done":
                 done = True
+                self.current_stage = "acquisition"
+            elif action.user_input == "ready for transfer?":
+                self.current_stage = "transfer"
         else:
             raise NotImplementedError("TODO")
+
+        # Handle user feedback: if the current stage is transfer and there is
+        # occlusion, tell the robot.
+        self.current_user_feedback = None
+        if self.current_stage == "transfer" and self._hidden_spec and self.robot_in_occlusion(self.robot.get_joint_positions()):
+            self.current_user_feedback = "You're blocking my view!"
+            logging.info("User feedback: %s", self.current_user_feedback)
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, done, False, self._get_info()
@@ -338,6 +365,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             p.removeBody(
                 self._occlusion_body_id, physicsClientId=self.physics_client_id
             )
+        scale = max(scale, 1e-6)
         self._occlusion_body_id = p.loadURDF(
             str(self.scene_spec.occlusion_body_urdf_path),
             useFixedBase=True,
@@ -407,3 +435,23 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.robot.close_fingers()
         self.held_object_name = None
         self.held_object_tf = None
+
+    def robot_in_occlusion(self, robot_joints: JointPositions) -> bool:
+        """Check if the robot is in occlusion."""
+        occlusion_id = self.get_object_id_from_name("occlusion_body")
+        if self.held_object_name is None:
+            held_object = None
+            held_object_tf = None
+        else:
+            held_object = self.get_object_id_from_name(
+                self.held_object_name
+            )
+            held_object_tf = self.held_object_tf
+        return check_collisions_with_held_object(
+            self.robot,
+            {occlusion_id},
+            self.physics_client_id,
+            held_object,
+            held_object_tf,
+            robot_joints,
+        )

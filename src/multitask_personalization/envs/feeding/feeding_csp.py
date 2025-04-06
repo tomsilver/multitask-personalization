@@ -9,7 +9,6 @@ from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
-    check_collisions_with_held_object,
     inverse_kinematics,
 )
 from pybullet_helpers.joint import JointPositions
@@ -39,6 +38,8 @@ from multitask_personalization.structs import (
     FunctionalCSPConstraint,
     FunctionalCSPSampler,
 )
+from multitask_personalization.utils import Bounded1DClassifier
+
 
 
 class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
@@ -88,6 +89,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(above_plate_pos),
         ]
 
+        ready_for_transfer = [WaitForUserInput("ready for transfer?")]
+
         transfer_bite_plan: list[FeedingAction] = [
             MoveToJointPositions(before_transfer_pos),
             MoveToEEPose(before_transfer_pose),
@@ -110,6 +113,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             move_plate_plan
             + pick_utensil_plan
             + acquire_bite_plan
+            + ready_for_transfer
             + transfer_bite_plan
             + stow_utensil_plan
             + finish
@@ -141,9 +145,9 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
     """Generate CSPs for the feeding environment."""
 
-    def __init__(self, sim: FeedingEnv, *args, **kwargs) -> None:
+    def __init__(self, sim: FeedingEnv, occlusion_scale_model: Bounded1DClassifier, *args, **kwargs) -> None:
         self._sim = sim
-        self._occlusion_model = 0.9  # this is a placeholder for a real model
+        self._occlusion_model = occlusion_scale_model
         super().__init__(*args, **kwargs)
 
     def save(self, model_dir: Path) -> None:
@@ -179,10 +183,14 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         constraints: list[CSPConstraint] = []
         plate_position = variables[0]
 
-        # Make sure the simulator is up to date with respect to the current
-        # occlusion model. (Soon, we will get the value from a real model,
-        # rather than just using the value itself.)
-        occlusion_scale = self._occlusion_model
+        # NOTE: we are currently just using the MLE occlusion scale, rather than
+        # using the full distribution. That means that "ours" will be equivalent
+        # to "exploit_only". This is because we're not really running full
+        # experiments in this environment.
+        if not self._occlusion_model.incremental_X:
+            occlusion_scale = 0.0
+        else:
+            occlusion_scale = (self._occlusion_model.x2 + self._occlusion_model.x3) / 2
         self._sim.set_occlusion_scale(occlusion_scale)
 
         def _user_view_unoccluded(
@@ -200,24 +208,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                     )
                 except InverseKinematicsError:
                     return False
-                # Check for collisions between the robot and occlusion body.
-                occlusion_id = self._sim.get_object_id_from_name("occlusion_body")
-                if self._sim.held_object_name is None:
-                    held_object = None
-                    held_object_tf = None
-                else:
-                    held_object = self._sim.get_object_id_from_name(
-                        self._sim.held_object_name
-                    )
-                    held_object_tf = self._sim.held_object_tf
-                if check_collisions_with_held_object(
-                    self._sim.robot,
-                    {occlusion_id},
-                    self._sim.physics_client_id,
-                    held_object,
-                    held_object_tf,
-                    robot_joints,
-                ):
+                if self._sim.robot_in_occlusion(robot_joints):
                     return False
             return True
 
