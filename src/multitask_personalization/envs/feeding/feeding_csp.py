@@ -13,7 +13,9 @@ from pybullet_helpers.inverse_kinematics import (
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
-
+from pybullet_helpers.inverse_kinematics import (
+    set_robot_joints_with_held_object,
+)
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
@@ -199,7 +201,16 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 )
             except InverseKinematicsError:
                 return False
-            return self._sim.robot_in_occlusion(robot_joints)
+            held_object_id = self._sim.get_object_id_from_name("utensil")
+            held_object_tf = self._sim.scene_spec.held_object_tf
+            set_robot_joints_with_held_object(
+                self._sim.robot,
+                self._sim.physics_client_id,
+                held_object_id,
+                held_object_tf,
+                robot_joints,
+            )
+            return not self._sim.robot_in_occlusion()
 
         user_view_unoccluded_constraint = FunctionalCSPConstraint(
             "user_view_unoccluded",
