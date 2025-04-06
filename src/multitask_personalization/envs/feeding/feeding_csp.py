@@ -89,8 +89,6 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(above_plate_pos),
         ]
 
-        ready_for_transfer = [WaitForUserInput("ready for transfer?")]
-
         transfer_bite_plan: list[FeedingAction] = [
             MoveToJointPositions(before_transfer_pos),
             MoveToEEPose(before_transfer_pose),
@@ -113,7 +111,6 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             move_plate_plan
             + pick_utensil_plan
             + acquire_bite_plan
-            + ready_for_transfer
             + transfer_bite_plan
             + stow_utensil_plan
             + finish
@@ -197,20 +194,18 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             plate_position: NDArray[np.float32],
         ) -> bool:
             new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
-            for field_name in ["before_transfer_pos", "above_plate_pos"]:
-                try:
-                    robot_joints = _transform_joints_relative_to_plate(
-                        field_name,
-                        new_plate_pose,
-                        self._sim.robot,
-                        self._sim.scene_spec,
-                        arm_joints_only=False,
-                    )
-                except InverseKinematicsError:
-                    return False
-                if self._sim.robot_in_occlusion(robot_joints):
-                    return False
-            return True
+            field_name = "above_plate_pos"
+            try:
+                robot_joints = _transform_joints_relative_to_plate(
+                    field_name,
+                    new_plate_pose,
+                    self._sim.robot,
+                    self._sim.scene_spec,
+                    arm_joints_only=False,
+                )
+            except InverseKinematicsError:
+                return False
+            return not self._sim.robot_in_occlusion(robot_joints)
 
         user_view_unoccluded_constraint = FunctionalCSPConstraint(
             "user_view_unoccluded",
@@ -309,8 +304,15 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # language here and detect whether it's feedback about occlusion, or
         # to keep it simple we might just keep it binary (occluding or not).
         if next_obs.user_feedback == "You're blocking my view!":
-            # The current scale is a negative example. 
-            import ipdb; ipdb.set_trace()
+            label = False
+        # Positive examples are collected when the robot is at the above plate
+        # position and no negative feedback is given.
+        elif isinstance(act, MoveToJointPositions) and np.allclose(act.joint_positions, self._sim.scene_spec.above_plate_pos):
+            label = True
+        else:
+            return
+        # TODO: need a different occlusion model I think.
+        import ipdb; ipdb.set_trace()
 
 
 def _plate_position_to_pose(
