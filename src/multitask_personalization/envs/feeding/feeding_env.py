@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
-import logging
 
 import gymnasium as gym
 import numpy as np
@@ -20,6 +20,7 @@ from pybullet_helpers.geometry import (
 )
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
+    check_collisions_with_held_object,
     set_robot_joints_with_held_object,
 )
 from pybullet_helpers.joint import JointPositions
@@ -28,9 +29,6 @@ from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
 from pybullet_helpers.utils import create_pybullet_block
 from tomsutils.spaces import FunctionalSpace
-from pybullet_helpers.inverse_kinematics import (
-    check_collisions_with_held_object,
-)
 
 from multitask_personalization.envs.feeding.feeding_hidden_spec import (
     FeedingHiddenSceneSpec,
@@ -282,8 +280,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
     def step(
         self, action: FeedingAction
     ) -> tuple[FeedingState, float, bool, bool, dict[str, Any]]:
-        
-        print("stage:", self.current_stage)
 
         held_object_id = (
             self.get_object_id_from_name(self.held_object_name)
@@ -337,7 +333,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Handle user feedback: if the current stage is transfer and there is
         # occlusion, tell the robot.
         self.current_user_feedback = None
-        if self.current_stage == "acquisition" and self._hidden_spec and self.robot_in_occlusion():
+        if (
+            self.current_stage == "acquisition"
+            and self._hidden_spec
+            and self.robot_in_occlusion()
+        ):
             self.current_user_feedback = "You're blocking my view!"
             logging.info("User feedback: %s", self.current_user_feedback)
 
@@ -433,7 +433,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
         score = self.get_occlusion_score()
-        print("score:", score)
         return score >= 1.0 - self._occlusion_scale
 
     def get_occlusion_score(self) -> float:

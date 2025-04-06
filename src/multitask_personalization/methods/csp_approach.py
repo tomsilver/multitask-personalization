@@ -35,7 +35,7 @@ from multitask_personalization.methods.approach import (
 )
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import CSPPolicy, CSPVariable, PublicSceneSpec
-from multitask_personalization.utils import visualize_csp_graph, Threshold1DModel
+from multitask_personalization.utils import Threshold1DModel, visualize_csp_graph
 
 
 class CSPApproach(BaseApproach[_ObsType, _ActType]):

@@ -1,8 +1,8 @@
 """CSP elements for the feeding environment."""
 
+import logging
 from pathlib import Path
 from typing import Any, Collection
-import logging
 
 import numpy as np
 from gymnasium.spaces import Box
@@ -41,7 +41,6 @@ from multitask_personalization.structs import (
     FunctionalCSPSampler,
 )
 from multitask_personalization.utils import Threshold1DModel
-
 
 
 class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
@@ -147,7 +146,9 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
     """Generate CSPs for the feeding environment."""
 
-    def __init__(self, sim: FeedingEnv, occlusion_scale_model: Threshold1DModel, *args, **kwargs) -> None:
+    def __init__(
+        self, sim: FeedingEnv, occlusion_scale_model: Threshold1DModel, *args, **kwargs
+    ) -> None:
         self._sim = sim
         self._occlusion_model = occlusion_scale_model
         super().__init__(*args, **kwargs)
@@ -189,7 +190,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # using the full distribution. That means that "ours" will be equivalent
         # to "exploit_only". This is because we're not really running full
         # experiments in this environment.
-        occlusion_scale = 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+        occlusion_scale = (
+            1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+        )
         self._sim.set_occlusion_scale(occlusion_scale)
         logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
@@ -325,7 +328,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             label = True
         # Positive examples are collected when the robot is at the above plate
         # position and no negative feedback is given.
-        elif isinstance(act, MoveToJointPositions) and np.allclose(act.joint_positions, above_plate_pos):
+        elif isinstance(act, MoveToJointPositions) and np.allclose(
+            act.joint_positions, above_plate_pos
+        ):
             label = False
         else:
             return
