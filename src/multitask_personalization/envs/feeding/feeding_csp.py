@@ -210,6 +210,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 held_object_tf,
                 robot_joints,
             )
+            self._sim.robot.set_finger_state(self._sim.scene_spec.tool_grasp_fingers_value)
             return not self._sim.robot_in_occlusion()
 
         user_view_unoccluded_constraint = FunctionalCSPConstraint(

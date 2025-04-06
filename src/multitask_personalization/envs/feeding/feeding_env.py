@@ -465,11 +465,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         if score > 0:
             score /= len(ray_outputs)
 
+        print("SCORE:", score)
+
         if self._use_gui:
             time.sleep(0.1)
             # p.removeAllUserDebugItems(physicsClientId=self.physics_client_id)
-
-        print("SCORE:", score)
         
         # TODO: use real threshold...
         return score >= 0.01
