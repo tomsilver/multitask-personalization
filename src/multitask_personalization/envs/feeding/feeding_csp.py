@@ -315,6 +315,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         done: bool,
         info: dict[str, Any],
     ) -> None:
+        above_plate_pos = _transform_joints_relative_to_plate(
+            "above_plate_pos", obs.plate_pose, self._sim.robot, self._sim.scene_spec
+        )
         # When we do real experiments, we will decide whether to take natural
         # language here and detect whether it's feedback about occlusion, or
         # to keep it simple we might just keep it binary (occluding or not).
@@ -322,7 +325,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             label = True
         # Positive examples are collected when the robot is at the above plate
         # position and no negative feedback is given.
-        elif isinstance(act, MoveToJointPositions) and np.allclose(act.joint_positions, self._sim.scene_spec.above_plate_pos):
+        elif isinstance(act, MoveToJointPositions) and np.allclose(act.joint_positions, above_plate_pos):
             label = False
         else:
             return
