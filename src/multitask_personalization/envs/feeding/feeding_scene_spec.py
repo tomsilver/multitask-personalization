@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from numpy.typing import NDArray
 import numpy as np
+from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
@@ -73,7 +73,7 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     # User head.
     user_head_pose: Pose = Pose((-0.4, 0.5, 0.67), (0.5, 0.5, 0.5, 0.5))
-    
+
     # User eyes.
     user_eyes_relative_pose: Pose = Pose((0.0, 0.1, 0.1))
 
@@ -110,7 +110,6 @@ class FeedingSceneSpec(PublicSceneSpec):
             0.5472652562309106,
         ]
     )
-
 
     # Occlusion model hyperparameters.
     occlusion_grid_size: int = 5
@@ -182,10 +181,11 @@ class FeedingSceneSpec(PublicSceneSpec):
     def utensil_pose(self):
         """The initial utensil pose."""
         return self.utensil_inside_mount.multiply(self.tool_frame_to_finger_tip)
-    
+
     @property
     def user_eyes_pose(self) -> Pose:
-        """The user eyes pose in the world frame based on the user head pose."""
+        """The user eyes pose in the world frame based on the user head
+        pose."""
         return self.user_head_pose.multiply(self.user_eyes_relative_pose)
 
     def get_camera_kwargs(self) -> dict[str, Any]:

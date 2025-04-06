@@ -10,7 +10,13 @@ import numpy as np
 import pybullet as p
 from gymnasium.core import RenderFrame
 from pybullet_helpers.camera import capture_image
-from pybullet_helpers.geometry import Pose, get_pose, iter_between_poses, set_pose, multiply_poses
+from pybullet_helpers.geometry import (
+    Pose,
+    get_pose,
+    iter_between_poses,
+    multiply_poses,
+    set_pose,
+)
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     set_robot_joints_with_held_object,
@@ -394,7 +400,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_name = None
         self.held_object_tf = None
 
-    def robot_in_occlusion(self, score_threshold: float) -> bool:
+    def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
 
         # Check for occlusion following https://arxiv.org/pdf/2111.11401 (Eq 11).
@@ -434,9 +440,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         alpha = self.scene_spec.occlusion_alpha
         sigma = self.scene_spec.occlusion_sigma
         score = 0.0
-        for i, output in enumerate(ray_outputs):
+        for output in ray_outputs:
             if output[0] != -1:
-                ray_from = ray_from_positions[i]
                 world_hit_pose = Pose(output[3])
                 # Transform the hit position back into the eye frame.
                 hit_pose = multiply_poses(eye_pose.invert(), world_hit_pose)
@@ -446,14 +451,24 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                     point_score = 0.0
                 else:
                     # See note above: in the paper this is 1 - [quantity].
-                    point_score = np.exp(-alpha * np.transpose(vec) @ sigma @ vec / (hit_pose.position[2] ** 2))
+                    point_score = np.exp(
+                        -alpha
+                        * np.transpose(vec)
+                        @ sigma
+                        @ vec
+                        / (hit_pose.position[2] ** 2)
+                    )
                 score += point_score
 
                 if self._use_gui:
-                    p.addUserDebugLine(ray_from, world_hit_pose.position, (point_score, point_score, 0.0),
-                                    physicsClientId=self.physics_client_id)
+                    p.addUserDebugLine(
+                        ray_from,
+                        world_hit_pose.position,
+                        (point_score, point_score, 0.0),
+                        physicsClientId=self.physics_client_id,
+                    )
 
         if score > 0:
             score /= len(ray_outputs)
-        
-        return score >= (1.0 - score_threshold)
+
+        return score >= (1.0 - self._occlusion_scale)

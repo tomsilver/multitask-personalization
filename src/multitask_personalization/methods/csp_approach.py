@@ -35,7 +35,7 @@ from multitask_personalization.methods.approach import (
 )
 from multitask_personalization.rom.models import SphericalROMModel
 from multitask_personalization.structs import CSPPolicy, CSPVariable, PublicSceneSpec
-from multitask_personalization.utils import visualize_csp_graph, Bounded1DClassifier
+from multitask_personalization.utils import visualize_csp_graph
 
 
 class CSPApproach(BaseApproach[_ObsType, _ActType]):
@@ -200,10 +200,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 disable_learning=self._disable_learning,
             )
         if isinstance(self._scene_spec, FeedingSceneSpec):
-            try:
-                feeding_sim = FeedingEnv(self._scene_spec, use_gui=True)
-            except:
-                feeding_sim = FeedingEnv(self._scene_spec)
+            feeding_sim = FeedingEnv(self._scene_spec)
             return FeedingCSPGenerator(
                 feeding_sim,
                 self._seed,
