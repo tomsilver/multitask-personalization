@@ -12,12 +12,12 @@
         <mesh filename="plate.obj"/>
       </geometry>
     </visual>
-    <!-- <collision>
+    <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
         <mesh filename="plate.dae"/>
       </geometry>
-    </collision> -->
+    </collision>
   </link>
 </robot>
 

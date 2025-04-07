@@ -27,6 +27,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     MovePlate,
     MoveToEEPose,
     MoveToJointPositions,
+    MoveToLastJointPositionswithEEPose,
     UngraspTool,
     WaitForUserInput,
 )
@@ -61,11 +62,11 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         new_plate_position = self._get_value("plate_position")
         new_plate_pose = _plate_position_to_pose(new_plate_position, current_plate_pose)
 
-        before_transfer_pose = _transform_pose_relative_to_plate(
+        plate_before_transfer_pose = _transform_pose_relative_to_plate(
             "before_transfer_pose", new_plate_pose, self._sim.scene_spec
         )
 
-        before_transfer_pos = _transform_joints_relative_to_plate(
+        plate_before_transfer_pos = _transform_joints_relative_to_plate(
             "before_transfer_pos", new_plate_pose, self._sim.robot, self._sim.scene_spec
         )
 
@@ -83,7 +84,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             GraspTool("utensil"),
             MoveToEEPose(scene_spec.utensil_outside_mount),
             MoveToEEPose(scene_spec.utensil_outside_above_mount),
-            MoveToJointPositions(before_transfer_pos),
+            MoveToJointPositions(plate_before_transfer_pos),
         ]
 
         acquire_bite_plan: list[FeedingAction] = [
@@ -93,10 +94,10 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         ready_for_transfer = [WaitForUserInput("ready for transfer?")]
 
         transfer_bite_plan: list[FeedingAction] = [
-            MoveToJointPositions(before_transfer_pos),
-            MoveToEEPose(before_transfer_pose),
+            MoveToJointPositions(plate_before_transfer_pos),
+            MoveToEEPose(plate_before_transfer_pose),
             MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
-            MoveToEEPose(before_transfer_pose),
+            MoveToEEPose(plate_before_transfer_pose),
         ]
 
         stow_utensil_plan: list[FeedingAction] = [
@@ -105,6 +106,54 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToEEPose(scene_spec.utensil_inside_mount),
             UngraspTool(),
             MoveToEEPose(scene_spec.utensil_above_mount),
+            MoveToJointPositions(scene_spec.retract_pos),
+        ]
+
+        drink_staging_pos = _transform_joints_relative_to_drink(
+            "drink_staging_pos", obs.drink_pose, self._sim.robot, scene_spec
+        )
+        drink_pre_grasp_pose = _transform_pose_relative_to_drink(
+            "drink_default_pre_grasp_pose", obs.drink_pose, scene_spec
+        )
+        drink_inside_bottom_pose = _transform_pose_relative_to_drink(
+            "drink_default_inside_bottom_pose", obs.drink_pose, scene_spec
+        )
+        drink_inside_top_pose = _transform_pose_relative_to_drink(
+            "drink_default_inside_top_pose", obs.drink_pose, scene_spec
+        )
+        drink_post_grasp_pose = _transform_pose_relative_to_drink(
+            "drink_default_post_grasp_pose", obs.drink_pose, scene_spec
+        )
+        drink_before_transfer_pos = scene_spec.before_transfer_pos
+        drink_before_transfer_pose = scene_spec.before_transfer_pose
+
+        pick_drink_plan: list[FeedingAction] = [
+            MoveToJointPositions(scene_spec.retract_pos),
+            CloseGripper(),
+            MoveToJointPositions(scene_spec.drink_gaze_pos),
+            MoveToJointPositions(drink_staging_pos),
+            MoveToEEPose(drink_pre_grasp_pose),
+            MoveToEEPose(drink_inside_bottom_pose),
+            MoveToEEPose(drink_inside_top_pose),
+            GraspTool("drink"),
+            MoveToEEPose(drink_post_grasp_pose),
+            MoveToJointPositions(drink_before_transfer_pos),
+        ]
+
+        transfer_drink_plan: list[FeedingAction] = [
+            MoveToJointPositions(drink_before_transfer_pos),
+            MoveToEEPose(drink_before_transfer_pose),
+            MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
+            MoveToEEPose(drink_before_transfer_pose),
+        ]
+
+        stow_drink_plan: list[FeedingAction] = [
+            MoveToJointPositions(drink_before_transfer_pos),
+            MoveToLastJointPositionswithEEPose(drink_post_grasp_pose),
+            UngraspTool(),
+            MoveToLastJointPositionswithEEPose(drink_inside_top_pose),
+            MoveToLastJointPositionswithEEPose(drink_inside_bottom_pose),
+            MoveToLastJointPositionswithEEPose(drink_pre_grasp_pose),
             MoveToJointPositions(scene_spec.retract_pos),
         ]
 
@@ -117,6 +166,10 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             + ready_for_transfer
             + transfer_bite_plan
             + stow_utensil_plan
+            + pick_drink_plan
+            + ready_for_transfer
+            + transfer_drink_plan
+            + stow_drink_plan
             + finish
         )
 
@@ -134,6 +187,16 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             assert plan is not None
             self._current_plan = plan
         action = self._current_plan.pop(0)
+        if isinstance(action, MoveToLastJointPositionswithEEPose):
+            joint_positions = self._sim.get_joint_positions_from_known_ee_pose(
+                action.pose
+            )
+            action = MoveToJointPositions(joint_positions[:7])
+        # Very hacky: we need to step the environment to trigger saving the
+        # joint positions for the end effector pose, so we can use it above.
+        # The original sin for this hack is that the policy is implemented
+        # open-loop, but the need to save joint positions makes it closed-loop.
+        self._sim.step(action)
         self._terminated = (
             isinstance(action, WaitForUserInput) and action.user_input == "done"
         )
@@ -361,15 +424,50 @@ def _transform_joints_relative_to_plate(
     scene_spec: FeedingSceneSpec,
     arm_joints_only: bool = True,
 ) -> JointPositions:
+    return _transform_joints_relative_to_default(
+        scene_spec_field,
+        "plate_default_pose",
+        plate_pose,
+        sim_robot,
+        scene_spec,
+        arm_joints_only=arm_joints_only,
+    )
+
+
+def _transform_joints_relative_to_drink(
+    scene_spec_field: str,
+    drink_pose: Pose,
+    sim_robot: FingeredSingleArmPyBulletRobot,
+    scene_spec: FeedingSceneSpec,
+    arm_joints_only: bool = True,
+) -> JointPositions:
+    return _transform_joints_relative_to_default(
+        scene_spec_field,
+        "drink_default_pose",
+        drink_pose,
+        sim_robot,
+        scene_spec,
+        arm_joints_only=arm_joints_only,
+    )
+
+
+def _transform_joints_relative_to_default(
+    scene_spec_field: str,
+    default_scene_field: str,
+    pose: Pose,
+    sim_robot: FingeredSingleArmPyBulletRobot,
+    scene_spec: FeedingSceneSpec,
+    arm_joints_only: bool = True,
+) -> JointPositions:
     default_positions = getattr(scene_spec, scene_spec_field)
+    world_to_default: Pose = getattr(scene_spec, default_scene_field)
     full_joints = sim_robot.get_joint_positions()
     num_dof = len(default_positions)
     full_joints[:num_dof] = default_positions
     sim_robot.set_joints(full_joints)
     world_to_ee = sim_robot.get_end_effector_pose()
-    world_to_plate = scene_spec.plate_init_pose
-    plate_to_ee = world_to_plate.invert().multiply(world_to_ee)
-    new_ee = plate_pose.multiply(plate_to_ee)
+    plate_to_ee = world_to_default.invert().multiply(world_to_ee)
+    new_ee = pose.multiply(plate_to_ee)
     new_full_joints = inverse_kinematics(sim_robot, new_ee)
     if arm_joints_only:
         return new_full_joints[:num_dof]
@@ -379,8 +477,27 @@ def _transform_joints_relative_to_plate(
 def _transform_pose_relative_to_plate(
     scene_spec_field: str, plate_pose: Pose, scene_spec: FeedingSceneSpec
 ) -> Pose:
-    world_to_pose = getattr(scene_spec, scene_spec_field)
-    world_to_plate = scene_spec.plate_init_pose
-    plate_to_pose = world_to_plate.invert().multiply(world_to_pose)
-    new_pose = plate_pose.multiply(plate_to_pose)
+    return _transform_pose_relative_to_default(
+        scene_spec_field, "plate_default_pose", plate_pose, scene_spec
+    )
+
+
+def _transform_pose_relative_to_drink(
+    scene_spec_field: str, drink_pose: Pose, scene_spec: FeedingSceneSpec
+) -> Pose:
+    return _transform_pose_relative_to_default(
+        scene_spec_field, "drink_default_pose", drink_pose, scene_spec
+    )
+
+
+def _transform_pose_relative_to_default(
+    pose_scene_spec_field: str,
+    default_scene_field: str,
+    pose: Pose,
+    scene_spec: FeedingSceneSpec,
+) -> Pose:
+    world_to_pose: Pose = getattr(scene_spec, pose_scene_spec_field)
+    world_to_default: Pose = getattr(scene_spec, default_scene_field)
+    plate_to_pose = world_to_default.invert().multiply(world_to_pose)
+    new_pose = pose.multiply(plate_to_pose)
     return new_pose

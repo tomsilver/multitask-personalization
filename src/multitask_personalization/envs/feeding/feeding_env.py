@@ -20,6 +20,7 @@ from pybullet_helpers.geometry import (
 )
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
+    check_body_collisions,
     set_robot_joints_with_held_object,
 )
 from pybullet_helpers.joint import JointPositions
@@ -159,8 +160,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         p.resetBasePositionAndOrientation(
             self.plate_id,
-            self.scene_spec.plate_init_pose.position,
-            self.scene_spec.plate_init_pose.orientation,
+            self.scene_spec.plate_default_pose.position,
+            self.scene_spec.plate_default_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
 
@@ -182,6 +183,19 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             if joint_info[2] != 4:  # Skip fixed joints.
                 self.utensil_joints.append(i)
 
+        # Create drink.
+        self.drink_id = p.loadURDF(
+            str(self.scene_spec.drink_urdf_path),
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self.drink_id,
+            self.scene_spec.drink_default_pose.position,
+            self.scene_spec.drink_default_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
         # Initialize held object.
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
@@ -196,6 +210,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self._occlusion_scale = 0.0
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
             self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
+
+        # See get_joint_positions_from_known_ee_pose().
+        self._known_ee_poses: dict[tuple[float, ...], JointPositions] = {}
 
         # Uncomment to debug.
         # if use_gui:
@@ -228,10 +245,27 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             low=self.scene_spec.plate_position_lower,
             high=self.scene_spec.plate_position_upper,
         )
-        plate_z = self.scene_spec.plate_init_pose.position[2]
-        plate_orn = self.scene_spec.plate_init_pose.orientation
+        plate_z = self.scene_spec.plate_default_pose.position[2]
+        plate_orn = self.scene_spec.plate_default_pose.orientation
         plate_pose = Pose((plate_x, plate_y, plate_z), plate_orn)
         set_pose(self.plate_id, plate_pose, self.physics_client_id)
+
+        # Randomly reset the drink while avoiding collisions with the plate.
+        for _ in range(1000):
+            drink_x, drink_y = self._rng.uniform(
+                low=self.scene_spec.drink_position_lower,
+                high=self.scene_spec.drink_position_upper,
+            )
+            drink_z = self.scene_spec.drink_default_pose.position[2]
+            drink_orn = self.scene_spec.drink_default_pose.orientation
+            drink_pose = Pose((drink_x, drink_y, drink_z), drink_orn)
+            set_pose(self.drink_id, drink_pose, self.physics_client_id)
+            if not check_body_collisions(
+                self.plate_id, self.drink_id, self.physics_client_id
+            ):
+                break
+        else:
+            raise RuntimeError("Failed to reset drink.")
 
         return self.get_state(), self._get_info()
 
@@ -243,10 +277,14 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Get the plate pose.
         plate_pose = get_pose(self.plate_id, self.physics_client_id)
 
+        # Get the drink pose.
+        drink_pose = get_pose(self.drink_id, self.physics_client_id)
+
         # Create and return the FeedingState.
         state = FeedingState(
             robot_joints=robot_joints,
             plate_pose=plate_pose,
+            drink_pose=drink_pose,
             held_object_name=self.held_object_name,
             held_object_tf=self.held_object_tf,
             stage=self.current_stage,
@@ -271,6 +309,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         )
         # Update the plate pose.
         set_pose(self.plate_id, state.plate_pose, self.physics_client_id)
+        # Update the drink pose.
+        set_pose(self.drink_id, state.drink_pose, self.physics_client_id)
 
     def _get_info(self) -> dict[str, Any]:
         """Get additional information about the environment."""
@@ -305,6 +345,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):
             self._move_to_ee_pose(action.pose)
+            ee_pose_tuple = self._pose_to_hashable_tuple(action.pose)
+            self._known_ee_poses[ee_pose_tuple] = self.robot.get_joint_positions()
         elif isinstance(action, GraspTool):
             self._execute_grasp_tool(action.tool)
         elif isinstance(action, UngraspTool):
@@ -347,6 +389,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         """Get the PyBullet ID from the object name."""
         if name == "utensil":
             return self.utensil_id
+        if name == "drink":
+            return self.drink_id
         raise NotImplementedError(f"Object name '{name}' not recognized.")
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -370,6 +414,18 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         """Update the scale of the occlusion model."""
         assert 0 <= scale <= 1.0, "Occlusion scale must be in [0, 1]"
         self._occlusion_scale = scale
+
+    def get_joint_positions_from_known_ee_pose(self, ee_pose: Pose) -> JointPositions:
+        """Given an end effector pose that was previously commanded by the
+        robot for MoveToEEPose, return the joint positions that resulted."""
+        ee_pose_tuple = self._pose_to_hashable_tuple(ee_pose)
+        assert ee_pose_tuple in self._known_ee_poses, f"Unknown ee_pose: {ee_pose}"
+        return self._known_ee_poses[ee_pose_tuple]
+
+    def _pose_to_hashable_tuple(self, pose: Pose) -> tuple[float, ...]:
+        position_tuple = tuple(np.round(pose.position, decimals=5).tolist())
+        orientation_tuple = tuple(np.round(pose.orientation, decimals=5).tolist())
+        return position_tuple + orientation_tuple
 
     def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
         initial_fingers_positions = self.robot.get_joint_positions()[7:]
@@ -422,7 +478,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.physics_client_id,
         )
         self.held_object_tf = finger_from_end_effector
-        assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
+        if tool == "utensil":
+            assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
 
     def _execute_ungrasp_tool(self) -> None:
         self.robot.close_fingers()

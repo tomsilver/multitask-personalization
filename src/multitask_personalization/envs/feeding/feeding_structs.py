@@ -15,6 +15,7 @@ class FeedingState:
 
     robot_joints: JointPositions
     plate_pose: Pose
+    drink_pose: Pose
     held_object_name: str | None
     held_object_tf: Pose | None
     stage: str  # "transfer" or "acquisition"
@@ -35,6 +36,13 @@ class MoveToJointPositions(FeedingAction):
 @dataclass(frozen=True)
 class MoveToEEPose(FeedingAction):
     """Move to specific end effector pose."""
+
+    pose: Pose
+
+
+@dataclass(frozen=True)
+class MoveToLastJointPositionswithEEPose(FeedingAction):
+    """Move to the last known joints where the end effector had this pose."""
 
     pose: Pose
 
