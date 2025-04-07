@@ -21,6 +21,7 @@ from pybullet_helpers.geometry import (
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
     set_robot_joints_with_held_object,
+    check_body_collisions
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_relative_link_pose
@@ -241,9 +242,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
 
-        # TODO: randomize this and check collisions with plate.
-        set_pose(self.drink_id, self.scene_spec.drink_default_pose, self.physics_client_id)
-
         # Randomly reset the plate.
         plate_x, plate_y = self._rng.uniform(
             low=self.scene_spec.plate_position_lower,
@@ -253,6 +251,21 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         plate_orn = self.scene_spec.plate_default_pose.orientation
         plate_pose = Pose((plate_x, plate_y, plate_z), plate_orn)
         set_pose(self.plate_id, plate_pose, self.physics_client_id)
+
+        # Randomly reset the drink while avoiding collisions with the plate.
+        for _ in range(1000):
+            drink_x, drink_y = self._rng.uniform(
+                low=self.scene_spec.plate_position_lower,
+                high=self.scene_spec.plate_position_upper,
+            )
+            drink_z = self.scene_spec.drink_default_pose.position[2]
+            drink_orn = self.scene_spec.drink_default_pose.orientation
+            drink_pose = Pose((drink_x, drink_y, drink_z), drink_orn)
+            set_pose(self.drink_id, drink_pose, self.physics_client_id)
+            if not check_body_collisions(self.plate_id, self.drink_id, self.physics_client_id):
+                break
+        else:
+            raise RuntimeError("Failed to reset drink.")
 
         return self.get_state(), self._get_info()
 
