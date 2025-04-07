@@ -20,8 +20,8 @@ from pybullet_helpers.geometry import (
 )
 from pybullet_helpers.gui import create_gui_connection
 from pybullet_helpers.inverse_kinematics import (
+    check_body_collisions,
     set_robot_joints_with_held_object,
-    check_body_collisions
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_relative_link_pose
@@ -215,8 +215,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self._known_ee_poses: dict[tuple[float, ...], JointPositions] = {}
 
         # Uncomment to debug.
-        # from pybullet_helpers.gui import interactively_visualize_pose
-        # interactively_visualize_pose(self.scene_spec.drink_default_pre_grasp_pose, self.physics_client_id)
         # if use_gui:
         #     while True:
         #         p.getMouseEvents(self.physics_client_id)
@@ -255,14 +253,16 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Randomly reset the drink while avoiding collisions with the plate.
         for _ in range(1000):
             drink_x, drink_y = self._rng.uniform(
-                low=self.scene_spec.plate_position_lower,
-                high=self.scene_spec.plate_position_upper,
+                low=self.scene_spec.drink_position_lower,
+                high=self.scene_spec.drink_position_upper,
             )
             drink_z = self.scene_spec.drink_default_pose.position[2]
             drink_orn = self.scene_spec.drink_default_pose.orientation
             drink_pose = Pose((drink_x, drink_y, drink_z), drink_orn)
             set_pose(self.drink_id, drink_pose, self.physics_client_id)
-            if not check_body_collisions(self.plate_id, self.drink_id, self.physics_client_id):
+            if not check_body_collisions(
+                self.plate_id, self.drink_id, self.physics_client_id
+            ):
                 break
         else:
             raise RuntimeError("Failed to reset drink.")
@@ -416,12 +416,12 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self._occlusion_scale = scale
 
     def get_joint_positions_from_known_ee_pose(self, ee_pose: Pose) -> JointPositions:
-        """Given an end effector pose that was previously commanded by the robot for
-        MoveToEEPose, return the joint positions that resulted."""
+        """Given an end effector pose that was previously commanded by the
+        robot for MoveToEEPose, return the joint positions that resulted."""
         ee_pose_tuple = self._pose_to_hashable_tuple(ee_pose)
         assert ee_pose_tuple in self._known_ee_poses, f"Unknown ee_pose: {ee_pose}"
         return self._known_ee_poses[ee_pose_tuple]
-    
+
     def _pose_to_hashable_tuple(self, pose: Pose) -> tuple[float, ...]:
         position_tuple = tuple(np.round(pose.position, decimals=5).tolist())
         orientation_tuple = tuple(np.round(pose.orientation, decimals=5).tolist())
