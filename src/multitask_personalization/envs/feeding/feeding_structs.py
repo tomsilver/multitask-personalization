@@ -66,3 +66,11 @@ class MovePlate(FeedingAction):
     """Move the plate to a specific pose."""
 
     plate_pose: Pose
+
+
+@dataclass(frozen=True)
+class Noop(FeedingAction):
+    """A no-op that takes no time. This is a hack introduced to make it easier
+    for the robot to save its joint state after picking up the drink."""
+
+    info: str | None = None

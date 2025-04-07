@@ -29,6 +29,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     MoveToJointPositions,
     UngraspTool,
     WaitForUserInput,
+    Noop,
 )
 from multitask_personalization.structs import (
     CSP,
@@ -127,6 +128,9 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(before_transfer_pos),
         ]
 
+        # TODO this is directly copied from the transfer bite plan, and I think
+        # we should at least change the before_transfer_pos so that it is relative
+        # to the drink instead of the plate?
         transfer_drink_plan: list[FeedingAction] = [
             MoveToJointPositions(before_transfer_pos),
             MoveToEEPose(before_transfer_pose),
@@ -134,9 +138,14 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToEEPose(before_transfer_pose),
         ]
 
+        stow_drink_plan: list[FeedingAction] = [
+            MoveToJointPositions(before_transfer_pos),
+
+        ]
+
         finish = [WaitForUserInput("done")]
 
-        plan = pick_drink_plan + ready_for_transfer + transfer_drink_plan
+        plan = pick_drink_plan + ready_for_transfer + transfer_drink_plan + stow_drink_plan
 
         # TODO
         # plan = (

@@ -43,6 +43,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     MoveToJointPositions,
     UngraspTool,
     WaitForUserInput,
+    Noop,
 )
 from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
 
@@ -344,6 +345,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 self.current_stage = "acquisition"
             elif action.user_input == "ready for transfer?":
                 self.current_stage = "transfer"
+        elif isinstance(action, Noop):
+            pass
         else:
             raise NotImplementedError("TODO")
 
