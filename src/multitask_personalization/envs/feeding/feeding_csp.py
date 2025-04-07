@@ -110,10 +110,10 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         ]
 
         # TODO: transform these like we transform for the plate.
-        drink_pre_grasp_pose = scene_spec.drink_default_pre_grasp_pose
-        drink_inside_bottom_pose = scene_spec.drink_default_inside_bottom_pose
-        drink_inside_top_pose = scene_spec.drink_default_inside_top_pose
-        drink_post_grasp_pose = scene_spec.drink_default_post_grasp_pose
+        drink_pre_grasp_pose = _transform_pose_relative_to_drink("drink_default_pre_grasp_pose", obs.drink_pose, scene_spec)
+        drink_inside_bottom_pose = _transform_pose_relative_to_drink("drink_default_inside_bottom_pose", obs.drink_pose, scene_spec)
+        drink_inside_top_pose = _transform_pose_relative_to_drink("drink_default_inside_top_pose", obs.drink_pose, scene_spec)
+        drink_post_grasp_pose = _transform_pose_relative_to_drink("drink_default_post_grasp_pose", obs.drink_pose, scene_spec)
 
         pick_drink_plan: list[FeedingAction] = [
             MoveToJointPositions(scene_spec.retract_pos),
@@ -431,8 +431,21 @@ def _transform_joints_relative_to_plate(
 def _transform_pose_relative_to_plate(
     scene_spec_field: str, plate_pose: Pose, scene_spec: FeedingSceneSpec
 ) -> Pose:
-    world_to_pose = getattr(scene_spec, scene_spec_field)
-    world_to_plate = scene_spec.plate_default_pose
-    plate_to_pose = world_to_plate.invert().multiply(world_to_pose)
-    new_pose = plate_pose.multiply(plate_to_pose)
+    return _transform_pose_relative_to_default(scene_spec_field, "plate_default_pose", plate_pose, scene_spec)
+
+
+
+def _transform_pose_relative_to_drink(
+    scene_spec_field: str, drink_pose: Pose, scene_spec: FeedingSceneSpec
+) -> Pose:
+    return _transform_pose_relative_to_default(scene_spec_field, "drink_default_pose", drink_pose, scene_spec)
+
+
+def _transform_pose_relative_to_default(
+    pose_scene_spec_field: str, default_scene_field: str, pose: Pose, scene_spec: FeedingSceneSpec
+) -> Pose:
+    world_to_pose: Pose = getattr(scene_spec, pose_scene_spec_field)
+    world_to_default: Pose = getattr(scene_spec, default_scene_field)
+    plate_to_pose = world_to_default.invert().multiply(world_to_pose)
+    new_pose = pose.multiply(plate_to_pose)
     return new_pose

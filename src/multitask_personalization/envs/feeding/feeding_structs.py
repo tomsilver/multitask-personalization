@@ -15,6 +15,7 @@ class FeedingState:
 
     robot_joints: JointPositions
     plate_pose: Pose
+    drink_pose: Pose
     held_object_name: str | None
     held_object_tf: Pose | None
     stage: str  # "transfer" or "acquisition"

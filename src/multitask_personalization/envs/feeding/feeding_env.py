@@ -277,10 +277,14 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Get the plate pose.
         plate_pose = get_pose(self.plate_id, self.physics_client_id)
 
+        # Get the drink pose.
+        drink_pose = get_pose(self.drink_id, self.physics_client_id)
+
         # Create and return the FeedingState.
         state = FeedingState(
             robot_joints=robot_joints,
             plate_pose=plate_pose,
+            drink_pose=drink_pose,
             held_object_name=self.held_object_name,
             held_object_tf=self.held_object_tf,
             stage=self.current_stage,
@@ -305,6 +309,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         )
         # Update the plate pose.
         set_pose(self.plate_id, state.plate_pose, self.physics_client_id)
+        # Update the drink pose.
+        set_pose(self.drink_id, state.drink_pose, self.physics_client_id)
 
     def _get_info(self) -> dict[str, Any]:
         """Get additional information about the environment."""
