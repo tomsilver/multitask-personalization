@@ -134,9 +134,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(drink_before_transfer_pos),
         ]
 
-        # TODO this is directly copied from the transfer bite plan, and I think
-        # we should at least change the before_transfer_pos so that it is relative
-        # to the drink instead of the plate?
+        # TODO figure out why drink_before_transfer_pos is off to the side.
+
         transfer_drink_plan: list[FeedingAction] = [
             MoveToJointPositions(drink_before_transfer_pos),
             MoveToEEPose(drink_before_transfer_pose),
