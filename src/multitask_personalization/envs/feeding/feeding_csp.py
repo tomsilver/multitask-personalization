@@ -108,17 +108,38 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.retract_pos),
         ]
 
+        # TODO: transform these like we transform for the plate.
+        drink_pre_grasp_pose = scene_spec.drink_default_pre_grasp_pose
+        drink_inside_bottom_pose = scene_spec.drink_default_inside_bottom_pose
+        drink_inside_top_pose = scene_spec.drink_default_inside_top_pose
+        drink_post_grasp_pose = scene_spec.drink_default_post_grasp_pose
+
+        pick_drink_plan: list[FeedingAction] = [
+            MoveToJointPositions(scene_spec.retract_pos),
+            CloseGripper(),
+            MoveToJointPositions(scene_spec.drink_gaze_pos),
+            MoveToJointPositions(scene_spec.drink_staging_pos),
+            MoveToEEPose(drink_pre_grasp_pose),
+            MoveToEEPose(drink_inside_bottom_pose),
+            MoveToEEPose(drink_inside_top_pose),
+            GraspTool("drink"),
+            MoveToEEPose(drink_post_grasp_pose),
+        ]
+
         finish = [WaitForUserInput("done")]
 
-        plan = (
-            move_plate_plan
-            + pick_utensil_plan
-            + acquire_bite_plan
-            + ready_for_transfer
-            + transfer_bite_plan
-            + stow_utensil_plan
-            + finish
-        )
+        plan = pick_drink_plan
+
+        # TODO
+        # plan = (
+        #     move_plate_plan
+        #     + pick_utensil_plan
+        #     + acquire_bite_plan
+        #     + ready_for_transfer
+        #     + transfer_bite_plan
+        #     + stow_utensil_plan
+        #     + finish
+        # )
 
         return plan
 
@@ -367,7 +388,7 @@ def _transform_joints_relative_to_plate(
     full_joints[:num_dof] = default_positions
     sim_robot.set_joints(full_joints)
     world_to_ee = sim_robot.get_end_effector_pose()
-    world_to_plate = scene_spec.plate_init_pose
+    world_to_plate = scene_spec.plate_default_pose
     plate_to_ee = world_to_plate.invert().multiply(world_to_ee)
     new_ee = plate_pose.multiply(plate_to_ee)
     new_full_joints = inverse_kinematics(sim_robot, new_ee)
@@ -380,7 +401,7 @@ def _transform_pose_relative_to_plate(
     scene_spec_field: str, plate_pose: Pose, scene_spec: FeedingSceneSpec
 ) -> Pose:
     world_to_pose = getattr(scene_spec, scene_spec_field)
-    world_to_plate = scene_spec.plate_init_pose
+    world_to_plate = scene_spec.plate_default_pose
     plate_to_pose = world_to_plate.invert().multiply(world_to_pose)
     new_pose = plate_pose.multiply(plate_to_pose)
     return new_pose

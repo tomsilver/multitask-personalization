@@ -159,8 +159,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         p.resetBasePositionAndOrientation(
             self.plate_id,
-            self.scene_spec.plate_init_pose.position,
-            self.scene_spec.plate_init_pose.orientation,
+            self.scene_spec.plate_default_pose.position,
+            self.scene_spec.plate_default_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
 
@@ -190,8 +190,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         )
         p.resetBasePositionAndOrientation(
             self.drink_id,
-            self.scene_spec.drink_pose.position,
-            self.scene_spec.drink_pose.orientation,
+            self.scene_spec.drink_default_pose.position,
+            self.scene_spec.drink_default_pose.orientation,
             physicsClientId=self.physics_client_id,
         )
 
@@ -211,9 +211,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
 
         # Uncomment to debug.
-        if use_gui:
-            while True:
-                p.getMouseEvents(self.physics_client_id)
+        # from pybullet_helpers.gui import interactively_visualize_pose
+        # interactively_visualize_pose(self.scene_spec.drink_default_pre_grasp_pose, self.physics_client_id)
+        # if use_gui:
+        #     while True:
+        #         p.getMouseEvents(self.physics_client_id)
 
     def reset(
         self,
@@ -236,13 +238,16 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
 
+        # TODO: randomize this and check collisions with plate.
+        set_pose(self.drink_id, self.scene_spec.drink_default_pose, self.physics_client_id)
+
         # Randomly reset the plate.
         plate_x, plate_y = self._rng.uniform(
             low=self.scene_spec.plate_position_lower,
             high=self.scene_spec.plate_position_upper,
         )
-        plate_z = self.scene_spec.plate_init_pose.position[2]
-        plate_orn = self.scene_spec.plate_init_pose.orientation
+        plate_z = self.scene_spec.plate_default_pose.position[2]
+        plate_orn = self.scene_spec.plate_default_pose.orientation
         plate_pose = Pose((plate_x, plate_y, plate_z), plate_orn)
         set_pose(self.plate_id, plate_pose, self.physics_client_id)
 
@@ -360,6 +365,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         """Get the PyBullet ID from the object name."""
         if name == "utensil":
             return self.utensil_id
+        if name == "drink":
+            return self.drink_id
         raise NotImplementedError(f"Object name '{name}' not recognized.")
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
@@ -435,7 +442,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.physics_client_id,
         )
         self.held_object_tf = finger_from_end_effector
-        assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
+        if tool == "utensil":
+            assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
 
     def _execute_ungrasp_tool(self) -> None:
         self.robot.close_fingers()

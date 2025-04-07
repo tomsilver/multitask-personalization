@@ -87,7 +87,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     table_mesh_path: Path = Path(__file__).parent / "assets" / "table" / "table.obj"
 
     # Plate.
-    plate_init_pose: Pose = Pose((0.3, 0.25, 0.16))
+    plate_default_pose: Pose = Pose((0.3, 0.25, 0.16))
     plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.urdf"
     plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.obj"
     plate_position_lower: tuple[float, float] = (0.3, 0.25)
@@ -115,7 +115,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     drink_urdf_path: Path = (
         Path(__file__).parent / "assets" / "drinking_utensil" / "drinking_utensil.urdf"
     )
-    drink_pose: Pose = Pose((0.55, 0.6, 0.34), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
+    drink_default_pose: Pose = Pose((0.55, 0.6, 0.34), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
     drink_gaze_pos: JointPositions = field(
         default_factory=lambda: [-0.004187021865822871, 0.6034579885210962, -3.1259047705564633, -2.3538005746884725, 0.01149092320739253, 1.3411586039000891, 1.6825233913747728])
     drink_staging_pos: JointPositions = field(
@@ -179,6 +179,11 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
     before_transfer_pose: Pose = Pose((0.504, 0.303, 0.529), (0.0, 0.707, 0.707, 0))
     outside_mouth_transfer_pose: Pose = Pose((0.0, 0.5, 0.67), (0.0, 0.707, 0.707, 0))
+
+    drink_default_pre_grasp_pose: Pose = Pose(position=(0.56, 0.32, 0.26), orientation=(0,  np.sqrt(2) / 2,  np.sqrt(2) / 2, 0))
+    drink_default_inside_bottom_pose: Pose = Pose(position=(0.56, 0.55, 0.26), orientation=(0,  np.sqrt(2) / 2,  np.sqrt(2) / 2, 0))
+    drink_default_inside_top_pose: Pose = Pose(position=(0.56, 0.55, 0.34), orientation=(0,  np.sqrt(2) / 2,  np.sqrt(2) / 2, 0))
+    drink_default_post_grasp_pose: Pose = Pose(position=(0.56, 0.55, 0.4), orientation=(0,  np.sqrt(2) / 2,  np.sqrt(2) / 2, 0))
 
     # This is redundant, but it's convenient for the CSP solver.
     utensil_held_object_tf: Pose = Pose(position=(0.0, 0.0, 0.05955))
