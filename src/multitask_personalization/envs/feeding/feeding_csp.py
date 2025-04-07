@@ -109,7 +109,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.retract_pos),
         ]
 
-        # TODO: transform these like we transform for the plate.
+        drink_staging_pos = _transform_joints_relative_to_drink("drink_staging_pos", obs.drink_pose, self._sim.robot, scene_spec)
         drink_pre_grasp_pose = _transform_pose_relative_to_drink("drink_default_pre_grasp_pose", obs.drink_pose, scene_spec)
         drink_inside_bottom_pose = _transform_pose_relative_to_drink("drink_default_inside_bottom_pose", obs.drink_pose, scene_spec)
         drink_inside_top_pose = _transform_pose_relative_to_drink("drink_default_inside_top_pose", obs.drink_pose, scene_spec)
@@ -119,7 +119,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.retract_pos),
             CloseGripper(),
             MoveToJointPositions(scene_spec.drink_gaze_pos),
-            MoveToJointPositions(scene_spec.drink_staging_pos),
+            MoveToJointPositions(drink_staging_pos),
             MoveToEEPose(drink_pre_grasp_pose),
             MoveToEEPose(drink_inside_bottom_pose),
             MoveToEEPose(drink_inside_top_pose),
@@ -413,26 +413,48 @@ def _transform_joints_relative_to_plate(
     scene_spec: FeedingSceneSpec,
     arm_joints_only: bool = True,
 ) -> JointPositions:
+    return _transform_joints_relative_to_default(scene_spec_field, "plate_default_pose", plate_pose, sim_robot, scene_spec, arm_joints_only=arm_joints_only)
+
+
+
+def _transform_joints_relative_to_drink(
+    scene_spec_field: str,
+    drink_pose: Pose,
+    sim_robot: FingeredSingleArmPyBulletRobot,
+    scene_spec: FeedingSceneSpec,
+    arm_joints_only: bool = True,
+) -> JointPositions:
+    return _transform_joints_relative_to_default(scene_spec_field, "drink_default_pose", drink_pose, sim_robot, scene_spec, arm_joints_only=arm_joints_only)
+
+
+def _transform_joints_relative_to_default(
+    scene_spec_field: str,
+    default_scene_field: str,
+    pose: Pose,
+    sim_robot: FingeredSingleArmPyBulletRobot,
+    scene_spec: FeedingSceneSpec,
+    arm_joints_only: bool = True,
+) -> JointPositions:
     default_positions = getattr(scene_spec, scene_spec_field)
+    world_to_default: Pose = getattr(scene_spec, default_scene_field)
     full_joints = sim_robot.get_joint_positions()
     num_dof = len(default_positions)
     full_joints[:num_dof] = default_positions
     sim_robot.set_joints(full_joints)
     world_to_ee = sim_robot.get_end_effector_pose()
-    world_to_plate = scene_spec.plate_default_pose
-    plate_to_ee = world_to_plate.invert().multiply(world_to_ee)
-    new_ee = plate_pose.multiply(plate_to_ee)
+    plate_to_ee = world_to_default.invert().multiply(world_to_ee)
+    new_ee = pose.multiply(plate_to_ee)
     new_full_joints = inverse_kinematics(sim_robot, new_ee)
     if arm_joints_only:
         return new_full_joints[:num_dof]
     return new_full_joints
 
 
+
 def _transform_pose_relative_to_plate(
     scene_spec_field: str, plate_pose: Pose, scene_spec: FeedingSceneSpec
 ) -> Pose:
     return _transform_pose_relative_to_default(scene_spec_field, "plate_default_pose", plate_pose, scene_spec)
-
 
 
 def _transform_pose_relative_to_drink(
