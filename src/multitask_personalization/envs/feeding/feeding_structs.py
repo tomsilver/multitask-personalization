@@ -39,6 +39,13 @@ class MoveToEEPose(FeedingAction):
     pose: Pose
 
 
+@dataclass(frozen=True)
+class MoveToLastJointPositionswithEEPose(FeedingAction):
+    """Move to the last known joints where the end effector had this pose."""
+
+    pose: Pose
+
+
 class CloseGripper(FeedingAction):
     """Close the gripper."""
 
@@ -66,11 +73,3 @@ class MovePlate(FeedingAction):
     """Move the plate to a specific pose."""
 
     plate_pose: Pose
-
-
-@dataclass(frozen=True)
-class Noop(FeedingAction):
-    """A no-op that takes no time. This is a hack introduced to make it easier
-    for the robot to save its joint state after picking up the drink."""
-
-    info: str | None = None

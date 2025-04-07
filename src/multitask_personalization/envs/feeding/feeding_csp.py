@@ -27,9 +27,9 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     MovePlate,
     MoveToEEPose,
     MoveToJointPositions,
+    MoveToLastJointPositionswithEEPose,
     UngraspTool,
     WaitForUserInput,
-    Noop,
 )
 from multitask_personalization.structs import (
     CSP,
@@ -140,7 +140,12 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
         stow_drink_plan: list[FeedingAction] = [
             MoveToJointPositions(before_transfer_pos),
-
+            MoveToLastJointPositionswithEEPose(drink_post_grasp_pose),
+            UngraspTool(),
+            MoveToLastJointPositionswithEEPose(drink_inside_top_pose),
+            MoveToLastJointPositionswithEEPose(drink_inside_bottom_pose),
+            MoveToLastJointPositionswithEEPose(drink_pre_grasp_pose),
+            MoveToJointPositions(scene_spec.retract_pos),
         ]
 
         finish = [WaitForUserInput("done")]
@@ -164,6 +169,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         super().reset(solution)
         self._current_plan = []
         self._terminated = False
+        self._end_effector_pose_to_last_known_joint_positions = {}
 
     def step(self, obs: FeedingState) -> FeedingAction:
         if not self._current_plan:
@@ -172,6 +178,14 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             assert plan is not None
             self._current_plan = plan
         action = self._current_plan.pop(0)
+        if isinstance(action, MoveToLastJointPositionswithEEPose):
+            joint_positions = self._sim.get_joint_positions_from_known_ee_pose(action.pose)
+            action = MoveToJointPositions(joint_positions[:7])
+        # Very hacky: we need to step the environment to trigger saving the
+        # joint positions for the end effector pose, so we can use it above.
+        # The original sin for this hack is that the policy is implemented
+        # open-loop, but the need to save joint positions makes it closed-loop.
+        self._sim.step(action)
         self._terminated = (
             isinstance(action, WaitForUserInput) and action.user_input == "done"
         )

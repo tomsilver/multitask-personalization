@@ -43,7 +43,6 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     MoveToJointPositions,
     UngraspTool,
     WaitForUserInput,
-    Noop,
 )
 from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
 
@@ -211,6 +210,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
             self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
 
+        # See get_joint_positions_from_known_ee_pose().
+        self._known_ee_poses: dict[tuple[float, ...], JointPositions] = {}
+
         # Uncomment to debug.
         # from pybullet_helpers.gui import interactively_visualize_pose
         # interactively_visualize_pose(self.scene_spec.drink_default_pre_grasp_pose, self.physics_client_id)
@@ -324,6 +326,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):
             self._move_to_ee_pose(action.pose)
+            ee_pose_tuple = self._pose_to_hashable_tuple(action.pose)
+            self._known_ee_poses[ee_pose_tuple] = self.robot.get_joint_positions()
         elif isinstance(action, GraspTool):
             self._execute_grasp_tool(action.tool)
         elif isinstance(action, UngraspTool):
@@ -345,8 +349,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 self.current_stage = "acquisition"
             elif action.user_input == "ready for transfer?":
                 self.current_stage = "transfer"
-        elif isinstance(action, Noop):
-            pass
         else:
             raise NotImplementedError("TODO")
 
@@ -393,6 +395,18 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         """Update the scale of the occlusion model."""
         assert 0 <= scale <= 1.0, "Occlusion scale must be in [0, 1]"
         self._occlusion_scale = scale
+
+    def get_joint_positions_from_known_ee_pose(self, ee_pose: Pose) -> JointPositions:
+        """Given an end effector pose that was previously commanded by the robot for
+        MoveToEEPose, return the joint positions that resulted."""
+        ee_pose_tuple = self._pose_to_hashable_tuple(ee_pose)
+        assert ee_pose_tuple in self._known_ee_poses, f"Unknown ee_pose: {ee_pose}"
+        return self._known_ee_poses[ee_pose_tuple]
+    
+    def _pose_to_hashable_tuple(self, pose: Pose) -> tuple[float, ...]:
+        position_tuple = tuple(np.round(pose.position, decimals=5).tolist())
+        orientation_tuple = tuple(np.round(pose.orientation, decimals=5).tolist())
+        return position_tuple + orientation_tuple
 
     def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
         initial_fingers_positions = self.robot.get_joint_positions()[7:]
