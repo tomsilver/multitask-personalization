@@ -111,6 +111,16 @@ class FeedingSceneSpec(PublicSceneSpec):
         ]
     )
 
+    # Drink.
+    drink_urdf_path: Path = (
+        Path(__file__).parent / "assets" / "drinking_utensil" / "drinking_utensil.urdf"
+    )
+    drink_pose: Pose = Pose((0.55, 0.6, 0.34), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
+    drink_gaze_pos: JointPositions = field(
+        default_factory=lambda: [-0.004187021865822871, 0.6034579885210962, -3.1259047705564633, -2.3538005746884725, 0.01149092320739253, 1.3411586039000891, 1.6825233913747728])
+    drink_staging_pos: JointPositions = field(
+        default_factory=lambda: [-2.5860902733967808, -1.105096803823792, -1.0315333702969696, -1.3979449215077393, -0.7852325147776451, -0.8370922506847585, -2.7182634909296315])
+
     # Occlusion model hyperparameters.
     occlusion_grid_size: int = 5
     occlusion_grid_delta: float = 0.1

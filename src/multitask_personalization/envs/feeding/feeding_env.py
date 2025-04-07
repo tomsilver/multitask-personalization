@@ -182,6 +182,19 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             if joint_info[2] != 4:  # Skip fixed joints.
                 self.utensil_joints.append(i)
 
+        # Create drink.
+        self.drink_id = p.loadURDF(
+            str(self.scene_spec.drink_urdf_path),
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+        p.resetBasePositionAndOrientation(
+            self.drink_id,
+            self.scene_spec.drink_pose.position,
+            self.scene_spec.drink_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
         # Initialize held object.
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
@@ -198,9 +211,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
 
         # Uncomment to debug.
-        # if use_gui:
-        #     while True:
-        #         p.getMouseEvents(self.physics_client_id)
+        if use_gui:
+            while True:
+                p.getMouseEvents(self.physics_client_id)
 
     def reset(
         self,
