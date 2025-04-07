@@ -124,11 +124,19 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToEEPose(drink_inside_top_pose),
             GraspTool("drink"),
             MoveToEEPose(drink_post_grasp_pose),
+            MoveToJointPositions(before_transfer_pos),
+        ]
+
+        transfer_drink_plan: list[FeedingAction] = [
+            MoveToJointPositions(before_transfer_pos),
+            MoveToEEPose(before_transfer_pose),
+            MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
+            MoveToEEPose(before_transfer_pose),
         ]
 
         finish = [WaitForUserInput("done")]
 
-        plan = pick_drink_plan
+        plan = pick_drink_plan + ready_for_transfer + transfer_drink_plan
 
         # TODO
         # plan = (
