@@ -62,11 +62,11 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         new_plate_position = self._get_value("plate_position")
         new_plate_pose = _plate_position_to_pose(new_plate_position, current_plate_pose)
 
-        before_transfer_pose = _transform_pose_relative_to_plate(
+        plate_before_transfer_pose = _transform_pose_relative_to_plate(
             "before_transfer_pose", new_plate_pose, self._sim.scene_spec
         )
 
-        before_transfer_pos = _transform_joints_relative_to_plate(
+        plate_before_transfer_pos = _transform_joints_relative_to_plate(
             "before_transfer_pos", new_plate_pose, self._sim.robot, self._sim.scene_spec
         )
 
@@ -84,7 +84,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             GraspTool("utensil"),
             MoveToEEPose(scene_spec.utensil_outside_mount),
             MoveToEEPose(scene_spec.utensil_outside_above_mount),
-            MoveToJointPositions(before_transfer_pos),
+            MoveToJointPositions(plate_before_transfer_pos),
         ]
 
         acquire_bite_plan: list[FeedingAction] = [
@@ -94,10 +94,10 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         ready_for_transfer = [WaitForUserInput("ready for transfer?")]
 
         transfer_bite_plan: list[FeedingAction] = [
-            MoveToJointPositions(before_transfer_pos),
-            MoveToEEPose(before_transfer_pose),
+            MoveToJointPositions(plate_before_transfer_pos),
+            MoveToEEPose(plate_before_transfer_pose),
             MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
-            MoveToEEPose(before_transfer_pose),
+            MoveToEEPose(plate_before_transfer_pose),
         ]
 
         stow_utensil_plan: list[FeedingAction] = [
@@ -114,6 +114,12 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         drink_inside_bottom_pose = _transform_pose_relative_to_drink("drink_default_inside_bottom_pose", obs.drink_pose, scene_spec)
         drink_inside_top_pose = _transform_pose_relative_to_drink("drink_default_inside_top_pose", obs.drink_pose, scene_spec)
         drink_post_grasp_pose = _transform_pose_relative_to_drink("drink_default_post_grasp_pose", obs.drink_pose, scene_spec)
+        drink_before_transfer_pos = _transform_joints_relative_to_drink(
+            "before_transfer_pos", obs.drink_pose, self._sim.robot, self._sim.scene_spec
+        )
+        drink_before_transfer_pose = _transform_pose_relative_to_drink(
+            "before_transfer_pose", obs.drink_pose, self._sim.scene_spec
+        )
 
         pick_drink_plan: list[FeedingAction] = [
             MoveToJointPositions(scene_spec.retract_pos),
@@ -125,21 +131,21 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToEEPose(drink_inside_top_pose),
             GraspTool("drink"),
             MoveToEEPose(drink_post_grasp_pose),
-            MoveToJointPositions(before_transfer_pos),
+            MoveToJointPositions(drink_before_transfer_pos),
         ]
 
         # TODO this is directly copied from the transfer bite plan, and I think
         # we should at least change the before_transfer_pos so that it is relative
         # to the drink instead of the plate?
         transfer_drink_plan: list[FeedingAction] = [
-            MoveToJointPositions(before_transfer_pos),
-            MoveToEEPose(before_transfer_pose),
+            MoveToJointPositions(drink_before_transfer_pos),
+            MoveToEEPose(drink_before_transfer_pose),
             MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
-            MoveToEEPose(before_transfer_pose),
+            MoveToEEPose(drink_before_transfer_pose),
         ]
 
         stow_drink_plan: list[FeedingAction] = [
-            MoveToJointPositions(before_transfer_pos),
+            MoveToJointPositions(drink_before_transfer_pos),
             MoveToLastJointPositionswithEEPose(drink_post_grasp_pose),
             UngraspTool(),
             MoveToLastJointPositionswithEEPose(drink_inside_top_pose),
