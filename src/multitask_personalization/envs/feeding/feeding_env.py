@@ -39,6 +39,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
     FeedingState,
     GraspTool,
+    MoveDrink,
     MovePlate,
     MoveToEEPose,
     MoveToJointPositions,
@@ -46,6 +47,9 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     WaitForUserInput,
 )
 from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
+from multitask_personalization.envs.pybullet.pybullet_utils import (
+    BANISH_POSE,
+)
 
 
 class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
@@ -191,8 +195,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         )
         p.resetBasePositionAndOrientation(
             self.drink_id,
-            self.scene_spec.drink_default_pose.position,
-            self.scene_spec.drink_default_pose.orientation,
+            BANISH_POSE.position,
+            BANISH_POSE.orientation,
             physicsClientId=self.physics_client_id,
         )
 
@@ -203,6 +207,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Initialize stage.
         self.current_stage = "acquisition"
 
+        # Initialize user request.
+        self.current_user_request: str | None = None
+        self._total_user_requests = 0
+
         # Initialize user feedback.
         self.current_user_feedback: str | None = None
 
@@ -210,6 +218,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self._occlusion_scale = 0.0
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
             self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
+        self._occlusion_rays: set[int] | None = None
 
         # See get_joint_positions_from_known_ee_pose().
         self._known_ee_poses: dict[tuple[float, ...], JointPositions] = {}
@@ -250,22 +259,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         plate_pose = Pose((plate_x, plate_y, plate_z), plate_orn)
         set_pose(self.plate_id, plate_pose, self.physics_client_id)
 
-        # Randomly reset the drink while avoiding collisions with the plate.
-        for _ in range(1000):
-            drink_x, drink_y = self._rng.uniform(
-                low=self.scene_spec.drink_position_lower,
-                high=self.scene_spec.drink_position_upper,
-            )
-            drink_z = self.scene_spec.drink_default_pose.position[2]
-            drink_orn = self.scene_spec.drink_default_pose.orientation
-            drink_pose = Pose((drink_x, drink_y, drink_z), drink_orn)
-            set_pose(self.drink_id, drink_pose, self.physics_client_id)
-            if not check_body_collisions(
-                self.plate_id, self.drink_id, self.physics_client_id
-            ):
-                break
-        else:
-            raise RuntimeError("Failed to reset drink.")
+        # Reset the user request. Alternate between food and drink.
+        self._update_user_request()
 
         return self.get_state(), self._get_info()
 
@@ -281,6 +276,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         drink_pose = get_pose(self.drink_id, self.physics_client_id)
 
         # Create and return the FeedingState.
+        assert self.current_user_request is not None
         state = FeedingState(
             robot_joints=robot_joints,
             plate_pose=plate_pose,
@@ -288,6 +284,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             held_object_name=self.held_object_name,
             held_object_tf=self.held_object_tf,
             stage=self.current_stage,
+            user_request=self.current_user_request,
             user_feedback=self.current_user_feedback,
         )
         return state
@@ -311,6 +308,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         set_pose(self.plate_id, state.plate_pose, self.physics_client_id)
         # Update the drink pose.
         set_pose(self.drink_id, state.drink_pose, self.physics_client_id)
+        # Update the feedback, stage, request.
+        self.current_stage = state.stage
+        self.current_user_request = state.user_request
+        self.current_user_feedback = state.user_feedback
 
     def _get_info(self) -> dict[str, Any]:
         """Get additional information about the environment."""
@@ -340,7 +341,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 new_joints,
             )
             if self._use_gui:
-                time.sleep(1.0)  # visualize the motion in GUI mode
+                self._pause_gui(0.25)
         elif isinstance(action, CloseGripper):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):
@@ -359,9 +360,20 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                     include_start=False,
                 ):
                     set_pose(self.plate_id, plate_pose, self.physics_client_id)
-                    time.sleep(0.1)
+                    self._pause_gui(0.1)
             else:
                 set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
+        elif isinstance(action, MoveDrink):
+            if self._use_gui:
+                for drink_pose in iter_between_poses(
+                    get_pose(self.drink_id, self.physics_client_id),
+                    action.drink_pose,
+                    include_start=False,
+                ):
+                    set_pose(self.drink_id, drink_pose, self.physics_client_id)
+                    self._pause_gui(0.1)
+            else:
+                set_pose(self.drink_id, action.drink_pose, self.physics_client_id)
         elif isinstance(action, WaitForUserInput):
             if action.user_input == "done":
                 done = True
@@ -381,6 +393,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         ):
             self.current_user_feedback = "You're blocking my view!"
             logging.info("User feedback: %s", self.current_user_feedback)
+
+        # Update the user request if done.
+        if done:
+            self._update_user_request()
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, done, False, self._get_info()
@@ -480,11 +496,41 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_tf = finger_from_end_effector
         if tool == "utensil":
             assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
+        if tool == "drink":
+            assert self.held_object_tf.allclose(self.scene_spec.drink_held_object_tf)
 
     def _execute_ungrasp_tool(self) -> None:
         self.robot.close_fingers()
         self.held_object_name = None
         self.held_object_tf = None
+
+    def _reset_drink_pose(self) -> None:
+        for _ in range(1000):
+            drink_x, drink_y = self._rng.uniform(
+                low=self.scene_spec.drink_position_lower,
+                high=self.scene_spec.drink_position_upper,
+            )
+            drink_z = self.scene_spec.drink_default_pose.position[2]
+            drink_orn = self.scene_spec.drink_default_pose.orientation
+            drink_pose = Pose((drink_x, drink_y, drink_z), drink_orn)
+            set_pose(self.drink_id, drink_pose, self.physics_client_id)
+            if not check_body_collisions(
+                self.plate_id, self.drink_id, self.physics_client_id
+            ):
+                break
+        else:
+            raise RuntimeError("Failed to reset drink.")
+
+    def _update_user_request(self) -> None:
+        if self._total_user_requests % 4 < 2:
+            self.current_user_request = "food"
+            set_pose(self.drink_id, BANISH_POSE, self.physics_client_id)
+        elif self._total_user_requests % 4 == 2:
+            self.current_user_request = "prepare"
+            self._reset_drink_pose()
+        else:
+            self.current_user_request = "drink"
+        self._total_user_requests += 1
 
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
@@ -523,6 +569,19 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             physicsClientId=self.physics_client_id,
         )
 
+        # Debug visualize the rays.
+        # if self._use_gui and self._occlusion_rays is None:
+        #     self._occlusion_rays = set()
+        #     for r in range(len(ray_from_positions)):
+        #         ray_id = p.addUserDebugLine(
+        #             ray_from_positions[r],
+        #             ray_to_positions[r],
+        #             lineColorRGB=[1, 0, 0],
+        #             lineWidth=2,
+        #             physicsClientId=self.physics_client_id,
+        #         )
+        #         self._occlusion_rays.add(ray_id)
+
         # See equation 11 in paper.
         # NOTE: unlike the paper, we are primarily concerned with occlusion
         # during acquisition, so we actually give higher scores when the robot
@@ -555,3 +614,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             score /= len(ray_outputs)
 
         return score
+
+    def _pause_gui(self, duration: float) -> None:
+        if not self._use_gui:
+            time.sleep(duration)
+        else:
+            start_time = time.perf_counter()
+            while time.perf_counter() - start_time < duration:
+                p.getMouseEvents(self.physics_client_id)

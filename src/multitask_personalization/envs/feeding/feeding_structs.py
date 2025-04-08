@@ -19,6 +19,7 @@ class FeedingState:
     held_object_name: str | None
     held_object_tf: Pose | None
     stage: str  # "transfer" or "acquisition"
+    user_request: str  # "food" or "drink" or "prepare"
     user_feedback: str | None = None
 
 
@@ -74,3 +75,10 @@ class MovePlate(FeedingAction):
     """Move the plate to a specific pose."""
 
     plate_pose: Pose
+
+
+@dataclass(frozen=True)
+class MoveDrink(FeedingAction):
+    """Move the drink to a specific pose."""
+
+    drink_pose: Pose
