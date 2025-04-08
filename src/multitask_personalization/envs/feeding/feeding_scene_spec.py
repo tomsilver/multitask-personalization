@@ -214,6 +214,18 @@ class FeedingSceneSpec(PublicSceneSpec):
     drink_default_post_grasp_pose: Pose = Pose(
         position=(0.56, 0.55, 0.4), orientation=(0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0)
     )
+    drink_before_transfer_pos: JointPositions = field(
+        default_factory=lambda: [
+            2.947,
+            -1.294,
+            -1.579,
+            -1.316,
+            1.263,
+            -0.094,
+            1.789,
+        ]
+    )
+    drink_before_transfer_pose: Pose = Pose((0.504, 0.58, 0.529), (0.0, 0.707, 0.707, 0))
 
     # This is redundant, but it's convenient for the CSP solver.
     utensil_held_object_tf: Pose = Pose(position=(0.0, 0.0, 0.05955))

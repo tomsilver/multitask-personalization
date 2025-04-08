@@ -124,8 +124,18 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         drink_post_grasp_pose = _transform_pose_relative_to_drink(
             "drink_default_post_grasp_pose", obs.drink_pose, scene_spec
         )
-        drink_before_transfer_pos = scene_spec.before_transfer_pos
-        drink_before_transfer_pose = scene_spec.before_transfer_pose
+        drink_before_transfer_pos = _transform_joints_relative_to_drink(
+            "drink_before_transfer_pos", obs.drink_pose,
+            self._sim.robot, scene_spec)
+        
+        # joints = self._sim.robot.get_joint_positions()
+        # joints[:7] = drink_before_transfer_pos
+        # self._sim.robot.set_joints(joints)
+        # from pybullet_helpers.gui import run_interactive_joint_gui
+        # run_interactive_joint_gui(self._sim.robot)
+
+        drink_before_transfer_pose = _transform_pose_relative_to_drink(
+            "drink_before_transfer_pose", obs.drink_pose, scene_spec)
 
         pick_drink_plan: list[FeedingAction] = [
             MoveToJointPositions(scene_spec.retract_pos),
@@ -148,7 +158,6 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         ]
 
         stow_drink_plan: list[FeedingAction] = [
-            MoveToJointPositions(drink_before_transfer_pos),
             MoveToLastJointPositionswithEEPose(drink_post_grasp_pose),
             UngraspTool(),
             MoveToLastJointPositionswithEEPose(drink_inside_top_pose),
@@ -159,14 +168,15 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
         finish = [WaitForUserInput("done")]
 
+        # TODO
         plan = (
-            move_plate_plan
-            + pick_utensil_plan
-            + acquire_bite_plan
-            + ready_for_transfer
-            + transfer_bite_plan
-            + stow_utensil_plan
-            + pick_drink_plan
+            # move_plate_plan
+            # + pick_utensil_plan
+            # + acquire_bite_plan
+            # + ready_for_transfer
+            # + transfer_bite_plan
+            # + stow_utensil_plan
+            pick_drink_plan
             + ready_for_transfer
             + transfer_drink_plan
             + stow_drink_plan
