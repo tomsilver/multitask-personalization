@@ -371,7 +371,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
     ) -> list[CSPSampler]:
 
         # Sample plate positions.
-        plate_position = csp.variables[0]
+        plate_position, drink_position = csp.variables
 
         def _sample_plate_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -386,7 +386,20 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _sample_plate_position, csp, {plate_position}
         )
 
-        return [plate_position_sampler]
+        def _sample_drink_position(
+            _: dict[CSPVariable, Any], rng: np.random.Generator
+        ) -> dict[CSPVariable, Any]:
+            new_pos = rng.uniform(
+                low=self._sim.scene_spec.drink_position_lower,
+                high=self._sim.scene_spec.drink_position_upper,
+            ).astype(np.float32)
+            return {drink_position: new_pos}
+
+        drink_position_sampler = FunctionalCSPSampler(
+            _sample_drink_position, csp, {drink_position}
+        )
+
+        return [plate_position_sampler, drink_position_sampler]
 
     def _generate_policy(
         self,
