@@ -40,6 +40,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingState,
     GraspTool,
     MovePlate,
+    MoveDrink,
     MoveToEEPose,
     MoveToJointPositions,
     UngraspTool,
@@ -363,6 +364,17 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                     self._pause_gui(0.1)
             else:
                 set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
+        elif isinstance(action, MoveDrink):
+            if self._use_gui:
+                for drink_pose in iter_between_poses(
+                    get_pose(self.drink_id, self.physics_client_id),
+                    action.drink_pose,
+                    include_start=False,
+                ):
+                    set_pose(self.drink_id, drink_pose, self.physics_client_id)
+                    self._pause_gui(0.1)
+            else:
+                set_pose(self.drink_id, action.drink_pose, self.physics_client_id)
         elif isinstance(action, WaitForUserInput):
             if action.user_input == "done":
                 done = True
@@ -490,7 +502,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
         score = self.get_occlusion_score()
-        print("score:", score)
         return score >= 1.0 - self._occlusion_scale
 
     def get_occlusion_score(self) -> float:
