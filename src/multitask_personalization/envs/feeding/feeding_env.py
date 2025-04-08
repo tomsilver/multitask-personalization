@@ -571,17 +571,17 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         )
 
         # Debug visualize the rays.
-        if self._use_gui and self._occlusion_rays is None:
-            self._occlusion_rays = set()
-            for r in range(len(ray_from_positions)):
-                ray_id = p.addUserDebugLine(
-                    ray_from_positions[r],
-                    ray_to_positions[r],
-                    lineColorRGB=[1, 0, 0],
-                    lineWidth=2,
-                    physicsClientId=self.physics_client_id,
-                )
-                self._occlusion_rays.add(ray_id)
+        # if self._use_gui and self._occlusion_rays is None:
+        #     self._occlusion_rays = set()
+        #     for r in range(len(ray_from_positions)):
+        #         ray_id = p.addUserDebugLine(
+        #             ray_from_positions[r],
+        #             ray_to_positions[r],
+        #             lineColorRGB=[1, 0, 0],
+        #             lineWidth=2,
+        #             physicsClientId=self.physics_client_id,
+        #         )
+        #         self._occlusion_rays.add(ray_id)
 
         # See equation 11 in paper.
         # NOTE: unlike the paper, we are primarily concerned with occlusion
