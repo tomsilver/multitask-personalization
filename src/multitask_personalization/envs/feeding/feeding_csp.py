@@ -151,7 +151,6 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         ]
 
         transfer_drink_plan: list[FeedingAction] = [
-            MoveToJointPositions(drink_before_transfer_pos),
             MoveToEEPose(drink_before_transfer_pose),
             MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
             MoveToEEPose(drink_before_transfer_pose),
@@ -159,8 +158,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
         stow_drink_plan: list[FeedingAction] = [
             MoveToLastJointPositionswithEEPose(drink_post_grasp_pose),
-            UngraspTool(),
             MoveToLastJointPositionswithEEPose(drink_inside_top_pose),
+            UngraspTool(),
             MoveToLastJointPositionswithEEPose(drink_inside_bottom_pose),
             MoveToLastJointPositionswithEEPose(drink_pre_grasp_pose),
             MoveToJointPositions(scene_spec.retract_pos),

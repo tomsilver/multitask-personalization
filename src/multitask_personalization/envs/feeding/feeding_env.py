@@ -210,6 +210,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self._occlusion_scale = 0.0
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
             self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
+        self._occlusion_rays: set[int] | None = None
 
         # See get_joint_positions_from_known_ee_pose().
         self._known_ee_poses: dict[tuple[float, ...], JointPositions] = {}
@@ -340,7 +341,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 new_joints,
             )
             if self._use_gui:
-                time.sleep(1.0)  # visualize the motion in GUI mode
+                self._pause_gui(1.0)
         elif isinstance(action, CloseGripper):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):
@@ -359,7 +360,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                     include_start=False,
                 ):
                     set_pose(self.plate_id, plate_pose, self.physics_client_id)
-                    time.sleep(0.1)
+                    self._pause_gui(0.1)
             else:
                 set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
         elif isinstance(action, WaitForUserInput):
@@ -489,6 +490,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
         score = self.get_occlusion_score()
+        print("score:", score)
         return score >= 1.0 - self._occlusion_scale
 
     def get_occlusion_score(self) -> float:
@@ -523,6 +525,19 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             physicsClientId=self.physics_client_id,
         )
 
+        # Debug visualize the rays.
+        if self._use_gui and self._occlusion_rays is None:
+            self._occlusion_rays = set()
+            for r in range(len(ray_from_positions)):
+                ray_id = p.addUserDebugLine(
+                    ray_from_positions[r],
+                    ray_to_positions[r],
+                    lineColorRGB=[1, 0, 0],
+                    lineWidth=2,
+                    physicsClientId=self.physics_client_id,
+                )
+                self._occlusion_rays.add(ray_id)
+
         # See equation 11 in paper.
         # NOTE: unlike the paper, we are primarily concerned with occlusion
         # during acquisition, so we actually give higher scores when the robot
@@ -555,3 +570,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             score /= len(ray_outputs)
 
         return score
+
+    def _pause_gui(self, duration: float) -> None:
+        if not self._use_gui:
+            time.sleep(duration)
+        else:
+            start_time = time.perf_counter()
+            while time.perf_counter() - start_time < duration:
+                p.getMouseEvents(self.physics_client_id)
