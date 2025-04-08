@@ -25,6 +25,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingState,
     GraspTool,
     MovePlate,
+    MoveDrink,
     MoveToEEPose,
     MoveToJointPositions,
     MoveToLastJointPositionswithEEPose,
@@ -109,23 +110,27 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.retract_pos),
         ]
 
+        current_drink_pose = obs.drink_pose
+        new_drink_position = self._get_value("drink_position")
+        new_drink_pose = _drink_position_to_pose(new_drink_position, current_drink_pose)
+
         drink_staging_pos = _transform_joints_relative_to_drink(
-            "drink_staging_pos", obs.drink_pose, self._sim.robot, scene_spec
+            "drink_staging_pos", new_drink_pose, self._sim.robot, scene_spec
         )
         drink_pre_grasp_pose = _transform_pose_relative_to_drink(
-            "drink_default_pre_grasp_pose", obs.drink_pose, scene_spec
+            "drink_default_pre_grasp_pose", new_drink_pose, scene_spec
         )
         drink_inside_bottom_pose = _transform_pose_relative_to_drink(
-            "drink_default_inside_bottom_pose", obs.drink_pose, scene_spec
+            "drink_default_inside_bottom_pose", new_drink_pose, scene_spec
         )
         drink_inside_top_pose = _transform_pose_relative_to_drink(
-            "drink_default_inside_top_pose", obs.drink_pose, scene_spec
+            "drink_default_inside_top_pose", new_drink_pose, scene_spec
         )
         drink_post_grasp_pose = _transform_pose_relative_to_drink(
-            "drink_default_post_grasp_pose", obs.drink_pose, scene_spec
+            "drink_default_post_grasp_pose", new_drink_pose, scene_spec
         )
         drink_before_transfer_pos = _transform_joints_relative_to_drink(
-            "drink_before_transfer_pos", obs.drink_pose,
+            "drink_before_transfer_pos", new_drink_pose,
             self._sim.robot, scene_spec)
         
         # joints = self._sim.robot.get_joint_positions()
@@ -245,8 +250,18 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         plate_position = CSPVariable("plate_position", plate_position_domain)
         init_plate_position = (obs.plate_pose.position[0], obs.plate_pose.position[1])
 
-        return [plate_position], {
+        # XY position of the drink.
+        drink_position_domain = Box(
+            np.array(self._sim.scene_spec.drink_position_lower),
+            np.array(self._sim.scene_spec.drink_position_upper),
+            dtype=np.float32,
+        )
+        drink_position = CSPVariable("drink_position", drink_position_domain)
+        init_drink_position = (obs.drink_pose.position[0], obs.drink_pose.position[1])
+
+        return [plate_position, drink_position], {
             plate_position: init_plate_position,
+            drink_position: init_drink_position,
         }
 
     def _generate_personal_constraints(
@@ -420,6 +435,19 @@ def _plate_position_to_pose(
         (
             plate_position[0],
             plate_position[1],
+            default_pose.position[2],
+        ),
+        default_pose.orientation,
+    )
+
+
+def _drink_position_to_pose(
+    drink_position: NDArray[np.float32], default_pose: Pose
+) -> Pose:
+    return Pose(
+        (
+            drink_position[0],
+            drink_position[1],
             default_pose.position[2],
         ),
         default_pose.orientation,

@@ -74,3 +74,10 @@ class MovePlate(FeedingAction):
     """Move the plate to a specific pose."""
 
     plate_pose: Pose
+
+
+@dataclass(frozen=True)
+class MoveDrink(FeedingAction):
+    """Move the drink to a specific pose."""
+
+    drink_pose: Pose
