@@ -232,6 +232,9 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         new_drink_inside_top_pose = _transform_pose_relative_to_drink(
             "drink_default_inside_top_pose", new_drink_pose, scene_spec
         )
+        new_drink_post_grasp_pose = _transform_pose_relative_to_drink(
+            "drink_default_post_grasp_pose", new_drink_pose, scene_spec
+        )
         
         current_plate_pose = obs.plate_pose
         new_plate_position = self._get_value("plate_position")
@@ -251,6 +254,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         ]
 
         stow_drink_plan: list[FeedingAction] = [
+            MoveToEEPose(new_drink_post_grasp_pose),
             MoveToEEPose(new_drink_inside_top_pose),
             UngraspTool(),
             MoveToEEPose(new_drink_inside_bottom_pose),
