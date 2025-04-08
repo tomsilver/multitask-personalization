@@ -523,13 +523,15 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             raise RuntimeError("Failed to reset drink.")
         
     def _update_user_request(self) -> None:
-        if self._total_user_requests % 3 == 2:
-            self.current_user_request = "drink"
-            self._reset_drink_pose()
-        else:
+        if self._total_user_requests % 4 < 2:
             self.current_user_request = "food"
             set_pose(self.drink_id, BANISH_POSE, self.physics_client_id)
-        self._total_user_requests += 1 
+        elif self._total_user_requests % 4 == 2:
+            self.current_user_request = "prepare"
+            self._reset_drink_pose()
+        else:
+            self.current_user_request = "drink"
+        self._total_user_requests += 1
 
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""

@@ -59,8 +59,11 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
     def _get_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
         if obs.user_request == "food":
             return self._get_food_plan(obs)
-        assert obs.user_request == "drink"
-        return self._get_drink_plan(obs)
+        if obs.user_request == "drink":
+            return self._get_drink_plan(obs)
+        if obs.user_request == "prepare":
+            return self._get_prepare_plan(obs)
+        raise NotImplementedError()
 
     def _get_food_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
         scene_spec = self._sim.scene_spec
@@ -133,39 +136,27 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
     def _get_drink_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
         scene_spec = self._sim.scene_spec
 
-        current_drink_pose = obs.drink_pose
-        new_drink_position = self._get_value("drink_position")
-        new_drink_pose = _drink_position_to_pose(new_drink_position, current_drink_pose)
-
         drink_staging_pos = _transform_joints_relative_to_drink(
-            "drink_staging_pos", new_drink_pose, self._sim.robot, scene_spec
+            "drink_staging_pos", obs.drink_pose, self._sim.robot, scene_spec
         )
         drink_pre_grasp_pose = _transform_pose_relative_to_drink(
-            "drink_default_pre_grasp_pose", new_drink_pose, scene_spec
+            "drink_default_pre_grasp_pose", obs.drink_pose, scene_spec
         )
         drink_inside_bottom_pose = _transform_pose_relative_to_drink(
-            "drink_default_inside_bottom_pose", new_drink_pose, scene_spec
+            "drink_default_inside_bottom_pose", obs.drink_pose, scene_spec
         )
         drink_inside_top_pose = _transform_pose_relative_to_drink(
-            "drink_default_inside_top_pose", new_drink_pose, scene_spec
+            "drink_default_inside_top_pose", obs.drink_pose, scene_spec
         )
         drink_post_grasp_pose = _transform_pose_relative_to_drink(
-            "drink_default_post_grasp_pose", new_drink_pose, scene_spec
+            "drink_default_post_grasp_pose", obs.drink_pose, scene_spec
         )
         drink_before_transfer_pos = _transform_joints_relative_to_drink(
-            "drink_before_transfer_pos", new_drink_pose,
+            "drink_before_transfer_pos", obs.drink_pose,
             self._sim.robot, scene_spec)
         drink_before_transfer_pose = _transform_pose_relative_to_drink(
             "drink_before_transfer_pose", obs.drink_pose, scene_spec)
         
-        current_plate_pose = obs.plate_pose
-        new_plate_position = self._get_value("plate_position")
-        new_plate_pose = _plate_position_to_pose(new_plate_position, current_plate_pose)
-        move_plate_plan: list[FeedingAction] = [MovePlate(new_plate_pose)]
-
-        move_drink_plan: list[FeedingAction] = [
-            MoveDrink(new_drink_pose)
-        ]
 
         pick_drink_plan: list[FeedingAction] = [
             MoveToJointPositions(scene_spec.retract_pos),
@@ -200,11 +191,78 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         finish = [WaitForUserInput("done")]
 
         plan = (
-            move_plate_plan
-            + move_drink_plan
-            + pick_drink_plan
+            pick_drink_plan
             + ready_for_transfer
             + transfer_drink_plan
+            + stow_drink_plan
+            + finish
+        )
+
+        return plan
+    
+    def _get_prepare_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
+        scene_spec = self._sim.scene_spec
+
+        current_drink_pose = obs.drink_pose
+        new_drink_position = self._get_value("drink_position")
+        new_drink_pose = _drink_position_to_pose(new_drink_position, current_drink_pose)
+
+        current_drink_staging_pos = _transform_joints_relative_to_drink(
+            "drink_staging_pos", current_drink_pose, self._sim.robot, scene_spec
+        )
+        current_drink_pre_grasp_pose = _transform_pose_relative_to_drink(
+            "drink_default_pre_grasp_pose", current_drink_pose, scene_spec
+        )
+        current_drink_inside_bottom_pose = _transform_pose_relative_to_drink(
+            "drink_default_inside_bottom_pose", current_drink_pose, scene_spec
+        )
+        current_drink_inside_top_pose = _transform_pose_relative_to_drink(
+            "drink_default_inside_top_pose", current_drink_pose, scene_spec
+        )
+        current_drink_post_grasp_pose = _transform_pose_relative_to_drink(
+            "drink_default_post_grasp_pose", current_drink_pose, scene_spec
+        )
+
+        new_drink_pre_grasp_pose = _transform_pose_relative_to_drink(
+            "drink_default_pre_grasp_pose", new_drink_pose, scene_spec
+        )
+        new_drink_inside_bottom_pose = _transform_pose_relative_to_drink(
+            "drink_default_inside_bottom_pose", new_drink_pose, scene_spec
+        )
+        new_drink_inside_top_pose = _transform_pose_relative_to_drink(
+            "drink_default_inside_top_pose", new_drink_pose, scene_spec
+        )
+        
+        current_plate_pose = obs.plate_pose
+        new_plate_position = self._get_value("plate_position")
+        new_plate_pose = _plate_position_to_pose(new_plate_position, current_plate_pose)
+        move_plate_plan: list[FeedingAction] = [MovePlate(new_plate_pose)]
+
+        pick_drink_plan: list[FeedingAction] = [
+            MoveToJointPositions(scene_spec.retract_pos),
+            CloseGripper(),
+            MoveToJointPositions(scene_spec.drink_gaze_pos),
+            MoveToJointPositions(current_drink_staging_pos),
+            MoveToEEPose(current_drink_pre_grasp_pose),
+            MoveToEEPose(current_drink_inside_bottom_pose),
+            MoveToEEPose(current_drink_inside_top_pose),
+            GraspTool("drink"),
+            MoveToEEPose(current_drink_post_grasp_pose),
+        ]
+
+        stow_drink_plan: list[FeedingAction] = [
+            MoveToEEPose(new_drink_inside_top_pose),
+            UngraspTool(),
+            MoveToEEPose(new_drink_inside_bottom_pose),
+            MoveToEEPose(new_drink_pre_grasp_pose),
+            MoveToJointPositions(scene_spec.retract_pos),
+        ]
+
+        finish = [WaitForUserInput("done")]
+
+        plan = (
+            move_plate_plan
+            + pick_drink_plan
             + stow_drink_plan
             + finish
         )
@@ -341,7 +399,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _user_view_unoccluded_by_utensil,
         )
 
-        if obs.user_request == "food":
+        if obs.user_request != "drink":
             constraints.append(user_view_unoccluded_by_utensil_constraint)
 
         def _user_view_unoccluded_by_drink(
@@ -376,7 +434,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _user_view_unoccluded_by_drink,
         )
 
-        if obs.user_request == "drink":
+        if obs.user_request != "food":
             constraints.append(user_view_unoccluded_by_drink_constraint)
 
         return constraints
@@ -414,6 +472,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _plate_position_is_kinematically_valid,
         )
 
+        if obs.user_request != "drink":
+            constraints.append(plate_position_kinematically_valid_constraint)
+
         # The plate and drink cannot be in collision.
         def _plate_drink_collision_free(
             plate_position: NDArray[np.float32],
@@ -431,8 +492,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _plate_drink_collision_free,
         )
 
-
-        constraints.append(plate_drink_collision_free_constraint)
+        if obs.user_request != "drink":
+            constraints.append(plate_drink_collision_free_constraint)
 
         return constraints
 
