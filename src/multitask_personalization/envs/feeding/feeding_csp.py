@@ -56,7 +56,12 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         self._terminated = False
 
     def _get_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
+        if obs.user_request == "food":
+            return self._get_food_plan(obs)
+        assert obs.user_request == "drink"
+        return self._get_drink_plan(obs)
 
+    def _get_food_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
         scene_spec = self._sim.scene_spec
 
         current_plate_pose = obs.plate_pose
@@ -110,6 +115,23 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(scene_spec.retract_pos),
         ]
 
+        finish = [WaitForUserInput("done")]
+
+        plan = (
+            move_plate_plan
+            + pick_utensil_plan
+            + acquire_bite_plan
+            + ready_for_transfer
+            + transfer_bite_plan
+            + stow_utensil_plan
+            + finish
+        )
+
+        return plan
+
+    def _get_drink_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
+        scene_spec = self._sim.scene_spec
+
         current_drink_pose = obs.drink_pose
         new_drink_position = self._get_value("drink_position")
         new_drink_pose = _drink_position_to_pose(new_drink_position, current_drink_pose)
@@ -152,6 +174,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             MoveToJointPositions(drink_before_transfer_pos),
         ]
 
+        ready_for_transfer = [WaitForUserInput("ready for transfer?")]
+
         transfer_drink_plan: list[FeedingAction] = [
             MoveToEEPose(drink_before_transfer_pose),
             MoveToEEPose(scene_spec.outside_mouth_transfer_pose),
@@ -170,13 +194,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         finish = [WaitForUserInput("done")]
 
         plan = (
-            move_plate_plan
-            + pick_utensil_plan
-            + acquire_bite_plan
-            + ready_for_transfer
-            + transfer_bite_plan
-            + stow_utensil_plan
-            + move_drink_plan
+            move_drink_plan
             + pick_drink_plan
             + ready_for_transfer
             + transfer_drink_plan
@@ -316,7 +334,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _user_view_unoccluded_by_utensil,
         )
 
-        constraints.append(user_view_unoccluded_by_utensil_constraint)
+        if obs.user_request == "food":
+            constraints.append(user_view_unoccluded_by_utensil_constraint)
 
         def _user_view_unoccluded_by_drink(
             drink_position: NDArray[np.float32],
@@ -350,7 +369,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _user_view_unoccluded_by_drink,
         )
 
-        constraints.append(user_view_unoccluded_by_drink_constraint)
+        if obs.user_request == "drink":
+            constraints.append(user_view_unoccluded_by_drink_constraint)
 
         return constraints
 

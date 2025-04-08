@@ -19,6 +19,7 @@ class FeedingState:
     held_object_name: str | None
     held_object_tf: Pose | None
     stage: str  # "transfer" or "acquisition"
+    user_request: str  # "food" or "drink"
     user_feedback: str | None = None
 
 

@@ -204,6 +204,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Initialize stage.
         self.current_stage = "acquisition"
 
+        # Initialize user request.
+        self.current_user_request: str | None = None
+
         # Initialize user feedback.
         self.current_user_feedback: str | None = None
 
@@ -238,6 +241,12 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         # Reset the user feedback.
         self.current_user_feedback = None
+
+        # Reset the user request. Alternate between food and drink.
+        if self.current_user_request in (None, "drink"):
+            self.current_user_request = "food"
+        else:
+            self.current_user_request = "drink"
 
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
@@ -283,6 +292,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         drink_pose = get_pose(self.drink_id, self.physics_client_id)
 
         # Create and return the FeedingState.
+        assert self.current_user_request is not None
         state = FeedingState(
             robot_joints=robot_joints,
             plate_pose=plate_pose,
@@ -290,6 +300,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             held_object_name=self.held_object_name,
             held_object_tf=self.held_object_tf,
             stage=self.current_stage,
+            user_request=self.current_user_request,
             user_feedback=self.current_user_feedback,
         )
         return state
@@ -313,6 +324,10 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         set_pose(self.plate_id, state.plate_pose, self.physics_client_id)
         # Update the drink pose.
         set_pose(self.drink_id, state.drink_pose, self.physics_client_id)
+        # Update the feedback, stage, request.
+        self.current_stage = state.stage
+        self.current_user_request = state.user_request
+        self.current_user_feedback = state.user_feedback
 
     def _get_info(self) -> dict[str, Any]:
         """Get additional information about the environment."""
@@ -394,6 +409,13 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         ):
             self.current_user_feedback = "You're blocking my view!"
             logging.info("User feedback: %s", self.current_user_feedback)
+
+        # Alternate between requests.
+        if done:
+            if self.current_user_request in (None, "drink"):
+                self.current_user_request = "food"
+            else:
+                self.current_user_request = "drink"
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, done, False, self._get_info()
