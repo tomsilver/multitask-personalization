@@ -7,11 +7,12 @@ from typing import Any, Collection
 import numpy as np
 from gymnasium.spaces import Box
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
     inverse_kinematics,
     set_robot_joints_with_held_object,
+    check_body_collisions
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
@@ -157,6 +158,11 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         drink_before_transfer_pose = _transform_pose_relative_to_drink(
             "drink_before_transfer_pose", obs.drink_pose, scene_spec)
         
+        current_plate_pose = obs.plate_pose
+        new_plate_position = self._get_value("plate_position")
+        new_plate_pose = _plate_position_to_pose(new_plate_position, current_plate_pose)
+        move_plate_plan: list[FeedingAction] = [MovePlate(new_plate_pose)]
+
         move_drink_plan: list[FeedingAction] = [
             MoveDrink(new_drink_pose)
         ]
@@ -194,7 +200,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         finish = [WaitForUserInput("done")]
 
         plan = (
-            move_drink_plan
+            move_plate_plan
+            + move_drink_plan
             + pick_drink_plan
             + ready_for_transfer
             + transfer_drink_plan
@@ -382,7 +389,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
 
         constraints: list[CSPConstraint] = []
 
-        plate_position = variables[0]
+        plate_position, drink_position = variables
 
         # The plate position must be valid w.r.t. IK.
         def _plate_position_is_kinematically_valid(
@@ -407,7 +414,25 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _plate_position_is_kinematically_valid,
         )
 
-        constraints.append(plate_position_kinematically_valid_constraint)
+        # The plate and drink cannot be in collision.
+        def _plate_drink_collision_free(
+            plate_position: NDArray[np.float32],
+            drink_position: NDArray[np.float32],
+        ) -> bool:
+            new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
+            new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
+            set_pose(self._sim.plate_id, new_plate_pose, self._sim.physics_client_id)
+            set_pose(self._sim.drink_id, new_drink_pose, self._sim.physics_client_id)
+            return not check_body_collisions(self._sim.plate_id, self._sim.drink_id, self._sim.physics_client_id)
+
+        plate_drink_collision_free_constraint = FunctionalCSPConstraint(
+            "plate_drink_collision_free",
+            [plate_position, drink_position],
+            _plate_drink_collision_free,
+        )
+
+
+        constraints.append(plate_drink_collision_free_constraint)
 
         return constraints
 
