@@ -47,6 +47,10 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     WaitForUserInput,
 )
 from multitask_personalization.envs.feeding.feeding_utils import cartesian_control_step
+from multitask_personalization.envs.pybullet.pybullet_utils import (
+    BANISH_POSE,
+)
+
 
 
 class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
@@ -192,8 +196,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         )
         p.resetBasePositionAndOrientation(
             self.drink_id,
-            self.scene_spec.drink_default_pose.position,
-            self.scene_spec.drink_default_pose.orientation,
+            BANISH_POSE.position,
+            BANISH_POSE.orientation,
             physicsClientId=self.physics_client_id,
         )
 
@@ -206,6 +210,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         # Initialize user request.
         self.current_user_request: str | None = None
+        self._total_user_requests = 0
 
         # Initialize user feedback.
         self.current_user_feedback: str | None = None
@@ -242,12 +247,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         # Reset the user feedback.
         self.current_user_feedback = None
 
-        # Reset the user request. Alternate between food and drink.
-        if self.current_user_request in (None, "drink"):
-            self.current_user_request = "food"
-        else:
-            self.current_user_request = "drink"
-
         # Reset the tools.
         set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
 
@@ -261,22 +260,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         plate_pose = Pose((plate_x, plate_y, plate_z), plate_orn)
         set_pose(self.plate_id, plate_pose, self.physics_client_id)
 
-        # Randomly reset the drink while avoiding collisions with the plate.
-        for _ in range(1000):
-            drink_x, drink_y = self._rng.uniform(
-                low=self.scene_spec.drink_position_lower,
-                high=self.scene_spec.drink_position_upper,
-            )
-            drink_z = self.scene_spec.drink_default_pose.position[2]
-            drink_orn = self.scene_spec.drink_default_pose.orientation
-            drink_pose = Pose((drink_x, drink_y, drink_z), drink_orn)
-            set_pose(self.drink_id, drink_pose, self.physics_client_id)
-            if not check_body_collisions(
-                self.plate_id, self.drink_id, self.physics_client_id
-            ):
-                break
-        else:
-            raise RuntimeError("Failed to reset drink.")
+        # Reset the user request. Alternate between food and drink.
+        self._update_user_request()
 
         return self.get_state(), self._get_info()
 
@@ -410,12 +395,9 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
             self.current_user_feedback = "You're blocking my view!"
             logging.info("User feedback: %s", self.current_user_feedback)
 
-        # Alternate between requests.
+        # Update the user request if done.
         if done:
-            if self.current_user_request in (None, "drink"):
-                self.current_user_request = "food"
-            else:
-                self.current_user_request = "drink"
+            self._update_user_request()
 
         # Return the next state and default gym API stuff.
         return self.get_state(), 0.0, done, False, self._get_info()
@@ -522,6 +504,32 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.robot.close_fingers()
         self.held_object_name = None
         self.held_object_tf = None
+
+    def _reset_drink_pose(self) -> None:
+        for _ in range(1000):
+            drink_x, drink_y = self._rng.uniform(
+                low=self.scene_spec.drink_position_lower,
+                high=self.scene_spec.drink_position_upper,
+            )
+            drink_z = self.scene_spec.drink_default_pose.position[2]
+            drink_orn = self.scene_spec.drink_default_pose.orientation
+            drink_pose = Pose((drink_x, drink_y, drink_z), drink_orn)
+            set_pose(self.drink_id, drink_pose, self.physics_client_id)
+            if not check_body_collisions(
+                self.plate_id, self.drink_id, self.physics_client_id
+            ):
+                break
+        else:
+            raise RuntimeError("Failed to reset drink.")
+        
+    def _update_user_request(self) -> None:
+        if self._total_user_requests % 3 == 2:
+            self.current_user_request = "drink"
+            self._reset_drink_pose()
+        else:
+            self.current_user_request = "food"
+            set_pose(self.drink_id, BANISH_POSE, self.physics_client_id)
+        self._total_user_requests += 1 
 
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""

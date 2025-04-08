@@ -212,7 +212,7 @@ class FeedingSceneSpec(PublicSceneSpec):
         position=(0.56, 0.55, 0.34), orientation=(0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0)
     )
     drink_default_post_grasp_pose: Pose = Pose(
-        position=(0.56, 0.55, 0.6), orientation=(0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0)
+        position=(0.56, 0.55, 0.5), orientation=(0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0)
     )
     drink_before_transfer_pos: JointPositions = field(
         default_factory=lambda: [
