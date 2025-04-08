@@ -39,8 +39,8 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
     FeedingState,
     GraspTool,
-    MovePlate,
     MoveDrink,
+    MovePlate,
     MoveToEEPose,
     MoveToJointPositions,
     UngraspTool,
@@ -50,7 +50,6 @@ from multitask_personalization.envs.feeding.feeding_utils import cartesian_contr
 from multitask_personalization.envs.pybullet.pybullet_utils import (
     BANISH_POSE,
 )
-
 
 
 class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
@@ -342,7 +341,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 new_joints,
             )
             if self._use_gui:
-                self._pause_gui(1.0)
+                self._pause_gui(0.25)
         elif isinstance(action, CloseGripper):
             self.robot.close_fingers()
         elif isinstance(action, MoveToEEPose):
@@ -521,7 +520,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
                 break
         else:
             raise RuntimeError("Failed to reset drink.")
-        
+
     def _update_user_request(self) -> None:
         if self._total_user_requests % 4 < 2:
             self.current_user_request = "food"

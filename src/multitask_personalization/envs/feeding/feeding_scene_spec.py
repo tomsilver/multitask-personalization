@@ -225,11 +225,15 @@ class FeedingSceneSpec(PublicSceneSpec):
             1.789,
         ]
     )
-    drink_before_transfer_pose: Pose = Pose((0.504, 0.58, 0.529), (0.0, 0.707, 0.707, 0))
+    drink_before_transfer_pose: Pose = Pose(
+        (0.504, 0.58, 0.529), (0.0, 0.707, 0.707, 0)
+    )
 
     # This is redundant, but it's convenient for the CSP solver.
     utensil_held_object_tf: Pose = Pose(position=(0.0, 0.0, 0.05955))
-    drink_held_object_tf: Pose = Pose(position=(0.0, 0.0, 0.05955), orientation=(0, 0, 0, 1))
+    drink_held_object_tf: Pose = Pose(
+        position=(0.0, 0.0, 0.05955), orientation=(0, 0, 0, 1)
+    )
 
     # Rendering.
     image_height: int = 1024

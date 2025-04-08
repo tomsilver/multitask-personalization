@@ -10,9 +10,9 @@ from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, set_pose
 from pybullet_helpers.inverse_kinematics import (
     InverseKinematicsError,
+    check_body_collisions,
     inverse_kinematics,
     set_robot_joints_with_held_object,
-    check_body_collisions
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
@@ -26,7 +26,6 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingState,
     GraspTool,
     MovePlate,
-    MoveDrink,
     MoveToEEPose,
     MoveToJointPositions,
     MoveToLastJointPositionswithEEPose,
@@ -152,11 +151,11 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
             "drink_default_post_grasp_pose", obs.drink_pose, scene_spec
         )
         drink_before_transfer_pos = _transform_joints_relative_to_drink(
-            "drink_before_transfer_pos", obs.drink_pose,
-            self._sim.robot, scene_spec)
+            "drink_before_transfer_pos", obs.drink_pose, self._sim.robot, scene_spec
+        )
         drink_before_transfer_pose = _transform_pose_relative_to_drink(
-            "drink_before_transfer_pose", obs.drink_pose, scene_spec)
-        
+            "drink_before_transfer_pose", obs.drink_pose, scene_spec
+        )
 
         pick_drink_plan: list[FeedingAction] = [
             MoveToJointPositions(scene_spec.retract_pos),
@@ -199,7 +198,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         )
 
         return plan
-    
+
     def _get_prepare_plan(self, obs: FeedingState) -> list[FeedingAction] | None:
         scene_spec = self._sim.scene_spec
 
@@ -235,7 +234,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
         new_drink_post_grasp_pose = _transform_pose_relative_to_drink(
             "drink_default_post_grasp_pose", new_drink_pose, scene_spec
         )
-        
+
         current_plate_pose = obs.plate_pose
         new_plate_position = self._get_value("plate_position")
         new_plate_pose = _plate_position_to_pose(new_plate_position, current_plate_pose)
@@ -264,12 +263,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
         finish = [WaitForUserInput("done")]
 
-        plan = (
-            move_plate_plan
-            + pick_drink_plan
-            + stow_drink_plan
-            + finish
-        )
+        plan = move_plate_plan + pick_drink_plan + stow_drink_plan + finish
 
         return plan
 
@@ -414,7 +408,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
             )
             try:
-                robot_joints = inverse_kinematics(self._sim.robot, drink_post_grasp_pose)
+                robot_joints = inverse_kinematics(
+                    self._sim.robot, drink_post_grasp_pose
+                )
             except InverseKinematicsError:
                 return False
             held_object_id = self._sim.get_object_id_from_name("drink")
@@ -488,7 +484,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
             set_pose(self._sim.plate_id, new_plate_pose, self._sim.physics_client_id)
             set_pose(self._sim.drink_id, new_drink_pose, self._sim.physics_client_id)
-            return not check_body_collisions(self._sim.plate_id, self._sim.drink_id, self._sim.physics_client_id)
+            return not check_body_collisions(
+                self._sim.plate_id, self._sim.drink_id, self._sim.physics_client_id
+            )
 
         plate_drink_collision_free_constraint = FunctionalCSPConstraint(
             "plate_drink_collision_free",
