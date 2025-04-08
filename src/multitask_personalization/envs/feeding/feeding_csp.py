@@ -169,15 +169,14 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
 
         finish = [WaitForUserInput("done")]
 
-        # TODO
         plan = (
-            # move_plate_plan
-            # + pick_utensil_plan
-            # + acquire_bite_plan
-            # + ready_for_transfer
-            # + transfer_bite_plan
-            # + stow_utensil_plan
-            move_drink_plan
+            move_plate_plan
+            + pick_utensil_plan
+            + acquire_bite_plan
+            + ready_for_transfer
+            + transfer_bite_plan
+            + stow_utensil_plan
+            + move_drink_plan
             + pick_drink_plan
             + ready_for_transfer
             + transfer_drink_plan
