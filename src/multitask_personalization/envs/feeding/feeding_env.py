@@ -493,6 +493,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_tf = finger_from_end_effector
         if tool == "utensil":
             assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
+        if tool == "drink":
+            assert self.held_object_tf.allclose(self.scene_spec.drink_held_object_tf)
 
     def _execute_ungrasp_tool(self) -> None:
         self.robot.close_fingers()

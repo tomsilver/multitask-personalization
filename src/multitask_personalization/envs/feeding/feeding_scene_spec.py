@@ -229,6 +229,7 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     # This is redundant, but it's convenient for the CSP solver.
     utensil_held_object_tf: Pose = Pose(position=(0.0, 0.0, 0.05955))
+    drink_held_object_tf: Pose = Pose(position=(0.0, 0.0, 0.05955), orientation=(0, 0, 0, 1))
 
     # Rendering.
     image_height: int = 1024

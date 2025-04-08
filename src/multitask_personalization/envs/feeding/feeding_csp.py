@@ -269,7 +269,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
     ) -> list[CSPConstraint]:
 
         constraints: list[CSPConstraint] = []
-        plate_position = variables[0]
+        plate_position, drink_position = variables
 
         # NOTE: we are currently just using the MLE occlusion scale, rather than
         # using the full distribution. That means that "ours" will be equivalent
@@ -281,7 +281,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         self._sim.set_occlusion_scale(occlusion_scale)
         logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
-        def _user_view_unoccluded(
+        def _user_view_unoccluded_by_utensil(
             plate_position: NDArray[np.float32],
         ) -> bool:
             new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
@@ -298,6 +298,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 return False
             held_object_id = self._sim.get_object_id_from_name("utensil")
             held_object_tf = self._sim.scene_spec.utensil_held_object_tf
+            self._sim.set_state(obs)
             set_robot_joints_with_held_object(
                 self._sim.robot,
                 self._sim.physics_client_id,
@@ -310,13 +311,47 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             )
             return not self._sim.robot_in_occlusion()
 
-        user_view_unoccluded_constraint = FunctionalCSPConstraint(
-            "user_view_unoccluded",
+        user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
+            "user_view_unoccluded_by_utensil",
             [plate_position],
-            _user_view_unoccluded,
+            _user_view_unoccluded_by_utensil,
         )
 
-        constraints.append(user_view_unoccluded_constraint)
+        constraints.append(user_view_unoccluded_by_utensil_constraint)
+
+        def _user_view_unoccluded_by_drink(
+            drink_position: NDArray[np.float32],
+        ) -> bool:
+            new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
+            drink_post_grasp_pose = _transform_pose_relative_to_drink(
+                "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
+            )
+            try:
+                robot_joints = inverse_kinematics(self._sim.robot, drink_post_grasp_pose)
+            except InverseKinematicsError:
+                return False
+            held_object_id = self._sim.get_object_id_from_name("drink")
+            held_object_tf = self._sim.scene_spec.drink_held_object_tf
+            self._sim.set_state(obs)
+            set_robot_joints_with_held_object(
+                self._sim.robot,
+                self._sim.physics_client_id,
+                held_object_id,
+                held_object_tf,
+                robot_joints,
+            )
+            self._sim.robot.set_finger_state(
+                self._sim.scene_spec.tool_grasp_fingers_value
+            )
+            return not self._sim.robot_in_occlusion()
+
+        user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
+            "user_view_unoccluded_by_drink",
+            [drink_position],
+            _user_view_unoccluded_by_drink,
+        )
+
+        constraints.append(user_view_unoccluded_by_drink_constraint)
 
         return constraints
 
