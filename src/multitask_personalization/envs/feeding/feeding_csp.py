@@ -592,8 +592,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         self._sim.set_state(next_obs)
         occlusion_score = self._sim.get_occlusion_score()
         self._occlusion_model.fit_incremental([occlusion_score], [label])
-        logging.info(f"Updated occlusion model with {occlusion_score}, {label}")
-        logging.info(f"New params: {self._occlusion_model.get_summary()}")
+        print(f"Updated occlusion model with {occlusion_score}, {label}")
+        print(f"New params: {self._occlusion_model.get_summary()}")
 
 
 def _plate_position_to_pose(

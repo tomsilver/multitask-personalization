@@ -2,6 +2,7 @@
 
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv, FeedingState, BANISH_POSE
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
+from multitask_personalization.envs.feeding.feeding_structs import MoveToJointPositions
 from multitask_personalization.envs.feeding.feeding_csp import _plate_position_to_pose, _drink_position_to_pose, _transform_joints_relative_to_plate, _transform_joints_relative_to_drink, _transform_pose_relative_to_drink, _transform_pose_relative_to_plate
 from multitask_personalization.methods.csp_approach import CSPApproach
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
@@ -52,6 +53,12 @@ class MultitaskPersonalizationFeastInterface:
         )
         visualize_pose(plate_pose, self._env.physics_client_id)
 
+        occluded = feast_state_dict.get("occluded", False)
+        if occluded:
+            user_feedback = "You're blocking my view!"
+        else:
+            user_feedback = None
+
         feeding_state = FeedingState(
             robot_joints=robot_joints,
             plate_pose=plate_pose,
@@ -60,9 +67,14 @@ class MultitaskPersonalizationFeastInterface:
             held_object_tf=None,
             stage="acquisition",
             user_request="food",
-            user_feedback=None,
+            user_feedback=user_feedback,
         )
         self._env.set_state(feeding_state)
+
+        if occluded:
+            act = MoveToJointPositions(robot_joints)
+            self._approach._csp_generator.observe_transition(feeding_state, act, feeding_state,
+                                                             False, {})
 
 
         input("Press enter to run CSP solver...")
