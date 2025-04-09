@@ -4,6 +4,8 @@ from multitask_personalization.envs.feeding.feeding_env import FeedingEnv, Feedi
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
 from multitask_personalization.methods.csp_approach import CSPApproach
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
+from pybullet_helpers.geometry import Pose
+from pybullet_helpers.gui import visualize_pose
 from typing import Any
 
 
@@ -28,10 +30,28 @@ class MultitaskPersonalizationFeastInterface:
         
     def run(self, feast_state_dict: dict[str, Any]) -> dict[str, Any]:
 
-        plate_pose = feast_state_dict["plate_pose"]
-        drink_pose = feast_state_dict.get("drink_pose", BANISH_POSE)
+        sim_state = self._env.get_state()
+
         robot_joints = feast_state_dict["robot_joints"]
-        
+
+        detected_plate_pose = feast_state_dict["plate_pose"]
+        plate_pose = Pose(
+            (detected_plate_pose.position[0],
+             detected_plate_pose.position[1],
+             sim_state.plate_pose.position[2]),
+            detected_plate_pose.orientation
+        )
+        visualize_pose(plate_pose, self._env.physics_client_id)
+
+        detected_drink_pose = feast_state_dict.get("drink_pose", BANISH_POSE)
+        drink_pose = Pose(
+            (detected_drink_pose.position[0],
+             detected_drink_pose.position[1],
+             sim_state.drink_pose.position[2]),
+            detected_drink_pose.orientation
+        )
+        visualize_pose(plate_pose, self._env.physics_client_id)
+
         feeding_state = FeedingState(
             robot_joints=robot_joints,
             plate_pose=plate_pose,
@@ -43,8 +63,8 @@ class MultitaskPersonalizationFeastInterface:
             user_feedback=None,
         )
         self._env.set_state(feeding_state)
-        import ipdb; ipdb.set_trace()
-        self._approach.reset(feeding_state, {})
+        # import ipdb; ipdb.set_trace()
+        # self._approach.reset(feeding_state, {})
     
 
 if __name__ == "__main__":
