@@ -145,7 +145,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.table_id = create_pybullet_cylinder(
             (1.0, 1.0, 1.0, 1.0),
             radius=self.scene_spec.table_radius,
-            length=0.1,
+            length=0.001,
             physics_client_id=self.physics_client_id
         )
 
@@ -209,7 +209,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.current_stage = "acquisition"
 
         # Initialize user request.
-        self.current_user_request: str | None = None
+        self.current_user_request: str | None = "food"
         self._total_user_requests = 0
 
         # Initialize user feedback.

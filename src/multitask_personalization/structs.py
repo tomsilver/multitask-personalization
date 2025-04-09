@@ -146,11 +146,11 @@ class CSP:
     def check_solution(self, sol: dict[CSPVariable, Any]) -> bool:
         """Check whether all constraints hold given values of the variables."""
         for constraint in self.constraints:
-            logging.debug(f"Checking constraint: {constraint.name}")
+            print(f"Checking constraint: {constraint.name}")
             if not constraint.check_solution(sol):
-                logging.debug("Result: False")
+                print("Result: False")
                 return False
-            logging.debug("Result: True")
+            print("Result: True")
         return True
 
     def get_cost(self, sol: dict[CSPVariable, Any]) -> float:

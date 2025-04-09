@@ -82,14 +82,14 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # Table.
-    table_pose: Pose = Pose((0.35, 0.45, 0.15))
+    table_pose: Pose = Pose((0.55, 0.45, 0.15))
     table_radius: float = 0.75/2
 
     # Plate.
-    plate_default_pose: Pose = Pose((0.3, 0.25, 0.16))
+    plate_default_pose: Pose = Pose((0.4, 0.3, 0.17))
     plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.urdf"
     plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.obj"
-    plate_radius: 0.2
+    plate_radius: float = 0.2
 
     # Utensil.
     utensil_urdf_path: Path = (
@@ -114,7 +114,7 @@ class FeedingSceneSpec(PublicSceneSpec):
         Path(__file__).parent / "assets" / "drinking_utensil" / "drinking_utensil.urdf"
     )
     drink_default_pose: Pose = Pose(
-        (0.55, 0.6, 0.34), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0)
+        (0.55, 0.6, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0)
     )
     drink_gaze_pos: JointPositions = field(
         default_factory=lambda: [

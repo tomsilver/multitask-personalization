@@ -375,6 +375,10 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                     arm_joints_only=False,
                 )
             except InverseKinematicsError:
+                print("WARNING: IK failed within _user_view_unoccluded_by_utensil()")
+                from pybullet_helpers.gui import visualize_pose
+                visualize_pose(new_plate_pose, self._sim.physics_client_id)
+                import ipdb; ipdb.set_trace()
                 return False
             held_object_id = self._sim.get_object_id_from_name("utensil")
             held_object_tf = self._sim.scene_spec.utensil_held_object_tf
@@ -412,6 +416,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                     self._sim.robot, drink_post_grasp_pose
                 )
             except InverseKinematicsError:
+                print("WARNING: IK failed within _user_view_unoccluded_by_drink()")
                 return False
             held_object_id = self._sim.get_object_id_from_name("drink")
             held_object_tf = self._sim.scene_spec.drink_held_object_tf
@@ -449,31 +454,31 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
 
         plate_position, drink_position = variables
 
-        # The plate position must be valid w.r.t. IK.
-        def _plate_position_is_kinematically_valid(
-            plate_position: NDArray[np.float32],
-        ) -> bool:
-            new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
-            for field_name in ["before_transfer_pos", "above_plate_pos"]:
-                try:
-                    _transform_joints_relative_to_plate(
-                        field_name,
-                        new_plate_pose,
-                        self._sim.robot,
-                        self._sim.scene_spec,
-                    )
-                except InverseKinematicsError:
-                    return False
-            return True
+        # # The plate position must be valid w.r.t. IK.
+        # def _plate_position_is_kinematically_valid(
+        #     plate_position: NDArray[np.float32],
+        # ) -> bool:
+        #     new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
+        #     for field_name in ["before_transfer_pos", "above_plate_pos"]:
+        #         try:
+        #             _transform_joints_relative_to_plate(
+        #                 field_name,
+        #                 new_plate_pose,
+        #                 self._sim.robot,
+        #                 self._sim.scene_spec,
+        #             )
+        #         except InverseKinematicsError:
+        #             return False
+        #     return True
 
-        plate_position_kinematically_valid_constraint = FunctionalCSPConstraint(
-            "plate_position_kinematically_valid",
-            [plate_position],
-            _plate_position_is_kinematically_valid,
-        )
+        # plate_position_kinematically_valid_constraint = FunctionalCSPConstraint(
+        #     "plate_position_kinematically_valid",
+        #     [plate_position],
+        #     _plate_position_is_kinematically_valid,
+        # )
 
-        if obs.user_request != "drink":
-            constraints.append(plate_position_kinematically_valid_constraint)
+        # if obs.user_request != "drink":
+        #     constraints.append(plate_position_kinematically_valid_constraint)
 
         # The plate and drink cannot be in collision.
         def _plate_drink_collision_free(

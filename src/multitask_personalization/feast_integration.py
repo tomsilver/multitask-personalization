@@ -16,8 +16,7 @@ class MultitaskPersonalizationFeastInterface:
 
         # Create "environment".
         self._scene_spec = FeedingSceneSpec()
-        self._env = FeedingEnv(self._scene_spec, seed=self._seed, use_gui=True)
-        self._env.reset()
+        self._env = FeedingEnv(self._scene_spec, seed=self._seed, use_gui=False)
 
         # Create approach.
         csp_solver = RandomWalkCSPSolver(self._seed)
