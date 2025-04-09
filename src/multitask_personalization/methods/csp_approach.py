@@ -201,7 +201,10 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             )
         if isinstance(self._scene_spec, FeedingSceneSpec):
             occlusion_scale_model = Threshold1DModel(0.0, 1.0)
-            feeding_sim = FeedingEnv(self._scene_spec, use_gui=True)
+            try:
+                feeding_sim = FeedingEnv(self._scene_spec, use_gui=True)
+            except:
+                feeding_sim = FeedingEnv(self._scene_spec, use_gui=False)
             return FeedingCSPGenerator(
                 feeding_sim,
                 occlusion_scale_model,

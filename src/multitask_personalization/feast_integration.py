@@ -12,12 +12,12 @@ from typing import Any
 
 class MultitaskPersonalizationFeastInterface:
     
-    def __init__(self, personalize: bool = True) -> None:
+    def __init__(self, use_gui: bool, personalize: bool = True) -> None:
         self._seed = 0
 
         # Create "environment".
         self._scene_spec = FeedingSceneSpec()
-        self._env = FeedingEnv(self._scene_spec, seed=self._seed, use_gui=False)
+        self._env = FeedingEnv(self._scene_spec, seed=self._seed, use_gui=use_gui)
 
         # Create approach.
         csp_solver = RandomWalkCSPSolver(self._seed)
@@ -63,6 +63,10 @@ class MultitaskPersonalizationFeastInterface:
             user_feedback=None,
         )
         self._env.set_state(feeding_state)
+
+
+        input("Press enter to run CSP solver...")
+
         self._approach.reset(feeding_state, {})
 
         sol = self._approach._current_sol
@@ -94,18 +98,37 @@ class MultitaskPersonalizationFeastInterface:
 
 
 if __name__ == "__main__":
+    import argparse
     import rospy
     import pickle
     from std_msgs.msg import String
     import base64
 
-    interface = MultitaskPersonalizationFeastInterface()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--use_gui",
+        action="store_true",
+        help="Use GUI.",
+    )
+    parser.add_argument(
+        "--no_personalize",
+        action="store_true",
+        help="Personalize.",
+    )
+    args = parser.parse_args()
+
+    interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize)
 
     def callback(msg):
         obj = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object
         print("Received object:", obj)
         scene_spec_updates = interface.run(obj)
-        pub.publish(base64.b64encode(pickle.dumps(scene_spec_updates)))
+        print("Sending scene updates:", scene_spec_updates)
+        msg = String()
+        ps = pickle.dumps(scene_spec_updates)
+        s = base64.b64encode(ps).decode('ascii')
+        msg.data = s
+        pub.publish(msg)
 
     rospy.init_node("multitask_personalization_feast_interface")
     sub = rospy.Subscriber('/mp_state', String, callback)
