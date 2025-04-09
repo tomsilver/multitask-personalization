@@ -27,7 +27,7 @@ from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.link import get_relative_link_pose
 from pybullet_helpers.robots import create_pybullet_robot
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
-from pybullet_helpers.utils import create_pybullet_block
+from pybullet_helpers.utils import create_pybullet_block, create_pybullet_cylinder
 from tomsutils.spaces import FunctionalSpace
 
 from multitask_personalization.envs.feeding.feeding_hidden_spec import (
@@ -142,10 +142,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         )
 
         # Create table.
-        self.table_id = p.loadURDF(
-            str(self.scene_spec.table_urdf_path),
-            useFixedBase=True,
-            physicsClientId=self.physics_client_id,
+        self.table_id = create_pybullet_cylinder(
+            (1.0, 1.0, 1.0, 1.0),
+            radius=self.scene_spec.table_radius,
+            length=0.1,
+            physics_client_id=self.physics_client_id
         )
 
         p.resetBasePositionAndOrientation(

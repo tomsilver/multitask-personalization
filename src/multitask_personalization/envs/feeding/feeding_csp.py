@@ -321,8 +321,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
 
         # XY position of the plate.
         plate_position_domain = Box(
-            np.array(self._sim.scene_spec.plate_position_lower),
-            np.array(self._sim.scene_spec.plate_position_upper),
+            np.array([-np.inf, -np.inf]),
+            np.array([np.inf, np.inf]),
             dtype=np.float32,
         )
         plate_position = CSPVariable("plate_position", plate_position_domain)
@@ -330,8 +330,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
 
         # XY position of the drink.
         drink_position_domain = Box(
-            np.array(self._sim.scene_spec.drink_position_lower),
-            np.array(self._sim.scene_spec.drink_position_upper),
+            np.array([-np.inf, -np.inf]),
+            np.array([np.inf, np.inf]),
             dtype=np.float32,
         )
         drink_position = CSPVariable("drink_position", drink_position_domain)
@@ -518,9 +518,14 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         def _sample_plate_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            new_pos = rng.uniform(
-                low=self._sim.scene_spec.plate_position_lower,
-                high=self._sim.scene_spec.plate_position_upper,
+            radius = rng.uniform(self._sim.scene_spec.table_radius - self._sim.scene_spec.plate_radius)
+            angle = rng.uniform(0, 2 * np.pi)
+            origin = self._sim.scene_spec.table_pose.position[:2]
+            new_pos = np.array(
+                [
+                    origin[0] + radius * np.cos(angle),
+                    origin[1] + radius * np.sin(angle),
+                ]
             ).astype(np.float32)
             return {plate_position: new_pos}
 
@@ -531,9 +536,14 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         def _sample_drink_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            new_pos = rng.uniform(
-                low=self._sim.scene_spec.drink_position_lower,
-                high=self._sim.scene_spec.drink_position_upper,
+            radius = rng.uniform(self._sim.scene_spec.table_radius - self._sim.scene_spec.drink_radius)
+            angle = rng.uniform(0, 2 * np.pi)
+            origin = self._sim.scene_spec.table_pose.position[:2]
+            new_pos = np.array(
+                [
+                    origin[0] + radius * np.cos(angle),
+                    origin[1] + radius * np.sin(angle),
+                ]
             ).astype(np.float32)
             return {drink_position: new_pos}
 

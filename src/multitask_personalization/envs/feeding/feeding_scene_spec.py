@@ -83,15 +83,13 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     # Table.
     table_pose: Pose = Pose((0.35, 0.45, 0.15))
-    table_urdf_path: Path = Path(__file__).parent / "assets" / "table" / "table.urdf"
-    table_mesh_path: Path = Path(__file__).parent / "assets" / "table" / "table.obj"
+    table_radius: float = 0.75/2
 
     # Plate.
     plate_default_pose: Pose = Pose((0.3, 0.25, 0.16))
     plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.urdf"
     plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.obj"
-    plate_position_lower: tuple[float, float] = (0.3, 0.25)
-    plate_position_upper: tuple[float, float] = (0.38, 0.64)
+    plate_radius: 0.2
 
     # Utensil.
     utensil_urdf_path: Path = (
@@ -140,8 +138,7 @@ class FeedingSceneSpec(PublicSceneSpec):
             -2.7182634909296315,
         ]
     )
-    drink_position_lower: tuple[float, float] = (0.3, 0.15)
-    drink_position_upper: tuple[float, float] = (0.38, 0.75)
+    drink_radius: float = 0.07
 
     # Occlusion model hyperparameters.
     occlusion_grid_size: int = 5

@@ -63,8 +63,8 @@ class MultitaskPersonalizationFeastInterface:
             user_feedback=None,
         )
         self._env.set_state(feeding_state)
-        # import ipdb; ipdb.set_trace()
-        # self._approach.reset(feeding_state, {})
+        self._approach.reset(feeding_state, {})
+        import ipdb; ipdb.set_trace()
     
 
 if __name__ == "__main__":
