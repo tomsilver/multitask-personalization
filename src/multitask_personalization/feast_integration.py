@@ -2,6 +2,7 @@
 
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv, FeedingState, BANISH_POSE
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
+from multitask_personalization.envs.feeding.feeding_csp import _plate_position_to_pose, _drink_position_to_pose, _transform_joints_relative_to_plate, _transform_joints_relative_to_drink, _transform_pose_relative_to_drink, _transform_pose_relative_to_plate
 from multitask_personalization.methods.csp_approach import CSPApproach
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from pybullet_helpers.geometry import Pose
@@ -63,8 +64,34 @@ class MultitaskPersonalizationFeastInterface:
         )
         self._env.set_state(feeding_state)
         self._approach.reset(feeding_state, {})
-        import ipdb; ipdb.set_trace()
-    
+
+        sol = self._approach._current_sol
+        plate_var, drink_var = sol.keys()
+        assert "plate" in plate_var.name
+        assert "drink" in drink_var.name
+        plate_position = sol[plate_var]
+        drink_position = sol[drink_var]
+        new_plate_pose = _plate_position_to_pose(plate_position, plate_pose)
+        new_drink_pose = _drink_position_to_pose(drink_position, drink_pose)
+
+        before_transfer_pose = _transform_pose_relative_to_plate(
+            "before_transfer_pose", new_plate_pose, self._env.scene_spec
+        )
+
+        before_transfer_pos = _transform_joints_relative_to_plate(
+            "before_transfer_pos", new_plate_pose, self._env.robot, self._env.scene_spec
+        )
+
+        above_plate_pos = _transform_joints_relative_to_plate(
+            "above_plate_pos", new_plate_pose, self._env.robot, self._env.scene_spec
+        )
+
+        return {
+            "before_transfer_pose": before_transfer_pose,
+            "before_transfer_pos": before_transfer_pos,
+            "above_plate_pos": above_plate_pos,
+        }
+
 
 if __name__ == "__main__":
     import rospy
@@ -77,9 +104,11 @@ if __name__ == "__main__":
     def callback(msg):
         obj = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object
         print("Received object:", obj)
-        interface.run(obj)
+        scene_spec_updates = interface.run(obj)
+        pub.publish(base64.b64encode(pickle.dumps(scene_spec_updates)))
 
     rospy.init_node("multitask_personalization_feast_interface")
     sub = rospy.Subscriber('/mp_state', String, callback)
+    pub = rospy.Publisher('/mp_state_out', String, queue_size=1)
 
     rospy.spin()
