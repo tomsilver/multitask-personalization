@@ -10,17 +10,17 @@ from typing import Any
 class MultitaskPersonalizationFeastInterface:
     
     def __init__(self, personalize: bool = True) -> None:
-        self.seed = 0
+        self._seed = 0
 
         # Create "environment".
         self._scene_spec = FeedingSceneSpec()
-        self._env = FeedingEnv(self._scene_spec, seed=self._seed)
+        self._env = FeedingEnv(self._scene_spec, seed=self._seed, use_gui=True)
         self._env.reset()
 
         # Create approach.
         csp_solver = RandomWalkCSPSolver(self._seed)
         assert personalize, "TODO"
-        explore_method = "exploit_only"
+        explore_method = "exploit-only"
         self._approach = CSPApproach(self._scene_spec, self._env.action_space,
                                      csp_solver=csp_solver,
                                      explore_method=explore_method)
@@ -43,6 +43,24 @@ class MultitaskPersonalizationFeastInterface:
             user_feedback=None,
         )
         self._env.set_state(feeding_state)
-        self._approach.reset(feeding_state, {})
         import ipdb; ipdb.set_trace()
+        self._approach.reset(feeding_state, {})
     
+
+if __name__ == "__main__":
+    import rospy
+    import pickle
+    from std_msgs.msg import String
+    import base64
+
+    interface = MultitaskPersonalizationFeastInterface()
+
+    def callback(msg):
+        obj = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object
+        print("Received object:", obj)
+        interface.run(obj)
+
+    rospy.init_node("multitask_personalization_feast_interface")
+    sub = rospy.Subscriber('/mp_state', String, callback)
+
+    rospy.spin()
