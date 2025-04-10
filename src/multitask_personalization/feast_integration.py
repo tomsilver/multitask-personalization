@@ -111,7 +111,7 @@ class MultitaskPersonalizationFeastInterface:
             "before_transfer_pose": before_transfer_pose,
             "before_transfer_pos": before_transfer_pos,
             "above_plate_pos": above_plate_pos,
-            "plate_delta_xy": (-1 * (new_plate_pose.position[1] - plate_pose.position[1])
+            "plate_delta_xy": (-1 * (new_plate_pose.position[1] - plate_pose.position[1]),
                                (new_plate_pose.position[0] - plate_pose.position[0])),
         }
 
