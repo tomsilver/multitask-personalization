@@ -72,7 +72,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # User head.
-    user_head_pose: Pose = Pose((-0.4, 0.5, 0.67), (0.5, 0.5, 0.5, 0.5))
+    user_head_pose: Pose = Pose((-0.4, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5))
 
     # User eyes.
     user_eyes_relative_pose: Pose = Pose((0.0, 0.1, 0.1))
@@ -142,7 +142,7 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     # Occlusion model hyperparameters.
     occlusion_grid_size: int = 5
-    occlusion_grid_delta: float = 0.1
+    occlusion_grid_delta: float = 0.025
     occlusion_max_ray_length: float = 10.0
     occlusion_alpha: float = 1.0
     occlusion_sigma: NDArray = np.eye(2)

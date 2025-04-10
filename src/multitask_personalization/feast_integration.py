@@ -51,11 +51,12 @@ class MultitaskPersonalizationFeastInterface:
              sim_state.drink_pose.position[2]),
             detected_drink_pose.orientation
         )
-        visualize_pose(plate_pose, self._env.physics_client_id)
+        visualize_pose(drink_pose, self._env.physics_client_id)
 
         occluded = feast_state_dict.get("occluded", False)
         if occluded:
             user_feedback = "You're blocking my view!"
+            robot_joints = self._last_above_plate_joints
         else:
             user_feedback = None
 
@@ -90,6 +91,8 @@ class MultitaskPersonalizationFeastInterface:
         new_plate_pose = _plate_position_to_pose(plate_position, plate_pose)
         new_drink_pose = _drink_position_to_pose(drink_position, drink_pose)
 
+        visualize_pose(new_plate_pose, self._env.physics_client_id)
+
         before_transfer_pose = _transform_pose_relative_to_plate(
             "before_transfer_pose", new_plate_pose, self._env.scene_spec
         )
@@ -98,16 +101,18 @@ class MultitaskPersonalizationFeastInterface:
             "before_transfer_pos", new_plate_pose, self._env.robot, self._env.scene_spec
         )
 
-        above_plate_pos = _transform_joints_relative_to_plate(
-            "above_plate_pos", new_plate_pose, self._env.robot, self._env.scene_spec
+        self._last_above_plate_joints = _transform_joints_relative_to_plate(
+            "above_plate_pos", new_plate_pose, self._env.robot, self._env.scene_spec,
+            arm_joints_only=False
         )
+        above_plate_pos = self._last_above_plate_joints[:7]
 
         return {
             "before_transfer_pose": before_transfer_pose,
             "before_transfer_pos": before_transfer_pos,
             "above_plate_pos": above_plate_pos,
-            "plate_delta_xy": (new_plate_pose.position[0] - plate_pose.position[0],
-                               new_plate_pose.position[1] - plate_pose.position[1]),
+            "plate_delta_xy": (-1 * (new_plate_pose.position[1] - plate_pose.position[1])
+                               (new_plate_pose.position[0] - plate_pose.position[0])),
         }
 
 
