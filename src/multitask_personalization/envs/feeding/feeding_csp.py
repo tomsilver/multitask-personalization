@@ -378,7 +378,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 print("WARNING: IK failed within _user_view_unoccluded_by_utensil()")
                 from pybullet_helpers.gui import visualize_pose
                 visualize_pose(new_plate_pose, self._sim.physics_client_id)
-                import ipdb; ipdb.set_trace()
                 return False
             held_object_id = self._sim.get_object_id_from_name("utensil")
             held_object_tf = self._sim.scene_spec.utensil_held_object_tf
