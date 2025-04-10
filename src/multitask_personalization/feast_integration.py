@@ -78,8 +78,6 @@ class MultitaskPersonalizationFeastInterface:
                                                              False, {})
 
 
-        input("Press enter to run CSP solver...")
-
         self._approach.reset(feeding_state, {})
 
         sol = self._approach._current_sol
