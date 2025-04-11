@@ -615,7 +615,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         print("score:", score)
 
-        return 1.0 if score > 0 else 0.0
+        return 0.499 if score > 0 else 0.0
 
     def _pause_gui(self, duration: float) -> None:
         if not self._use_gui:
