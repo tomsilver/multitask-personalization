@@ -62,7 +62,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     robot_holder_half_extents: tuple[float, float, float] = (0.10, 0.10, 0.33)
 
     # Wheelchair.
-    wheelchair_pose: Pose = Pose((-0.3, 0.45, -0.06), (0.0, 0.0, 0.0, 1.0))
+    wheelchair_pose: Pose = Pose((-0.2, 0.45, -0.06), (0.0, 0.0, 0.0, 1.0))
     wheelchair_relative_head_pose: Pose = Pose((0.0, -0.25, 0.75), (0.0, 0.0, 0.0, 1.0))
     wheelchair_urdf_path: Path = (
         Path(__file__).parent / "assets" / "wheelchair" / "wheelchair.urdf"
@@ -82,14 +82,14 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # Table.
-    table_pose: Pose = Pose((0.55, 0.45, 0.15))
-    table_radius: float = 0.7/2
+    table_pose: Pose = Pose((0.45, 0.45, 0.15))
+    table_radius: float = 0.75/2
 
     # Plate.
     plate_default_pose: Pose = Pose((0.4, 0.3, 0.17))
     plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.urdf"
     plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.obj"
-    plate_radius: float = 0.15
+    plate_radius: float = 0.13
 
     # Utensil.
     utensil_urdf_path: Path = (
@@ -138,7 +138,7 @@ class FeedingSceneSpec(PublicSceneSpec):
             -2.7182634909296315,
         ]
     )
-    drink_radius: float = 0.07
+    drink_radius: float = 0.05
 
     # Occlusion model hyperparameters.
     occlusion_grid_size: int = 5
