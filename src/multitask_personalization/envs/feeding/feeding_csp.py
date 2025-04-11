@@ -377,8 +377,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 )
             except InverseKinematicsError:
                 print("WARNING: IK failed within _user_view_unoccluded_by_utensil()")
-                from pybullet_helpers.gui import visualize_pose
-                visualize_pose(new_plate_pose, self._sim.physics_client_id)
+                # from pybullet_helpers.gui import visualize_pose
+                # visualize_pose(new_plate_pose, self._sim.physics_client_id)
                 return False
             held_object_id = self._sim.get_object_id_from_name("utensil")
             held_object_tf = self._sim.scene_spec.utensil_held_object_tf
@@ -407,11 +407,13 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             drink_position: NDArray[np.float32],
         ) -> bool:
             self._sim.set_state(obs)
-            import ipdb; ipdb.set_trace()
             new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
             drink_post_grasp_pose = _transform_pose_relative_to_drink(
                 "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
             )
+            from pybullet_helpers.gui import visualize_pose
+            visualize_pose(new_drink_pose, self._sim.physics_client_id)
+            import ipdb; ipdb.set_trace()
             try:
                 robot_joints = inverse_kinematics(
                     self._sim.robot, drink_post_grasp_pose
@@ -421,7 +423,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 return False
             held_object_id = self._sim.get_object_id_from_name("drink")
             held_object_tf = self._sim.scene_spec.drink_held_object_tf
-            import ipdb; ipdb.set_trace()
             set_robot_joints_with_held_object(
                 self._sim.robot,
                 self._sim.physics_client_id,
@@ -524,7 +525,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         def _sample_plate_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            radius = rng.uniform(self._sim.scene_spec.table_radius - self._sim.scene_spec.plate_radius)
+            radius = rng.uniform(0, self._sim.scene_spec.table_radius - self._sim.scene_spec.plate_radius)
             angle = rng.uniform(0, 2 * np.pi)
             origin = self._sim.scene_spec.table_pose.position[:2]
             new_pos = np.array(
@@ -542,7 +543,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         def _sample_drink_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            radius = rng.uniform(self._sim.scene_spec.table_radius - self._sim.scene_spec.drink_radius)
+            radius = rng.uniform(0, self._sim.scene_spec.table_radius - self._sim.scene_spec.drink_radius)
             angle = rng.uniform(0, 2 * np.pi)
             origin = self._sim.scene_spec.table_pose.position[:2]
             new_pos = np.array(
@@ -551,6 +552,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                     origin[1] + radius * np.sin(angle),
                 ]
             ).astype(np.float32)
+            print("RADIUS:", radius)
             return {drink_position: new_pos}
 
         drink_position_sampler = FunctionalCSPSampler(
