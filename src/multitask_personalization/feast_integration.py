@@ -35,7 +35,7 @@ class MultitaskPersonalizationFeastInterface:
 
         robot_joints = feast_state_dict["robot_joints"]
 
-        detected_plate_pose = feast_state_dict["plate_pose"]
+        detected_plate_pose = feast_state_dict.get("plate_pose", sim_state.plate_pose)
         plate_pose = Pose(
             (detected_plate_pose.position[0],
              detected_plate_pose.position[1],
@@ -44,7 +44,7 @@ class MultitaskPersonalizationFeastInterface:
         )
         visualize_pose(plate_pose, self._env.physics_client_id)
 
-        detected_drink_pose = feast_state_dict.get("drink_pose", BANISH_POSE)
+        detected_drink_pose = feast_state_dict.get("drink_pose", sim_state.drink_pose)
         drink_pose = Pose(
             (detected_drink_pose.position[0],
              detected_drink_pose.position[1],
@@ -60,6 +60,8 @@ class MultitaskPersonalizationFeastInterface:
         else:
             user_feedback = None
 
+        user_request = feast_state_dict.get("user_request", sim_state.user_request)
+
         feeding_state = FeedingState(
             robot_joints=robot_joints,
             plate_pose=plate_pose,
@@ -67,7 +69,7 @@ class MultitaskPersonalizationFeastInterface:
             held_object_name=None,
             held_object_tf=None,
             stage="acquisition",
-            user_request="food",
+            user_request=user_request,
             user_feedback=user_feedback,
         )
         self._env.set_state(feeding_state)

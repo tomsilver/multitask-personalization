@@ -364,6 +364,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         def _user_view_unoccluded_by_utensil(
             plate_position: NDArray[np.float32],
         ) -> bool:
+            self._sim.set_state(obs)
             new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
             field_name = "above_plate_pos"
             try:
@@ -381,7 +382,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 return False
             held_object_id = self._sim.get_object_id_from_name("utensil")
             held_object_tf = self._sim.scene_spec.utensil_held_object_tf
-            self._sim.set_state(obs)
             set_robot_joints_with_held_object(
                 self._sim.robot,
                 self._sim.physics_client_id,
@@ -406,6 +406,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         def _user_view_unoccluded_by_drink(
             drink_position: NDArray[np.float32],
         ) -> bool:
+            self._sim.set_state(obs)
+            import ipdb; ipdb.set_trace()
             new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
             drink_post_grasp_pose = _transform_pose_relative_to_drink(
                 "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
@@ -419,7 +421,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                 return False
             held_object_id = self._sim.get_object_id_from_name("drink")
             held_object_tf = self._sim.scene_spec.drink_held_object_tf
-            self._sim.set_state(obs)
+            import ipdb; ipdb.set_trace()
             set_robot_joints_with_held_object(
                 self._sim.robot,
                 self._sim.physics_client_id,
