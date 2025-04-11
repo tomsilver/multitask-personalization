@@ -48,7 +48,7 @@ class MultitaskPersonalizationFeastInterface:
         drink_pose = Pose(
             (detected_drink_pose.position[0],
              detected_drink_pose.position[1],
-             sim_state.drink_pose.position[2]),
+             self._env.scene_spec.drink_default_pose.position[2]),
             detected_drink_pose.orientation
         )
         visualize_pose(drink_pose, self._env.physics_client_id)
