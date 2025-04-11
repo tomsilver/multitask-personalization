@@ -411,9 +411,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             drink_post_grasp_pose = _transform_pose_relative_to_drink(
                 "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
             )
-            from pybullet_helpers.gui import visualize_pose
-            visualize_pose(new_drink_pose, self._sim.physics_client_id)
-            import ipdb; ipdb.set_trace()
+            # from pybullet_helpers.gui import visualize_pose
+            # visualize_pose(new_drink_pose, self._sim.physics_client_id)
             try:
                 robot_joints = inverse_kinematics(
                     self._sim.robot, drink_post_grasp_pose
@@ -552,7 +551,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                     origin[1] + radius * np.sin(angle),
                 ]
             ).astype(np.float32)
-            print("RADIUS:", radius)
             return {drink_position: new_pos}
 
         drink_position_sampler = FunctionalCSPSampler(
