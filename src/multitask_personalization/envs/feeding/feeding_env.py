@@ -550,12 +550,11 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         ray_from_positions = []
         ray_to_positions = []
         grid_size = self.scene_spec.occlusion_grid_size
-        grid_delta = self.scene_spec.occlusion_grid_delta
         max_ray_length = self.scene_spec.occlusion_max_ray_length
         for r in range(grid_size):
-            row_val = (r - grid_size // 2) * grid_delta
+            row_val = (r - grid_size // 2) * self.scene_spec.occlusion_grid_delta_r
             for c in range(grid_size):
-                col_val = (c - grid_size // 2) * grid_delta
+                col_val = (c - grid_size // 2) * self.scene_spec.occlusion_grid_delta_c
                 # Transform to world pose frame.
                 ray_from = Pose((row_val, col_val, 0.0))
                 ray_to = Pose((row_val, col_val, max_ray_length))
@@ -616,7 +615,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         print("score:", score)
 
-        return score
+        return 1.0 if score > 0 else 0.0
 
     def _pause_gui(self, duration: float) -> None:
         if not self._use_gui:
