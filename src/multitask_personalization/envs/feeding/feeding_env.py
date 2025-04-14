@@ -165,8 +165,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         p.resetBasePositionAndOrientation(
             self.plate_id,
-            self.scene_spec.plate_default_pose.position,
-            self.scene_spec.plate_default_pose.orientation,
+            BANISH_POSE.position,
+            BANISH_POSE.orientation,
             physicsClientId=self.physics_client_id,
         )
 
