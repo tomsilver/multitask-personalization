@@ -73,8 +73,6 @@ class MultitaskPersonalizationFeastInterface:
             user_feedback=user_feedback,
         )
         self._env.set_state(feeding_state)
-        # Is the plate in the right place?
-        import ipdb; ipdb.set_trace()
 
         if occluded:
             act = MoveToJointPositions(robot_joints)
