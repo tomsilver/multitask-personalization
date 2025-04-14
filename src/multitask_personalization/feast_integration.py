@@ -39,7 +39,7 @@ class MultitaskPersonalizationFeastInterface:
         plate_pose = Pose(
             (detected_plate_pose.position[0],
              detected_plate_pose.position[1],
-             sim_state.plate_pose.position[2]),
+             self._env.scene_spec.plate_default_pose.position[2]),
             detected_plate_pose.orientation
         )
         visualize_pose(plate_pose, self._env.physics_client_id)
@@ -73,6 +73,8 @@ class MultitaskPersonalizationFeastInterface:
             user_feedback=user_feedback,
         )
         self._env.set_state(feeding_state)
+        # Is the plate in the right place?
+        import ipdb; ipdb.set_trace()
 
         if occluded:
             act = MoveToJointPositions(robot_joints)
