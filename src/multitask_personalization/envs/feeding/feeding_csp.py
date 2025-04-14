@@ -521,6 +521,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # Sample plate positions.
         plate_position, drink_position = csp.variables
 
+        samplers = []
+
         def _sample_plate_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
@@ -538,6 +540,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         plate_position_sampler = FunctionalCSPSampler(
             _sample_plate_position, csp, {plate_position}
         )
+        if obs.user_request!= "prepare-drink-only":
+            samplers.append(plate_position_sampler)
 
         def _sample_drink_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -556,8 +560,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         drink_position_sampler = FunctionalCSPSampler(
             _sample_drink_position, csp, {drink_position}
         )
+        samplers.append(drink_position_sampler)
 
-        return [plate_position_sampler, drink_position_sampler]
+        return samplers
 
     def _generate_policy(
         self,
