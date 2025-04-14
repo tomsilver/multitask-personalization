@@ -107,10 +107,24 @@ class MultitaskPersonalizationFeastInterface:
         )
         above_plate_pos = self._last_above_plate_joints[:7]
 
+        if user_request == "drink":
+            drink_before_transfer_pose = _transform_pose_relative_to_drink(
+                "drink_before_transfer_pose", new_drink_pose, self._env.scene_spec
+            )
+            drink_before_transfer_pos = _transform_joints_relative_to_drink(
+                "drink_before_transfer_pos", new_drink_pose, self._env.robot, self._env.scene_spec
+            )
+        else:
+            drink_before_transfer_pose = self._env.scene_spec.drink_before_transfer_pose
+            drink_before_transfer_pos = self._env.scene_spec.drink_before_transfer_pos
+
+
         return {
             "before_transfer_pose": before_transfer_pose,
             "before_transfer_pos": before_transfer_pos,
             "above_plate_pos": above_plate_pos,
+            "drink_before_transfer_pose": drink_before_transfer_pose,
+            "drink_before_transfer_pos": drink_before_transfer_pos,
             "plate_delta_xy": (-1 * (new_plate_pose.position[1] - plate_pose.position[1]),
                                (new_plate_pose.position[0] - plate_pose.position[0])),
             "drink_delta_xy": (-1 * (new_drink_pose.position[1] - drink_pose.position[1]),

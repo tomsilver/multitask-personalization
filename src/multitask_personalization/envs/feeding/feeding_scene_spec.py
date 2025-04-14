@@ -142,7 +142,7 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     # Occlusion model hyperparameters.
     occlusion_grid_size: int = 5
-    occlusion_grid_delta_r: float = 0.05
+    occlusion_grid_delta_r: float = 0.03
     occlusion_grid_delta_c: float = 0.075
     occlusion_max_ray_length: float = 10.0
     occlusion_alpha: float = 1.0
