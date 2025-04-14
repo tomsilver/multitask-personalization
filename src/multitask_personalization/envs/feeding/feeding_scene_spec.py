@@ -138,7 +138,7 @@ class FeedingSceneSpec(PublicSceneSpec):
             -2.7182634909296315,
         ]
     )
-    drink_radius: float = 0.05
+    drink_radius: float = 0.075
 
     # Occlusion model hyperparameters.
     occlusion_grid_size: int = 5

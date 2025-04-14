@@ -355,9 +355,12 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # using the full distribution. That means that "ours" will be equivalent
         # to "exploit_only". This is because we're not really running full
         # experiments in this environment.
-        occlusion_scale = (
-            1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
-        )
+
+        # TODO change back!!!!!!!!
+        # occlusion_scale = (
+        #     1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+        # )
+        occlusion_scale = 0.99
         self._sim.set_occlusion_scale(occlusion_scale)
         logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
@@ -400,7 +403,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _user_view_unoccluded_by_utensil,
         )
 
-        if obs.user_request != "drink":
+        if obs.user_request not in ("drink", "prepare-drink-only"):
             constraints.append(user_view_unoccluded_by_utensil_constraint)
 
         def _user_view_unoccluded_by_drink(
@@ -540,7 +543,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         plate_position_sampler = FunctionalCSPSampler(
             _sample_plate_position, csp, {plate_position}
         )
-        if obs.user_request!= "prepare-drink-only":
+        if obs.user_request != "prepare-drink-only":
             samplers.append(plate_position_sampler)
 
         def _sample_drink_position(
