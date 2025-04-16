@@ -357,10 +357,10 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # experiments in this environment.
 
         # TODO change back!!!!!!!!
-        # occlusion_scale = (
-        #     1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
-        # )
-        occlusion_scale = 0.99
+        occlusion_scale = (
+            1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+        )
+        # occlusion_scale = 0.99
         self._sim.set_occlusion_scale(occlusion_scale)
         logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
@@ -503,8 +503,42 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _plate_drink_collision_free,
         )
 
+        # the plate cannot be too far from the robot base.
+        def _plate_position_reachable(
+            plate_position: NDArray[np.float32],
+        ) -> bool:
+            new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
+            plate_pos = new_plate_pose.position[:2]
+            print(f"plate is at a distance of {np.linalg.norm(plate_pos)}")
+            return np.linalg.norm(plate_pos) < 0.8 and plate_pos[0] > 0.5 # Not too near user
+        
+        plate_position_reachable_constraint = FunctionalCSPConstraint(
+            "plate_position_reachable",
+            [plate_position],
+            _plate_position_reachable,
+        )
+
+        # the drink cannot be too far from the robot base.
+        def _drink_position_reachable(
+            drink_position: NDArray[np.float32],
+        ) -> bool:
+            new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
+            drink_pos = new_drink_pose.position[:2]
+            print(f"drink is at a distance of {np.linalg.norm(drink_pos)}")
+            return np.linalg.norm(drink_pos) < 0.8 and drink_pos[0] > 0.5 # Not too near user
+        
+        drink_position_reachable_constraint = FunctionalCSPConstraint(
+            "drink_position_reachable",
+            [drink_position],
+            _drink_position_reachable,
+        )
+
         if obs.user_request != "drink":
             constraints.append(plate_drink_collision_free_constraint)
+            # constraints.append(plate_position_reachable_constraint)
+            constraints.append(drink_position_reachable_constraint)
+        else:
+            constraints.append(drink_position_reachable_constraint)
 
         return constraints
 

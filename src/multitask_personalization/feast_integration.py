@@ -62,6 +62,9 @@ class MultitaskPersonalizationFeastInterface:
 
         user_request = feast_state_dict.get("user_request", sim_state.user_request)
 
+        print("feast_state_dict:", feast_state_dict)
+        print("user_request:", user_request)
+        print("user_feedback:", user_feedback)
         feeding_state = FeedingState(
             robot_joints=robot_joints,
             plate_pose=plate_pose,
@@ -74,13 +77,16 @@ class MultitaskPersonalizationFeastInterface:
         )
         self._env.set_state(feeding_state)
 
+        input("State set on GUI. Press Enter to continue...")
+
         if occluded:
             act = MoveToJointPositions(robot_joints)
             self._approach._csp_generator.observe_transition(feeding_state, act, feeding_state,
                                                              False, {})
 
-
+        input("Press Enter to solve CSP...")
         self._approach.reset(feeding_state, {})
+        input("Solved CSP. Press Enter to continue...")
 
         sol = self._approach._current_sol
         plate_var, drink_var = sol.keys()
