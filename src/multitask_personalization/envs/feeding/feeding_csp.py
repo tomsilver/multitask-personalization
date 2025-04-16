@@ -360,7 +360,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         occlusion_scale = (
             1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
         )
-        # occlusion_scale = 0.99
+        # occlusion_scale = 0.999
         self._sim.set_occlusion_scale(occlusion_scale)
         logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
@@ -536,7 +536,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         if obs.user_request != "drink":
             constraints.append(plate_drink_collision_free_constraint)
             # constraints.append(plate_position_reachable_constraint)
-            constraints.append(drink_position_reachable_constraint)
+            # constraints.append(drink_position_reachable_constraint)
         else:
             constraints.append(drink_position_reachable_constraint)
 

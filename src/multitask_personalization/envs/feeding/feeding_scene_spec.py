@@ -82,13 +82,13 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # Table.
-    table_pose: Pose = Pose((0.45, 0.5, 0.15))
+    table_pose: Pose = Pose((0.5, 0.5, 0.15))
     table_radius: float = 0.75/2
 
     # Plate.
     plate_default_pose: Pose = Pose((0.4, 0.3, 0.17))
-    plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.urdf"
-    plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate.obj"
+    plate_urdf_path: Path = Path(__file__).parent / "assets" / "plate" / "plate_with_holder.urdf"
+    plate_mesh_path: Path = Path(__file__).parent / "assets" / "plate" / "plate_with_holder.obj"
     plate_radius: float = 0.13
 
     # Utensil.

@@ -36,11 +36,18 @@ class MultitaskPersonalizationFeastInterface:
         robot_joints = feast_state_dict["robot_joints"]
 
         detected_plate_pose = feast_state_dict.get("plate_pose", sim_state.plate_pose)
+        
+        # # rotate by 180 in yaw
+        # detected_plate_pose = detected_plate_pose.multiply(Pose(
+        #     (0, 0, 0),
+        #     (0, 0, 1, 0)
+        # ))
+
         plate_pose = Pose(
             (detected_plate_pose.position[0],
              detected_plate_pose.position[1],
              self._env.scene_spec.plate_default_pose.position[2]),
-            detected_plate_pose.orientation
+            detected_plate_pose.orientation 
         )
         visualize_pose(plate_pose, self._env.physics_client_id)
 
@@ -77,16 +84,12 @@ class MultitaskPersonalizationFeastInterface:
         )
         self._env.set_state(feeding_state)
 
-        input("State set on GUI. Press Enter to continue...")
-
         if occluded:
             act = MoveToJointPositions(robot_joints)
             self._approach._csp_generator.observe_transition(feeding_state, act, feeding_state,
                                                              False, {})
 
-        input("Press Enter to solve CSP...")
         self._approach.reset(feeding_state, {})
-        input("Solved CSP. Press Enter to continue...")
 
         sol = self._approach._current_sol
         plate_var, drink_var = sol.keys()
