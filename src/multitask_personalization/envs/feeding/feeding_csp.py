@@ -357,10 +357,10 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # experiments in this environment.
 
         # TODO change back!!!!!!!!
-        occlusion_scale = (
-            1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
-        )
-        # occlusion_scale = 0.999
+        # occlusion_scale = (
+            # 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+        # )
+        occlusion_scale = 0.999
         self._sim.set_occlusion_scale(occlusion_scale)
         logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
