@@ -229,6 +229,24 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         #     while True:
         #         p.getMouseEvents(self.physics_client_id)
 
+    def visualize_sample(self, pose: Pose, color: tuple[float, float, float, float]) -> None:
+        """ Add a sphere to visualize a sample. """
+        radius = 0.01
+        visual_shape_id = p.createVisualShape(
+            shapeType=p.GEOM_SPHERE,
+            radius=radius,
+            rgbaColor=color,
+            physicsClientId=self.physics_client_id,
+        )
+
+        body_id = p.createMultiBody(
+            baseMass=0,
+            baseVisualShapeIndex=visual_shape_id,
+            basePosition=pose.position,
+            baseOrientation=pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
     def reset(
         self,
         *,

@@ -510,7 +510,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
             plate_pos = new_plate_pose.position[:2]
             print(f"plate is at a distance of {np.linalg.norm(plate_pos)}")
-            return np.linalg.norm(plate_pos) < 0.8 and plate_pos[0] > 0.5 # Not too near user
+            return np.linalg.norm(plate_pos) < 0.65
         
         plate_position_reachable_constraint = FunctionalCSPConstraint(
             "plate_position_reachable",
@@ -533,12 +533,32 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
             _drink_position_reachable,
         )
 
+        # the plate must be behind the drink.
+        def _plate_behind_drink(
+            plate_position: NDArray[np.float32],
+            drink_position: NDArray[np.float32],
+        ) -> bool:
+            plate_pos = _plate_position_to_pose(plate_position, obs.plate_pose).position
+            drink_pos = _drink_position_to_pose(drink_position, obs.drink_pose).position
+            print(f"plate is at {plate_pos} and drink is at {drink_pos}")
+            return plate_pos[0] < drink_pos[0]
+        
+        plate_behind_drink = FunctionalCSPConstraint(
+            "plate_behind_drink",
+            [plate_position, drink_position],
+            _plate_behind_drink,
+        )
+
         if obs.user_request != "drink":
             constraints.append(plate_drink_collision_free_constraint)
             # constraints.append(plate_position_reachable_constraint)
             # constraints.append(drink_position_reachable_constraint)
+            # constraints.append(plate_behind_drink)
         else:
             constraints.append(drink_position_reachable_constraint)
+
+        if obs.user_request != "food":
+            constraints.append(plate_behind_drink)
 
         return constraints
 
@@ -572,6 +592,13 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                     origin[1] + radius * np.sin(angle),
                 ]
             ).astype(np.float32)
+
+            # visualize sample by adding a small red sphere (alpha=0.5) on pybullet
+            viz_pose = Pose(
+                (new_pos[0], new_pos[1], self._sim.scene_spec.table_pose.position[2]),
+                (0, 0, 0, 1),
+            )
+            self._sim.visualize_sample(viz_pose, color=(1, 0, 0, 0.5))
             return {plate_position: new_pos}
 
         plate_position_sampler = FunctionalCSPSampler(
@@ -592,6 +619,12 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
                     origin[1] + radius * np.sin(angle),
                 ]
             ).astype(np.float32)
+            # visualize sample by adding a small green sphere (alpha=0.5) on pybullet
+            viz_pose = Pose(
+                (new_pos[0], new_pos[1], self._sim.scene_spec.table_pose.position[2]),
+                (0, 0, 0, 1),
+            )
+            self._sim.visualize_sample(viz_pose, color=(0, 1, 0, 0.5))
             return {drink_position: new_pos}
 
         drink_position_sampler = FunctionalCSPSampler(
