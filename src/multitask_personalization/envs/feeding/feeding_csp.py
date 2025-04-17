@@ -357,10 +357,10 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         # experiments in this environment.
 
         # TODO change back!!!!!!!!
-        # occlusion_scale = (
-            # 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
-        # )
-        occlusion_scale = 0.999
+        occlusion_scale = (
+            1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+        )
+        # occlusion_scale = 0.999
         self._sim.set_occlusion_scale(occlusion_scale)
         logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
 
@@ -583,13 +583,15 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         def _sample_plate_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            radius = rng.uniform(0, self._sim.scene_spec.table_radius - self._sim.scene_spec.plate_radius)
-            angle = rng.uniform(0, 2 * np.pi)
+            max_dx = self._sim.scene_spec.table_half_extents[0] - self._sim.scene_spec.plate_radius
+            max_dy = self._sim.scene_spec.table_half_extents[1] - self._sim.scene_spec.plate_radius
+            dx = rng.uniform(-max_dx, max_dx)
+            dy = rng.uniform(-max_dy, max_dy)
             origin = self._sim.scene_spec.table_pose.position[:2]
             new_pos = np.array(
                 [
-                    origin[0] + radius * np.cos(angle),
-                    origin[1] + radius * np.sin(angle),
+                    origin[0] + dx,
+                    origin[1] + dy,
                 ]
             ).astype(np.float32)
 
@@ -610,13 +612,15 @@ class FeedingCSPGenerator(CSPGenerator[FeedingState, FeedingAction]):
         def _sample_drink_position(
             _: dict[CSPVariable, Any], rng: np.random.Generator
         ) -> dict[CSPVariable, Any]:
-            radius = rng.uniform(0, self._sim.scene_spec.table_radius - self._sim.scene_spec.drink_radius)
-            angle = rng.uniform(0, 2 * np.pi)
+            max_dx = self._sim.scene_spec.table_half_extents[0] - self._sim.scene_spec.drink_radius
+            max_dy = self._sim.scene_spec.table_half_extents[1] - self._sim.scene_spec.drink_radius
+            dx = rng.uniform(-max_dx, max_dx)
+            dy = rng.uniform(-max_dy, max_dy)
             origin = self._sim.scene_spec.table_pose.position[:2]
             new_pos = np.array(
                 [
-                    origin[0] + radius * np.cos(angle),
-                    origin[1] + radius * np.sin(angle),
+                    origin[0] + dx,
+                    origin[1] + dy,
                 ]
             ).astype(np.float32)
             # visualize sample by adding a small green sphere (alpha=0.5) on pybullet
