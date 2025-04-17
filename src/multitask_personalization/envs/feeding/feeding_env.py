@@ -142,12 +142,18 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         )
 
         # Create table.
-        self.table_id = create_pybullet_cylinder(
+        self.table_id = create_pybullet_block(
             (1.0, 1.0, 1.0, 1.0),
-            radius=self.scene_spec.table_radius,
-            length=0.001,
+            half_extents=self.scene_spec.table_half_extents,
             physics_client_id=self.physics_client_id
         )
+
+        # self.table_id = create_pybullet_cylinder(
+        #     (1.0, 1.0, 1.0, 1.0),
+        #     radius=self.scene_spec.table_radius,
+        #     length=0.001,
+        #     physics_client_id=self.physics_client_id
+        # )
 
         p.resetBasePositionAndOrientation(
             self.table_id,

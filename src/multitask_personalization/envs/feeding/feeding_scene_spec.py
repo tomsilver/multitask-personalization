@@ -82,8 +82,9 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # Table.
-    table_pose: Pose = Pose((0.5, 0.5, 0.15))
-    table_radius: float = 1.2/2
+    table_pose: Pose = Pose((0.45, 0.5, 0.15))
+    table_half_extents: tuple[float, float, float] = (0.35, 0.4, 0.001)
+    # table_radius: float = 1.2/2
 
     # Plate.
     plate_default_pose: Pose = Pose((0.4, 0.3, 0.17))
