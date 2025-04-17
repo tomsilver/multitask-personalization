@@ -22,8 +22,10 @@ class MultitaskPersonalizationFeastInterface:
 
         # Create approach.
         csp_solver = RandomWalkCSPSolver(self._seed)
-        assert personalize, "TODO"
-        explore_method = "exploit-only"
+        if personalize:
+            explore_method = "exploit-only"
+        else:
+            explore_method = "nothing-personal"
         self._approach = CSPApproach(self._scene_spec, self._env.action_space,
                                      csp_solver=csp_solver,
                                      explore_method=explore_method)
