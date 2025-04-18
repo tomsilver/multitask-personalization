@@ -60,6 +60,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
     ):
         ax.set_title(env_display_name)
         ax.set_xlabel("Simulated Execution Time")
+        ax.set_ylim((-1.05, 1.05))
 
         for approach_name, approach_display_name in APPROACH_TO_DISPLAY_NAME.items():
             print(f"Combining results for {env_name}, {approach_name}")
@@ -95,9 +96,9 @@ def _main(results_dir: Path, outfile: Path) -> None:
     fig.legend(lines, labels, loc="center right", bbox_to_anchor=(1.0, 0.5))
 
     # Adjust layout with extra space for legend.
-    plt.tight_layout(rect=(0, 0, 0.85, 1))
+    plt.tight_layout(rect=(0, 0, 0.9, 1.0))
 
-    plt.savefig(outfile, dpi=500, bbox_inches="tight")
+    plt.savefig(outfile, dpi=1000, bbox_inches="tight", pad_inches=0.05)
     print(f"Wrote out to {outfile}")
 
 
