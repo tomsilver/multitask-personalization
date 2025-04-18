@@ -62,7 +62,16 @@ def _main(outfile: Path) -> None:
         marker="o",
     )
     plt.legend(title=None)
-    plt.ylim(-0.05, 1.05)
+    ax = plt.gca()
+    ax.set_ylim(-0.05, 1.05)
+    ticks = ax.yaxis.get_minor_ticks()
+    ticks[0].tick1line.set_visible(False)
+    ticks[0].tick2line.set_visible(False)
+    ticks[-1].tick1line.set_visible(False)
+    ticks[-1].tick2line.set_visible(False)
+    ticks = ax.xaxis.get_minor_ticks()
+    for tick in ticks:
+        tick.set_visible(False)
     plt.ylabel("User Complaints")
     plt.xlabel("")
     plt.title("Real Robot Results")
