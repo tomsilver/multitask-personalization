@@ -2,13 +2,10 @@
 
 import argparse
 from pathlib import Path
-from typing import Callable
 
 import pandas as pd
 import seaborn as sns
-from analysis_utils import check_for_missing_results, combine_results_csvs
 from matplotlib import pyplot as plt
-from omegaconf import DictConfig
 from plot_main_results import APPROACH_TO_COLOR, APPROACH_TO_DISPLAY_NAME
 
 APPROACH_NAME_TO_KEY = {v: k for k, v in APPROACH_TO_DISPLAY_NAME.items()}
