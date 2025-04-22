@@ -7,6 +7,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import copy
+import logging
+
 import numpy as np
 
 from multitask_personalization.envs.cooking.cooking_meals import (
@@ -63,6 +66,9 @@ class MealPreferenceModel(abc.ABC):
     def shift_preferences(self, rng: np.random.Generator) -> None:
         """Shift the user's preferences."""
 
+    @abc.abstractmethod
+    def sync_variables(self, other) -> None:
+        """Sync the variables of this object with another object"""
 
 class MealSpecMealPreferenceModel(MealPreferenceModel):
     """An explicit list of a user's meal preferences."""
@@ -105,6 +111,13 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         # Given old range [x-r, x+r], new range is [max(0, x*f-r), x*f+r]
         self._shift_factor_range = preference_shift_spec.shift_factor_range
 
+    def sync_variables(self, other):
+        """Sync the variables of this object with another object"""
+        assert isinstance(other, self.__class__)
+        self._universal_meal_specs = copy.deepcopy(other._universal_meal_specs)
+        self._n_feedbacks_given = copy.deepcopy(other._n_feedbacks_given)
+        # the models don't matter because the model update happens in the approach copies of hidden spec
+        
     def shift_preferences(self, rng: np.random.Generator) -> None:
         if (
             self._n_feedbacks_given >= self._min_shift_interval
@@ -149,7 +162,9 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                 self._universal_meal_specs[meal_name] = MealSpec(
                     meal_name, shifted_ing_specs
                 )
-
+            
+            # log ing_shift_factors
+            logging.info(f"Shifted preferences for {self._n_feedbacks_given} meals with factors {ing_shift_factors}")
             # Reset counter after shift.
             self._n_feedbacks_given = 0
 
@@ -212,9 +227,40 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
             )
             critiques.append(critique)
         self._n_feedbacks_given += 1
+
         return critiques
 
     def update(self, meal: Meal, critiques: list[IngredientCritique]) -> None:
+        
+        # FIXME: testing reset memory after set period
+        local_total_feedback = 0
+        # iterate over all temp models, find total number of feedbacks across all meals
+        for meal_temp_model in self._temperature_models.values():
+            for ing_temp_model in meal_temp_model.values():
+                local_total_feedback += len(ing_temp_model.incremental_X)
+                break
+        # add current feedback
+        logging.info(f"Total feedbacks across all meals {local_total_feedback}")
+        # FIXME: testing reset memory after set period
+        if local_total_feedback % 100 == 0:
+            logging.info(f"Resetting memory after {local_total_feedback} meals")
+            # reset for all meals and all ingredients
+            self._temperature_models: dict[str, dict[str, Bounded1DClassifier]] = {}
+            self._quantity_models: dict[str, dict[str, Bounded1DClassifier]] = {}
+            for meal_name, meal_spec in self._universal_meal_specs.items():
+                self._temperature_models[meal_name] = {}
+                self._quantity_models[meal_name] = {}
+                for ing_spec in meal_spec.ingredients:
+                    temp_lo, temp_hi = ing_spec.temperature
+                    self._temperature_models[meal_name][ing_spec.name] = (
+                        Bounded1DClassifier(temp_lo, temp_hi)
+                    )
+                    quant_lo, quant_hi = ing_spec.quantity
+                    self._quantity_models[meal_name][ing_spec.name] = Bounded1DClassifier(
+                        quant_lo,
+                        quant_hi,
+                    )
+
         for critique in critiques:
             assert not critique.missing
             meal_temp, meal_quant = meal.ingredients[critique.ingredient]

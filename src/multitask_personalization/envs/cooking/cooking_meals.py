@@ -70,11 +70,18 @@ class Meal:
 
 
 DEFAULT_MEAL_SPECS = [
+    # MealSpec(
+    #     "seasoning",
+    #     [
+    #         IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+    #         IngredientSpec("pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+    #     ],
+    # )
     MealSpec(
         "seasoning",
         [
-            IngredientSpec("salt", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
-            IngredientSpec("pepper", temperature=(2.5, 3.5), quantity=(0.9, 1.1)),
+            IngredientSpec("salt", temperature=(1.0, 5.0), quantity=(0.2, 2.0)),
+            IngredientSpec("pepper", temperature=(1.0, 5.0), quantity=(0.2, 2.0)),
         ],
     )
 ]

@@ -1,0 +1,24 @@
+defaults:
+  - cooking
+  - _self_
+
+env:
+  hidden_spec:
+    meal_preference_model:
+      preference_shift_spec:
+        _target_: "multitask_personalization.envs.cooking.cooking_structs.PreferenceShiftSpec"
+        min_shift_interval: 100
+        shift_prob: 0.5
+        shift_factor_range: [0.9, 1.1]
+  # note: seed is excluded because it varies for train/eval envs
+# train_env: {}
+# eval_env: {}
+max_environment_steps: 10000
+eval_frequency: 100
+max_eval_episode_length: 100
+num_eval_trials: 10
+dt: 0.01
+csp_solver:
+  max_iters: 100_000
+  num_improvements: 500
+  max_improvement_attempts: 10_000

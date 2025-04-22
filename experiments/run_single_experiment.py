@@ -51,7 +51,7 @@ def _main(cfg: DictConfig) -> None:
 
     # Create training environment, which should only be reset once.
     train_env_cfg = OmegaConf.merge(cfg.env.env, cfg.env.train_env)
-    train_env = hydra.utils.instantiate(train_env_cfg, seed=cfg.seed)
+    train_env = hydra.utils.instantiate(train_env_cfg, seed=cfg.seed, eval_mode=False)
     assert isinstance(train_env, gym.Env)
     if cfg.record_train_videos:
         train_env = gym.wrappers.RecordVideo(
@@ -62,7 +62,7 @@ def _main(cfg: DictConfig) -> None:
     # Create eval environment, which will be reset all the time.
     eval_seed = cfg.seed + cfg.eval_seed_offset
     eval_env_cfg = OmegaConf.merge(cfg.env.env, cfg.env.eval_env)
-    eval_env = hydra.utils.instantiate(eval_env_cfg, seed=eval_seed)
+    eval_env = hydra.utils.instantiate(eval_env_cfg, seed=eval_seed, eval_mode=True)
     assert isinstance(eval_env, gym.Env)
     if cfg.record_eval_videos:
         eval_env = gym.wrappers.RecordVideo(eval_env, str(Path(cfg.video_dir) / "eval"))
@@ -103,15 +103,19 @@ def _main(cfg: DictConfig) -> None:
         for t in range(cfg.env.max_environment_steps + 1):
             if t % cfg.train_logging_interval == 0:
                 logging.info(f"Starting training step {t}")
+                
             # Check if it's time to eval.
             if cfg.env.eval_frequency > 0 and t % cfg.env.eval_frequency == 0:
-
+                logging.info(f"======================= Evaluation at step {t} =======================")
                 # Save the models from the training approach and load them into the
                 # eval approach.
                 step_model_dir = model_dir / str(t)
                 step_model_dir.mkdir(exist_ok=True)
                 train_approach.save(step_model_dir)
                 eval_approach.load(step_model_dir)
+
+                # For nonstationary environments, we need to sync the hidden specs of train env to eval env
+                eval_env._hidden_spec.meal_preference_model.sync_variables(train_env._hidden_spec.meal_preference_model) # pylint: disable=protected-access
                 # Run evaluation.
                 step_eval_metrics = _evaluate_approach(eval_approach, eval_env, cfg, t)
                 if cfg.wandb.enable:
@@ -122,6 +126,7 @@ def _main(cfg: DictConfig) -> None:
                     wandb.log(wandb_metrics, step=t)
                 eval_metrics.append(step_eval_metrics)
                 logging.info("Resuming training")
+                logging.info("=========================================================")
             # Eval on the last time step but don't train anymore.
             if t >= cfg.env.max_environment_steps:
                 break

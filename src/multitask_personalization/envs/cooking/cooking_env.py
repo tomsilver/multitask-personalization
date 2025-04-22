@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, get_args
+import logging
 
 import gymnasium as gym
 import numpy as np
@@ -38,6 +39,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         scene_spec: CookingSceneSpec,
         hidden_spec: CookingHiddenSpec | None = None,
         seed: int = 0,
+        eval_mode: bool = False,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
@@ -54,6 +56,8 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
 
         self._current_user_satisfaction = 0.0
         self._current_user_critiques: list[IngredientCritique] = []
+
+        self._eval_mode = eval_mode
 
     def _get_state_from_scene_spec(self, scene_spec: CookingSceneSpec) -> CookingState:
         # NOTE: the initial quantities of ingredients are randomized.
@@ -132,7 +136,8 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             done = True  # used for eval
 
             # Shift user preferences.
-            self._hidden_spec.meal_preference_model.shift_preferences(self._rng)
+            if not self._eval_mode:
+                self._hidden_spec.meal_preference_model.shift_preferences(self._rng)
 
         else:
             # Update pot temperatures and initialize new_pot_states.
