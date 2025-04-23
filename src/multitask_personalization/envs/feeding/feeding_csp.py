@@ -72,8 +72,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             )
         if isinstance(obs, FeedingOcclusionQueryObservation):
             planned_plate_position = self._get_value("plate_position")
-            plate_delta_xy = (obs.plate_pose.position[0] - planned_plate_position[0],
-                              obs.plate_pose.position[1] - planned_plate_position[1])
+            plate_delta_xy = (planned_plate_position[0] - obs.plate_pose.position[0],
+                              planned_plate_position[1] - obs.plate_pose.position[1])
             planned_plate_pose = _plate_position_to_pose(planned_plate_position, obs.plate_pose)
             before_transfer_pose = _transform_pose_relative_to_plate(
                 "before_transfer_pose", planned_plate_pose, self._sim.scene_spec
@@ -85,8 +85,8 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
                 "above_plate_pos", planned_plate_pose, self._sim.robot, self._sim.scene_spec,
             )
             planned_drink_position = self._get_value("drink_position")
-            drink_delta_xy = (obs.drink_pose.position[0] - planned_drink_position[0],
-                              obs.drink_pose.position[1] - planned_drink_position[1])
+            drink_delta_xy = (planned_drink_position[0] - obs.drink_pose.position[0],
+                              planned_drink_position[1] - obs.drink_pose.position[1])
             return FeedingPlateDrinkAction(plate_delta_xy=plate_delta_xy,
                                            drink_delta_xy=drink_delta_xy,
                                            before_transfer_pose=before_transfer_pose,
@@ -315,7 +315,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 plate_position: NDArray[np.float32],
             ) -> bool:
                 score = self._get_plate_occlusion_score(plate_position)
-                return score < 1.0 - occlusion_scale
+                return score is not None and score < 1.0 - occlusion_scale
             
             user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
                 "user_view_unoccluded_by_utensil",
@@ -329,7 +329,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 drink_position: NDArray[np.float32],
             ) -> bool:
                 score = self._get_drink_occlusion_score(drink_position)
-                return score < 1.0 - occlusion_scale
+                return score is not None and score < 1.0 - occlusion_scale
 
             user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
                 "user_view_unoccluded_by_drink",
@@ -494,22 +494,22 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         if isinstance(next_obs, FeedingOcclusionDatasetObservation):
             plate_pose = next_obs.plate_pose
             plate_score = self._get_plate_occlusion_score(plate_pose.position[:2])
+            assert plate_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
             plate_label = next_obs.plate_occlusion
 
             drink_pose = next_obs.drink_pose
             drink_score = self._get_drink_occlusion_score(drink_pose.position[:2])
+            assert drink_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
             drink_label = next_obs.drink_occlusion
 
             self._occlusion_model.fit_incremental([plate_score, drink_score], [plate_label, drink_label])
             print("Updating occlusion model, new scale:", (
                 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
             ))
-            # TODO this is not getting hit for some reason...
-            import ipdb; ipdb.set_trace()
 
 
 
-    def _get_plate_occlusion_score(self, plate_position: NDArray[np.float32]) -> float:
+    def _get_plate_occlusion_score(self, plate_position: NDArray[np.float32]) -> float | None:
         set_pose(self._sim.get_object_id_from_name("drink"), BANISH_POSE, self._sim.physics_client_id)
         new_plate_pose = _plate_position_to_pose(plate_position, self._sim.scene_spec.plate_default_pose)
         field_name = "above_plate_pos"
@@ -525,7 +525,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             print("WARNING: IK failed within _user_view_unoccluded_by_utensil()")
             # from pybullet_helpers.gui import visualize_pose
             # visualize_pose(new_plate_pose, self._sim.physics_client_id)
-            return False
+            return None
         held_object_id = self._sim.get_object_id_from_name("utensil")
         held_object_tf = self._sim.scene_spec.utensil_held_object_tf
         set_robot_joints_with_held_object(
@@ -540,7 +540,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         )
         return self._sim.get_occlusion_score()
 
-    def _get_drink_occlusion_score(self, drink_position: NDArray[np.float32]) -> float:
+    def _get_drink_occlusion_score(self, drink_position: NDArray[np.float32]) -> float | None:
         set_pose(self._sim.get_object_id_from_name("utensil"), BANISH_POSE, self._sim.physics_client_id)
         new_drink_pose = _drink_position_to_pose(drink_position, self._sim.scene_spec.drink_default_pose)
         drink_post_grasp_pose = _transform_pose_relative_to_drink(
@@ -554,7 +554,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             )
         except InverseKinematicsError:
             print("WARNING: IK failed within _user_view_unoccluded_by_drink()")
-            return False
+            return None
         held_object_id = self._sim.get_object_id_from_name("drink")
         held_object_tf = self._sim.scene_spec.drink_held_object_tf
         set_robot_joints_with_held_object(

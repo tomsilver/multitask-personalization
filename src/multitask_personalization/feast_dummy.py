@@ -177,7 +177,7 @@ if __name__ == "__main__":
     while user_input not in ["y", "n"]:
         user_input = input("Please enter 'y' or 'n': ")
     drink_occlusion = {"y": True, "n": False}[user_input]
-    mp_response = _send_mp_request({"request_type": "occlusion_query",
+    mp_response = _send_mp_request({"request_type": "occlusion_dataset",
                                     "plate_pose": new_plate_pose,
                                     "drink_pose": new_drink_pose,
                                     "plate_occlusion": plate_occlusion,
