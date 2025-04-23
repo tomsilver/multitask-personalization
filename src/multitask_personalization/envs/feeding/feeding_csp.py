@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, Collection
 
 import numpy as np
-from gymnasium.spaces import Box
+from gymnasium.spaces import Box, Discrete
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, set_pose
 from pybullet_helpers.inverse_kinematics import (
@@ -16,6 +16,7 @@ from pybullet_helpers.inverse_kinematics import (
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
+from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.csp_generation import CSPGenerator
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
@@ -23,6 +24,8 @@ from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSce
 from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
     FeedingObservation,
+    FeedingInitializationObservation,
+    FeedingInitializationAction
 )
 from multitask_personalization.structs import (
     CSP,
@@ -46,8 +49,18 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
         self._sim = sim
 
     def step(self, obs: FeedingObservation) -> FeedingAction:
-        # TODO
-        import ipdb; ipdb.set_trace()
+        if isinstance(obs, FeedingInitializationObservation):
+            feeding_side = self._get_value("feeding_side")
+            bite_ordering = obs.bite_ordering_options[self._get_value("bite_ordering")]
+            ready_signal = self._get_value("ready_signal")
+            be_verbal = self._get_value("be_verbal")
+            return FeedingInitializationAction(
+                feeding_side=feeding_side,
+                bite_ordering=bite_ordering,
+                ready_signal=ready_signal,
+                be_verbal=be_verbal,
+            )
+        raise NotImplementedError
 
     def check_termination(self, obs: FeedingObservation) -> bool:
         return False
@@ -74,8 +87,23 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         obs: FeedingObservation,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
         
-        # TODO
-        import ipdb; ipdb.set_trace()
+        if isinstance(obs, FeedingInitializationObservation):
+            feeding_side = CSPVariable("feeding_side", EnumSpace(["left", "right"]))
+            bite_ordering = CSPVariable("bite_ordering", Discrete(len(obs.bite_ordering_options)))  # index into obs.bite_ordering_options
+            ready_signal = CSPVariable("ready_signal", EnumSpace(["mouth_open", "button", "auto_continue"]))
+            be_verbal = CSPVariable("be_verbal", EnumSpace([True, False]))
+            variables = [feeding_side, bite_ordering, ready_signal, be_verbal]
+
+            initialization = {
+                feeding_side: "left",
+                bite_ordering: 0,
+                ready_signal: "mouth_open",
+                be_verbal: True,
+            }
+
+            return variables, initialization
+
+        raise NotImplementedError
 
     def _generate_personal_constraints(
         self,
@@ -86,7 +114,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         constraints: list[CSPConstraint] = []
         
         # TODO
-        import ipdb; ipdb.set_trace()
 
         return constraints
 
@@ -97,9 +124,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
     ) -> list[CSPConstraint]:
 
         constraints: list[CSPConstraint] = []
-
-        # TODO
-        import ipdb; ipdb.set_trace()
 
         return constraints
 
@@ -119,7 +143,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         samplers = []
 
         # TODO
-        import ipdb; ipdb.set_trace()
 
         return samplers
 
