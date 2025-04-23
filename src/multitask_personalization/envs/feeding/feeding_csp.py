@@ -45,6 +45,9 @@ from multitask_personalization.structs import (
     FunctionalCSPSampler,
 )
 from multitask_personalization.utils import Threshold1DModel
+from multitask_personalization.envs.pybullet.pybullet_utils import (
+    BANISH_POSE,
+)
 
 
 class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
@@ -312,6 +315,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             def _user_view_unoccluded_by_utensil(
                 plate_position: NDArray[np.float32],
             ) -> bool:
+                set_pose(self._sim.get_object_id_from_name("drink"), BANISH_POSE, self._sim.physics_client_id)
                 new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
                 field_name = "above_plate_pos"
                 try:
@@ -352,6 +356,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             def _user_view_unoccluded_by_drink(
                 drink_position: NDArray[np.float32],
             ) -> bool:
+                set_pose(self._sim.get_object_id_from_name("utensil"), BANISH_POSE, self._sim.physics_client_id)
                 new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
                 drink_post_grasp_pose = _transform_pose_relative_to_drink(
                     "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
