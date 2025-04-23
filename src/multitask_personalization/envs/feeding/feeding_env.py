@@ -228,36 +228,35 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         #         p.getMouseEvents(self.physics_client_id)
 
         for body in self.scene_spec.tv_world_objects:
-            print("Loading object:", body)
             visual_shape_id = p.createVisualShape(
                 shapeType=p.GEOM_MESH,
                 fileName=str(self.scene_spec.tv_world_base_path / body),
                 meshScale=[0.1, 0.1, 0.1],
-                rgbaColor=[1, 1, 1, 1]  # Let texture show
+                rgbaColor=[1, 1, 1, 1],  # Let texture show
+                physicsClientId=self.physics_client_id,
             )
 
             p.createMultiBody(
                 baseVisualShapeIndex=visual_shape_id,
-                basePosition=[1, 0.8, -0.66]  # X, Y, Z in meters
+                basePosition=[1, 0.8, -0.66],  # X, Y, Z in meters
+                physicsClientId=self.physics_client_id,
             )
 
         for body in self.scene_spec.social_partner_objects:
-            print("Loading object:", body)
             visual_shape_id = p.createVisualShape(
                 shapeType=p.GEOM_MESH,
                 fileName=str(self.scene_spec.social_partner_base_path / body),
                 meshScale=[0.1, 0.1, 0.1],
-                rgbaColor=[1, 1, 1, 1]  # Let texture show
+                rgbaColor=[1, 1, 1, 1],  # Let texture show
+                physicsClientId=self.physics_client_id,
             )
 
             p.createMultiBody(
                 baseVisualShapeIndex=visual_shape_id,
                 basePosition=[0.7, -0.3, -0.66],  # X, Y, Z in meters
-                baseOrientation=p.getQuaternionFromEuler([0, 0, -45])  # Rotate 90 degrees
+                baseOrientation=p.getQuaternionFromEuler([0, 0, -45]),  # Rotate 90 degrees
+                physicsClientId=self.physics_client_id,
             )
-        
-        input("Loaded new env... press enter to continue...")
-
 
     def visualize_sample(self, pose: Pose, color: tuple[float, float, float, float]) -> None:
         """ Add a sphere to visualize a sample. """
