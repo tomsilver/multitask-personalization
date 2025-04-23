@@ -64,8 +64,8 @@ class FeedingOcclusionDatasetObservation(FeedingObservationWithContext):
 
     plate_pose: Pose
     drink_pose: Pose
-    plate_occluded: bool
-    drink_occluded: bool
+    plate_occlusion: bool
+    drink_occlusion: bool
 
 
 class FeedingAction(abc.ABC):

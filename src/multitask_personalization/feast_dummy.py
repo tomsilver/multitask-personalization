@@ -147,12 +147,39 @@ if __name__ == "__main__":
     assert mp_response["response_type"] == "initialization_dataset"
 
     # send plate and drink pose to multitask personalization
+    current_plate_pose = Pose((0.4, 0.3, 0.17))
+    current_drink_pose = Pose((0.55, 0.6, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
     mp_response = _send_mp_request({"request_type": "occlusion_query",
-                                    "plate_pose": Pose((0.4, 0.3, 0.17)),
-                                    "drink_pose": Pose((0.55, 0.6, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
+                                    "plate_pose": current_plate_pose,
+                                    "drink_pose": current_drink_pose
                                     })
     assert mp_response["response_type"] == "occlusion_query"
     plate_delta_xy = mp_response["plate_delta_xy"]
     drink_delta_xy = mp_response["drink_delta_xy"]
+    before_transfer_pose = mp_response["before_transfer_pose"]
+    before_transfer_pos = mp_response["before_transfer_pos"]
+    above_plate_pos = mp_response["above_plate_pos"]
 
-    # TODO verify and send back occlusion data
+    # TODO visualize the potential occlusion points
+    new_plate_pose = Pose((current_plate_pose.position[0] + plate_delta_xy[0],
+                           current_plate_pose.position[1] + plate_delta_xy[1],
+                           current_plate_pose.position[2]),
+                           current_plate_pose.orientation)
+    new_drink_pose = Pose((current_drink_pose.position[0] + drink_delta_xy[0],
+                           current_drink_pose.position[1] + drink_delta_xy[1],
+                           current_drink_pose.position[2]),
+                           current_drink_pose.orientation)
+    user_input = input("Is the robot blocking your view for the plate? (y/n): ")
+    while user_input not in ["y", "n"]:
+        user_input = input("Please enter 'y' or 'n': ")
+    plate_occlusion = {"y": True, "n": False}[user_input]
+    user_input = input("Is the robot blocking your view for the drink? (y/n): ")
+    while user_input not in ["y", "n"]:
+        user_input = input("Please enter 'y' or 'n': ")
+    drink_occlusion = {"y": True, "n": False}[user_input]
+    mp_response = _send_mp_request({"request_type": "occlusion_query",
+                                    "plate_pose": new_plate_pose,
+                                    "drink_pose": new_drink_pose,
+                                    "plate_occlusion": plate_occlusion,
+                                    "drink_occlusion": drink_occlusion,
+                                    })

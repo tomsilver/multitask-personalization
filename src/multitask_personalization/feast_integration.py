@@ -130,9 +130,9 @@ class MultitaskPersonalizationFeastInterface:
         elif request_dict["request_type"] == "occlusion_dataset":
 
             plate_pose = request_dict["plate_pose"]
-            plate_occluded = request_dict["plate_occluded"]
+            plate_occlusion = request_dict["plate_occlusion"]
             drink_pose = request_dict["drink_pose"]
-            drink_occluded = request_dict["drink_occluded"]
+            drink_occlusion = request_dict["drink_occlusion"]
 
             obs = FeedingOcclusionDatasetObservation(
                 self._current_context,
@@ -142,8 +142,8 @@ class MultitaskPersonalizationFeastInterface:
                 self._current_bite_ordering_options,
                 plate_pose,
                 drink_pose,
-                plate_occluded,
-                drink_occluded,
+                plate_occlusion,
+                drink_occlusion,
             )
             self._approach.update(obs, 0.0, False, {})
 
