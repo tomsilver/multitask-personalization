@@ -28,8 +28,11 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingObservation,
     FeedingInitializationQueryObservation,
     FeedingInitializationDatasetObservation,
+    FeedingOcclusionQueryObservation,
+    FeedingOcclusionDatasetObservation,
     FeedingObservationWithContext,
-    FeedingInitializationAction
+    FeedingInitializationAction,
+    FeedingPlateDrinkAction,
 )
 from multitask_personalization.structs import (
     CSP,
@@ -64,6 +67,28 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
                 ready_signal=ready_signal,
                 be_verbal=be_verbal,
             )
+        if isinstance(obs, FeedingOcclusionQueryObservation):
+            planned_plate_position = self._get_value("plate_position")
+            plate_delta_xy = (obs.plate_pose.position[0] - planned_plate_position[0],
+                              obs.plate_pose.position[1] - planned_plate_position[1])
+            planned_plate_pose = _plate_position_to_pose(planned_plate_position)
+            before_transfer_pose = _transform_pose_relative_to_plate(
+                "before_transfer_pose", planned_plate_pose, self._sim.scene_spec
+            )
+            before_transfer_pos = _transform_joints_relative_to_plate(
+                "before_transfer_pos", planned_plate_pose, self._sim.robot, self._sim.scene_spec
+            )
+            above_plate_pos = _transform_joints_relative_to_plate(
+                "above_plate_pos", planned_plate_pose, self._sim.robot, self._sim.scene_spec,
+            )
+            planned_drink_position = self._get_value("drink_position")
+            drink_delta_xy = (obs.drink_pose.position[0] - planned_drink_position[0],
+                              obs.drink_pose.position[1] - planned_drink_position[1])
+            return FeedingPlateDrinkAction(plate_delta_xy=plate_delta_xy,
+                                           drink_delta_xy=drink_delta_xy,
+                                           before_transfer_pose=before_transfer_pose,
+                                           before_transfer_pos=before_transfer_pos,
+                                           above_plate_pos=above_plate_pos)
         raise NotImplementedError
 
     def check_termination(self, obs: FeedingObservation) -> bool:
@@ -87,7 +112,7 @@ class LLMMultipleChoiceConstraintModel:
         self.get_variable_value_from_choice = get_variable_value_from_choice or (lambda x, o: x)
         self.summary_preferences = "Unknown"
         self.seed = seed
-        self.data_obs_history: list[FeedingInitializationDatasetObservation] = []
+        self.initialization_data_obs_history: list[FeedingInitializationDatasetObservation] = []
 
     def create_constraint(self, obs: FeedingObservation, variable: CSPVariable) -> CSPConstraint:
         assert variable.name == self.name
@@ -153,7 +178,7 @@ Which choice should you make? Return only the number of the choice, e.g., {choic
         return obs.get_context_str() 
         
     def learn_incremental(self, obs: FeedingInitializationDatasetObservation) -> None:
-        self.data_obs_history.append(obs)
+        self.initialization_data_obs_history.append(obs)
         history_str = self.get_history_str()
         prompt = f"""You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `{self.name}`. The preferences depend on context. Here is a history of (context, user choice):
 
@@ -168,7 +193,7 @@ Based on this history, summarize the user's contextual preferences.
     
     def get_history_str(self) -> str:
         combined_str = ""
-        for obs in self.data_obs_history:
+        for obs in self.initialization_data_obs_history:
             user_choice = getattr(obs, self.name)
             combined_str += f"\nCONTEXT: {obs.get_context_str()}"
             combined_str += f"\nUSER CHOICE: {user_choice}\n"
@@ -222,6 +247,35 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         if isinstance(obs, FeedingInitializationDatasetObservation):
             return [], {}
         
+        if isinstance(obs, FeedingOcclusionQueryObservation):
+            # Plate position variable.
+            plate_position_domain = Box(
+                np.array([-np.inf, -np.inf]),
+                np.array([np.inf, np.inf]),
+                dtype=np.float32,
+            )
+            plate_position = CSPVariable("plate_position", plate_position_domain)
+            init_plate_position = (obs.plate_pose.position[0], obs.plate_pose.position[1])
+
+            # Drink position variable.
+            drink_position_domain = Box(
+                np.array([-np.inf, -np.inf]),
+                np.array([np.inf, np.inf]),
+                dtype=np.float32,
+            )
+            drink_position = CSPVariable("drink_position", drink_position_domain)
+            init_drink_position = (obs.drink_pose.position[0], obs.drink_pose.position[1])
+
+            variables = [plate_position, drink_position]
+            initialization = {
+                plate_position: init_plate_position,
+                drink_position: init_drink_position,
+            }
+
+            return variables, initialization
+        
+        if isinstance(obs, FeedingOcclusionDatasetObservation):
+            return [], {}
 
         raise NotImplementedError
 
@@ -234,10 +288,105 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         constraints: list[CSPConstraint] = []
         
         # Add LLM constraints.
-        for model, variable in zip([self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model], variables, strict=True):
-            assert model.name == variable.name  # sanity check
-            constraint = model.create_constraint(obs, variable)
-            constraints.append(constraint)
+        if isinstance(obs, FeedingInitializationQueryObservation):
+            for model, variable in zip([self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model], variables, strict=True):
+                assert model.name == variable.name  # sanity check
+                constraint = model.create_constraint(obs, variable)
+                constraints.append(constraint)
+
+        # Add occlusion scale constraint.
+        if isinstance(obs, FeedingOcclusionQueryObservation):
+            plate_position, drink_position = variables
+
+            # NOTE: we are currently just using the MLE occlusion scale, rather than
+            # using the full distribution. That means that "ours" will be equivalent
+            # to "exploit_only". This is because we're not really running full
+            # experiments in this environment.
+            occlusion_scale = (
+                1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+            )
+            # occlusion_scale = 0.999
+            self._sim.set_occlusion_scale(occlusion_scale)
+            logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
+            
+            def _user_view_unoccluded_by_utensil(
+                plate_position: NDArray[np.float32],
+            ) -> bool:
+                self._sim.sync_from_observation(obs)
+                new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
+                field_name = "above_plate_pos"
+                try:
+                    robot_joints = _transform_joints_relative_to_plate(
+                        field_name,
+                        new_plate_pose,
+                        self._sim.robot,
+                        self._sim.scene_spec,
+                        arm_joints_only=False,
+                    )
+                except InverseKinematicsError:
+                    print("WARNING: IK failed within _user_view_unoccluded_by_utensil()")
+                    # from pybullet_helpers.gui import visualize_pose
+                    # visualize_pose(new_plate_pose, self._sim.physics_client_id)
+                    return False
+                held_object_id = self._sim.get_object_id_from_name("utensil")
+                held_object_tf = self._sim.scene_spec.utensil_held_object_tf
+                set_robot_joints_with_held_object(
+                    self._sim.robot,
+                    self._sim.physics_client_id,
+                    held_object_id,
+                    held_object_tf,
+                    robot_joints,
+                )
+                self._sim.robot.set_finger_state(
+                    self._sim.scene_spec.tool_grasp_fingers_value
+                )
+                return not self._sim.robot_in_occlusion()
+
+            user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
+                "user_view_unoccluded_by_utensil",
+                [plate_position],
+                _user_view_unoccluded_by_utensil,
+            )
+
+            constraints.append(user_view_unoccluded_by_utensil_constraint)
+
+            def _user_view_unoccluded_by_drink(
+                drink_position: NDArray[np.float32],
+            ) -> bool:
+                self._sim.sync_from_observation(obs)
+                new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
+                drink_post_grasp_pose = _transform_pose_relative_to_drink(
+                    "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
+                )
+                # from pybullet_helpers.gui import visualize_pose
+                # visualize_pose(new_drink_pose, self._sim.physics_client_id)
+                try:
+                    robot_joints = inverse_kinematics(
+                        self._sim.robot, drink_post_grasp_pose
+                    )
+                except InverseKinematicsError:
+                    print("WARNING: IK failed within _user_view_unoccluded_by_drink()")
+                    return False
+                held_object_id = self._sim.get_object_id_from_name("drink")
+                held_object_tf = self._sim.scene_spec.drink_held_object_tf
+                set_robot_joints_with_held_object(
+                    self._sim.robot,
+                    self._sim.physics_client_id,
+                    held_object_id,
+                    held_object_tf,
+                    robot_joints,
+                )
+                self._sim.robot.set_finger_state(
+                    self._sim.scene_spec.tool_grasp_fingers_value
+                )
+                return not self._sim.robot_in_occlusion()
+
+            user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
+                "user_view_unoccluded_by_drink",
+                [drink_position],
+                _user_view_unoccluded_by_drink,
+            )
+            constraints.append(user_view_unoccluded_by_drink_constraint)
 
         return constraints
 
@@ -248,6 +397,49 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
     ) -> list[CSPConstraint]:
 
         constraints: list[CSPConstraint] = []
+
+        if isinstance(obs, FeedingInitializationQueryObservation):
+            # No non-personal constraints for initialization query.
+            return constraints
+        
+        if isinstance(obs, FeedingOcclusionQueryObservation):
+            plate_position, drink_position = variables
+
+            # The plate and drink cannot be in collision.
+            def _plate_drink_collision_free(
+                plate_position: NDArray[np.float32],
+                drink_position: NDArray[np.float32],
+            ) -> bool:
+                new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
+                new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
+                set_pose(self._sim.plate_id, new_plate_pose, self._sim.physics_client_id)
+                set_pose(self._sim.drink_id, new_drink_pose, self._sim.physics_client_id)
+                return not check_body_collisions(
+                    self._sim.plate_id, self._sim.drink_id, self._sim.physics_client_id
+                )
+
+            plate_drink_collision_free_constraint = FunctionalCSPConstraint(
+                "plate_drink_collision_free",
+                [plate_position, drink_position],
+                _plate_drink_collision_free,
+            )
+            constraints.append(plate_drink_collision_free_constraint)
+
+            # The plate must be behind the drink.
+            def _plate_behind_drink(
+                plate_position: NDArray[np.float32],
+                drink_position: NDArray[np.float32],
+            ) -> bool:
+                plate_pos = _plate_position_to_pose(plate_position, obs.plate_pose).position
+                drink_pos = _drink_position_to_pose(drink_position, obs.drink_pose).position
+                return plate_pos[0] < drink_pos[0]
+            
+            plate_behind_drink = FunctionalCSPConstraint(
+                "plate_behind_drink",
+                [plate_position, drink_position],
+                _plate_behind_drink,
+            )
+            constraints.append(plate_behind_drink)
 
         return constraints
 
@@ -266,10 +458,69 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
 
         samplers = []
 
-        for model, variable in zip([self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model], csp.variables, strict=True):
-            assert model.name == variable.name
-            sampler = model.create_sampler(obs, variable, csp)
-            samplers.append(sampler)
+        if isinstance(obs, FeedingInitializationQueryObservation):
+            for model, variable in zip([self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model], csp.variables, strict=True):
+                assert model.name == variable.name
+                sampler = model.create_sampler(obs, variable, csp)
+                samplers.append(sampler)
+
+        elif isinstance(obs, FeedingOcclusionQueryObservation):
+            plate_position, drink_position = csp.variables
+
+            def _sample_plate_position(
+                _: dict[CSPVariable, Any], rng: np.random.Generator
+            ) -> dict[CSPVariable, Any]:
+                max_dx = self._sim.scene_spec.table_half_extents[0] - self._sim.scene_spec.plate_radius
+                max_dy = self._sim.scene_spec.table_half_extents[1] - self._sim.scene_spec.plate_radius
+                dx = rng.uniform(-max_dx, max_dx)
+                dy = rng.uniform(-max_dy, max_dy)
+                origin = self._sim.scene_spec.table_pose.position[:2]
+                new_pos = np.array(
+                    [
+                        origin[0] + dx,
+                        origin[1] + dy,
+                    ]
+                ).astype(np.float32)
+
+                # visualize sample by adding a small red sphere (alpha=0.5) on pybullet
+                viz_pose = Pose(
+                    (new_pos[0], new_pos[1], self._sim.scene_spec.table_pose.position[2]),
+                    (0, 0, 0, 1),
+                )
+                self._sim.visualize_sample(viz_pose, color=(1, 0, 0, 0.5))
+                return {plate_position: new_pos}
+
+            plate_position_sampler = FunctionalCSPSampler(
+                _sample_plate_position, csp, {plate_position}
+            )
+            samplers.append(plate_position_sampler)
+            
+            def _sample_drink_position(
+                _: dict[CSPVariable, Any], rng: np.random.Generator
+            ) -> dict[CSPVariable, Any]:
+                max_dx = self._sim.scene_spec.table_half_extents[0] - self._sim.scene_spec.drink_radius
+                max_dy = self._sim.scene_spec.table_half_extents[1] - self._sim.scene_spec.drink_radius
+                dx = rng.uniform(-max_dx, max_dx)
+                dy = rng.uniform(-max_dy, max_dy)
+                origin = self._sim.scene_spec.table_pose.position[:2]
+                new_pos = np.array(
+                    [
+                        origin[0] + dx,
+                        origin[1] + dy,
+                    ]
+                ).astype(np.float32)
+                # visualize sample by adding a small green sphere (alpha=0.5) on pybullet
+                viz_pose = Pose(
+                    (new_pos[0], new_pos[1], self._sim.scene_spec.table_pose.position[2]),
+                    (0, 0, 0, 1),
+                )
+                self._sim.visualize_sample(viz_pose, color=(0, 1, 0, 0.5))
+                return {drink_position: new_pos}
+
+            drink_position_sampler = FunctionalCSPSampler(
+                _sample_drink_position, csp, {drink_position}
+            )
+            samplers.append(drink_position_sampler)
 
         return samplers
 

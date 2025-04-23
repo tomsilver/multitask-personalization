@@ -1,17 +1,13 @@
 """Hacky FEAST integration."""
 
-from multitask_personalization.envs.feeding.feeding_env import FeedingEnv, FeedingObservation, BANISH_POSE
+from multitask_personalization.envs.feeding.feeding_env import FeedingEnv
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
-from multitask_personalization.envs.feeding.feeding_structs import MoveToJointPositions, FeedingInitializationQueryObservation, FeedingInitializationDatasetObservation, FeedingInitializationAction
-from multitask_personalization.envs.feeding.feeding_csp import _plate_position_to_pose, _drink_position_to_pose, _transform_joints_relative_to_plate, _transform_joints_relative_to_drink, _transform_pose_relative_to_drink, _transform_pose_relative_to_plate
+from multitask_personalization.envs.feeding.feeding_structs import FeedingPlateDrinkAction, FeedingOcclusionDatasetObservation, FeedingOcclusionQueryObservation, FeedingInitializationQueryObservation, FeedingInitializationDatasetObservation, FeedingInitializationAction
 from multitask_personalization.methods.csp_approach import CSPApproach
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
-from pybullet_helpers.geometry import Pose
-from pybullet_helpers.gui import visualize_pose
 from tomsutils.llm import OpenAILLM
 from typing import Any
 from pathlib import Path
-import numpy as np
 
 
 class MultitaskPersonalizationFeastInterface:
@@ -103,12 +99,24 @@ class MultitaskPersonalizationFeastInterface:
             plate_pose = request_dict["plate_pose"]
             drink_pose = request_dict["drink_pose"]
 
-            ##### IMPLEMENT PREDICTION OF NON-OCCLUDED POSES HERE #####
-            plate_delta_xy = np.random.uniform(-0.1, 0.1, size=2)
-            drink_delta_xy = np.random.uniform(-0.1, 0.1, size=2)
-            before_transfer_pose = None
-            before_transfer_pos = None
-            above_plate_pos = None
+            obs = FeedingOcclusionQueryObservation(
+                self._current_context,
+                self._current_table_type,
+                self._current_food_items,
+                self._current_dips,
+                self._current_bite_ordering_options,
+                plate_pose=plate_pose,
+                drink_pose=drink_pose,
+            )
+            self._approach.update(obs, 0.0, False, {})
+            act = self._approach.step()
+            assert isinstance(act, FeedingPlateDrinkAction)
+
+            plate_delta_xy = act.plate_delta_xy
+            drink_delta_xy = act.drink_delta_xy
+            before_transfer_pose = act.before_transfer_pose
+            before_transfer_pos = act.before_transfer_pos
+            above_plate_pos = act.above_plate_pos
 
             return {
                 "response_type": "occlusion_query",
@@ -126,7 +134,18 @@ class MultitaskPersonalizationFeastInterface:
             drink_pose = request_dict["drink_pose"]
             drink_occluded = request_dict["drink_occluded"]
 
-            ##### UPDATE OCCLUSION DATASET HERE #####
+            obs = FeedingOcclusionDatasetObservation(
+                self._current_context,
+                self._current_table_type,
+                self._current_food_items,
+                self._current_dips,
+                self._current_bite_ordering_options,
+                plate_pose,
+                drink_pose,
+                plate_occluded,
+                drink_occluded,
+            )
+            self._approach.update(obs, 0.0, False, {})
 
             return {"response_type": "occlusion_dataset"}
 
