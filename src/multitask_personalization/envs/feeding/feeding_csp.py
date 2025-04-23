@@ -81,12 +81,13 @@ class LLMMultipleChoiceConstraintModel:
         get_variable_value_from_choice: Callable[[Any, FeedingObservation], Any] | None = None,
         seed: int = 0,
     ):
-        self.name = name
+        self.name = name  # this must match the name in FeedingInitializationDatasetObservation
         self.llm = llm
         self.get_choices_from_observation = get_choices_from_observation
         self.get_variable_value_from_choice = get_variable_value_from_choice or (lambda x, o: x)
         self.summary_preferences = "Unknown"
         self.seed = seed
+        self.data_obs_history: list[FeedingInitializationDatasetObservation] = []
 
     def create_constraint(self, obs: FeedingObservation, variable: CSPVariable) -> CSPConstraint:
         assert variable.name == self.name
@@ -151,8 +152,26 @@ Which choice should you make? Return only the number of the choice, e.g., {choic
         assert isinstance(obs, FeedingObservationWithContext)
         return obs.get_context_str() 
         
+    def learn_incremental(self, obs: FeedingInitializationDatasetObservation) -> None:
+        self.data_obs_history.append(obs)
+        history_str = self.get_history_str()
+        prompt = f"""You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `{self.name}`. The preferences depend on context. Here is a history of (context, user choice):
 
+{history_str}
 
+Based on this history, summarize the user's contextual preferences.
+"""
+
+        response, _ = self.llm.query(prompt, temperature=1.0, seed=self.seed)
+        return response
+    
+    def get_history_str(self) -> str:
+        combined_str = ""
+        for obs in self.data_obs_history:
+            user_choice = getattr(obs, self.name)
+            combined_str += f"\nCONTEXT: {obs.get_context_str()}"
+            combined_str += f"\nUSER CHOICE: {user_choice}\n"
+        return combined_str
     
     
 
@@ -270,8 +289,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
     ) -> None:
         
         if isinstance(next_obs, FeedingInitializationDatasetObservation):
-            # TODO update constraints
-            pass
+            for model in [self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model]:
+                model.learn_incremental(next_obs)
 
 
 
