@@ -2,7 +2,8 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Collection
+from typing import Any, Callable, Collection
+from functools import partial
 
 import numpy as np
 from gymnasium.spaces import Box, Discrete
@@ -16,6 +17,7 @@ from pybullet_helpers.inverse_kinematics import (
 )
 from pybullet_helpers.joint import JointPositions
 from pybullet_helpers.robots.single_arm import FingeredSingleArmPyBulletRobot
+from tomsutils.llm import LargeLanguageModel
 from tomsutils.spaces import EnumSpace
 
 from multitask_personalization.csp_generation import CSPGenerator
@@ -26,6 +28,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingObservation,
     FeedingInitializationQueryObservation,
     FeedingInitializationDatasetObservation,
+    FeedingObservationWithContext,
     FeedingInitializationAction
 )
 from multitask_personalization.structs import (
@@ -67,15 +70,82 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
         return False
     
 
+class LLMMultipleChoiceConstraintModel:
+    """Shared code for table side, bite ordering, etc."""
+
+    def __init__(
+        self,
+        name: str,
+        llm: LargeLanguageModel,
+        get_choices_from_observation: Callable[[FeedingObservation], list[Any]],
+        seed: int = 0,
+    ):
+        self.name = name
+        self.llm = llm
+        self.get_choices_from_observation = get_choices_from_observation
+        self.summary_preferences = "Unknown"
+        self.seed = seed
+
+    def create_constraint(self, obs: FeedingObservation, variable: CSPVariable) -> CSPConstraint:
+        assert variable.name == self.name
+        preference_constraint = FunctionalCSPConstraint(
+            f"{self.name}_preference",
+            [variable],
+            partial(self.choice_most_preferred, obs),
+        )
+        return preference_constraint
+    
+    def get_most_preferred_choice(self, obs: FeedingObservation) -> Any:
+        # TODO use this for sampling too
+        assert isinstance(obs, FeedingObservationWithContext)
+        choices = self.get_choices_from_observation(obs)
+        choice_nums = [str(i+1) for i in range(len(choices))]
+        prompt = self.get_prompt(obs, choices)
+        logprobs, _ = self.llm.get_multiple_choice_logprobs(prompt, choice_nums, self.seed)
+        selected_num_str = max(choice_nums, key=logprobs.get)
+        assert selected_num_str.isdigit()
+        choice_idx = int(selected_num_str) - 1
+        return choices[choice_idx]
+
+    def choice_most_preferred(self, obs: FeedingObservation, choice: Any) -> bool:
+        most_preferred_choice = self.get_most_preferred_choice(obs)
+        return most_preferred_choice == choice
+    
+    def get_prompt(self, obs: FeedingObservation, choices: list[Any]) -> str:
+        choice_list_str = "\n".join([f"{i+1}. {choice}" for i, choice in enumerate(choices)])
+        choice_example_list = " or ".join([f"'{i+1}'" for i in range(len(choices))])
+        prompt = f"""You are a mealtime assistance robot and you are choosing a value for a variable `{self.name}` which can take on the following values:
+
+{choice_list_str}
+
+Based on your past interactions with the user, you have the following estimation of their preferences:
+
+{self.summary_preferences}
+
+Which choice should you make? Return only the number of the choice, e.g., {choice_example_list}.
+"""
+
+        return prompt
+        
+
+
+    
+    
+
 class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
     """Generate CSPs for the feeding environment."""
 
     def __init__(
-        self, sim: FeedingEnv, occlusion_scale_model: Threshold1DModel, *args, **kwargs
+        self, sim: FeedingEnv, llm: LargeLanguageModel, occlusion_scale_model: Threshold1DModel, *args, **kwargs
     ) -> None:
         self._sim = sim
+        self._llm = llm
         self._occlusion_model = occlusion_scale_model
         super().__init__(*args, **kwargs)
+        self._feeding_side_model = LLMMultipleChoiceConstraintModel("feeding_side", llm, lambda o: ["left", "right"])
+        self._bite_ordering_model = LLMMultipleChoiceConstraintModel("bite_ordering", llm,lambda o: o.bite_ordering_options)
+        self._ready_signal_model = LLMMultipleChoiceConstraintModel("ready_signal", llm, lambda o: ["mouth_open", "button", "auto_continue"])
+        self._be_verbal_model = LLMMultipleChoiceConstraintModel("be_verbal", llm, lambda o: [True, False])
 
     def save(self, model_dir: Path) -> None:
         print("WARNING: saving not yet implemented for FeedingCSPGenerator.")
@@ -118,7 +188,11 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
 
         constraints: list[CSPConstraint] = []
         
-        # TODO
+        # Add LLM constraints.
+        for model, variable in zip([self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model], variables, strict=True):
+            assert model.name == variable.name  # sanity check
+            constraint = model.create_constraint(obs, variable)
+            constraints.append(constraint)
 
         return constraints
 
@@ -167,8 +241,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         info: dict[str, Any],
     ) -> None:
         
-        # TODO
-        import ipdb; ipdb.set_trace()
+        if isinstance(next_obs, FeedingInitializationDatasetObservation):
+            # TODO update constraints
+            pass
 
 
 

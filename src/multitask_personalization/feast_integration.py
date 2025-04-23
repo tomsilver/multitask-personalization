@@ -8,7 +8,9 @@ from multitask_personalization.methods.csp_approach import CSPApproach
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.gui import visualize_pose
+from tomsutils.llm import OpenAILLM
 from typing import Any
+from pathlib import Path
 import numpy as np
 
 
@@ -23,12 +25,14 @@ class MultitaskPersonalizationFeastInterface:
 
         # Create approach.
         csp_solver = RandomWalkCSPSolver(self._seed)
+        llm = OpenAILLM("gpt-4o-mini", Path("feast_llm_cache"))
         if personalize:
             explore_method = "exploit-only"
         else:
             explore_method = "nothing-personal"
         self._approach = CSPApproach(self._scene_spec, self._env.action_space,
                                      csp_solver=csp_solver,
+                                     llm=llm,
                                      explore_method=explore_method)
         self._approach.train()
 

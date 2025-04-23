@@ -207,6 +207,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 feeding_sim = FeedingEnv(self._scene_spec, use_gui=False)
             return FeedingCSPGenerator(
                 feeding_sim,
+                self._llm,
                 occlusion_scale_model,
                 self._seed,
                 explore_method=self._explore_method,
