@@ -38,7 +38,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     CloseGripper,
     FeedingAction,
     FeedingObservation,
-    FeedingInitializationObservation,
+    FeedingInitializationQueryObservation,
     FeedingInitializationAction,
     GraspTool,
     MoveDrink,

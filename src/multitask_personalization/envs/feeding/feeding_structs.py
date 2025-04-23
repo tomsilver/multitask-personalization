@@ -14,7 +14,7 @@ class FeedingObservation(abc.ABC):
 
 
 @dataclass
-class FeedingInitializationObservation(FeedingObservation):
+class FeedingInitializationQueryObservation(FeedingObservation):
     """An observation of the initial feeding context."""
     
     context: str
@@ -22,6 +22,22 @@ class FeedingInitializationObservation(FeedingObservation):
     food_items: list[str]
     dips: list[str]
     bite_ordering_options: list[str]
+
+
+@dataclass
+class FeedingInitializationDatasetObservation(FeedingObservation):
+    """An observation of the user's ground-truth preferences about initialization,
+    along with the contextual observations again for convenience."""
+
+    context: str
+    table_type: str
+    food_items: list[str]
+    dips: list[str]
+    bite_ordering_options: list[str]
+    feeding_side: str
+    bite_ordering: str
+    ready_signal: str
+    be_verbal: bool
 
 
 class FeedingAction(abc.ABC):

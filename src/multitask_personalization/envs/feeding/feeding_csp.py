@@ -24,7 +24,8 @@ from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSce
 from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingAction,
     FeedingObservation,
-    FeedingInitializationObservation,
+    FeedingInitializationQueryObservation,
+    FeedingInitializationDatasetObservation,
     FeedingInitializationAction
 )
 from multitask_personalization.structs import (
@@ -49,7 +50,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
         self._sim = sim
 
     def step(self, obs: FeedingObservation) -> FeedingAction:
-        if isinstance(obs, FeedingInitializationObservation):
+        if isinstance(obs, FeedingInitializationQueryObservation):
             feeding_side = self._get_value("feeding_side")
             bite_ordering = obs.bite_ordering_options[self._get_value("bite_ordering")]
             ready_signal = self._get_value("ready_signal")
@@ -87,7 +88,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         obs: FeedingObservation,
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
         
-        if isinstance(obs, FeedingInitializationObservation):
+        if isinstance(obs, FeedingInitializationQueryObservation):
             feeding_side = CSPVariable("feeding_side", EnumSpace(["left", "right"]))
             bite_ordering = CSPVariable("bite_ordering", Discrete(len(obs.bite_ordering_options)))  # index into obs.bite_ordering_options
             ready_signal = CSPVariable("ready_signal", EnumSpace(["mouth_open", "button", "auto_continue"]))
@@ -102,6 +103,10 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             }
 
             return variables, initialization
+        
+        if isinstance(obs, FeedingInitializationDatasetObservation):
+            return [], {}
+        
 
         raise NotImplementedError
 
