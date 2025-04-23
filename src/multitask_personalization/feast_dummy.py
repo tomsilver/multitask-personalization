@@ -183,3 +183,8 @@ if __name__ == "__main__":
                                     "plate_occlusion": plate_occlusion,
                                     "drink_occlusion": drink_occlusion,
                                     })
+    
+    # TODO: we need to resolve the issue that drink_post_grasp_pose is used to check drink occlusions
+    # but it's not actually used on the robot. I took this out earlier because it was causing strange
+    # motions on the robot but we need to add it back for consistency. Otherwise occlusion learning
+    # won't work if we try to learn from the drink.

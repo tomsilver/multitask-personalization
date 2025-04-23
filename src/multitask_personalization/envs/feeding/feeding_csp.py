@@ -309,42 +309,14 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
             )
             # occlusion_scale = 0.999
-            self._sim.set_occlusion_scale(occlusion_scale)
-            logging.info(f"Set sim occlusion scale to {occlusion_scale:.3f}")
+            logging.info(f"Using occlusion scale {occlusion_scale:.3f}")
             
             def _user_view_unoccluded_by_utensil(
                 plate_position: NDArray[np.float32],
             ) -> bool:
-                set_pose(self._sim.get_object_id_from_name("drink"), BANISH_POSE, self._sim.physics_client_id)
-                new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
-                field_name = "above_plate_pos"
-                try:
-                    robot_joints = _transform_joints_relative_to_plate(
-                        field_name,
-                        new_plate_pose,
-                        self._sim.robot,
-                        self._sim.scene_spec,
-                        arm_joints_only=False,
-                    )
-                except InverseKinematicsError:
-                    print("WARNING: IK failed within _user_view_unoccluded_by_utensil()")
-                    # from pybullet_helpers.gui import visualize_pose
-                    # visualize_pose(new_plate_pose, self._sim.physics_client_id)
-                    return False
-                held_object_id = self._sim.get_object_id_from_name("utensil")
-                held_object_tf = self._sim.scene_spec.utensil_held_object_tf
-                set_robot_joints_with_held_object(
-                    self._sim.robot,
-                    self._sim.physics_client_id,
-                    held_object_id,
-                    held_object_tf,
-                    robot_joints,
-                )
-                self._sim.robot.set_finger_state(
-                    self._sim.scene_spec.tool_grasp_fingers_value
-                )
-                return not self._sim.robot_in_occlusion()
-
+                score = self._get_plate_occlusion_score(plate_position)
+                return score < 1.0 - occlusion_scale
+            
             user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
                 "user_view_unoccluded_by_utensil",
                 [plate_position],
@@ -356,33 +328,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             def _user_view_unoccluded_by_drink(
                 drink_position: NDArray[np.float32],
             ) -> bool:
-                set_pose(self._sim.get_object_id_from_name("utensil"), BANISH_POSE, self._sim.physics_client_id)
-                new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
-                drink_post_grasp_pose = _transform_pose_relative_to_drink(
-                    "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
-                )
-                # from pybullet_helpers.gui import visualize_pose
-                # visualize_pose(new_drink_pose, self._sim.physics_client_id)
-                try:
-                    robot_joints = inverse_kinematics(
-                        self._sim.robot, drink_post_grasp_pose
-                    )
-                except InverseKinematicsError:
-                    print("WARNING: IK failed within _user_view_unoccluded_by_drink()")
-                    return False
-                held_object_id = self._sim.get_object_id_from_name("drink")
-                held_object_tf = self._sim.scene_spec.drink_held_object_tf
-                set_robot_joints_with_held_object(
-                    self._sim.robot,
-                    self._sim.physics_client_id,
-                    held_object_id,
-                    held_object_tf,
-                    robot_joints,
-                )
-                self._sim.robot.set_finger_state(
-                    self._sim.scene_spec.tool_grasp_fingers_value
-                )
-                return not self._sim.robot_in_occlusion()
+                score = self._get_drink_occlusion_score(drink_position)
+                return score < 1.0 - occlusion_scale
 
             user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
                 "user_view_unoccluded_by_drink",
@@ -401,10 +348,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
 
         constraints: list[CSPConstraint] = []
 
-        if isinstance(obs, FeedingInitializationQueryObservation):
-            # No non-personal constraints for initialization query.
-            return constraints
-        
         if isinstance(obs, FeedingOcclusionQueryObservation):
             plate_position, drink_position = variables
 
@@ -445,6 +388,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             constraints.append(plate_behind_drink)
 
         return constraints
+        
 
     def _generate_exploit_cost(
         self,
@@ -547,6 +491,78 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             for model in [self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model]:
                 model.learn_incremental(next_obs)
 
+        if isinstance(next_obs, FeedingOcclusionDatasetObservation):
+            plate_pose = next_obs.plate_pose
+            plate_score = self._get_plate_occlusion_score(plate_pose.position[:2])
+            plate_label = next_obs.plate_occlusion
+
+            drink_pose = next_obs.drink_pose
+            drink_score = self._get_drink_occlusion_score(drink_pose.position[:2])
+            drink_label = next_obs.drink_occlusion
+
+            self._occlusion_model.fit_incremental([plate_score, drink_score], [plate_label, drink_label])
+
+
+
+    def _get_plate_occlusion_score(self, plate_position: NDArray[np.float32]) -> float:
+        set_pose(self._sim.get_object_id_from_name("drink"), BANISH_POSE, self._sim.physics_client_id)
+        new_plate_pose = _plate_position_to_pose(plate_position, self._sim.scene_spec.plate_default_pose)
+        field_name = "above_plate_pos"
+        try:
+            robot_joints = _transform_joints_relative_to_plate(
+                field_name,
+                new_plate_pose,
+                self._sim.robot,
+                self._sim.scene_spec,
+                arm_joints_only=False,
+            )
+        except InverseKinematicsError:
+            print("WARNING: IK failed within _user_view_unoccluded_by_utensil()")
+            # from pybullet_helpers.gui import visualize_pose
+            # visualize_pose(new_plate_pose, self._sim.physics_client_id)
+            return False
+        held_object_id = self._sim.get_object_id_from_name("utensil")
+        held_object_tf = self._sim.scene_spec.utensil_held_object_tf
+        set_robot_joints_with_held_object(
+            self._sim.robot,
+            self._sim.physics_client_id,
+            held_object_id,
+            held_object_tf,
+            robot_joints,
+        )
+        self._sim.robot.set_finger_state(
+            self._sim.scene_spec.tool_grasp_fingers_value
+        )
+        return self._sim.get_occlusion_score()
+
+    def _get_drink_occlusion_score(self, drink_position: NDArray[np.float32]) -> float:
+        set_pose(self._sim.get_object_id_from_name("utensil"), BANISH_POSE, self._sim.physics_client_id)
+        new_drink_pose = _drink_position_to_pose(drink_position, self._sim.scene_spec.drink_default_pose)
+        drink_post_grasp_pose = _transform_pose_relative_to_drink(
+            "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
+        )
+        # from pybullet_helpers.gui import visualize_pose
+        # visualize_pose(new_drink_pose, self._sim.physics_client_id)
+        try:
+            robot_joints = inverse_kinematics(
+                self._sim.robot, drink_post_grasp_pose
+            )
+        except InverseKinematicsError:
+            print("WARNING: IK failed within _user_view_unoccluded_by_drink()")
+            return False
+        held_object_id = self._sim.get_object_id_from_name("drink")
+        held_object_tf = self._sim.scene_spec.drink_held_object_tf
+        set_robot_joints_with_held_object(
+            self._sim.robot,
+            self._sim.physics_client_id,
+            held_object_id,
+            held_object_tf,
+            robot_joints,
+        )
+        self._sim.robot.set_finger_state(
+            self._sim.scene_spec.tool_grasp_fingers_value
+        )
+        return self._sim.get_occlusion_score()
 
 
 # class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):

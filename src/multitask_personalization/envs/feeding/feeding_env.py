@@ -214,10 +214,6 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
 
-        # Initialize the occlusion scale.
-        self._occlusion_scale = 0.0
-        if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
-            self.set_occlusion_scale(self._hidden_spec.occlusion_preference_scale)
         self._occlusion_rays: set[int] | None = None
 
         # See get_joint_positions_from_known_ee_pose().
@@ -284,11 +280,6 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
 
         return img  # type: ignore
 
-    def set_occlusion_scale(self, scale: float) -> None:
-        """Update the scale of the occlusion model."""
-        assert 0 <= scale <= 1.0, "Occlusion scale must be in [0, 1]"
-        self._occlusion_scale = scale
-
     def get_joint_positions_from_known_ee_pose(self, ee_pose: Pose) -> JointPositions:
         """Given an end effector pose that was previously commanded by the
         robot for MoveToEEPose, return the joint positions that resulted."""
@@ -300,11 +291,6 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         position_tuple = tuple(np.round(pose.position, decimals=5).tolist())
         orientation_tuple = tuple(np.round(pose.orientation, decimals=5).tolist())
         return position_tuple + orientation_tuple
-
-    def robot_in_occlusion(self) -> bool:
-        """Check if the robot is in occlusion."""
-        score = self.get_occlusion_score()
-        return score >= 1.0 - self._occlusion_scale
 
     def get_occlusion_score(self) -> float:
         """A score between 0 and 1 where higher is more occluded."""
