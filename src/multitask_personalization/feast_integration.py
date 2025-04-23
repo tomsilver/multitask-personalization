@@ -9,6 +9,7 @@ from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from pybullet_helpers.geometry import Pose
 from pybullet_helpers.gui import visualize_pose
 from typing import Any
+import numpy as np
 
 
 class MultitaskPersonalizationFeastInterface:
@@ -30,123 +31,74 @@ class MultitaskPersonalizationFeastInterface:
                                      csp_solver=csp_solver,
                                      explore_method=explore_method)
         self._approach.train()
+
+    def run(self, request_dict: dict[str, Any]) -> dict[str, Any] | None:
+
+        if request_dict["request_type"] == "initialization_query":
+            context = request_dict["context"]
+            table_type = request_dict["table_type"]
+            food_items = request_dict["food_items"]
+            dips = request_dict["dips"]
+            bite_ordering_options = request_dict["bite_ordering_options"]
+
+            ##### IMPLEMENT PREDICTION OF INITIALIZATION HERE #####
+            feeding_side = np.random.choice(["left", "right"])
+            bite_ordering = np.random.choice(bite_ordering_options)
+            ready_signal = np.random.choice(["mouth_open", "button", "auto_continue"])
+            be_verbal = np.random.choice([True, False])
+
+            return {
+                "response_type": "initialization_query",
+                "feeding_side": feeding_side,
+                "bite_ordering": bite_ordering,
+                "ready_signal": ready_signal,
+                "be_verbal": be_verbal,
+            }
         
-    def run(self, feast_state_dict: dict[str, Any]) -> dict[str, Any]:
+        elif request_dict["request_type"] == "initialization_dataset":
+            feeding_side = request_dict["feeding_side"]
+            bite_ordering = request_dict["bite_ordering"]
+            ready_signal = request_dict["ready_signal"]
+            be_verbal = request_dict["be_verbal"]
 
-        sim_state = self._env.get_state()
+            ##### UPDATE INITIALIZATION DATASET HERE #####
 
-        robot_joints = feast_state_dict["robot_joints"]
+            return {"response_type": "initialization_dataset"}
 
-        detected_plate_pose = feast_state_dict.get("plate_pose", sim_state.plate_pose)
+        elif request_dict["request_type"] == "occlusion_query":
+
+            plate_pose = request_dict["plate_pose"]
+            drink_pose = request_dict["drink_pose"]
+
+            ##### IMPLEMENT PREDICTION OF NON-OCCLUDED POSES HERE #####
+            plate_delta_xy = np.random.uniform(-0.1, 0.1, size=2)
+            drink_delta_xy = np.random.uniform(-0.1, 0.1, size=2)
+            before_transfer_pose = None
+            before_transfer_pos = None
+            above_plate_pos = None
+
+            return {
+                "response_type": "occlusion_query",
+                "plate_delta_xy": plate_delta_xy,
+                "drink_delta_xy": drink_delta_xy,
+                "before_transfer_pose": before_transfer_pose,
+                "before_transfer_pos": before_transfer_pos,
+                "above_plate_pos": above_plate_pos,
+            }
         
-        # # rotate by 180 in yaw
-        # detected_plate_pose = detected_plate_pose.multiply(Pose(
-        #     (0, 0, 0),
-        #     (0, 0, 1, 0)
-        # ))
+        elif request_dict["request_type"] == "occlusion_dataset":
 
-        plate_pose = Pose(
-            (detected_plate_pose.position[0],
-             detected_plate_pose.position[1],
-             self._env.scene_spec.plate_default_pose.position[2]),
-            detected_plate_pose.orientation 
-        )
-        visualize_pose(plate_pose, self._env.physics_client_id)
+            plate_pose = request_dict["plate_pose"]
+            plate_occluded = request_dict["plate_occluded"]
+            drink_pose = request_dict["drink_pose"]
+            drink_occluded = request_dict["drink_occluded"]
 
-        detected_drink_pose = feast_state_dict.get("drink_pose", sim_state.drink_pose)
-        drink_pose = Pose(
-            (detected_drink_pose.position[0],
-             detected_drink_pose.position[1],
-             self._env.scene_spec.drink_default_pose.position[2]),
-            detected_drink_pose.orientation
-        )
-        visualize_pose(drink_pose, self._env.physics_client_id)
+            ##### UPDATE OCCLUSION DATASET HERE #####
 
-        occluded = feast_state_dict.get("occluded", False)
-        if occluded:
-            user_feedback = "You're blocking my view!"
-            robot_joints = self._last_above_plate_joints
+            return {"response_type": "occlusion_dataset"}
+
         else:
-            user_feedback = None
-
-        user_request = feast_state_dict.get("user_request", sim_state.user_request)
-
-        print("feast_state_dict:", feast_state_dict)
-        print("user_request:", user_request)
-        print("user_feedback:", user_feedback)
-        feeding_state = FeedingState(
-            robot_joints=robot_joints,
-            plate_pose=plate_pose,
-            drink_pose=drink_pose,
-            held_object_name=None,
-            held_object_tf=None,
-            stage="acquisition",
-            user_request=user_request,
-            user_feedback=user_feedback,
-        )
-        self._env.set_state(feeding_state)
-
-        if occluded:
-            act = MoveToJointPositions(robot_joints)
-            self._approach._csp_generator.observe_transition(feeding_state, act, feeding_state,
-                                                             False, {})
-
-        self._approach.reset(feeding_state, {})
-
-        sol = self._approach._current_sol
-        plate_var, drink_var = sol.keys()
-        assert "plate" in plate_var.name
-        assert "drink" in drink_var.name
-        plate_position = sol[plate_var]
-        drink_position = sol[drink_var]
-        new_plate_pose = _plate_position_to_pose(plate_position, plate_pose)
-        new_drink_pose = _drink_position_to_pose(drink_position, drink_pose)
-
-        visualize_pose(new_plate_pose, self._env.physics_client_id)
-
-        if user_request not in ("drink", "prepare-drink-only"):
-            before_transfer_pose = _transform_pose_relative_to_plate(
-                "before_transfer_pose", new_plate_pose, self._env.scene_spec
-            )
-
-            before_transfer_pos = _transform_joints_relative_to_plate(
-                "before_transfer_pos", new_plate_pose, self._env.robot, self._env.scene_spec
-            )
-
-            self._last_above_plate_joints = _transform_joints_relative_to_plate(
-                "above_plate_pos", new_plate_pose, self._env.robot, self._env.scene_spec,
-                arm_joints_only=False
-            )
-            above_plate_pos = self._last_above_plate_joints[:7]
-        else:
-            before_transfer_pose = self._env.scene_spec.before_transfer_pose
-            before_transfer_pos = self._env.scene_spec.before_transfer_pos
-            above_plate_pos = self._env.scene_spec.above_plate_pos
-
-        # if user_request == "drink":
-        #     drink_before_transfer_pose = _transform_pose_relative_to_drink(
-        #         "drink_before_transfer_pose", new_drink_pose, self._env.scene_spec
-        #     )
-        #     drink_before_transfer_pos = _transform_joints_relative_to_drink(
-        #         "drink_before_transfer_pos", new_drink_pose, self._env.robot, self._env.scene_spec
-        #     )
-        # else:
-        #     drink_before_transfer_pose = self._env.scene_spec.drink_before_transfer_pose
-        #     drink_before_transfer_pos = self._env.scene_spec.drink_before_transfer_pos
-
-
-        return {
-            "before_transfer_pose": before_transfer_pose,
-            "before_transfer_pos": before_transfer_pos,
-            "above_plate_pos": above_plate_pos,
-            # "drink_before_transfer_pose": drink_before_transfer_pose,
-            # "drink_before_transfer_pos": drink_before_transfer_pos,
-            "plate_delta_xy": (-1 * (new_plate_pose.position[1] - plate_pose.position[1]),
-                               (new_plate_pose.position[0] - plate_pose.position[0])),
-            "drink_delta_xy": (-1 * (new_drink_pose.position[1] - drink_pose.position[1]),
-                               (new_drink_pose.position[0] - drink_pose.position[0])),
-        }
-
+            raise ValueError(f"Unknown request type: {request_dict['requestType']}")
 
 if __name__ == "__main__":
     import argparse
@@ -171,18 +123,18 @@ if __name__ == "__main__":
     interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize)
 
     def callback(msg):
-        obj = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object
-        print("Received object:", obj)
-        scene_spec_updates = interface.run(obj)
-        print("Sending scene updates:", scene_spec_updates)
+        request = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object
+        print("Received request:", request)
+        response = interface.run(request)
+        print("Sending response:", response)
         msg = String()
-        ps = pickle.dumps(scene_spec_updates)
+        ps = pickle.dumps(response)
         s = base64.b64encode(ps).decode('ascii')
         msg.data = s
         pub.publish(msg)
 
     rospy.init_node("multitask_personalization_feast_interface")
-    sub = rospy.Subscriber('/mp_state', String, callback)
-    pub = rospy.Publisher('/mp_state_out', String, queue_size=1)
+    sub = rospy.Subscriber('/mp_request', String, callback)
+    pub = rospy.Publisher('/mp_response', String, queue_size=1)
 
     rospy.spin()
