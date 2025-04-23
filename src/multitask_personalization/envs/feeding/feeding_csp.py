@@ -71,7 +71,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             planned_plate_position = self._get_value("plate_position")
             plate_delta_xy = (obs.plate_pose.position[0] - planned_plate_position[0],
                               obs.plate_pose.position[1] - planned_plate_position[1])
-            planned_plate_pose = _plate_position_to_pose(planned_plate_position)
+            planned_plate_pose = _plate_position_to_pose(planned_plate_position, obs.plate_pose)
             before_transfer_pose = _transform_pose_relative_to_plate(
                 "before_transfer_pose", planned_plate_pose, self._sim.scene_spec
             )
@@ -92,7 +92,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
         raise NotImplementedError
 
     def check_termination(self, obs: FeedingObservation) -> bool:
-        return False
+        return True
     
 
 class LLMMultipleChoiceConstraintModel:
@@ -312,7 +312,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             def _user_view_unoccluded_by_utensil(
                 plate_position: NDArray[np.float32],
             ) -> bool:
-                self._sim.sync_from_observation(obs)
                 new_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
                 field_name = "above_plate_pos"
                 try:
@@ -353,7 +352,6 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             def _user_view_unoccluded_by_drink(
                 drink_position: NDArray[np.float32],
             ) -> bool:
-                self._sim.sync_from_observation(obs)
                 new_drink_pose = _drink_position_to_pose(drink_position, obs.drink_pose)
                 drink_post_grasp_pose = _transform_pose_relative_to_drink(
                     "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec

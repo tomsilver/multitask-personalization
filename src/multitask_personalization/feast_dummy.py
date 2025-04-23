@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from typing import List
 from std_msgs.msg import String
 import argparse
+from pybullet_helpers.geometry import Pose
+import numpy as np
+
 
 if __name__ == "__main__":
     # Parse command line arguments
@@ -142,3 +145,14 @@ if __name__ == "__main__":
                         "ready_signal": ready_signal,
                         "be_verbal": be_verbal})
     assert mp_response["response_type"] == "initialization_dataset"
+
+    # send plate and drink pose to multitask personalization
+    mp_response = _send_mp_request({"request_type": "occlusion_query",
+                                    "plate_pose": Pose((0.4, 0.3, 0.17)),
+                                    "drink_pose": Pose((0.55, 0.6, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
+                                    })
+    assert mp_response["response_type"] == "occlusion_query"
+    plate_delta_xy = mp_response["plate_delta_xy"]
+    drink_delta_xy = mp_response["drink_delta_xy"]
+
+    # TODO verify and send back occlusion data

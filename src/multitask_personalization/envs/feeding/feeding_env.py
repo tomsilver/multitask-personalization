@@ -40,6 +40,7 @@ from multitask_personalization.envs.feeding.feeding_structs import (
     FeedingObservation,
     FeedingInitializationQueryObservation,
     FeedingInitializationAction,
+    FeedingOcclusionQueryObservation,
     GraspTool,
     MoveDrink,
     MovePlate,
@@ -252,11 +253,6 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         options: dict[str, Any] | None = None,
     ) -> tuple[FeedingObservation, dict[str, Any]]:
         raise NotImplementedError("This environment is only being used as a simulator right now, not an actual environment.")
-
-    def sync_from_observation(self, obs: FeedingObservation) -> None:
-        """Update the simulator given an observation."""
-        # TODO
-        import ipdb; ipdb.set_trace()
 
     def step(
         self, action: FeedingAction
