@@ -163,7 +163,8 @@ Based on this history, summarize the user's contextual preferences.
 """
 
         response, _ = self.llm.query(prompt, temperature=1.0, seed=self.seed)
-        return response
+        self.summary_preferences = response
+        print(f"Updated user preferences for {self.name}: {self.summary_preferences}")
     
     def get_history_str(self) -> str:
         combined_str = ""
