@@ -81,6 +81,34 @@ class FeedingSceneSpec(PublicSceneSpec):
         Path(__file__).parent / "assets" / "head_models" / "mouth_open.urdf"
     )
 
+    # TV world path:
+    tv_world_base_path: Path = (
+        Path(__file__).parent / "assets" / "tv_world"
+    )
+    tv_world_objects: list[Path] = field(
+        default_factory=lambda: [
+            Path("body_1.obj"),
+            Path("body_2.obj"),
+            Path("body_3.obj"),
+            Path("body_4.obj"),
+            Path("body_5.obj"),
+            Path("body_6.obj"),
+            Path("body_7_on.obj")
+        ]
+    )
+
+    # social partner
+    social_partner_base_path: Path = (
+        Path(__file__).parent / "assets" / "tv_world"
+    )
+    social_partner_objects: list[Path] = field(
+        default_factory=lambda: [
+            Path("human_body.obj"),
+            Path("chair_base.obj"),
+            Path("chair_legs.obj"),
+        ]
+    )
+
     # Table.
     table_pose: Pose = Pose((0.45, 0.5, 0.15))
     table_half_extents: tuple[float, float, float] = (0.35, 0.4, 0.001)
