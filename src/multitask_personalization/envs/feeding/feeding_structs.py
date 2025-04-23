@@ -9,22 +9,34 @@ from pybullet_helpers.geometry import Pose
 from pybullet_helpers.joint import JointPositions
 
 
-@dataclass(frozen=True)
-class FeedingState:
-    """A state in the feeding environment."""
+class FeedingObservation(abc.ABC):
+    """An observation in the feeding environment."""
 
-    robot_joints: JointPositions
-    plate_pose: Pose
-    drink_pose: Pose
-    held_object_name: str | None
-    held_object_tf: Pose | None
-    stage: str  # "transfer" or "acquisition"
-    user_request: str  # "food" or "drink" or "prepare"
-    user_feedback: str | None = None
+
+@dataclass
+class FeedingInitializationObservation(FeedingObservation):
+    """An observation of the initial feeding context."""
+    
+    context: str
+    table_type: str
+    food_items: list[str]
+    dips: list[str]
+    bite_ordering_options: list[str]
 
 
 class FeedingAction(abc.ABC):
     """An action in the feeding environment."""
+
+
+@dataclass
+class FeedingInitializationAction(FeedingAction):
+    """A prediction of user preferences to initialize a meal."""
+
+    feeding_side: str
+    bite_ordering: str
+    ready_signal: str
+    be_verbal: bool
+
 
 
 @dataclass(frozen=True)

@@ -1,8 +1,8 @@
 """Hacky FEAST integration."""
 
-from multitask_personalization.envs.feeding.feeding_env import FeedingEnv, FeedingState, BANISH_POSE
+from multitask_personalization.envs.feeding.feeding_env import FeedingEnv, FeedingObservation, BANISH_POSE
 from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
-from multitask_personalization.envs.feeding.feeding_structs import MoveToJointPositions
+from multitask_personalization.envs.feeding.feeding_structs import MoveToJointPositions, FeedingInitializationObservation, FeedingInitializationAction
 from multitask_personalization.envs.feeding.feeding_csp import _plate_position_to_pose, _drink_position_to_pose, _transform_joints_relative_to_plate, _transform_joints_relative_to_drink, _transform_pose_relative_to_drink, _transform_pose_relative_to_plate
 from multitask_personalization.methods.csp_approach import CSPApproach
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
@@ -42,10 +42,20 @@ class MultitaskPersonalizationFeastInterface:
             bite_ordering_options = request_dict["bite_ordering_options"]
 
             ##### IMPLEMENT PREDICTION OF INITIALIZATION HERE #####
-            feeding_side = np.random.choice(["left", "right"])
-            bite_ordering = np.random.choice(bite_ordering_options)
-            ready_signal = np.random.choice(["mouth_open", "button", "auto_continue"])
-            be_verbal = np.random.choice([True, False])
+            obs = FeedingInitializationObservation(context, table_type, food_items, dips, bite_ordering_options)
+            self._approach.reset(obs, {})
+            act = self._approach.step()
+            assert isinstance(act, FeedingInitializationAction)
+
+            # feeding_side = np.random.choice(["left", "right"])
+            # bite_ordering = np.random.choice(bite_ordering_options)
+            # ready_signal = np.random.choice(["mouth_open", "button", "auto_continue"])
+            # be_verbal = np.random.choice([True, False])
+
+            feeding_side = act.feeding_side
+            bite_ordering = act.bite_ordering
+            ready_signal = act.ready_signal
+            be_verbal = act.be_verbal
 
             return {
                 "response_type": "initialization_query",

@@ -37,7 +37,9 @@ from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSce
 from multitask_personalization.envs.feeding.feeding_structs import (
     CloseGripper,
     FeedingAction,
-    FeedingState,
+    FeedingObservation,
+    FeedingInitializationObservation,
+    FeedingInitializationAction,
     GraspTool,
     MoveDrink,
     MovePlate,
@@ -52,7 +54,7 @@ from multitask_personalization.envs.pybullet.pybullet_utils import (
 )
 
 
-class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
+class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
     """An assistive feeding environment."""
 
     metadata = {"render_modes": ["rgb_array"], "render_fps": 2}
@@ -211,16 +213,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
 
-        # Initialize stage.
-        self.current_stage = "acquisition"
-
-        # Initialize user request.
-        self.current_user_request: str | None = "food"
-        self._total_user_requests = 0
-
-        # Initialize user feedback.
-        self.current_user_feedback: str | None = None
-
         # Initialize the occlusion scale.
         self._occlusion_scale = 0.0
         if self._hidden_spec and self._hidden_spec.occlusion_preference_scale > 0:
@@ -258,173 +250,18 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[FeedingState, dict[str, Any]]:
+    ) -> tuple[FeedingObservation, dict[str, Any]]:
+        raise NotImplementedError("This environment is only being used as a simulator right now, not an actual environment.")
 
-        # Reset the robot.
-        self.robot.set_joints(self.scene_spec.initial_joints)
-        self.held_object_name = None
-        self.held_object_tf = None
-
-        # Reset the stage.
-        self.current_stage = "acquisition"
-
-        # Reset the user feedback.
-        self.current_user_feedback = None
-
-        # Reset the tools.
-        set_pose(self.utensil_id, self.scene_spec.utensil_pose, self.physics_client_id)
-
-        # Randomly reset the plate.
-        plate_x, plate_y = self._rng.uniform(
-            low=self.scene_spec.plate_position_lower,
-            high=self.scene_spec.plate_position_upper,
-        )
-        plate_z = self.scene_spec.plate_default_pose.position[2]
-        plate_orn = self.scene_spec.plate_default_pose.orientation
-        plate_pose = Pose((plate_x, plate_y, plate_z), plate_orn)
-        set_pose(self.plate_id, plate_pose, self.physics_client_id)
-
-        # Reset the user request. Alternate between food and drink.
-        self._update_user_request()
-
-        return self.get_state(), self._get_info()
-
-    def get_state(self) -> FeedingState:
-        """Get the current state of the environment."""
-        # Get the joint positions of the robot.
-        robot_joints = self.robot.get_joint_positions()
-
-        # Get the plate pose.
-        plate_pose = get_pose(self.plate_id, self.physics_client_id)
-
-        # Get the drink pose.
-        drink_pose = get_pose(self.drink_id, self.physics_client_id)
-
-        # Create and return the FeedingState.
-        assert self.current_user_request is not None
-        state = FeedingState(
-            robot_joints=robot_joints,
-            plate_pose=plate_pose,
-            drink_pose=drink_pose,
-            held_object_name=self.held_object_name,
-            held_object_tf=self.held_object_tf,
-            stage=self.current_stage,
-            user_request=self.current_user_request,
-            user_feedback=self.current_user_feedback,
-        )
-        return state
-
-    def set_state(self, state: FeedingState) -> None:
-        """Set the current state of the environment."""
-        # Update the robot and any held object.
-        held_object_id = (
-            self.get_object_id_from_name(self.held_object_name)
-            if self.held_object_name
-            else None
-        )
-        set_robot_joints_with_held_object(
-            self.robot,
-            self.physics_client_id,
-            held_object_id,
-            state.held_object_tf,
-            state.robot_joints,
-        )
-        # Update the plate pose.
-        set_pose(self.plate_id, state.plate_pose, self.physics_client_id)
-        # Update the drink pose.
-        set_pose(self.drink_id, state.drink_pose, self.physics_client_id)
-        # Update the feedback, stage, request.
-        self.current_stage = state.stage
-        self.current_user_request = state.user_request
-        self.current_user_feedback = state.user_feedback
-
-    def _get_info(self) -> dict[str, Any]:
-        """Get additional information about the environment."""
-        return {}
+    def sync_from_observation(self, obs: FeedingObservation) -> None:
+        """Update the simulator given an observation."""
+        # TODO
+        import ipdb; ipdb.set_trace()
 
     def step(
         self, action: FeedingAction
-    ) -> tuple[FeedingState, float, bool, bool, dict[str, Any]]:
-
-        held_object_id = (
-            self.get_object_id_from_name(self.held_object_name)
-            if self.held_object_name
-            else None
-        )
-
-        done = False
-
-        if isinstance(action, MoveToJointPositions):
-            current_joints = self.robot.get_joint_positions()
-            new_joints = list(current_joints)
-            new_joints[:7] = action.joint_positions
-            set_robot_joints_with_held_object(
-                self.robot,
-                self.physics_client_id,
-                held_object_id,
-                self.held_object_tf,
-                new_joints,
-            )
-            if self._use_gui:
-                self._pause_gui(0.25)
-        elif isinstance(action, CloseGripper):
-            self.robot.close_fingers()
-        elif isinstance(action, MoveToEEPose):
-            self._move_to_ee_pose(action.pose)
-            ee_pose_tuple = self._pose_to_hashable_tuple(action.pose)
-            self._known_ee_poses[ee_pose_tuple] = self.robot.get_joint_positions()
-        elif isinstance(action, GraspTool):
-            self._execute_grasp_tool(action.tool)
-        elif isinstance(action, UngraspTool):
-            self._execute_ungrasp_tool()
-        elif isinstance(action, MovePlate):
-            if self._use_gui:
-                for plate_pose in iter_between_poses(
-                    get_pose(self.plate_id, self.physics_client_id),
-                    action.plate_pose,
-                    include_start=False,
-                ):
-                    set_pose(self.plate_id, plate_pose, self.physics_client_id)
-                    self._pause_gui(0.1)
-            else:
-                set_pose(self.plate_id, action.plate_pose, self.physics_client_id)
-        elif isinstance(action, MoveDrink):
-            if self._use_gui:
-                for drink_pose in iter_between_poses(
-                    get_pose(self.drink_id, self.physics_client_id),
-                    action.drink_pose,
-                    include_start=False,
-                ):
-                    set_pose(self.drink_id, drink_pose, self.physics_client_id)
-                    self._pause_gui(0.1)
-            else:
-                set_pose(self.drink_id, action.drink_pose, self.physics_client_id)
-        elif isinstance(action, WaitForUserInput):
-            if action.user_input == "done":
-                done = True
-                self.current_stage = "acquisition"
-            elif action.user_input == "ready for transfer?":
-                self.current_stage = "transfer"
-        else:
-            raise NotImplementedError("TODO")
-
-        # Handle user feedback: if the current stage is transfer and there is
-        # occlusion, tell the robot.
-        self.current_user_feedback = None
-        if (
-            self.current_stage == "acquisition"
-            and self._hidden_spec
-            and self.robot_in_occlusion()
-        ):
-            self.current_user_feedback = "You're blocking my view!"
-            logging.info("User feedback: %s", self.current_user_feedback)
-
-        # Update the user request if done.
-        if done:
-            self._update_user_request()
-
-        # Return the next state and default gym API stuff.
-        return self.get_state(), 0.0, done, False, self._get_info()
+    ) -> tuple[FeedingObservation, float, bool, bool, dict[str, Any]]:
+        raise NotImplementedError("This environment is only being used as a simulator right now, not an actual environment.")
 
     def get_object_id_from_name(self, name: str) -> int:
         """Get the PyBullet ID from the object name."""
@@ -467,95 +304,6 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         position_tuple = tuple(np.round(pose.position, decimals=5).tolist())
         orientation_tuple = tuple(np.round(pose.orientation, decimals=5).tolist())
         return position_tuple + orientation_tuple
-
-    def _move_to_ee_pose(self, pose: Pose, max_control_time: float = 30.0) -> None:
-        initial_fingers_positions = self.robot.get_joint_positions()[7:]
-
-        joint_trajectory: list[JointPositions] = []
-
-        start_time = time.time()
-        target_reached = False
-        held_object_id = (
-            self.get_object_id_from_name(self.held_object_name)
-            if self.held_object_name
-            else None
-        )
-        while time.time() - start_time < max_control_time:
-            current_pose = self.robot.get_end_effector_pose()
-            if pose.allclose(current_pose, atol=1e-2):
-                target_reached = True
-                break
-            current_joint_positions = self.robot.get_joint_positions()
-            joint_trajectory.append(current_joint_positions)
-            current_jacobian = self.robot.get_jacobian()
-            target_positions = cartesian_control_step(
-                current_joint_positions, current_jacobian, current_pose, pose
-            )
-            target_positions = np.concatenate(
-                (target_positions, initial_fingers_positions)
-            ).tolist()
-            set_robot_joints_with_held_object(
-                self.robot,
-                self.physics_client_id,
-                held_object_id,
-                self.held_object_tf,
-                target_positions,
-            )
-
-        if not target_reached:
-            raise RuntimeError(
-                "Sim cartesian controller: Failed to reach target pose in time"
-            )
-
-    def _execute_grasp_tool(self, tool: str) -> None:
-        self.robot.set_finger_state(self.scene_spec.tool_grasp_fingers_value)
-        self.held_object_name = tool
-        finger_frame_id = self.robot.link_from_name("finger_tip")
-        end_effector_link_id = self.robot.link_from_name(self.robot.tool_link_name)
-        finger_from_end_effector = get_relative_link_pose(
-            self.robot.robot_id,
-            finger_frame_id,
-            end_effector_link_id,
-            self.physics_client_id,
-        )
-        self.held_object_tf = finger_from_end_effector
-        if tool == "utensil":
-            assert self.held_object_tf.allclose(self.scene_spec.utensil_held_object_tf)
-        if tool == "drink":
-            assert self.held_object_tf.allclose(self.scene_spec.drink_held_object_tf)
-
-    def _execute_ungrasp_tool(self) -> None:
-        self.robot.close_fingers()
-        self.held_object_name = None
-        self.held_object_tf = None
-
-    def _reset_drink_pose(self) -> None:
-        for _ in range(1000):
-            drink_x, drink_y = self._rng.uniform(
-                low=self.scene_spec.drink_position_lower,
-                high=self.scene_spec.drink_position_upper,
-            )
-            drink_z = self.scene_spec.drink_default_pose.position[2]
-            drink_orn = self.scene_spec.drink_default_pose.orientation
-            drink_pose = Pose((drink_x, drink_y, drink_z), drink_orn)
-            set_pose(self.drink_id, drink_pose, self.physics_client_id)
-            if not check_body_collisions(
-                self.plate_id, self.drink_id, self.physics_client_id
-            ):
-                break
-        else:
-            raise RuntimeError("Failed to reset drink.")
-
-    def _update_user_request(self) -> None:
-        if self._total_user_requests % 4 < 2:
-            self.current_user_request = "food"
-            set_pose(self.drink_id, BANISH_POSE, self.physics_client_id)
-        elif self._total_user_requests % 4 == 2:
-            self.current_user_request = "prepare"
-            self._reset_drink_pose()
-        else:
-            self.current_user_request = "drink"
-        self._total_user_requests += 1
 
     def robot_in_occlusion(self) -> bool:
         """Check if the robot is in occlusion."""
