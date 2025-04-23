@@ -23,6 +23,15 @@ class FeedingObservationWithContext(FeedingObservation):
     dips: list[str]
     bite_ordering_options: list[str]
 
+    def get_context_str(self) -> str:
+        """Get all the contextual information necessary to make LLM-based decisions."""
+        return f"""
+Dining Context: {self.context}
+Table Type: {self.table_type}
+Food Items on Plate: {self.food_items}
+Food Dips on Plate: {self.dips}
+"""
+
 
 @dataclass
 class FeedingInitializationQueryObservation(FeedingObservationWithContext):

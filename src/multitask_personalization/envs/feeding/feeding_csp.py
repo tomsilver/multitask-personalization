@@ -78,11 +78,13 @@ class LLMMultipleChoiceConstraintModel:
         name: str,
         llm: LargeLanguageModel,
         get_choices_from_observation: Callable[[FeedingObservation], list[Any]],
+        get_variable_value_from_choice: Callable[[Any, FeedingObservation], Any] | None = None,
         seed: int = 0,
     ):
         self.name = name
         self.llm = llm
         self.get_choices_from_observation = get_choices_from_observation
+        self.get_variable_value_from_choice = get_variable_value_from_choice or (lambda x, o: x)
         self.summary_preferences = "Unknown"
         self.seed = seed
 
@@ -95,9 +97,21 @@ class LLMMultipleChoiceConstraintModel:
         )
         return preference_constraint
     
+    def create_sampler(self, obs: FeedingObservation, variable: CSPVariable, csp: CSP) -> CSPSampler:
+        assert variable.name == self.name
+
+        def _sample_fn(_sol: dict[CSPVariable, Any], _rng: np.random.Generator) -> Any:
+            return {variable: self.get_most_preferred_choice(obs)}
+
+        sampler = FunctionalCSPSampler(
+            _sample_fn,
+            csp,
+            {variable},
+        )
+
+        return sampler
+    
     def get_most_preferred_choice(self, obs: FeedingObservation) -> Any:
-        # TODO use this for sampling too
-        assert isinstance(obs, FeedingObservationWithContext)
         choices = self.get_choices_from_observation(obs)
         choice_nums = [str(i+1) for i in range(len(choices))]
         prompt = self.get_prompt(obs, choices)
@@ -105,7 +119,8 @@ class LLMMultipleChoiceConstraintModel:
         selected_num_str = max(choice_nums, key=logprobs.get)
         assert selected_num_str.isdigit()
         choice_idx = int(selected_num_str) - 1
-        return choices[choice_idx]
+        choice = choices[choice_idx]
+        return self.get_variable_value_from_choice(choice, obs)
 
     def choice_most_preferred(self, obs: FeedingObservation, choice: Any) -> bool:
         most_preferred_choice = self.get_most_preferred_choice(obs)
@@ -114,9 +129,14 @@ class LLMMultipleChoiceConstraintModel:
     def get_prompt(self, obs: FeedingObservation, choices: list[Any]) -> str:
         choice_list_str = "\n".join([f"{i+1}. {choice}" for i, choice in enumerate(choices)])
         choice_example_list = " or ".join([f"'{i+1}'" for i in range(len(choices))])
+        context_str = self.get_context_str(obs)
         prompt = f"""You are a mealtime assistance robot and you are choosing a value for a variable `{self.name}` which can take on the following values:
 
 {choice_list_str}
+
+The current context is:
+
+{context_str}
 
 Based on your past interactions with the user, you have the following estimation of their preferences:
 
@@ -126,6 +146,10 @@ Which choice should you make? Return only the number of the choice, e.g., {choic
 """
 
         return prompt
+    
+    def get_context_str(self, obs: FeedingObservation) -> str:
+        assert isinstance(obs, FeedingObservationWithContext)
+        return obs.get_context_str() 
         
 
 
@@ -143,7 +167,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         self._occlusion_model = occlusion_scale_model
         super().__init__(*args, **kwargs)
         self._feeding_side_model = LLMMultipleChoiceConstraintModel("feeding_side", llm, lambda o: ["left", "right"])
-        self._bite_ordering_model = LLMMultipleChoiceConstraintModel("bite_ordering", llm,lambda o: o.bite_ordering_options)
+        self._bite_ordering_model = LLMMultipleChoiceConstraintModel("bite_ordering", llm,lambda o: o.bite_ordering_options,
+                                                                     get_variable_value_from_choice=lambda x,o: o.bite_ordering_options.index(x))
         self._ready_signal_model = LLMMultipleChoiceConstraintModel("ready_signal", llm, lambda o: ["mouth_open", "button", "auto_continue"])
         self._be_verbal_model = LLMMultipleChoiceConstraintModel("be_verbal", llm, lambda o: [True, False])
 
@@ -221,7 +246,10 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
 
         samplers = []
 
-        # TODO
+        for model, variable in zip([self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model], csp.variables, strict=True):
+            assert model.name == variable.name
+            sampler = model.create_sampler(obs, variable, csp)
+            samplers.append(sampler)
 
         return samplers
 
