@@ -309,7 +309,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
             )
             # occlusion_scale = 0.999
-            logging.info(f"Using occlusion scale {occlusion_scale:.3f}")
+            print(f"Using occlusion scale {occlusion_scale:.3f}")
             
             def _user_view_unoccluded_by_utensil(
                 plate_position: NDArray[np.float32],
@@ -501,6 +501,11 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             drink_label = next_obs.drink_occlusion
 
             self._occlusion_model.fit_incremental([plate_score, drink_score], [plate_label, drink_label])
+            print("Updating occlusion model, new scale:", (
+                1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
+            ))
+            # TODO this is not getting hit for some reason...
+            import ipdb; ipdb.set_trace()
 
 
 
