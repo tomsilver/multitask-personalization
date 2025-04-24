@@ -52,6 +52,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         disable_learning: bool = False,
         csp_save_dir: str | None = None,
         seed: int = 0,
+        use_gui: bool = False,
     ):
         super().__init__(scene_spec, action_space, seed)
         self._llm = llm
@@ -61,6 +62,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._explore_method = explore_method
         self._disable_learning = disable_learning
         self._motion_planning_quality = motion_planning_quality
+        self._use_gui = use_gui
         self._csp_save_dir = Path(csp_save_dir) if csp_save_dir else None
         self._csp_generator = self._create_csp_generator()
 
@@ -201,10 +203,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             )
         if isinstance(self._scene_spec, FeedingSceneSpec):
             occlusion_scale_model = Threshold1DModel(0.0, 1.0)
-            try:
-                feeding_sim = FeedingEnv(self._scene_spec, use_gui=True)
-            except:
-                feeding_sim = FeedingEnv(self._scene_spec, use_gui=False)
+            feeding_sim = FeedingEnv(self._scene_spec, use_gui=self._use_gui)
             return FeedingCSPGenerator(
                 feeding_sim,
                 self._llm,

@@ -17,7 +17,6 @@ class MultitaskPersonalizationFeastInterface:
 
         # Create "environment".
         self._scene_spec = FeedingSceneSpec()
-        self._env = FeedingEnv(self._scene_spec, seed=self._seed, use_gui=use_gui)
 
         # Create approach.
         csp_solver = RandomWalkCSPSolver(self._seed)
@@ -26,10 +25,11 @@ class MultitaskPersonalizationFeastInterface:
             explore_method = "exploit-only"
         else:
             explore_method = "nothing-personal"
-        self._approach = CSPApproach(self._scene_spec, self._env.action_space,
+        self._approach = CSPApproach(self._scene_spec, None,
                                      csp_solver=csp_solver,
                                      llm=llm,
-                                     explore_method=explore_method)
+                                     explore_method=explore_method,
+                                     use_gui=use_gui)
         self._approach.train()
 
         # Keep track of most recent things that are context for learned constraints.
