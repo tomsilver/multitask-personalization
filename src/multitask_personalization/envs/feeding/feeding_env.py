@@ -374,7 +374,7 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         if score > 0:
             score /= len(ray_outputs)
 
-        print("score:", score)
+        print(f"score for POI={point_of_interest}:", score)
 
         # return 0.499 if score > 0 else 0.0
         return score

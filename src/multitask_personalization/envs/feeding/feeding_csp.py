@@ -274,6 +274,12 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 plate_position: init_plate_position,
                 drink_position: init_drink_position,
             }
+            
+            # Whether each of the occlusion points of interest are relevant.
+            for point_of_interest in self._sim.scene_spec.occlusion_points_of_interest:
+                poi_relevant = CSPVariable(f"occlusion-poi-{point_of_interest}", EnumSpace([True, False]))
+                variables.append(poi_relevant)
+                initialization[poi_relevant] = (point_of_interest == "front")
 
             return variables, initialization
         
@@ -297,9 +303,10 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 constraint = model.create_constraint(obs, variable)
                 constraints.append(constraint)
 
-        # Add occlusion scale constraint.
+        # Add occlusion scale constraints.
         if isinstance(obs, FeedingOcclusionQueryObservation):
-            plate_position, drink_position = variables
+            plate_position, drink_position = variables[:2]
+            occlusion_poi_vars = variables[2:]
 
             # NOTE: we are currently just using the MLE occlusion scale, rather than
             # using the full distribution. That means that "ours" will be equivalent
@@ -308,37 +315,52 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             occlusion_scale = (
                 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
             )
+            if not self._occlusion_model.incremental_X:
+                occlusion_scale = 0.0
             # occlusion_scale = 0.999
             print(f"Using occlusion scale {occlusion_scale:.3f}")
             
             def _user_view_unoccluded_by_utensil(
+                occlusion_poi: str,
+                poi_is_relevant: bool,
                 plate_position: NDArray[np.float32],
             ) -> bool:
-                point_of_interest = "front"  # TODO predict as another CSP variable with LLM
-                score = self._get_plate_occlusion_score(plate_position, point_of_interest)
+                if not poi_is_relevant:
+                    return True
+                score = self._get_plate_occlusion_score(plate_position, occlusion_poi)
                 return score is not None and score < 1.0 - occlusion_scale
             
-            user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
-                "user_view_unoccluded_by_utensil",
-                [plate_position],
-                _user_view_unoccluded_by_utensil,
-            )
-
-            constraints.append(user_view_unoccluded_by_utensil_constraint)
+            for occlusion_poi_var in occlusion_poi_vars:
+                prefix = "occlusion-poi-"
+                assert occlusion_poi_var.name.startswith(prefix)
+                poi = occlusion_poi_var.name[len(prefix):]
+                user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
+                    f"user_view_unoccluded_by_utensil_{poi}",
+                    [occlusion_poi_var, plate_position],
+                    partial(_user_view_unoccluded_by_utensil, poi),
+                )
+                constraints.append(user_view_unoccluded_by_utensil_constraint)
 
             def _user_view_unoccluded_by_drink(
+                occlusion_poi: str,
+                poi_is_relevant: bool,
                 drink_position: NDArray[np.float32],
             ) -> bool:
-                point_of_interest = "front"  # TODO predict as another CSP variable with LLM
-                score = self._get_drink_occlusion_score(drink_position, point_of_interest)
+                if not poi_is_relevant:
+                    return True
+                score = self._get_drink_occlusion_score(drink_position, occlusion_poi)
                 return score is not None and score < 1.0 - occlusion_scale
-
-            user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
-                "user_view_unoccluded_by_drink",
-                [drink_position],
-                _user_view_unoccluded_by_drink,
-            )
-            constraints.append(user_view_unoccluded_by_drink_constraint)
+            
+            for occlusion_poi_var in occlusion_poi_vars:
+                prefix = "occlusion-poi-"
+                assert occlusion_poi_var.name.startswith(prefix)
+                poi = occlusion_poi_var.name[len(prefix):]
+                user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
+                    f"user_view_unoccluded_by_drink_{poi}",
+                    [occlusion_poi_var, drink_position],
+                    partial(_user_view_unoccluded_by_drink, poi),
+                )
+                constraints.append(user_view_unoccluded_by_drink_constraint)
 
         return constraints
 
@@ -351,7 +373,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         constraints: list[CSPConstraint] = []
 
         if isinstance(obs, FeedingOcclusionQueryObservation):
-            plate_position, drink_position = variables
+            plate_position, drink_position = variables[:2]
 
             # The plate and drink cannot be in collision.
             def _plate_drink_collision_free(
@@ -414,7 +436,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 samplers.append(sampler)
 
         elif isinstance(obs, FeedingOcclusionQueryObservation):
-            plate_position, drink_position = csp.variables
+            plate_position, drink_position = csp.variables[:2]
 
             def _sample_plate_position(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
