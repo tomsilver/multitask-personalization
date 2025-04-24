@@ -64,8 +64,7 @@ class FeedingOcclusionDatasetObservation(FeedingObservationWithContext):
 
     plate_pose: Pose
     drink_pose: Pose
-    plate_occlusion: bool
-    drink_occlusion: bool
+    occlusion: dict[str, dict[str, bool]]
 
 
 class FeedingAction(abc.ABC):
@@ -91,6 +90,7 @@ class FeedingPlateDrinkAction(FeedingAction):
     before_transfer_pose: Pose
     before_transfer_pos: JointPositions
     above_plate_pos: JointPositions
+    occlusion_poi_relevance: dict[str, bool]
 
 
 @dataclass(frozen=True)

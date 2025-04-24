@@ -87,11 +87,18 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             planned_drink_position = self._get_value("drink_position")
             drink_delta_xy = (planned_drink_position[0] - obs.drink_pose.position[0],
                               planned_drink_position[1] - obs.drink_pose.position[1])
+            # TODO
+            occlusion_poi_relevance = {
+                "left": False,
+                "right": False,
+                "front":True,
+            }
             return FeedingPlateDrinkAction(plate_delta_xy=plate_delta_xy,
                                            drink_delta_xy=drink_delta_xy,
                                            before_transfer_pose=before_transfer_pose,
                                            before_transfer_pos=before_transfer_pos,
-                                           above_plate_pos=above_plate_pos)
+                                           above_plate_pos=above_plate_pos,
+                                           occlusion_poi_relevance=occlusion_poi_relevance)
         raise NotImplementedError
 
     def check_termination(self, obs: FeedingObservation) -> bool:
@@ -516,21 +523,26 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 model.learn_incremental(next_obs)
 
         if isinstance(next_obs, FeedingOcclusionDatasetObservation):
-            plate_pose = next_obs.plate_pose
-            # TODO need to ask user which point of interest they were considering
-            point_of_interest = "front"
-            plate_score = self._get_plate_occlusion_score(plate_pose.position[:2], point_of_interest)
-            assert plate_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
-            plate_label = next_obs.plate_occlusion
+            X, Y = [], []  # for occlusion model
 
-            drink_pose = next_obs.drink_pose
-            # TODO need to ask user which point of interest they were considering
-            point_of_interest = "front"
-            drink_score = self._get_drink_occlusion_score(drink_pose.position[:2], point_of_interest)
-            assert drink_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
-            drink_label = next_obs.drink_occlusion
+            for point_of_interest, feedback in next_obs.occlusion.items():
+                relevant = feedback["relevance"]  # TODO use with LLM!
+                if relevant:
+                    plate_pose = next_obs.plate_pose
+                    plate_score = self._get_plate_occlusion_score(plate_pose.position[:2], point_of_interest)
+                    assert plate_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
+                    plate_label = feedback["plate_occlusion"]
+                    X.append(plate_score)
+                    Y.append(plate_label)
 
-            self._occlusion_model.fit_incremental([plate_score, drink_score], [plate_label, drink_label])
+                    drink_pose = next_obs.drink_pose
+                    drink_score = self._get_drink_occlusion_score(drink_pose.position[:2], point_of_interest)
+                    assert drink_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
+                    drink_label = feedback["drink_occlusion"]
+                    X.append(drink_score)
+                    Y.append(drink_label)
+
+            self._occlusion_model.fit_incremental(X, Y)
             print("Updating occlusion model, new scale:", (
                 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
             ))

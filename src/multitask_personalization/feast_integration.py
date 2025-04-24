@@ -117,6 +117,7 @@ class MultitaskPersonalizationFeastInterface:
             before_transfer_pose = act.before_transfer_pose
             before_transfer_pos = act.before_transfer_pos
             above_plate_pos = act.above_plate_pos
+            occlusion_poi_relevance = act.occlusion_poi_relevance
 
             return {
                 "response_type": "occlusion_query",
@@ -125,14 +126,14 @@ class MultitaskPersonalizationFeastInterface:
                 "before_transfer_pose": before_transfer_pose,
                 "before_transfer_pos": before_transfer_pos,
                 "above_plate_pos": above_plate_pos,
+                "occlusion_poi_relevance": occlusion_poi_relevance,
             }
         
         elif request_dict["request_type"] == "occlusion_dataset":
 
             plate_pose = request_dict["plate_pose"]
-            plate_occlusion = request_dict["plate_occlusion"]
             drink_pose = request_dict["drink_pose"]
-            drink_occlusion = request_dict["drink_occlusion"]
+            occlusion = request_dict["occlusion"]
 
             obs = FeedingOcclusionDatasetObservation(
                 self._current_context,
@@ -142,8 +143,7 @@ class MultitaskPersonalizationFeastInterface:
                 self._current_bite_ordering_options,
                 plate_pose,
                 drink_pose,
-                plate_occlusion,
-                drink_occlusion,
+                occlusion,
             )
             self._approach.update(obs, 0.0, False, {})
 
