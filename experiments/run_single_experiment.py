@@ -15,6 +15,9 @@ from omegaconf import DictConfig, OmegaConf
 
 from multitask_personalization.methods.approach import BaseApproach
 
+# Environments that support preference shifts
+PREFERENCE_SHIFT_ENVS = ["cooking-nonstationary"]
+
 
 @hydra.main(version_base=None, config_name="config", config_path="conf/")
 def _main(cfg: DictConfig) -> None:
@@ -92,9 +95,10 @@ def _main(cfg: DictConfig) -> None:
     train_metrics: list[dict[str, float]] = []
     eval_metrics: list[dict[str, float]] = []
 
+    shift_occurred_since_last_eval = False
+
     # Catch any exceptions so we can debug from the last saved state.
     try:
-
         # Reset the training environment, one time only.
         obs, info = train_env.reset()
         # Reset the training approach, one time only.
@@ -103,10 +107,12 @@ def _main(cfg: DictConfig) -> None:
         for t in range(cfg.env.max_environment_steps + 1):
             if t % cfg.train_logging_interval == 0:
                 logging.info(f"Starting training step {t}")
-                
+
             # Check if it's time to eval.
             if cfg.env.eval_frequency > 0 and t % cfg.env.eval_frequency == 0:
-                logging.info(f"======================= Evaluation at step {t} =======================")
+                logging.info(
+                    f"===================== Evaluation at step {t} ====================="
+                )
                 # Save the models from the training approach and load them into the
                 # eval approach.
                 step_model_dir = model_dir / str(t)
@@ -114,10 +120,24 @@ def _main(cfg: DictConfig) -> None:
                 train_approach.save(step_model_dir)
                 eval_approach.load(step_model_dir)
 
-                # For nonstationary environments, we need to sync the hidden specs of train env to eval env
-                eval_env._hidden_spec.meal_preference_model.sync_variables(train_env._hidden_spec.meal_preference_model) # pylint: disable=protected-access
+                # For environments that support preference shifts, sync the hidden specs
+                if cfg.env_name in PREFERENCE_SHIFT_ENVS:
+                    if cfg.env_name == "cooking-nonstationary":
+                        eval_env._hidden_spec.meal_preference_model.sync_variables(  # pylint: disable=protected-access
+                            train_env._hidden_spec.meal_preference_model  # pylint: disable=protected-access
+                        )
                 # Run evaluation.
-                step_eval_metrics = _evaluate_approach(eval_approach, eval_env, cfg, t)
+                step_eval_metrics = _evaluate_approach(
+                    eval_approach,
+                    eval_env,
+                    cfg,
+                    t,
+                    (
+                        shift_occurred_since_last_eval
+                        if cfg.env_name in PREFERENCE_SHIFT_ENVS
+                        else False
+                    ),
+                )
                 if cfg.wandb.enable:
                     wandb_metrics = {
                         f"eval/{k}": v for k, v in step_eval_metrics.items()
@@ -126,7 +146,11 @@ def _main(cfg: DictConfig) -> None:
                     wandb.log(wandb_metrics, step=t)
                 eval_metrics.append(step_eval_metrics)
                 logging.info("Resuming training")
-                logging.info("=========================================================")
+                logging.info(
+                    "========================================================="
+                )
+                # Reset shift tracking
+                shift_occurred_since_last_eval = False
             # Eval on the last time step but don't train anymore.
             if t >= cfg.env.max_environment_steps:
                 break
@@ -137,13 +161,20 @@ def _main(cfg: DictConfig) -> None:
             # During training, there is no such thing as termination.
             terminated = False
             train_approach.update(obs, float(rew), terminated, info)
-            user_satisfaction = info.get("user_satisfaction", np.nan)
-            env_video_should_pause = info.get("env_video_should_pause", False)
+
+            # Track if any shift occurred during training
+            preference_shift = False
+            if cfg.env_name in PREFERENCE_SHIFT_ENVS:
+                preference_shift = info.get("preference_shift", False)
+                if preference_shift:
+                    shift_occurred_since_last_eval = True
+
             step_train_metrics = {
                 "step": t,
                 "execution_time": t * cfg.env.dt,
-                "user_satisfaction": user_satisfaction,
-                "env_video_should_pause": env_video_should_pause,
+                "user_satisfaction": info.get("user_satisfaction", np.nan),
+                "env_video_should_pause": info.get("env_video_should_pause", False),
+                "preference_shift": preference_shift,
                 **train_approach.get_step_metrics(),
             }
             if cfg.wandb.enable:
@@ -151,6 +182,7 @@ def _main(cfg: DictConfig) -> None:
                 del wandb_metrics["train/step"]
                 wandb.log(wandb_metrics, step=t)
             train_metrics.append(step_train_metrics)
+
         train_env.close()
         eval_env.close()
 
@@ -189,7 +221,11 @@ def _main(cfg: DictConfig) -> None:
 
 
 def _evaluate_approach(
-    eval_approach: BaseApproach, eval_env: gym.Env, cfg: DictConfig, training_step: int
+    eval_approach: BaseApproach,
+    eval_env: gym.Env,
+    cfg: DictConfig,
+    training_step: int,
+    shift_occurred_since_last_eval: bool,
 ) -> dict[str, float]:
     """Evaluate the given approach and return metrics."""
     # Evaluate for a given number of trials.
@@ -215,6 +251,7 @@ def _evaluate_approach(
     step_eval_metrics: dict[str, float] = {
         "training_step": training_step,
         "training_execution_time": training_step * cfg.env.dt,
+        "preference_shift": shift_occurred_since_last_eval,
     }
     for idx, cus in enumerate(cumulative_user_satisfactions):
         step_eval_metrics[f"eval_episode_{idx}_user_satisfaction"] = cus

@@ -163,7 +163,7 @@ class PreferenceShiftSpec:
 
 
 DEFAULT_PREFERENCE_SHIFT_SPEC = PreferenceShiftSpec(
-    min_shift_interval=5,
-    shift_prob=0.2,
+    min_shift_interval=2500,
+    shift_prob=0.0,
     shift_factor_range=(0.0, 2.0),
 )

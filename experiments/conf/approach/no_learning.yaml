@@ -1,4 +1,10 @@
 defaults:
   - ours
+
 explore_method: nothing-personal  # doesn't matter, just pick a fast one
 disable_learning: true
+
+lifelong_learning:
+  enabled: false
+  method: periodic_reset
+  reset_interval: 100

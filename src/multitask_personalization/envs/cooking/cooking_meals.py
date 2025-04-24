@@ -80,8 +80,8 @@ DEFAULT_MEAL_SPECS = [
     MealSpec(
         "seasoning",
         [
-            IngredientSpec("salt", temperature=(1.0, 5.0), quantity=(0.2, 2.0)),
-            IngredientSpec("pepper", temperature=(1.0, 5.0), quantity=(0.2, 2.0)),
+            IngredientSpec("salt", temperature=(2.0, 4.0), quantity=(0.7, 1.3)),
+            IngredientSpec("pepper", temperature=(2.0, 4.0), quantity=(0.7, 1.3)),
         ],
     )
 ]

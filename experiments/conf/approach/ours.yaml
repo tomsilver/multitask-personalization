@@ -4,3 +4,8 @@ explore_method: max-entropy
 csp_solver: ${csp_solver}
 llm: ${llm}
 disable_learning: false
+
+lifelong_learning:
+  enabled: true
+  method: periodic_reset
+  reset_interval: 2500  # Number of feedbacks before resetting memory

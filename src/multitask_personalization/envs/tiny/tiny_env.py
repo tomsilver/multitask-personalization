@@ -50,6 +50,7 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         scene_spec: TinySceneSpec,
         hidden_spec: TinyHiddenSpec | None = None,
         seed: int = 0,
+        eval_mode: bool = False,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
@@ -66,6 +67,8 @@ class TinyEnv(gym.Env[TinyState, TinyAction]):
         # Reset in reset().
         self._robot_position = -1.0
         self._human_position = 1.0
+
+        self._eval_mode = eval_mode
 
     def reset(
         self,

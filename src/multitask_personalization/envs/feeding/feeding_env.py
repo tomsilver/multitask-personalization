@@ -63,6 +63,7 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
         hidden_spec: FeedingHiddenSceneSpec | None = None,
         use_gui: bool = False,
         seed: int = 0,
+        eval_mode: bool = False,
     ) -> None:
         self._rng = np.random.default_rng(seed)
         self._seed = seed
@@ -222,6 +223,8 @@ class FeedingEnv(gym.Env[FeedingState, FeedingAction]):
 
         # See get_joint_positions_from_known_ee_pose().
         self._known_ee_poses: dict[tuple[float, ...], JointPositions] = {}
+
+        self._eval_mode = eval_mode
 
         # Uncomment to debug.
         # if use_gui:

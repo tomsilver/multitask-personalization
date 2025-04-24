@@ -74,6 +74,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         use_gui: bool = False,
         use_eval_distribution: bool = False,
         seed: int = 0,
+        eval_mode: bool = False,
     ) -> None:
 
         self._rng = np.random.default_rng(seed)
@@ -326,6 +327,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # For rendering.
         self._timestep = 0
+
+        self._eval_mode = eval_mode
 
         # Uncomment for debug / development.
         # if use_gui:

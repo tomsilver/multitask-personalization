@@ -52,6 +52,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         disable_learning: bool = False,
         csp_save_dir: str | None = None,
         seed: int = 0,
+        lifelong_learning: dict | None = None,
     ):
         super().__init__(scene_spec, action_space, seed)
         self._llm = llm
@@ -62,6 +63,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._disable_learning = disable_learning
         self._motion_planning_quality = motion_planning_quality
         self._csp_save_dir = Path(csp_save_dir) if csp_save_dir else None
+        self._lifelong_learning = lifelong_learning
         self._csp_generator = self._create_csp_generator()
 
     def reset(
@@ -192,6 +194,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
             meal_model = MealSpecMealPreferenceModel(
                 self._scene_spec.universal_meal_specs,
                 self._scene_spec.preference_shift_spec,
+                lifelong_learning=self._lifelong_learning,
             )
             return CookingCSPGenerator(
                 self._scene_spec,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any, get_args
-import logging
 
 import gymnasium as gym
 import numpy as np
@@ -58,6 +57,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self._current_user_critiques: list[IngredientCritique] = []
 
         self._eval_mode = eval_mode
+        self._current_step = 0
 
     def _get_state_from_scene_spec(self, scene_spec: CookingSceneSpec) -> CookingState:
         # NOTE: the initial quantities of ingredients are randomized.
@@ -93,6 +93,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self._current_state = self._get_state_from_scene_spec(self.scene_spec)
         self._current_user_satisfaction = 0.0
         self._current_user_critiques = []
+        self._current_step = 0
         return self._get_state(), self._get_info()
 
     def step(
@@ -104,6 +105,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
         self._current_user_satisfaction = 0.0
         self._current_user_critiques = []
         done = False
+        preference_shift = False
 
         new_pot_states: list[CookingPotState] = []
         new_ingredients = self._current_state.ingredients.copy()
@@ -134,11 +136,6 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             new_pot_states = self._current_state.pots
             new_ingredients = self._current_state.ingredients.copy()
             done = True  # used for eval
-
-            # Shift user preferences.
-            if not self._eval_mode:
-                self._hidden_spec.meal_preference_model.shift_preferences(self._rng)
-
         else:
             # Update pot temperatures and initialize new_pot_states.
             for pot_id, pot_state in enumerate(self._current_state.pots):
@@ -229,7 +226,17 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             new_pot_states, new_ingredients, list(self._current_user_critiques)
         )
 
-        return self._get_state(), 0.0, done, False, self._get_info()
+        # Shift user preferences. This does not wait until the completion of a meal
+        if not self._eval_mode and self._hidden_spec is not None:
+            preference_shift = (
+                self._hidden_spec.meal_preference_model.shift_preferences(
+                    self._rng, self._current_step
+                )  # pylint: disable=line-too-long
+            )
+        # Increment step counter
+        self._current_step += 1
+
+        return self._get_state(), 0.0, done, False, self._get_info(preference_shift)
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         pad = self.scene_spec.render_padding
@@ -283,9 +290,10 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
     def _get_state(self) -> CookingState:
         return self._current_state
 
-    def _get_info(self) -> dict[str, Any]:
+    def _get_info(self, preference_shift: bool = False) -> dict[str, Any]:
         return {
             "user_satisfaction": self._current_user_satisfaction,
+            "preference_shift": preference_shift,
         }
 
     def _pot_move_is_valid(

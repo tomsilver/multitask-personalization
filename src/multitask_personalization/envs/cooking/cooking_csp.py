@@ -383,6 +383,8 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
     def _update_meal_model(
         self, obs: CookingState, act: CookingAction, next_obs: CookingState
     ) -> None:
+        # lifelong learning, adapt to preference shift
+        self._meal_model.adapt_to_preference_shift()
         if not isinstance(act, ServeMealCookingAction):
             return
         meal = obs.get_meal(act.meal_name)

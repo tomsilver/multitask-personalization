@@ -1,3 +1,9 @@
 defaults:
   - ours
+
 explore_method: epsilon-greedy
+
+lifelong_learning:
+  enabled: false
+  method: periodic_reset
+  reset_interval: 100

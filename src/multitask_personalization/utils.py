@@ -3,7 +3,6 @@
 import os
 from pathlib import Path
 from typing import Any
-import logging
 
 import graphviz
 import numpy as np

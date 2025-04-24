@@ -34,6 +34,20 @@ APPROACH_TO_COLOR = {
     "no_learning": "#fee08b",
 }
 
+# Colors for preference shift backgrounds
+SHIFT_COLORS = [
+    "#C6E2FF",  # Pale blue
+    "#FFB6C1",  # Light pink
+    "#98FB98",  # Pale green
+    "#DDA0DD",  # Plum
+    "#F0E68C",  # Khaki
+    "#E6E6FA",  # Lavender
+    "#FFA07A",  # Light salmon
+    "#B0E0E6",  # Powder blue
+    "#D8BFD8",  # Thistle
+    "#FFDAB9",  # Peach puff
+]
+
 
 def _create_config_fn(
     env_name: str, approach_name: str
@@ -43,6 +57,34 @@ def _create_config_fn(
         return cfg.env_name == env_name and cfg.approach_name == approach_name
 
     return _fn
+
+
+def _get_shift_times(results_dir: Path, env_name: str, approach_name: str) -> list[int]:
+    """Get the times when preference shifts occurred from the results files."""
+    config_fn = _create_config_fn(env_name, approach_name)
+    df = combine_results_csvs(results_dir, config_fn=config_fn)
+    if df.empty:
+        return []
+
+    # Get all times where a shift occurred
+    shift_df = df[
+        df["preference_shift"] == True  # pylint: disable=singleton-comparison
+    ]
+    print(f"shift_df: {shift_df}")
+    if shift_df.empty:
+        return []
+
+    # Get the evaluation times
+    eval_times = df["training_execution_time"].tolist()
+
+    # For each shift, find the previous evaluation time
+    shift_times = []
+    for shift_time in shift_df["training_execution_time"]:
+        # Find the index of the evaluation time that's just before the shift
+        prev_eval_idx = max(0, eval_times.index(shift_time) - 1)
+        shift_times.append(eval_times[prev_eval_idx])
+
+    return sorted(set(shift_times))  # Ensure times are in order
 
 
 def _main(results_dir: Path, outfile: Path) -> None:
@@ -62,6 +104,35 @@ def _main(results_dir: Path, outfile: Path) -> None:
         ax.set_title(env_display_name)
         ax.set_xlabel("Simulated Execution Time")
         ax.set_ylim((-1.05, 1.05))
+
+        # Colored background sections for preference shifts
+        if env_name == "cooking-nonstationary":
+            # Get shift times from the first approach's results
+            first_approach = list(APPROACH_TO_DISPLAY_NAME.keys())[0]
+            shift_times = _get_shift_times(results_dir, env_name, first_approach)
+
+            if shift_times:
+                # Get the maximum execution time from the data
+                df = combine_results_csvs(
+                    results_dir, config_fn=_create_config_fn(env_name, first_approach)
+                )
+                max_time = df["training_execution_time"].max()
+
+                # Create sections between shifts
+                section_starts = [0] + shift_times
+                section_ends = shift_times + [max_time]
+
+                print(f"section_starts: {section_starts}")
+                print(f"section_ends: {section_ends}")
+                # Add colored background sections
+                for j, (start, end) in enumerate(zip(section_starts, section_ends)):
+                    print(f"start: {start}, end: {end}")
+                    ax.axvspan(
+                        start, end, alpha=0.4, color=SHIFT_COLORS[j % len(SHIFT_COLORS)]
+                    )
+                # Add vertical lines for shift times
+                for shift_time in shift_times:
+                    ax.axvline(x=shift_time, color="gray", linestyle="--", alpha=0.5)
 
         for approach_name, approach_display_name in APPROACH_TO_DISPLAY_NAME.items():
             print(f"Combining results for {env_name}, {approach_name}")
@@ -101,6 +172,8 @@ def _main(results_dir: Path, outfile: Path) -> None:
 
     plt.savefig(outfile, dpi=1000, bbox_inches="tight", pad_inches=0.05)
     print(f"Wrote out to {outfile}")
+
+    plt.show()
 
 
 if __name__ == "__main__":
