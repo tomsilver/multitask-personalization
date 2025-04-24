@@ -87,12 +87,10 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             planned_drink_position = self._get_value("drink_position")
             drink_delta_xy = (planned_drink_position[0] - obs.drink_pose.position[0],
                               planned_drink_position[1] - obs.drink_pose.position[1])
-            # TODO
-            occlusion_poi_relevance = {
-                "left": False,
-                "right": False,
-                "front":True,
-            }
+            occlusion_poi_relevance = {}
+            for poi in self._sim.scene_spec.occlusion_points_of_interest:
+                relevance = self._get_value(f"occlusion-poi-{poi}")
+                occlusion_poi_relevance[poi] = relevance
             return FeedingPlateDrinkAction(plate_delta_xy=plate_delta_xy,
                                            drink_delta_xy=drink_delta_xy,
                                            before_transfer_pose=before_transfer_pose,
