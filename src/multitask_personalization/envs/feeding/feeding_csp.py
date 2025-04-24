@@ -314,7 +314,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             def _user_view_unoccluded_by_utensil(
                 plate_position: NDArray[np.float32],
             ) -> bool:
-                score = self._get_plate_occlusion_score(plate_position)
+                point_of_interest = "front"  # TODO predict as another CSP variable with LLM
+                score = self._get_plate_occlusion_score(plate_position, point_of_interest)
                 return score is not None and score < 1.0 - occlusion_scale
             
             user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
@@ -328,7 +329,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             def _user_view_unoccluded_by_drink(
                 drink_position: NDArray[np.float32],
             ) -> bool:
-                score = self._get_drink_occlusion_score(drink_position)
+                point_of_interest = "front"  # TODO predict as another CSP variable with LLM
+                score = self._get_drink_occlusion_score(drink_position, point_of_interest)
                 return score is not None and score < 1.0 - occlusion_scale
 
             user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
@@ -493,12 +495,16 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
 
         if isinstance(next_obs, FeedingOcclusionDatasetObservation):
             plate_pose = next_obs.plate_pose
-            plate_score = self._get_plate_occlusion_score(plate_pose.position[:2])
+            # TODO need to ask user which point of interest they were considering
+            point_of_interest = "front"
+            plate_score = self._get_plate_occlusion_score(plate_pose.position[:2], point_of_interest)
             assert plate_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
             plate_label = next_obs.plate_occlusion
 
             drink_pose = next_obs.drink_pose
-            drink_score = self._get_drink_occlusion_score(drink_pose.position[:2])
+            # TODO need to ask user which point of interest they were considering
+            point_of_interest = "front"
+            drink_score = self._get_drink_occlusion_score(drink_pose.position[:2], point_of_interest)
             assert drink_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
             drink_label = next_obs.drink_occlusion
 
@@ -507,9 +513,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
             ))
 
-
-
-    def _get_plate_occlusion_score(self, plate_position: NDArray[np.float32]) -> float | None:
+    def _get_plate_occlusion_score(self, plate_position: NDArray[np.float32], point_of_interest: str) -> float | None:
         set_pose(self._sim.get_object_id_from_name("drink"), BANISH_POSE, self._sim.physics_client_id)
         new_plate_pose = _plate_position_to_pose(plate_position, self._sim.scene_spec.plate_default_pose)
         field_name = "above_plate_pos"
@@ -538,9 +542,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         self._sim.robot.set_finger_state(
             self._sim.scene_spec.tool_grasp_fingers_value
         )
-        return self._sim.get_occlusion_score()
+        return self._sim.get_occlusion_score(point_of_interest)
 
-    def _get_drink_occlusion_score(self, drink_position: NDArray[np.float32]) -> float | None:
+    def _get_drink_occlusion_score(self, drink_position: NDArray[np.float32], point_of_interest: str) -> float | None:
         set_pose(self._sim.get_object_id_from_name("utensil"), BANISH_POSE, self._sim.physics_client_id)
         new_drink_pose = _drink_position_to_pose(drink_position, self._sim.scene_spec.drink_default_pose)
         drink_post_grasp_pose = _transform_pose_relative_to_drink(
@@ -567,7 +571,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         self._sim.robot.set_finger_state(
             self._sim.scene_spec.tool_grasp_fingers_value
         )
-        return self._sim.get_occlusion_score()
+        return self._sim.get_occlusion_score(point_of_interest)
 
 
 def _plate_position_to_pose(

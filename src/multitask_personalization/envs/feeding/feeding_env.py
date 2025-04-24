@@ -214,7 +214,19 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         self.held_object_name: str | None = None
         self.held_object_tf: Pose | None = None
 
-        self._occlusion_rays: set[int] | None = None
+        # Show the occlusion rays.
+        if self._use_gui:
+            for point_of_interest in self.scene_spec.occlusion_points_of_interest:
+                ray_from_positions, ray_to_positions = self.get_occlusion_rays(point_of_interest)
+                for r in range(len(ray_from_positions)):
+                    p.addUserDebugLine(
+                        ray_from_positions[r],
+                        ray_to_positions[r],
+                        lineColorRGB=[1, 0, 0],
+                        lineWidth=2,
+                        physicsClientId=self.physics_client_id,
+                    )
+
 
         # See get_joint_positions_from_known_ee_pose().
         self._known_ee_poses: dict[tuple[float, ...], JointPositions] = {}
@@ -291,50 +303,45 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         position_tuple = tuple(np.round(pose.position, decimals=5).tolist())
         orientation_tuple = tuple(np.round(pose.orientation, decimals=5).tolist())
         return position_tuple + orientation_tuple
-
-    def get_occlusion_score(self) -> float:
-        """A score between 0 and 1 where higher is more occluded."""
-
-        # Check for occlusion following https://arxiv.org/pdf/2111.11401 (Eq 11).
-
-        # The rays start in an array relative to the head position and point in
-        # straight lines for a maximum distance.
+    
+    def get_occlusion_rays(self, point_of_interest: str):
         eye_pose = self.scene_spec.user_eyes_pose
+        target_position = self.scene_spec.occlusion_points_of_interest[point_of_interest]
 
         ray_from_positions = []
         ray_to_positions = []
         grid_size = self.scene_spec.occlusion_grid_size
         max_ray_length = self.scene_spec.occlusion_max_ray_length
+
+        # Vector from eye to target
+        eye_pos = np.array(eye_pose.position)
+        target_vec = np.array(target_position) - eye_pos
+        target_dir = target_vec / np.linalg.norm(target_vec)
+
         for r in range(grid_size):
             row_val = (r - grid_size // 2) * self.scene_spec.occlusion_grid_delta_r
             for c in range(grid_size):
                 col_val = (c - grid_size // 2) * self.scene_spec.occlusion_grid_delta_c
-                # Transform to world pose frame.
-                ray_from = Pose((row_val, col_val, 0.0))
-                ray_to = Pose((row_val, col_val, max_ray_length))
-                eye_ray_from = multiply_poses(eye_pose, ray_from)
-                eye_ray_to = multiply_poses(eye_pose, ray_to)
-                ray_from_positions.append(eye_ray_from.position)
-                ray_to_positions.append(eye_ray_to.position)
+                # Offset ray origins in local eye frame
+                local_offset = Pose((row_val, col_val, 0.0))
+                ray_from = multiply_poses(eye_pose, local_offset).position
+                ray_to = ray_from + max_ray_length * target_dir
+                ray_from_positions.append(ray_from)
+                ray_to_positions.append(ray_to)
+
+        return ray_from_positions, ray_to_positions
+
+    def get_occlusion_score(self, point_of_interest: str) -> float:
+        """A score between 0 and 1 where higher is more occluded."""
+
+        # Check for occlusion following https://arxiv.org/pdf/2111.11401 (Eq 11).
+        ray_from_positions, ray_to_positions = self.get_occlusion_rays(point_of_interest)
 
         ray_outputs = p.rayTestBatch(
             rayFromPositions=ray_from_positions,
             rayToPositions=ray_to_positions,
             physicsClientId=self.physics_client_id,
         )
-
-        # Debug visualize the rays.
-        if self._use_gui and self._occlusion_rays is None:
-            self._occlusion_rays = set()
-            for r in range(len(ray_from_positions)):
-                ray_id = p.addUserDebugLine(
-                    ray_from_positions[r],
-                    ray_to_positions[r],
-                    lineColorRGB=[1, 0, 0],
-                    lineWidth=2,
-                    physicsClientId=self.physics_client_id,
-                )
-                self._occlusion_rays.add(ray_id)
 
         # See equation 11 in paper.
         # NOTE: unlike the paper, we are primarily concerned with occlusion
@@ -348,7 +355,7 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
             if output[0] != -1:
                 world_hit_pose = Pose(output[3])
                 # Transform the hit position back into the eye frame.
-                hit_pose = multiply_poses(eye_pose.invert(), world_hit_pose)
+                hit_pose = multiply_poses(self.scene_spec.user_eyes_pose.invert(), world_hit_pose)
                 # See equation 11 in paper.
                 vec = np.array(hit_pose.position[:2])
                 if np.isclose(hit_pose.position[2], 0.0):
@@ -369,7 +376,8 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
 
         print("score:", score)
 
-        return 0.499 if score > 0 else 0.0
+        # return 0.499 if score > 0 else 0.0
+        return score
 
     def _pause_gui(self, duration: float) -> None:
         if not self._use_gui:

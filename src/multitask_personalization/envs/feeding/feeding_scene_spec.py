@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, Pose3D
 from pybullet_helpers.joint import JointPositions
 
 from multitask_personalization.structs import PublicSceneSpec
@@ -148,6 +148,12 @@ class FeedingSceneSpec(PublicSceneSpec):
     occlusion_max_ray_length: float = 10.0
     occlusion_alpha: float = 1.0
     occlusion_sigma: NDArray = np.eye(2)
+    occlusion_points_of_interest: dict[str, Pose3D] = field(
+        default_factory=lambda: {
+        "front": (10.0, 0.4, 0.4),
+        "left": (10.0, 4.0, 0.4),
+        "right": (10.0, -4.0, 0.4),
+    })
 
     # Skill waypoints.
     retract_pos: JointPositions = field(
