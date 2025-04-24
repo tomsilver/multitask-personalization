@@ -300,7 +300,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             for point_of_interest in self._sim.scene_spec.occlusion_points_of_interest:
                 poi_relevant = CSPVariable(f"occlusion-poi-{point_of_interest}", EnumSpace([True, False]))
                 variables.append(poi_relevant)
-                initialization[poi_relevant] = (point_of_interest == "front")
+                initialization[poi_relevant] = self._occlusion_poi_relevance_models[point_of_interest].get_most_preferred_choice(obs)
 
             return variables, initialization
         

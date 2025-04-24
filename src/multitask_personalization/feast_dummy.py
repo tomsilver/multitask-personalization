@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     meals = [
         Meal("personal", "rectangular table", ["chicken breast"], ["ketchup", "ranch dressing"]),
-        Meal("social with friend on left", "rectangular table", ["celery", "apple slices"], ["ranch dressing"]),
+        Meal("social with friend on right", "rectangular table", ["celery", "apple slices"], ["ranch dressing"]),
         Meal("TV-watching", "circular table", ["steak", "potatoes"], []),
         Meal("personal", "rectangular table", ["celery", "pear slices"], ["ranch dressing"]),
         Meal("social TV-watching with friend on right side", "circular table", ["chicken nuggets"], ["ketchup", "ranch dressing"]),
