@@ -9,13 +9,24 @@ from std_msgs.msg import String
 import argparse
 from pybullet_helpers.geometry import Pose
 import numpy as np
+import json
+from pathlib import Path
 
 
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Feast Dummy")
     parser.add_argument("--meal_id", type=int, default=0, help="ID of the meal to use (0-4)")
+    parser.add_argument("--json_dir", type=Path, default=Path("feast_dummy_saved_responses"), help="JSON file directory for saving and loading user responses")
     args = parser.parse_args()
+
+    field_to_choice = {}
+    json_dir: Path = args.json_dir
+    json_dir.mkdir(exist_ok=True)
+    json_file = json_dir / f"{args.meal_id}.json"
+    if json_file.exists():
+        with open(json_file, "r") as f:
+            field_to_choice = json.load(f)
 
     rospy.init_node("feast_dummy", anonymous=True)
 
@@ -48,9 +59,14 @@ if __name__ == "__main__":
     time.sleep(1)  # Wait for the subscriber and publisher to be ready
     
     # Helper function to verify predictions with the user.
-    def verify_predictions(prediction, options):
+    def verify_predictions(field_name, prediction, options):
+        print("Field name:", field_name)
         if prediction not in options:
             raise ValueError(f"Invalid prediction: {prediction}. Expected one of {options}.")
+        if field_name in field_to_choice:
+            choice = field_to_choice[field_name]
+            print(f"Loaded choice {choice} for {field_name}")
+            return choice
         print("From the following options:")
         for i in range(len(options)):
             print(f"{i+1}. {options[i]}")
@@ -60,7 +76,7 @@ if __name__ == "__main__":
             user_input = input("Please enter 'y' or 'n': ")
         if user_input == "y":
             print("User agreed with the robot's prediction.")
-            return prediction
+            choice = prediction
         else:
             # get user's preference
             preferred_id = input("Please enter the number of your preferred option: ")
@@ -68,7 +84,11 @@ if __name__ == "__main__":
                 preferred_id = input("Please enter a valid number: ")
             preferred_id = int(preferred_id) - 1
             print(f"User preferred option: {options[preferred_id]}")
-            return options[preferred_id]
+            choice = options[preferred_id]
+        field_to_choice[field_name] = choice
+        with open(json_file, "w") as f:
+            json.dump(field_to_choice, f)
+        return choice
         
     # Helper function to generate all possible bite orderings.
     def generate_bite_orderings(food_items: List[str], dips: List[str]) -> List[str]:
@@ -133,10 +153,10 @@ if __name__ == "__main__":
     be_verbal = mp_response["be_verbal"]
 
     # verify predictions with the user (using the terminal)
-    feeding_side = verify_predictions(feeding_side, ["left", "right"])
-    bite_ordering = verify_predictions(bite_ordering, bite_ordering_options)
-    ready_signal = verify_predictions(ready_signal, ["mouth_open", "button", "auto_continue"])
-    be_verbal = verify_predictions(be_verbal, [True, False])
+    feeding_side = verify_predictions("feeding_side", feeding_side, ["left", "right"])
+    bite_ordering = verify_predictions("bite_ordering", bite_ordering, bite_ordering_options)
+    ready_signal = verify_predictions("ready_signal", ready_signal, ["mouth_open", "button", "auto_continue"])
+    be_verbal = verify_predictions("be_verbal", be_verbal, [True, False])
 
     # send the verified predictions to multitask personalization
     mp_response = _send_mp_request({"request_type": "initialization_dataset",
@@ -178,12 +198,12 @@ if __name__ == "__main__":
     }
     for poi, prediction in occlusion_poi_relevance.items():
         print(f"Verifying the RELEVANCE of POI={poi} for this meal")
-        relevance = verify_predictions(prediction, [True, False])
+        relevance = verify_predictions(f"occlusion-poi-{poi}-relevance", prediction, [True, False])
         if relevance:
             print(f"Verifying whether view was occluded for POI={poi} during FEEDING")
-            plate_occlusion = verify_predictions(False, [True, False])
+            plate_occlusion = verify_predictions(f"occlusion-poi-{poi}-feeding", False, [True, False])
             print(f"Verifying whether view was occluded for POI={poi} during DRINKING")
-            drink_occlusion = verify_predictions(False, [True, False])
+            drink_occlusion = verify_predictions(f"occlusion-poi-{poi}-drinking", False, [True, False])
         else:
             plate_occlusion = False
             drink_occlusion = False
