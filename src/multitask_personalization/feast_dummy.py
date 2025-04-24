@@ -18,13 +18,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Feast Dummy")
     parser.add_argument("--meal_id", type=int, default=0, help="ID of the meal to use (0-4)")
     parser.add_argument("--json_dir", type=Path, default=Path("feast_dummy_saved_responses"), help="JSON file directory for saving and loading user responses")
+    parser.add_argument("--load", action="store_true")
     args = parser.parse_args()
 
     field_to_choice = {}
     json_dir: Path = args.json_dir
     json_dir.mkdir(exist_ok=True)
     json_file = json_dir / f"{args.meal_id}.json"
-    if json_file.exists():
+    if args.load and json_file.exists():
         with open(json_file, "r") as f:
             field_to_choice = json.load(f)
 

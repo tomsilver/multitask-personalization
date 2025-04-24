@@ -166,7 +166,7 @@ class LLMMultipleChoiceConstraintModel:
         choice_list_str = "\n".join([f"{i+1}. {choice}" for i, choice in enumerate(choices)])
         choice_example_list = " or ".join([f"'{i+1}'" for i in range(len(choices))])
         context_str = self.get_context_str(obs)
-        prompt = f"""You are a mealtime assistance robot and you are choosing a value for a variable `{self.name}` which can take on the following values:
+        prompt = f"""You are a mealtime assistance robot and you are choosing a value for a variable `{self.name}`, which means "{self.description}", and which can take on the following values:
 
 {choice_list_str}
 
