@@ -172,14 +172,10 @@ class MultitaskPersonalizationFeastInterface:
         set_pose(self._viz_sim.get_object_id_from_name("plate"), plate_pose, self._viz_sim.physics_client_id)
         set_pose(self._viz_sim.get_object_id_from_name("drink"), drink_pose, self._viz_sim.physics_client_id)
         img = self._viz_sim.render()
-        try:
-            image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            cv2.imshow(title, image_rgb)
-            cv2.waitKey(0) 
-            cv2.destroyAllWindows()
-        except Exception as e:
-            print("Run: pip install opencv-python")
-            raise e
+        from PIL import Image
+        print(f"Showing {title}")
+        Image.fromarray(img).show()
+        input("Press enter to continue")
 
 
 

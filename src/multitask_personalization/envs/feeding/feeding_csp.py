@@ -111,18 +111,20 @@ class LLMMultipleChoiceConstraintModel:
     def __init__(
         self,
         name: str,
+        description: str,
         llm: LargeLanguageModel,
         get_choices_from_observation: Callable[[FeedingObservation], list[Any]],
         get_variable_value_from_choice: Callable[[Any, FeedingObservation], Any] | None = None,
         seed: int = 0,
     ):
         self.name = name  # this must match the name in FeedingInitializationDatasetObservation
+        self.description = description
         self.llm = llm
         self.get_choices_from_observation = get_choices_from_observation
         self.get_variable_value_from_choice = get_variable_value_from_choice or (lambda x, o: x)
         self.summary_preferences = "Unknown"
         self.seed = seed
-        self.initialization_data_obs_history: list[FeedingInitializationDatasetObservation] = []
+        self.data_obs_history: list[FeedingInitializationDatasetObservation | FeedingOcclusionQueryObservation] = []
 
     def create_constraint(self, obs: FeedingObservation, variable: CSPVariable) -> CSPConstraint:
         assert variable.name == self.name
@@ -188,9 +190,9 @@ Which choice should you make? Return only the number of the choice, e.g., {choic
         return obs.get_context_str() 
         
     def learn_incremental(self, obs: FeedingInitializationDatasetObservation) -> None:
-        self.initialization_data_obs_history.append(obs)
+        self.data_obs_history.append(obs)
         history_str = self.get_history_str()
-        prompt = f"""You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `{self.name}`. The preferences depend on context. Here is a history of (context, user choice):
+        prompt = f"""You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `{self.name}`, which means "{self.description}". The preferences depend on context. Here is a history of (context, user choice):
 
 {history_str}
 
@@ -203,8 +205,14 @@ Based on this history, summarize the user's contextual preferences.
     
     def get_history_str(self) -> str:
         combined_str = ""
-        for obs in self.initialization_data_obs_history:
-            user_choice = getattr(obs, self.name)
+        for obs in self.data_obs_history:
+            if isinstance(obs, FeedingInitializationDatasetObservation):
+                user_choice = getattr(obs, self.name)
+            else:
+                assert isinstance(obs, FeedingOcclusionDatasetObservation)
+                assert self.name.startswith("occlusion-poi-")
+                poi = self.name[len("occlusion-poi-"):]
+                user_choice = obs.occlusion[poi]["relevance"]
             combined_str += f"\nCONTEXT: {obs.get_context_str()}"
             combined_str += f"\nUSER CHOICE: {user_choice}\n"
         return combined_str
@@ -221,11 +229,15 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         self._llm = llm
         self._occlusion_model = occlusion_scale_model
         super().__init__(*args, **kwargs)
-        self._feeding_side_model = LLMMultipleChoiceConstraintModel("feeding_side", llm, lambda o: ["left", "right"])
-        self._bite_ordering_model = LLMMultipleChoiceConstraintModel("bite_ordering", llm,lambda o: o.bite_ordering_options,
+        self._feeding_side_model = LLMMultipleChoiceConstraintModel("feeding_side", "the side that the robot arm will feed from", llm, lambda o: ["left", "right"])
+        self._bite_ordering_model = LLMMultipleChoiceConstraintModel("bite_ordering","the order of food items that the robot will serve", llm,lambda o: o.bite_ordering_options,
                                                                      get_variable_value_from_choice=lambda x,o: o.bite_ordering_options.index(x))
-        self._ready_signal_model = LLMMultipleChoiceConstraintModel("ready_signal", llm, lambda o: ["mouth_open", "button", "auto_continue"])
-        self._be_verbal_model = LLMMultipleChoiceConstraintModel("be_verbal", llm, lambda o: [True, False])
+        self._ready_signal_model = LLMMultipleChoiceConstraintModel("ready_signal", "how the robot should indicate ready for food or drink transfer", llm, lambda o: ["mouth_open", "button", "auto_continue"])
+        self._be_verbal_model = LLMMultipleChoiceConstraintModel("be_verbal", "whether the robot should speak", llm, lambda o: [True, False])
+        self._occlusion_poi_relevance_models = {
+            poi: LLMMultipleChoiceConstraintModel(f"occlusion-poi-{poi}", f"whether the user might be looking in the {poi} direction during this meal", llm, lambda o: [True, False])
+            for poi in self._sim.scene_spec.occlusion_points_of_interest
+        }
 
     def save(self, model_dir: Path) -> None:
         print("WARNING: saving not yet implemented for FeedingCSPGenerator.")
@@ -239,6 +251,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
     ) -> tuple[list[CSPVariable], dict[CSPVariable, Any]]:
         
         if isinstance(obs, FeedingInitializationQueryObservation):
+            print("Generating a CSP for feeding initialization")
+
             feeding_side = CSPVariable("feeding_side", EnumSpace(["left", "right"]))
             bite_ordering = CSPVariable("bite_ordering", Discrete(len(obs.bite_ordering_options)))  # index into obs.bite_ordering_options
             ready_signal = CSPVariable("ready_signal", EnumSpace(["mouth_open", "button", "auto_continue"]))
@@ -258,6 +272,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             return [], {}
         
         if isinstance(obs, FeedingOcclusionQueryObservation):
+            print("Generating a CSP for occlusion avoidance")
+
             # Plate position variable.
             plate_position_domain = Box(
                 np.array([-np.inf, -np.inf]),
@@ -310,11 +326,17 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 constraint = model.create_constraint(obs, variable)
                 constraints.append(constraint)
 
-        # Add occlusion scale constraints.
+        # Add occlusion constraints.
         if isinstance(obs, FeedingOcclusionQueryObservation):
             plate_position, drink_position = variables[:2]
             occlusion_poi_vars = variables[2:]
-
+            poi_to_occlusion_var = {}
+            for occlusion_poi_var in occlusion_poi_vars:
+                prefix = "occlusion-poi-"
+                assert occlusion_poi_var.name.startswith(prefix)
+                poi = occlusion_poi_var.name[len(prefix):]
+                poi_to_occlusion_var[poi] = occlusion_poi_var
+            
             # NOTE: we are currently just using the MLE occlusion scale, rather than
             # using the full distribution. That means that "ours" will be equivalent
             # to "exploit_only". This is because we're not really running full
@@ -337,10 +359,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 score = self._get_plate_occlusion_score(plate_position, occlusion_poi)
                 return score is not None and score < 1.0 - occlusion_scale
             
-            for occlusion_poi_var in occlusion_poi_vars:
-                prefix = "occlusion-poi-"
-                assert occlusion_poi_var.name.startswith(prefix)
-                poi = occlusion_poi_var.name[len(prefix):]
+            for poi, occlusion_poi_var in poi_to_occlusion_var.items():
                 user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
                     f"user_view_unoccluded_by_utensil_{poi}",
                     [occlusion_poi_var, plate_position],
@@ -358,17 +377,19 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 score = self._get_drink_occlusion_score(drink_position, occlusion_poi)
                 return score is not None and score < 1.0 - occlusion_scale
             
-            for occlusion_poi_var in occlusion_poi_vars:
-                prefix = "occlusion-poi-"
-                assert occlusion_poi_var.name.startswith(prefix)
-                poi = occlusion_poi_var.name[len(prefix):]
+            for poi, occlusion_poi_var in poi_to_occlusion_var.items():
                 user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
                     f"user_view_unoccluded_by_drink_{poi}",
                     [occlusion_poi_var, drink_position],
                     partial(_user_view_unoccluded_by_drink, poi),
                 )
                 constraints.append(user_view_unoccluded_by_drink_constraint)
-
+            
+            # Relevance constraints.
+            for poi, occlusion_poi_var in poi_to_occlusion_var.items():
+                model = self._occlusion_poi_relevance_models[poi]
+                constraints.append(model.create_constraint(obs, occlusion_poi_var))
+            
         return constraints
 
     def _generate_nonpersonal_constraints(
@@ -444,6 +465,13 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
 
         elif isinstance(obs, FeedingOcclusionQueryObservation):
             plate_position, drink_position = csp.variables[:2]
+            occlusion_poi_vars = csp.variables[2:]
+            poi_to_occlusion_var = {}
+            for occlusion_poi_var in occlusion_poi_vars:
+                prefix = "occlusion-poi-"
+                assert occlusion_poi_var.name.startswith(prefix)
+                poi = occlusion_poi_var.name[len(prefix):]
+                poi_to_occlusion_var[poi] = occlusion_poi_var
 
             def _sample_plate_position(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -500,6 +528,12 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             )
             samplers.append(drink_position_sampler)
 
+            # Relevance samplers.
+            for poi, occlusion_poi_var in poi_to_occlusion_var.items():
+                model = self._occlusion_poi_relevance_models[poi]
+                sampler = model.create_sampler(obs, occlusion_poi_var, csp)
+                samplers.append(sampler)
+
         return samplers
 
     def _generate_policy(
@@ -519,14 +553,18 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
     ) -> None:
         
         if isinstance(next_obs, FeedingInitializationDatasetObservation):
+            print("Updating models for feeding initialization")
             for model in [self._feeding_side_model, self._bite_ordering_model, self._ready_signal_model, self._be_verbal_model]:
                 model.learn_incremental(next_obs)
 
         if isinstance(next_obs, FeedingOcclusionDatasetObservation):
+            print("Updating models for occlusions")
             X, Y = [], []  # for occlusion model
 
             for point_of_interest, feedback in next_obs.occlusion.items():
-                relevant = feedback["relevance"]  # TODO use with LLM!
+                relevant = feedback["relevance"]
+                relevance_model = self._occlusion_poi_relevance_models[point_of_interest]
+                relevance_model.learn_incremental(next_obs)
                 if relevant:
                     plate_pose = next_obs.plate_pose
                     plate_score = self._get_plate_occlusion_score(plate_pose.position[:2], point_of_interest)
