@@ -273,6 +273,8 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
             return self.utensil_id
         if name == "drink":
             return self.drink_id
+        if name == "plate":
+            return self.plate_id
         raise NotImplementedError(f"Object name '{name}' not recognized.")
 
     def render(self) -> RenderFrame | list[RenderFrame] | None:

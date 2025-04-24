@@ -5,9 +5,11 @@ from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSce
 from multitask_personalization.envs.feeding.feeding_structs import FeedingPlateDrinkAction, FeedingOcclusionDatasetObservation, FeedingOcclusionQueryObservation, FeedingInitializationQueryObservation, FeedingInitializationDatasetObservation, FeedingInitializationAction
 from multitask_personalization.methods.csp_approach import CSPApproach
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
+from pybullet_helpers.geometry import Pose, set_pose
 from tomsutils.llm import OpenAILLM
 from typing import Any
 from pathlib import Path
+import cv2
 
 
 class MultitaskPersonalizationFeastInterface:
@@ -31,6 +33,7 @@ class MultitaskPersonalizationFeastInterface:
                                      explore_method=explore_method,
                                      use_gui=use_gui)
         self._approach.train()
+        self._viz_sim = FeedingEnv(self._scene_spec)
 
         # Keep track of most recent things that are context for learned constraints.
         self._current_context = None
@@ -99,6 +102,8 @@ class MultitaskPersonalizationFeastInterface:
             plate_pose = request_dict["plate_pose"]
             drink_pose = request_dict["drink_pose"]
 
+            self._visualize("Current Scene", plate_pose, drink_pose)
+
             obs = FeedingOcclusionQueryObservation(
                 self._current_context,
                 self._current_table_type,
@@ -118,6 +123,16 @@ class MultitaskPersonalizationFeastInterface:
             before_transfer_pos = act.before_transfer_pos
             above_plate_pos = act.above_plate_pos
             occlusion_poi_relevance = act.occlusion_poi_relevance
+
+            new_plate_pose = Pose((plate_pose.position[0] + plate_delta_xy[0],
+                                plate_pose.position[1] + plate_delta_xy[1],
+                                plate_pose.position[2]),
+                                plate_pose.orientation)
+            new_drink_pose = Pose((drink_pose.position[0] + drink_delta_xy[0],
+                                drink_pose.position[1] + drink_delta_xy[1],
+                                drink_pose.position[2]),
+                                drink_pose.orientation)
+            self._visualize("Predicted Scene", new_plate_pose, new_drink_pose)
 
             return {
                 "response_type": "occlusion_query",
@@ -151,6 +166,22 @@ class MultitaskPersonalizationFeastInterface:
 
         else:
             raise ValueError(f"Unknown request type: {request_dict['requestType']}")
+        
+
+    def _visualize(self, title: str, plate_pose: Pose, drink_pose: Pose) -> None:
+        set_pose(self._viz_sim.get_object_id_from_name("plate"), plate_pose, self._viz_sim.physics_client_id)
+        set_pose(self._viz_sim.get_object_id_from_name("drink"), drink_pose, self._viz_sim.physics_client_id)
+        img = self._viz_sim.render()
+        try:
+            image_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            cv2.imshow(title, image_rgb)
+            cv2.waitKey(0) 
+            cv2.destroyAllWindows()
+        except Exception as e:
+            print("Run: pip install opencv-python")
+            raise e
+
+
 
 if __name__ == "__main__":
     import argparse
