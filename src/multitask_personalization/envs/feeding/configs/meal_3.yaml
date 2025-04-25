@@ -23,7 +23,7 @@ spawn_tv:
 tv_base_pose:
   description: "Pose of the whole tv apparatus"
   type: "pose"
-  values: [1, 1.2, -0.66, 0, 0, 0, 1]
+  values: [1, 0.8, -0.66, 0, 0, 0, 1]
 
 spawn_social:
   description: "Spawn a social partner in the room"
@@ -33,7 +33,7 @@ spawn_social:
 social_base_pose:
   description: "Base pose of the social partner"
   type: "pose"
-  values: [0.6, 1.0, -0.66, 0, 0, 0.7071068, 0.7071068]
+  values: [1.2, 0.73, -0.66, 0, 0, 0.5, 0.8660254]
 
 social_mesh_path:
   description: "Path to the social partner mesh"

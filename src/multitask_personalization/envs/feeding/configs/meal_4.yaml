@@ -23,7 +23,7 @@ spawn_tv:
 tv_base_pose:
   description: "Pose of the whole tv apparatus"
   type: "pose"
-  values: [1, 1.2, -0.66, 0, 0, 0, 1]
+  values: [1, 0.8, -0.66, 0, 0, 0, 1]
 
 spawn_social:
   description: "Spawn a social partner in the room"
@@ -33,7 +33,7 @@ spawn_social:
 social_base_pose:
   description: "Base pose of the social partner"
   type: "pose"
-  values: [0.6, 1.0, -0.66, 0, 0, 0.7071068, 0.7071068]
+  values: [1.2, 0.73, -0.66, 0, 0, 0.5, 0.8660254]
 
 social_mesh_path:
   description: "Path to the social partner mesh"
@@ -88,8 +88,7 @@ drink_default_pose:
 drink_staging_pos:
   description: "Staging position of the drink"
   type: "joint_positions"
-  # values: [-2.5860902733967808, -1.105096803823792, -1.0315333702969696, -1.3979449215077393, -0.7852325147776451, -0.8370922506847585, -2.7182634909296315]
-  values: [-2.613708681215308, -0.9017579053460443, -0.9960620769089157, -1.2661829309009238, -0.832709162582267, -0.9714922346688137, -2.940585756029876]
+  values: [-2.5860902733967808, -1.105096803823792, -1.0315333702969696, -1.3979449215077393, -0.7852325147776451, -0.8370922506847585, -2.7182634909296315]
 
 drink_default_post_grasp_pose:
   description: "Pose of the drink after grasping"
