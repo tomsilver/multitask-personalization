@@ -132,19 +132,25 @@ class LLMMultipleChoiceConstraintModel:
         self.seed = seed
         self.data_obs_history: list[FeedingInitializationDatasetObservation | FeedingOcclusionQueryObservation] = []
 
+    def get_save_state(self) -> dict:
+        return {
+            "data_obs_history": list(self.data_obs_history),
+            "summary_preferences": self.summary_preferences,
+        }
+    
+    def load_from_state(self, state_dict: dict) -> None:
+        self.data_obs_history = list(state_dict["data_obs_history"])
+        self.summary_preferences = state_dict["summary_preferences"]
+
     def save(self, model_path: Path) -> None:
         with open(model_path, "wb") as f:
-            pickle.dump({
-                "data_obs_history": self.data_obs_history,
-                "summary_preferences": self.summary_preferences,
-            }, f)
+            pickle.dump(self.get_save_state(), f)
 
     def load(self, model_path: Path) -> None:
         try:
             with open(model_path, "rb") as f:
                 data = pickle.load(f)
-                self.data_obs_history = data["data_obs_history"]
-                self.summary_preferences = data["summary_preferences"]
+                self.load_from_state(data)
         except FileNotFoundError:
             logging.warning(f"Model file {model_path} not found. Using init values.")
 
