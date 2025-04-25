@@ -130,6 +130,16 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         # Counter for tracking number of update calls
         self._update_counter = 0
 
+        # New variables for tracking CSP constraint violations
+        self._constraint_violation_history: list[float] = []
+        self._new_window_size = (
+            5  # Number of recent violations to track for current window
+        )
+        self._old_window_size = 5  # Number of violations to track for old window
+        self._violation_threshold = (
+            0.8  # Threshold for detecting significant increase in violations
+        )
+
     def sync_variables(self, other):
         """Sync the variables of this object with another object."""
         assert isinstance(other, self.__class__)
@@ -225,30 +235,103 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         memory."""
         self._update_counter += 1
         if self._lifelong_learning["enabled"]:
-            # logging.info(f"Total update calls: {self._update_counter}")
-            if (
-                self._lifelong_learning["method"] == "periodic_reset"
-                and self._update_counter > 1
-                and (self._update_counter - 1)
-                % self._lifelong_learning["reset_interval"]
-                == 0
-            ):
-                logging.info(f"Resetting memory after {self._update_counter} updates")
-                # reset for all meals and all ingredients
-                self._temperature_models = {}
-                self._quantity_models = {}
-                for meal_name, meal_spec in self._universal_meal_specs.items():
-                    self._temperature_models[meal_name] = {}
-                    self._quantity_models[meal_name] = {}
-                    for ing_spec in meal_spec.ingredients:
-                        temp_lo, temp_hi = ing_spec.temperature
-                        self._temperature_models[meal_name][ing_spec.name] = (
-                            Bounded1DClassifier(temp_lo, temp_hi)
-                        )
-                        quant_lo, quant_hi = ing_spec.quantity
-                        self._quantity_models[meal_name][ing_spec.name] = (
-                            Bounded1DClassifier(quant_lo, quant_hi)
-                        )
+            if self._lifelong_learning["method"] == "periodic_reset":
+                if (
+                    self._update_counter > 1
+                    and (self._update_counter - 1)
+                    % self._lifelong_learning["reset_interval"]
+                    == 0
+                ):
+                    logging.info(
+                        f"Resetting memory after {self._update_counter} updates"
+                    )
+                    self._reset_models()
+            elif self._lifelong_learning["method"] == "fancy":
+                # Check if we need to reset based on constraint violation rate
+                if self._should_reset_based_on_violations():
+                    logging.info(
+                        "Resetting memory due to high constraint violation rate"
+                    )
+                    self._reset_models()
+
+    def _reset_models(self) -> None:
+        """Reset all models to their initial state."""
+        self._temperature_models = {}
+        self._quantity_models = {}
+        for meal_name, meal_spec in self._universal_meal_specs.items():
+            self._temperature_models[meal_name] = {}
+            self._quantity_models[meal_name] = {}
+            for ing_spec in meal_spec.ingredients:
+                temp_lo, temp_hi = ing_spec.temperature
+                self._temperature_models[meal_name][ing_spec.name] = (
+                    Bounded1DClassifier(temp_lo, temp_hi)
+                )
+                quant_lo, quant_hi = ing_spec.quantity
+                self._quantity_models[meal_name][ing_spec.name] = Bounded1DClassifier(
+                    quant_lo, quant_hi
+                )
+
+    def _should_reset_based_on_violations(self) -> bool:
+        """Check if we should reset based on constraint violation rate.
+
+        Returns:
+            bool: True if we should reset, False otherwise
+        """
+
+        if (
+            len(self._constraint_violation_history)
+            < self._new_window_size + self._old_window_size
+        ):
+            return False
+
+        # Calculate moving average of violations for new window
+        new_violations = self._constraint_violation_history[-self._new_window_size :]
+        new_avg = sum(new_violations) / len(new_violations)
+
+        # Calculate moving average of violations for old window
+        old_violations = self._constraint_violation_history[
+            -(self._new_window_size + self._old_window_size) : -self._new_window_size
+        ]
+        old_avg = sum(old_violations) / len(old_violations)
+
+        if self._update_counter % 100 == 0:
+            # print(f"self._new_window_size: {self._new_window_size}")
+            # print(f"self._old_window_size: {self._old_window_size}")
+            # print(f"old_violations: {old_violations}")
+            # print(f"new_violations: {new_violations}")
+
+            print(f"constraint violation rate: old_avg: {old_avg}, new_avg: {new_avg}")
+            print(f"Constraint difference: {new_avg - old_avg}")
+            print(f"self._violation_threshold: {self._violation_threshold}")
+
+        # input("Press Enter to continue...")
+        # Reset if current violation rate is significantly higher than previous
+        if new_avg > old_avg * (1 + self._violation_threshold):
+            print(
+                "Resetting memory due to high constraint violation rate: ",
+                f"{new_avg} > {old_avg} * (1 + {self._violation_threshold})",
+            )
+            # input("Press Enter to continue...")
+            # Reset constraint violation history
+            self._constraint_violation_history = []
+            return True
+
+        return False
+
+    def track_constraint_violation(
+        self, num_violations: int, num_total_samples: int
+    ) -> None:
+        """Track the number of constraint violations and total samples.
+
+        Args:
+            num_violations: Number of times constraints were violated
+            num_total_samples: Total number of samples checked
+        """
+        # Store the violation rate (violations per sample)
+        violation_rate = (
+            num_violations / num_total_samples if num_total_samples > 0 else 0.0
+        )
+        self._constraint_violation_history.append(violation_rate)
 
     def sample(self, rng: np.random.Generator) -> Meal:
         meal_spec_idx = rng.choice(len(self._universal_meal_specs))

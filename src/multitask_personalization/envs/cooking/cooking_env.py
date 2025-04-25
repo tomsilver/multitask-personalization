@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pickle as pkl
+from pathlib import Path
 from typing import Any, get_args
 
 import gymnasium as gym
@@ -295,6 +297,30 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             "user_satisfaction": self._current_user_satisfaction,
             "preference_shift": preference_shift,
         }
+
+    def save_state(self, filepath: Path) -> None:
+        """Save the current state to disk."""
+        state_dict = {
+            "state": self._current_state,
+            "user_satisfaction": self._current_user_satisfaction,
+            "user_critiques": self._current_user_critiques,
+            "rng": self._rng,
+            "current_step": self._current_step,
+            "eval_mode": self._eval_mode,
+        }
+        with open(filepath, "wb") as f:
+            pkl.dump(state_dict, f)
+
+    def load_state(self, filepath: Path) -> None:
+        """Load a state from disk."""
+        with open(filepath, "rb") as f:
+            state_dict = pkl.load(f)
+        self._current_state = state_dict["state"]
+        self._current_user_satisfaction = state_dict["user_satisfaction"]
+        self._current_user_critiques = state_dict["user_critiques"]
+        self._rng = state_dict["rng"]
+        self._current_step = state_dict["current_step"]
+        self._eval_mode = state_dict["eval_mode"]
 
     def _pot_move_is_valid(
         self, new_position: tuple[float, float], pot_id: int, state: CookingState

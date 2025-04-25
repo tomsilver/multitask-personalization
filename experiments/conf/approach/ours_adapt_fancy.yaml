@@ -8,4 +8,3 @@ disable_learning: false
 lifelong_learning:
   enabled: true
   method: fancy  # Use the new fancy method that tracks CSP constraint violations
-  reset_interval: 2500  # Still keep this as a fallback in case fancy method doesn't trigger

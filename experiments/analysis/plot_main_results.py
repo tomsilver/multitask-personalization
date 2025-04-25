@@ -18,20 +18,40 @@ ENV_TO_DISPLAY_NAME = {
 }
 
 APPROACH_TO_DISPLAY_NAME = {
-    "ours": "CBTL (Ours)",
-    "nothing_personal": "Free Explore",
+    # "ours": "CBTL (Ours)",
+    "ours_adapt_fancy": "CBTL (Fancy)",
+    "ours_no_adapt": "CBTL (No Adapt)",
+    "ours_adapt_periodic": "CBTL (Periodic Reset)",
+    # "nothing_personal": "Free Explore",
     "epsilon_greedy": "Epsilon Greedy",
-    "exploit_only": "Exploit Only",
-    "no_learning": "No Learning",
+    # "exploit_only": "Exploit Only",
+    # "no_learning": "No Learning",
 }
+
+COLOR_PALETTE = [
+    "#66c2a5",  # soft green-teal
+    "#fc8d62",  # soft orange
+    "#8da0cb",  # periwinkle blue
+    "#e78ac3",  # soft magenta
+    "#a6d854",  # lime green
+    "#ffd92f",  # sunflower yellow
+    "#e5c494",  # sand brown
+    "#b3b3b3",  # light gray
+    "#bebada",  # lavender
+    "#fb8072",  # coral
+]
 
 # https://colorbrewer2.org/#type=diverging&scheme=Spectral&n=8
 APPROACH_TO_COLOR = {
-    "ours": "#3288bd",
-    "nothing_personal": "#66c2a5",
+    # "ours": "#3288bd",
+    # assign different colors to each approach
+    "ours_no_adapt": COLOR_PALETTE[0],
+    "ours_adapt_periodic": COLOR_PALETTE[1],
+    "ours_adapt_fancy": COLOR_PALETTE[2],
+    # "nothing_personal": "#66c2a5",
     "epsilon_greedy": "#abdda4",
-    "exploit_only": "#e6f598",
-    "no_learning": "#fee08b",
+    # "exploit_only": "#e6f598",
+    # "no_learning": "#fee08b",
 }
 
 # Colors for preference shift backgrounds

@@ -66,6 +66,17 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._lifelong_learning = lifelong_learning
         self._csp_generator = self._create_csp_generator()
 
+        # Connect preference model to CSP solver if using fancy lifelong learning
+        if (
+            self._lifelong_learning is not None
+            and self._lifelong_learning.get("method") == "fancy"
+        ):
+            if isinstance(self._csp_generator, CookingCSPGenerator):
+                if hasattr(self._csp_solver, "set_preference_model"):
+                    self._csp_solver.set_preference_model(
+                        self._csp_generator._meal_model
+                    )
+
     def reset(
         self,
         obs: _ObsType,

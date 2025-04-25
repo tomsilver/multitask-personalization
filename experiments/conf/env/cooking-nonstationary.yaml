@@ -7,13 +7,13 @@ env:
     meal_preference_model:
       preference_shift_spec:
         _target_: "multitask_personalization.envs.cooking.cooking_structs.PreferenceShiftSpec"
-        min_shift_interval: 2500
+        min_shift_interval: 3000 # 2500
         shift_prob: 1.0
         shift_factor_range: [0.9, 1.1]
   # note: seed is excluded because it varies for train/eval envs
 # train_env: {}
 # eval_env: {}
-max_environment_steps: 10000
+max_environment_steps: 10000 # 10000
 eval_frequency: 100
 max_eval_episode_length: 100
 num_eval_trials: 10

@@ -21,6 +21,7 @@ class CSPSolver(abc.ABC):
 
     def __init__(self, seed: int) -> None:
         self._seed = seed
+        self._preference_model: Any | None = None
 
     @abc.abstractmethod
     def solve(
@@ -30,6 +31,10 @@ class CSPSolver(abc.ABC):
         samplers: list[CSPSampler],
     ) -> dict[CSPVariable, Any] | None:
         """Solve the given CSP."""
+
+    def set_preference_model(self, preference_model: Any) -> None:
+        """Set the preference model to track violations."""
+        self._preference_model = preference_model
 
 
 class RandomWalkCSPSolver(CSPSolver):
@@ -64,6 +69,10 @@ class RandomWalkCSPSolver(CSPSolver):
         num_improve_attempts = 0
         num_improve_found = 0
         sampler_idxs = list(range(len(samplers)))
+
+        num_constraint_violations = 0
+        num_total_samples = 0
+
         for _ in (
             pbar := tqdm(range(self._max_iters), disable=not self._show_progress_bar)
         ):
@@ -98,14 +107,24 @@ class RandomWalkCSPSolver(CSPSolver):
                     sol_is_cost_improvement = False
 
             # This would be a cost improvement, so see if the constraints pass.
-            if sol_is_cost_improvement and csp.check_solution(sol):
-                if solution_found:
-                    num_improve_found += 1
-                solution_found = True
-                if csp.cost is None:
-                    return sol
-                best_satisfying_cost = cost
-                best_satisfying_sol = sol
+            if sol_is_cost_improvement:
+                # Track constraint violations - number of personal constraints violated
+                if self._preference_model is not None:
+                    # num_violations = sum(1 for constraint in csp.constraints
+                    #               if constraint.name in"user_enjoys_meal_constraint"
+                    #               and not constraint.check_solution(sol))
+                    constraint_violated = 1 if not csp.check_solution(sol) else 0
+                    num_constraint_violations += constraint_violated
+                    num_total_samples += 1
+
+                if csp.check_solution(sol):
+                    if solution_found:
+                        num_improve_found += 1
+                    solution_found = True
+                    if csp.cost is None:
+                        return sol
+                    best_satisfying_cost = cost
+                    best_satisfying_sol = sol
 
             # Sample the next solution.
             self._rng.shuffle(sampler_idxs)
@@ -118,6 +137,11 @@ class RandomWalkCSPSolver(CSPSolver):
                 raise RuntimeError("All samplers produced None; solver stuck.")
             sol = sol.copy()
             sol.update(partial_sol)
+
+        if self._preference_model is not None:
+            self._preference_model.track_constraint_violation(
+                num_constraint_violations, num_total_samples
+            )
         return best_satisfying_sol
 
 
@@ -133,6 +157,11 @@ class LifelongCSPSolverWrapper(CSPSolver):
         self._constraint_to_recent_solutions: dict[
             CSPConstraint, deque[dict[CSPVariable, Any]]
         ] = defaultdict(lambda: deque(maxlen=self._memory_size))
+
+    def set_preference_model(self, preference_model: Any) -> None:
+        """Set the preference model to track violations."""
+        super().set_preference_model(preference_model)
+        self._base_solver.set_preference_model(preference_model)
 
     def solve(
         self,
