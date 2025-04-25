@@ -83,14 +83,6 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         else:
             self.physics_client_id = p.connect(p.DIRECT)
 
-        # Create floor.
-        # self.floor_id = p.loadURDF(
-        #     str(self.scene_spec.floor_urdf),
-        #     self.scene_spec.floor_position,
-        #     useFixedBase=True,
-        #     physicsClientId=self.physics_client_id,
-        # )
-
         # Create robot.
         robot = create_pybullet_robot(
             self.scene_spec.robot_name,
@@ -145,7 +137,7 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
 
         # Create table.
         self.table_id = create_pybullet_block(
-            (1.0, 1.0, 1.0, 1.0),
+            (0.0, 0.0, 0.0, 0.0),
             half_extents=self.scene_spec.table_half_extents,
             physics_client_id=self.physics_client_id
         )
@@ -227,36 +219,71 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         #     while True:
         #         p.getMouseEvents(self.physics_client_id)
 
-        for body in self.scene_spec.tv_world_objects:
-            visual_shape_id = p.createVisualShape(
-                shapeType=p.GEOM_MESH,
-                fileName=str(self.scene_spec.tv_world_base_path / body),
-                meshScale=[0.1, 0.1, 0.1],
-                rgbaColor=[1, 1, 1, 1],  # Let texture show
-                physicsClientId=self.physics_client_id,
-            )
+        # spawn room
+        visual_shape_id = p.createVisualShape(
+            shapeType=p.GEOM_MESH,
+            fileName=str(self.scene_spec.room_path),
+            meshScale=[0.1, 0.1, 0.1],
+            rgbaColor=[1, 1, 1, 1],  # Let texture show
+            physicsClientId=self.physics_client_id,
+        )
 
-            p.createMultiBody(
-                baseVisualShapeIndex=visual_shape_id,
-                basePosition=[1, 0.8, -0.66],  # X, Y, Z in meters
-                physicsClientId=self.physics_client_id,
-            )
+        p.createMultiBody(
+            baseVisualShapeIndex=visual_shape_id,
+            basePosition=[1, 0.8, -0.66],  # X, Y, Z in meters
+            physicsClientId=self.physics_client_id,
+        )
 
-        for body in self.scene_spec.social_partner_objects:
-            visual_shape_id = p.createVisualShape(
-                shapeType=p.GEOM_MESH,
-                fileName=str(self.scene_spec.social_partner_base_path / body),
-                meshScale=[0.1, 0.1, 0.1],
-                rgbaColor=[1, 1, 1, 1],  # Let texture show
-                physicsClientId=self.physics_client_id,
-            )
+        # spawn table
+        visual_shape_id = p.createVisualShape(
+            shapeType=p.GEOM_MESH,
+            fileName=str(self.scene_spec.table_path),
+            meshScale=[0.1, 0.1, 0.1],
+            rgbaColor=[1, 1, 1, 1],  # Let texture show
+            physicsClientId=self.physics_client_id,
+        )
 
-            p.createMultiBody(
-                baseVisualShapeIndex=visual_shape_id,
-                basePosition=[0.7, -0.3, -0.66],  # X, Y, Z in meters
-                baseOrientation=p.getQuaternionFromEuler([0, 0, -45]),  # Rotate 90 degrees
-                physicsClientId=self.physics_client_id,
-            )
+        p.createMultiBody(
+            baseVisualShapeIndex=visual_shape_id,
+            basePosition=self.scene_spec.table_spawn_pose.position,  # X, Y, Z in meters
+            baseOrientation=self.scene_spec.table_spawn_pose.orientation,
+            physicsClientId=self.physics_client_id,
+        )
+
+        # spawn TV
+        if self.scene_spec.spawn_tv:
+            for body in self.scene_spec.tv_objects:
+                visual_shape_id = p.createVisualShape(
+                    shapeType=p.GEOM_MESH,
+                    fileName=str(self.scene_spec.tv_base_path / body),
+                    meshScale=[0.1, 0.1, 0.1],
+                    rgbaColor=[1, 1, 1, 1],  # Let texture show
+                    physicsClientId=self.physics_client_id,
+                )
+
+                p.createMultiBody(
+                    baseVisualShapeIndex=visual_shape_id,
+                    basePosition=[1, 0.8, -0.66],  # X, Y, Z in meters
+                    physicsClientId=self.physics_client_id,
+                )
+
+        # spawn social 
+        if self.scene_spec.spawn_social:
+            for body in self.scene_spec.social_objects:
+                visual_shape_id = p.createVisualShape(
+                    shapeType=p.GEOM_MESH,
+                    fileName=str(self.scene_spec.social_base_path / body),
+                    meshScale=[0.1, 0.1, 0.1],
+                    rgbaColor=[1, 1, 1, 1],  # Let texture show
+                    physicsClientId=self.physics_client_id,
+                )
+
+                p.createMultiBody(
+                    baseVisualShapeIndex=visual_shape_id,
+                    basePosition=self.scene_spec.social_base_pose.position,  # X, Y, Z in meters
+                    baseOrientation= self.scene_spec.social_base_pose.orientation,
+                    physicsClientId=self.physics_client_id,
+                )
 
     def visualize_sample(self, pose: Pose, color: tuple[float, float, float, float]) -> None:
         """ Add a sphere to visualize a sample. """

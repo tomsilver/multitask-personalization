@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+import yaml
 
 import numpy as np
 from numpy.typing import NDArray
@@ -13,13 +14,87 @@ from pybullet_helpers.joint import JointPositions
 
 from multitask_personalization.structs import PublicSceneSpec
 
+def create_feeding_scene_description_from_config(config_file_path: str) -> FeedingSceneSpec:
+    """Create a SceneDescription instance from a YAML configuration file."""
+    # Load the YAML file
+    with open(config_file_path, "r") as file:
+        config = yaml.safe_load(file)
+
+    # Process the configuration dictionary
+    processed_config = {}
+    for key, value in config.items():
+        if isinstance(value, dict):
+            value_type = value.get("type")
+            values = value.get("values")
+
+            if not value_type or values is None:
+                raise ValueError(f"Key '{key}' is missing 'type' or 'values': {value}")
+
+            if value_type == "path":
+                # Handle paths
+                processed_config[key] = Path(__file__).parent / "assets" / Path(values)
+            elif value_type == "bool":
+                # Handle booleans
+                processed_config[key] = bool(values)
+            elif value_type == "pose":
+                # Handle 3D poses
+                if len(values) != 7:
+                    processed_config[key] = None
+                    print(f"Set '{key}' to None due to invalid pose values.")
+                else:
+                    position = tuple(values[:3])
+                    orientation = tuple(values[3:])
+                    processed_config[key] = Pose(position, orientation)
+            elif value_type == "joint_positions":
+                # Handle joint positions
+                processed_config[key] = values
+            else:
+                raise ValueError(f"Unknown type '{value_type}' for key '{key}'")
+        else:
+            raise ValueError(f"Unexpected value type for key '{key}': {type(value)}")
+    
+    # Create an instance of SceneDescription using the processed config
+    return FeedingSceneSpec(**processed_config)
 
 @dataclass(frozen=True)
 class FeedingSceneSpec(PublicSceneSpec):
     """Scene specification for the assistive feeding environment."""
 
-    floor_position: tuple[float, float, float] = (0, 0, -0.66)
-    floor_urdf: Path = Path(__file__).parent / "assets" / "floor" / "floor.urdf"
+
+    # Variables that change over different environments
+    room_path: Path
+    table_path: Path
+    table_spawn_pose: Pose
+    spawn_tv: bool
+    spawn_social: bool
+    social_base_pose: Pose
+
+    # TV 
+    tv_base_path: Path = (
+        Path(__file__).parent / "assets" / "tv_world"
+    )
+    tv_objects: list[Path] = field(
+        default_factory=lambda: [
+            Path("body_1.obj"),
+            Path("body_3.obj"),
+            Path("body_4.obj"),
+            Path("body_5.obj"),
+            Path("body_6.obj"),
+            Path("body_7_on.obj")
+        ]
+    )
+
+    # social partner
+    social_base_path: Path = (
+        Path(__file__).parent / "assets" / "tv_world"
+    )
+    social_objects: list[Path] = field(
+        default_factory=lambda: [
+            Path("human_body.obj"),
+            Path("chair_base.obj"),
+            Path("chair_legs.obj"),
+        ]
+    )
 
     # Robot.
     robot_name: str = "kinova-gen3"
@@ -28,6 +103,7 @@ class FeedingSceneSpec(PublicSceneSpec):
         (0.0, 0.0, 0.0),
         (0.0, 0.0, 0.0, 1.0),
     )
+    
     initial_joints: JointPositions = field(
         default_factory=lambda: [
             0.0,
@@ -79,34 +155,6 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     user_head_urdf_path: Path = (
         Path(__file__).parent / "assets" / "head_models" / "mouth_open.urdf"
-    )
-
-    # TV world path:
-    tv_world_base_path: Path = (
-        Path(__file__).parent / "assets" / "tv_world"
-    )
-    tv_world_objects: list[Path] = field(
-        default_factory=lambda: [
-            Path("body_1.obj"),
-            Path("body_2.obj"),
-            Path("body_3.obj"),
-            Path("body_4.obj"),
-            Path("body_5.obj"),
-            Path("body_6.obj"),
-            Path("body_7_on.obj")
-        ]
-    )
-
-    # social partner
-    social_partner_base_path: Path = (
-        Path(__file__).parent / "assets" / "tv_world"
-    )
-    social_partner_objects: list[Path] = field(
-        default_factory=lambda: [
-            Path("human_body.obj"),
-            Path("chair_base.obj"),
-            Path("chair_legs.obj"),
-        ]
     )
 
     # Table.

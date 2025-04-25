@@ -1,0 +1,31 @@
+# Config file when robot is mounted on vention stand
+
+room_path:
+  description: "Base path for the room"
+  type: "path"
+  values: "tv_world/body_2.obj"
+
+table_path:
+  description: "Base path for the table"
+  type: "path"
+  values: "tv_world/square_table.obj"
+
+table_spawn_pose:
+  description: "Position of the table in the room"
+  type: "pose"
+  values: [0.6, 0.45, -0.66, 0, 0, 0, 1]
+
+spawn_tv:
+  description: "Spawn the tv in the room"
+  type: "bool"
+  values: false
+
+spawn_social:
+  description: "Spawn a social partner in the room"
+  type: "bool"
+  values: false
+
+social_base_pose:
+  description: "Base pose of the social partner"
+  type: "pose"
+  values: []

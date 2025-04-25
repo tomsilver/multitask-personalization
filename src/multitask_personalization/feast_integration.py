@@ -1,7 +1,7 @@
 """Hacky FEAST integration."""
 
 from multitask_personalization.envs.feeding.feeding_env import FeedingEnv, FeedingObservation, BANISH_POSE
-from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec
+from multitask_personalization.envs.feeding.feeding_scene_spec import FeedingSceneSpec, create_feeding_scene_description_from_config
 from multitask_personalization.envs.feeding.feeding_structs import MoveToJointPositions, FeedingInitializationQueryObservation, FeedingInitializationDatasetObservation, FeedingInitializationAction
 from multitask_personalization.envs.feeding.feeding_csp import _plate_position_to_pose, _drink_position_to_pose, _transform_joints_relative_to_plate, _transform_joints_relative_to_drink, _transform_pose_relative_to_drink, _transform_pose_relative_to_plate
 from multitask_personalization.methods.csp_approach import CSPApproach
@@ -19,8 +19,9 @@ class MultitaskPersonalizationFeastInterface:
     def __init__(self, use_gui: bool, personalize: bool = True) -> None:
         self._seed = 0
 
+        config_file = Path(__file__).parent / "envs" / "feeding" / "configs" / "meal_5.yaml"
         # Create "environment".
-        self._scene_spec = FeedingSceneSpec()
+        self._scene_spec = create_feeding_scene_description_from_config(config_file)
         self._env = FeedingEnv(self._scene_spec, seed=self._seed, use_gui=use_gui)
 
         # Create approach.
