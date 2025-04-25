@@ -14,6 +14,54 @@ from pathlib import Path
 from PIL import Image
 
 
+@dataclass
+class Meal:
+    meal_id: int
+    context: str
+    table_type: str
+    food_items: List[str]
+    dips: List[str]
+
+MEALS = [
+    Meal(1, "personal", "rectangular table", ["chicken breast"], ["ketchup", "ranch dressing"]),
+    Meal(2, "social with friend on left", "rectangular table", ["celery", "apple slices"], ["ranch dressing"]),
+    Meal(3, "watching TV in front", "circular table", ["steak", "potatoes"], []),
+    Meal(4, "personal", "rectangular table", ["celery", "pear slices"], ["ranch dressing"]),
+    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "circular table", ["chicken nuggets"], ["ketchup", "ranch dressing"]),
+]
+
+# Helper function to generate all possible bite orderings.
+def generate_bite_orderings(food_items: List[str], dips: List[str]) -> List[str]:
+    orderings = []
+
+    # All permutations of food items with all dipping combinations
+    for food_perm in itertools.permutations(food_items):
+        food_dip_variants = []
+        for food in food_perm:
+            variants = [f"{food} without any dipping"]
+            variants += [f"{food} dipped in {dip}" for dip in dips]
+            food_dip_variants.append(variants)
+
+        for combo in itertools.product(*food_dip_variants):
+            orderings.append(" then ".join(combo))
+
+    if len(food_items) > 1:
+        # One alternating pattern across all food items
+        alt_variants = []
+        for food in food_items:
+            if dips:
+                alt_variants.append(f"{food} dipped in {dips[0]}")
+            else:
+                alt_variants.append(food)
+        if len(alt_variants) == 1:
+            alt_pattern = f"alternating bites of {alt_variants[0]}"
+        else:
+            alt_pattern = "alternating bites of " + " and ".join(alt_variants)
+        orderings.append(alt_pattern)
+
+    return orderings
+
+
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Feast Dummy")
@@ -104,55 +152,9 @@ if __name__ == "__main__":
         with open(results_file, "w") as f:
             json.dump(results, f)
         return choice
-        
-    # Helper function to generate all possible bite orderings.
-    def generate_bite_orderings(food_items: List[str], dips: List[str]) -> List[str]:
-        orderings = []
 
-        # All permutations of food items with all dipping combinations
-        for food_perm in itertools.permutations(food_items):
-            food_dip_variants = []
-            for food in food_perm:
-                variants = [f"{food} without any dipping"]
-                variants += [f"{food} dipped in {dip}" for dip in dips]
-                food_dip_variants.append(variants)
 
-            for combo in itertools.product(*food_dip_variants):
-                orderings.append("then ".join(combo))
-
-        if len(food_items) > 1:
-            # One alternating pattern across all food items
-            alt_variants = []
-            for food in food_items:
-                if dips:
-                    alt_variants.append(f"{food} dipped in {dips[0]}")
-                else:
-                    alt_variants.append(food)
-            if len(alt_variants) == 1:
-                alt_pattern = f"alternating bites of {alt_variants[0]}"
-            else:
-                alt_pattern = "alternating bites of " + " and ".join(alt_variants)
-            orderings.append(alt_pattern)
-
-        return orderings
-        
-    @dataclass
-    class Meal:
-        meal_id: int
-        context: str
-        table_type: str
-        food_items: List[str]
-        dips: List[str]
-
-    meals = [
-        Meal(1, "personal", "rectangular table", ["chicken breast"], ["ketchup", "ranch dressing"]),
-        Meal(2, "social with friend on left", "rectangular table", ["celery", "apple slices"], ["ranch dressing"]),
-        Meal(3, "watching TV in front", "circular table", ["steak", "potatoes"], []),
-        Meal(4, "personal", "rectangular table", ["celery", "pear slices"], ["ranch dressing"]),
-        Meal(5, "social TV-watching (with TV in front) and with friend on left side", "circular table", ["chicken nuggets"], ["ketchup", "ranch dressing"]),
-    ]
-
-    current_meal = meals[args.meal_id-1]
+    current_meal = MEALS[args.meal_id-1]
     assert current_meal.meal_id == args.meal_id
     bite_ordering_options = generate_bite_orderings(current_meal.food_items, current_meal.dips)
 
