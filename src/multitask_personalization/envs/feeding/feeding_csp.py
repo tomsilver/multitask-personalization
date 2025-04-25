@@ -91,9 +91,12 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             planned_drink_pose = _drink_position_to_pose(planned_drink_position, obs.drink_pose)
             # Rajat ToDo: change default to a logged pickup pos
             # drink_pickup_pose = planned_drink_pose.multiply(Pose((0.0, 0.0, 0.05), (0.0, 0.0, 0.0, 1.0)))
-            drink_grasp_pos = _transform_joints_relative_to_drink(
-                "drink_staging_pos", planned_drink_pose, self._sim.robot, self._sim.scene_spec
-            )
+            if not obs.drink_pose.allclose(BANISH_POSE):
+                drink_grasp_pos = _transform_joints_relative_to_drink(
+                    "drink_staging_pos", planned_drink_pose, self._sim.robot, self._sim.scene_spec
+                )
+            else:
+                drink_grasp_pos = None
             
             occlusion_poi_relevance = {}
             for poi in self._sim.scene_spec.occlusion_points_of_interest:
@@ -442,13 +445,14 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 score = self._get_drink_occlusion_score(drink_position, occlusion_poi)
                 return score is not None and score < 1.0 - occlusion_scale
             
-            for poi, occlusion_poi_var in poi_to_occlusion_var.items():
-                user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
-                    f"user_view_unoccluded_by_drink_{poi}",
-                    [occlusion_poi_var, drink_position],
-                    partial(_user_view_unoccluded_by_drink, poi),
-                )
-                constraints.append(user_view_unoccluded_by_drink_constraint)
+            if not (hasattr(self, "_disable_drink") and self._disable_drink):
+                for poi, occlusion_poi_var in poi_to_occlusion_var.items():
+                    user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
+                        f"user_view_unoccluded_by_drink_{poi}",
+                        [occlusion_poi_var, drink_position],
+                        partial(_user_view_unoccluded_by_drink, poi),
+                    )
+                    constraints.append(user_view_unoccluded_by_drink_constraint)
             
             # Relevance constraints.
             for poi, occlusion_poi_var in poi_to_occlusion_var.items():
@@ -486,7 +490,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 [plate_position, drink_position],
                 _plate_drink_collision_free,
             )
-            constraints.append(plate_drink_collision_free_constraint)
+            if not (hasattr(self, "_disable_drink") and self._disable_drink):
+                constraints.append(plate_drink_collision_free_constraint)
 
             # The plate must be behind the drink.
             def _plate_behind_drink(
@@ -502,7 +507,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 [plate_position, drink_position],
                 _plate_behind_drink,
             )
-            constraints.append(plate_behind_drink)
+            if not (hasattr(self, "_disable_drink") and self._disable_drink):
+                constraints.append(plate_behind_drink)
 
         return constraints
         
@@ -558,7 +564,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                     (new_pos[0], new_pos[1], self._sim.scene_spec.table_pose.position[2]),
                     (0, 0, 0, 1),
                 )
-                self._sim.visualize_sample(viz_pose, color=(1, 0, 0, 0.5))
+                if not (hasattr(self, "_disable_drink")):
+                    self._sim.visualize_sample(viz_pose, color=(1, 0, 0, 0.5))
                 return {plate_position: new_pos}
 
             plate_position_sampler = FunctionalCSPSampler(
@@ -591,7 +598,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             drink_position_sampler = FunctionalCSPSampler(
                 _sample_drink_position, csp, {drink_position}
             )
-            samplers.append(drink_position_sampler)
+            if not (hasattr(self, "_disable_drink") and self._disable_drink):
+                samplers.append(drink_position_sampler)
 
             # Relevance samplers.
             for poi, occlusion_poi_var in poi_to_occlusion_var.items():
@@ -641,15 +649,16 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                     X.append(plate_score)
                     Y.append(plate_label)
 
-                    drink_pose = next_obs.drink_pose
-                    drink_score = self._get_drink_occlusion_score(drink_pose.position[:2], point_of_interest)
-                    assert drink_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
-                    drink_label = feedback["drink_occlusion"]
-                    if drink_label and np.isclose(drink_score, 0.0):
-                        print("OH NO!!!! We are screwed. User said there was occlusion when our model thinks none is possible.")
-                        import ipdb; ipdb.set_trace()
-                    X.append(drink_score)
-                    Y.append(drink_label)
+                    if not (hasattr(self, "_disable_drink") and self._disable_drink):
+                        drink_pose = next_obs.drink_pose
+                        drink_score = self._get_drink_occlusion_score(drink_pose.position[:2], point_of_interest)
+                        assert drink_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
+                        drink_label = feedback["drink_occlusion"]
+                        if drink_label and np.isclose(drink_score, 0.0):
+                            print("OH NO!!!! We are screwed. User said there was occlusion when our model thinks none is possible.")
+                            import ipdb; ipdb.set_trace()
+                        X.append(drink_score)
+                        Y.append(drink_label)
 
             self._occlusion_model.fit_incremental(X, Y)
             print("Updating occlusion model, new scale:", (
