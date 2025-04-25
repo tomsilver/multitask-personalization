@@ -273,11 +273,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
 
         # Save occlusion scale model
         occlusion_path = model_dir / "occlusion_model.pkl"
+        occlusion_model_state = self._occlusion_model.get_save_state()
         with open(occlusion_path, "wb") as f:
-            pickle.dump({
-                "post_max": self._occlusion_model.post_max,
-                "post_min": self._occlusion_model.post_min,
-            }, f)
+            pickle.dump(occlusion_model_state, f)
 
     def load(self, model_dir: Path) -> None:
 
@@ -294,9 +292,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         try:
             occlusion_path = model_dir / "occlusion_model.pkl"
             with open(occlusion_path, "rb") as f:
-                data = pickle.load(f)
-                self._occlusion_model.post_max = data["post_max"]
-                self._occlusion_model.post_min = data["post_min"]
+                occlusion_model_state = pickle.load(f)
+                self._occlusion_model.load_from_state(occlusion_model_state)
         except FileNotFoundError:
             logging.warning(f"Model file {occlusion_path} not found. Using init values.")
 
