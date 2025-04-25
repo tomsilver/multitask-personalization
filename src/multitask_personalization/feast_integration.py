@@ -20,8 +20,8 @@ class MultitaskPersonalizationFeastInterface:
         self._use_gui = use_gui
         self._personalize = personalize
 
-    def initialize_env(self, meal_id: int) -> None:
-        config_file = Path(__file__).parent / "envs" / "feeding" / "configs" / f"meal_{meal_id}.yaml"
+    def initialize_env(self, config: str) -> None:
+        config_file = Path(__file__).parent / "envs" / "feeding" / "configs" / f"{config}.yaml"
 
         # Create "environment".
         self._scene_spec = create_feeding_scene_description_from_config(config_file)
@@ -48,6 +48,12 @@ class MultitaskPersonalizationFeastInterface:
         self._current_dips = None
         self._current_bite_ordering_options = None
 
+        self._viz_sim.robot.set_joints(self._scene_spec.before_transfer_pos + [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self._approach._csp_generator._sim.robot.set_joints(self._scene_spec.before_transfer_pos + [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        before_transfer_pose = self._approach._csp_generator._sim.robot.get_end_effector_pose()
+        print("Computed before_transfer_pose", before_transfer_pose)
+        print("Logged before_transfer_pose", self._scene_spec.before_transfer_pose)
+
     def delete_env(self) -> None:
         if hasattr(self, "_viz_sim"):
             self._viz_sim.close()
@@ -73,7 +79,7 @@ class MultitaskPersonalizationFeastInterface:
 
             input("Press ENTER to create env")
             # Initialize the environment with the meal ID.
-            self.initialize_env(meal_id)
+            self.initialize_env(f"meal_{meal_id}")
 
             # Save these to use in initialization_dataset below.
             self._current_context = context
@@ -245,7 +251,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize)
-    interface.initialize_env(5)
+    interface.initialize_env("meal_1_left")
     img = interface._viz_sim.render(user_view=False)
     from PIL import Image
     print(f"Showing occlusion image")

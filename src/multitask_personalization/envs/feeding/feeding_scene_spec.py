@@ -68,6 +68,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     spawn_tv: bool
     spawn_social: bool
     social_base_pose: Pose
+    robot_spawn_side: bool # (true = right, false = left)
     robot_holder_pose: Pose
     wheelchair_pose: Pose
     user_head_pose: Pose
