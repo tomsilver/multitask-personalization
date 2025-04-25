@@ -272,7 +272,7 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
 
                 p.createMultiBody(
                     baseVisualShapeIndex=visual_shape_id,
-                    basePosition=[1, 0.8, -0.66],  # X, Y, Z in meters
+                    basePosition=self.scene_spec.tv_base_pose.position,  # X, Y, Z in meters
                     physicsClientId=self.physics_client_id,
                 )
 

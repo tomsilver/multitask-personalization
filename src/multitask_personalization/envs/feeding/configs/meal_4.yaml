@@ -20,6 +20,11 @@ spawn_tv:
   type: "bool"
   values: false
 
+tv_base_pose:
+  description: "Pose of the whole tv apparatus"
+  type: "pose"
+  values: [1, 1.2, -0.66, 0, 0, 0, 1]
+
 spawn_social:
   description: "Spawn a social partner in the room"
   type: "bool"
@@ -68,7 +73,7 @@ table_pose:
 plate_default_pose:
   description: "Default pose of the plate"
   type: "pose"
-  values: [0.4, 0.3, 0.17, 0, 0, 0, 1]
+  values: [0.4, 0.3, 0.1, 0, 0, 0, 1]
 
 utensil_inside_mount:
   description: "Pose of the utensil inside the mount"
@@ -78,7 +83,7 @@ utensil_inside_mount:
 drink_default_pose:
   description: "Default pose of the drink"
   type: "pose"
-  values: [0.55, 0.6, 0.35, 0, 0.7071, 0.7071, 0]
+  values: [0.6, 0.3, 0.27, 0, 0.7071, 0.7071, 0]
 
 drink_staging_pos:
   description: "Staging position of the drink"
@@ -88,8 +93,8 @@ drink_staging_pos:
 drink_default_post_grasp_pose:
   description: "Pose of the drink after grasping"
   type: "pose"
-  values: [0.56, 0.55, 0.6, 0, 0.7071, 0.7071, 0]
-  
+  values: [0.56, 0.3, 0.5, 0, 0.7071, 0.7071, 0]
+
 before_transfer_pos:
   description: "Config of the robot before transfer"
   type: "joint_positions"

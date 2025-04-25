@@ -66,6 +66,14 @@ class MultitaskPersonalizationFeastInterface:
         self._current_dips = None
         self._current_bite_ordering_options = None
 
+        # Visualize the default stuff.
+        # self._sim = self._approach._csp_generator._sim
+        # set_pose(self._sim.drink_id, self._sim.scene_spec.drink_default_pose, self._sim.physics_client_id)
+        # set_pose(self._sim.plate_id, self._sim.scene_spec.plate_default_pose, self._sim.physics_client_id)
+        # # self._sim.robot.set_joints(self._sim.scene_spec.drink_staging_pos + [0, 0, 0, 0, 0, 0])
+        # self._sim.robot.set_joints(self._sim.scene_spec.above_plate_pos + [0, 0, 0, 0, 0, 0])
+        # import ipdb; ipdb.set_trace()
+
     def run(self, request_dict: dict[str, Any]) -> dict[str, Any] | None:
 
         if request_dict["request_type"] == "initialization_query":

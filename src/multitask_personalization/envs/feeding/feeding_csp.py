@@ -93,6 +93,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             drink_grasp_pos = _transform_joints_relative_to_drink(
                 "drink_staging_pos", planned_drink_pose, self._sim.robot, self._sim.scene_spec
             )
+            
             occlusion_poi_relevance = {}
             for poi in self._sim.scene_spec.occlusion_points_of_interest:
                 relevance = self._get_value(f"occlusion-poi-{poi}")
@@ -625,6 +626,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                     plate_score = self._get_plate_occlusion_score(plate_pose.position[:2], point_of_interest)
                     assert plate_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
                     plate_label = feedback["plate_occlusion"]
+                    if plate_label and np.isclose(plate_score, 0.0):
+                        print("OH NO!!!! We are screwed. User said there was occlusion when our model thinks none is possible.")
+                        import ipdb; ipdb.set_trace()
                     X.append(plate_score)
                     Y.append(plate_label)
 
@@ -632,6 +636,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                     drink_score = self._get_drink_occlusion_score(drink_pose.position[:2], point_of_interest)
                     assert drink_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
                     drink_label = feedback["drink_occlusion"]
+                    if drink_label and np.isclose(drink_score, 0.0):
+                        print("OH NO!!!! We are screwed. User said there was occlusion when our model thinks none is possible.")
+                        import ipdb; ipdb.set_trace()
                     X.append(drink_score)
                     Y.append(drink_label)
 

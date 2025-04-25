@@ -103,6 +103,14 @@ class RandomWalkCSPSolver(CSPSolver):
                     num_improve_found += 1
                 solution_found = True
                 if csp.cost is None:
+                    # Check if we can use the initial values for any of the variables without
+                    # diminishing the cost or violating constraints. In principle the order
+                    # could matter here but we'll ignore that.
+                    for v in initialization:
+                        new_sol = sol.copy()
+                        new_sol[v] = initialization[v]
+                        if csp.check_solution(new_sol):
+                            sol = new_sol
                     return sol
                 best_satisfying_cost = cost
                 best_satisfying_sol = sol
@@ -118,6 +126,16 @@ class RandomWalkCSPSolver(CSPSolver):
                 raise RuntimeError("All samplers produced None; solver stuck.")
             sol = sol.copy()
             sol.update(partial_sol)
+
+        # Check if we can use the initial values for any of the variables without
+        # diminishing the cost or violating constraints. In principle the order
+        # could matter here but we'll ignore that.
+        for v in initialization:
+            sol = best_satisfying_sol.copy()
+            sol[v] = initialization[v]
+            if csp.check_solution(sol) and (csp.cost is None or csp.get_cost(sol) <= best_satisfying_cost):
+                best_satisfying_sol = sol
+        
         return best_satisfying_sol
 
 

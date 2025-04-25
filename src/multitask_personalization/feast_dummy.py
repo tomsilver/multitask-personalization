@@ -172,10 +172,11 @@ if __name__ == "__main__":
     assert mp_response["response_type"] == "initialization_dataset"
 
     # send plate and drink pose to multitask personalization
-    current_plate_pose = Pose((0.4, 0.4, 0.17))
-    current_drink_pose = Pose((0.6, 0.6, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
+    current_plate_pose = Pose((0.4, 0.5, 0.17))
+    current_drink_pose = Pose((0.6, 0.7, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
 
     occlusion = True
+    occlusion_iter = 0
     while occlusion:
         occlusion = False
         mp_response = _send_mp_request({"request_type": "occlusion_query",
@@ -209,14 +210,14 @@ if __name__ == "__main__":
         }
         for poi, prediction in occlusion_poi_relevance.items():
             print(f"Verifying the RELEVANCE of POI={poi} for this meal")
-            relevance = verify_predictions(f"occlusion-poi-{poi}-relevance", prediction, [True, False])
+            relevance = verify_predictions(f"occlusion-poi-{poi}-relevance-iter{occlusion_iter}", prediction, [True, False])
             if relevance:
                 print(f"Verifying whether view was occluded for POI={poi} during FEEDING")
                 Image.fromarray(bite_occlusion_image).show()
-                plate_occlusion = verify_predictions(f"occlusion-poi-{poi}-feeding", False, [True, False])
+                plate_occlusion = verify_predictions(f"occlusion-poi-{poi}-feeding-iter{occlusion_iter}", False, [True, False])
                 print(f"Verifying whether view was occluded for POI={poi} during DRINKING")
                 Image.fromarray(drink_occlusion_image).show()
-                drink_occlusion = verify_predictions(f"occlusion-poi-{poi}-drinking", False, [True, False])
+                drink_occlusion = verify_predictions(f"occlusion-poi-{poi}-drinking-iter{occlusion_iter}", False, [True, False])
             else:
                 plate_occlusion = False
                 drink_occlusion = False
@@ -232,6 +233,8 @@ if __name__ == "__main__":
 
         current_plate_pose = new_plate_pose
         current_drink_pose = new_drink_pose
+        
+        occlusion_iter += 1
         
         # TODO: we need to resolve the issue that drink_post_grasp_pose is used to check drink occlusions
         # but it's not actually used on the robot. I took this out earlier because it was causing strange
