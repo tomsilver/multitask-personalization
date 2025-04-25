@@ -53,6 +53,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         csp_save_dir: str | None = None,
         seed: int = 0,
         use_gui: bool = False,
+        log_dir: Path | None = None,
     ):
         super().__init__(scene_spec, action_space, seed)
         self._llm = llm
@@ -64,6 +65,7 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
         self._motion_planning_quality = motion_planning_quality
         self._use_gui = use_gui
         self._csp_save_dir = Path(csp_save_dir) if csp_save_dir else None
+        self._log_dir = log_dir
         self._csp_generator = self._create_csp_generator()
 
     def reset(
@@ -143,6 +145,9 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
 
     def load(self, model_dir: Path) -> None:
         self._csp_generator.load(model_dir)
+
+    def close(self) -> None:
+        self._csp_generator.close()
 
     def train(self) -> None:
         super().train()

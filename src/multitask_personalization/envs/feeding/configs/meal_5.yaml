@@ -1,0 +1,106 @@
+# Config file when robot is mounted on vention stand
+
+room_path:
+  description: "Base path for the room"
+  type: "path"
+  values: "tv_world/body_2.obj"
+
+table_path:
+  description: "Base path for the table"
+  type: "path"
+  values: "tv_world/square_table.obj"
+
+table_spawn_pose:
+  description: "Position of the table in the room"
+  type: "pose"
+  values: [0.6, 0.45, -0.66, 0, 0, 0, 1]
+
+spawn_tv:
+  description: "Spawn the tv in the room"
+  type: "bool"
+  values: true
+
+spawn_social:
+  description: "Spawn a social partner in the room"
+  type: "bool"
+  values: true
+
+social_base_pose:
+  description: "Base pose of the social partner"
+  type: "pose"
+  values: [0.6, 1.0, -0.66, 0, 0, 0.7071068, 0.7071068]
+
+social_mesh_path:
+  description: "Path to the social partner mesh"
+  type: "path"
+  values: "tv_world/human_looking_right.obj"
+
+robot_spawn_side:
+  description: "Spawn side of the robot (true = right, false = left)"
+  type: "bool"
+  values: true
+
+robot_holder_pose:
+  description: "Pose of the robot holder"
+  type: "pose"
+  values: [0.0, 0.0, -0.34, 0, 0, 0, 1]
+
+wheelchair_pose:
+  description: "Pose of the wheelchair"
+  type: "pose"
+  values: [-0.2, 0.45, -0.06, 0, 0, 0, 1]
+
+user_head_pose:
+  description: "Pose of the user head"
+  type: "pose"
+  values: [-0.4, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+
+user_eyes_relative_pose:
+  description: "Pose of the user eyes"
+  type: "pose"
+  values: [0.0, 0.1, 0.1, 0.0, 0.0, 0.0, 1]
+
+table_pose:
+  description: "Pose of the table used for sampling"
+  type: "pose"
+  values: [0.45, 0.5, 0.15, 0, 0, 0, 1]
+
+plate_default_pose:
+  description: "Default pose of the plate"
+  type: "pose"
+  values: [0.4, 0.3, 0.17, 0, 0, 0, 1]
+
+utensil_inside_mount:
+  description: "Pose of the utensil inside the mount"
+  type: "pose"
+  values: [0.242, -0.077, 0.07, -1, 0, 0, 0]
+
+drink_default_pose:
+  description: "Default pose of the drink"
+  type: "pose"
+  values: [0.55, 0.6, 0.35, 0, 0.7071, 0.7071, 0]
+
+drink_staging_pos:
+  description: "Staging position of the drink"
+  type: "joint_positions"
+  values: [-2.5860902733967808, -1.105096803823792, -1.0315333702969696, -1.3979449215077393, -0.7852325147776451, -0.8370922506847585, -2.7182634909296315]
+
+drink_default_post_grasp_pose:
+  description: "Pose of the drink after grasping"
+  type: "pose"
+  values: [0.56, 0.55, 0.6, 0, 0.7071, 0.7071, 0]
+  
+before_transfer_pos:
+  description: "Config of the robot before transfer"
+  type: "joint_positions"
+  values: [-2.86554642, -1.61951779, -2.60986085, -1.37302839, 1.11779249, -1.18028264, 2.05515862]
+
+above_plate_pos:
+  description: "Config of the robot above the plate"
+  type: "joint_positions"
+  values: [-2.86495014, -1.61460533, -2.6115943, -1.37673391, 1.11842806, -1.17904586, -2.6957422]
+
+before_transfer_pose:
+  description: "Pose of the robot before transfer"
+  type: "pose"
+  values: [0.504, 0.303, 0.529, 0.0, 0.707, 0.707, 0]

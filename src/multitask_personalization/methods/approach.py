@@ -39,6 +39,10 @@ class BaseApproach(Agent[_ObsType, _ActType]):
     def load(self, model_dir: Path) -> None:
         """Load from a saved model directory."""
 
+    @abc.abstractmethod
+    def close(self) -> None:
+        """Close any resources used by the approach."""
+
 
 class ApproachFailure(Exception):
     """Raised when an approach fails."""
