@@ -66,6 +66,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     table_path: Path
     table_spawn_pose: Pose
     spawn_tv: bool
+    tv_base_pose: Pose
     spawn_social: bool
     social_base_pose: Pose
     social_mesh_path: Path

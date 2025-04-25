@@ -20,6 +20,11 @@ spawn_tv:
   type: "bool"
   values: true
 
+tv_base_pose:
+  description: "Pose of the whole tv apparatus"
+  type: "pose"
+  values: [1, 1.2, -0.66, 0, 0, 0, 1]
+
 spawn_social:
   description: "Spawn a social partner in the room"
   type: "bool"
