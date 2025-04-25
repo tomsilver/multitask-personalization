@@ -90,6 +90,7 @@ class FeedingPlateDrinkAction(FeedingAction):
     before_transfer_pose: Pose
     before_transfer_pos: JointPositions
     above_plate_pos: JointPositions
+    drink_grasp_pos: JointPositions
     occlusion_poi_relevance: dict[str, bool]
 
 

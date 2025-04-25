@@ -87,6 +87,11 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             planned_drink_position = self._get_value("drink_position")
             drink_delta_xy = (planned_drink_position[0] - obs.drink_pose.position[0],
                               planned_drink_position[1] - obs.drink_pose.position[1])
+            planned_drink_pose = _drink_position_to_pose(planned_drink_position, obs.drink_pose)
+            # Rajat ToDo: change default to a logged pickup pos
+            drink_grasp_pos = _transform_joints_relative_to_drink(
+                "drink_staging_pos", planned_drink_pose, self._sim.robot, self._sim.scene_spec
+            )
             occlusion_poi_relevance = {}
             for poi in self._sim.scene_spec.occlusion_points_of_interest:
                 relevance = self._get_value(f"occlusion-poi-{poi}")
@@ -96,6 +101,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
                                            before_transfer_pose=before_transfer_pose,
                                            before_transfer_pos=before_transfer_pos,
                                            above_plate_pos=above_plate_pos,
+                                           drink_grasp_pos=drink_grasp_pos,
                                            occlusion_poi_relevance=occlusion_poi_relevance)
         raise NotImplementedError
 

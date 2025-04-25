@@ -146,6 +146,7 @@ class MultitaskPersonalizationFeastInterface:
             before_transfer_pose = act.before_transfer_pose
             before_transfer_pos = act.before_transfer_pos
             above_plate_pos = act.above_plate_pos
+            drink_grasp_pos = act.drink_grasp_pos
             occlusion_poi_relevance = act.occlusion_poi_relevance
 
             new_plate_pose = Pose((plate_pose.position[0] + plate_delta_xy[0],
@@ -157,7 +158,8 @@ class MultitaskPersonalizationFeastInterface:
                                 drink_pose.position[2]),
                                 drink_pose.orientation)
             
-            self._render_occlusion_image(new_plate_pose, new_drink_pose, above_plate_pos)
+            bite_occlusion_image =  self._render_occlusion_image(new_plate_pose, new_drink_pose, above_plate_pos)
+            drink_occlusion_image = self._render_occlusion_image(new_plate_pose, new_drink_pose, drink_grasp_pos)
             # self._visualize("Predicted Scene", new_plate_pose, new_drink_pose)
 
             return {
@@ -167,7 +169,10 @@ class MultitaskPersonalizationFeastInterface:
                 "before_transfer_pose": before_transfer_pose,
                 "before_transfer_pos": before_transfer_pos,
                 "above_plate_pos": above_plate_pos,
+                "drink_grasp_pos": drink_grasp_pos,
                 "occlusion_poi_relevance": occlusion_poi_relevance,
+                "bite_occlusion_image": bite_occlusion_image,
+                "drink_occlusion_image": drink_occlusion_image,
             }
         
         elif request_dict["request_type"] == "occlusion_dataset":
@@ -240,7 +245,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize)
-    # interface.initialize_env(5)
+    interface.initialize_env(5)
+    img = interface._viz_sim.render(user_view=False)
+    from PIL import Image
+    print(f"Showing occlusion image")
+    Image.fromarray(img).show()
+    input("Press enter to continue")
 
     def callback(msg):
         request = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object
