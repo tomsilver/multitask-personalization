@@ -30,6 +30,11 @@ social_base_pose:
   type: "pose"
   values: [0.6, 1.0, -0.66, 0, 0, 0.7071068, 0.7071068]
 
+social_mesh_path:
+  description: "Path to the social partner mesh"
+  type: "path"
+  values: "tv_world/human_looking_right.obj"
+
 robot_spawn_side:
   description: "Spawn side of the robot (true = right, false = left)"
   type: "bool"

@@ -68,6 +68,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     spawn_tv: bool
     spawn_social: bool
     social_base_pose: Pose
+    social_mesh_path: Path
     robot_spawn_side: bool # (true = right, false = left)
     robot_holder_pose: Pose
     wheelchair_pose: Pose
@@ -104,7 +105,6 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
     social_objects: list[Path] = field(
         default_factory=lambda: [
-            Path("human_body.obj"),
             Path("chair_base.obj"),
             Path("chair_legs.obj"),
         ]

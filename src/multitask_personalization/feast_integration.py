@@ -77,7 +77,6 @@ class MultitaskPersonalizationFeastInterface:
             bite_ordering_options = request_dict["bite_ordering_options"]
 
             # Initialize the mealtime instance with the meal ID.
-            input("Press ENTER to create mealtime instance")
             self.create_mealtime_instance(f"meal_{meal_id}")
 
             # Save these to use in initialization_dataset below.
@@ -251,14 +250,20 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if not args.load and args.log_dir:
+    log_dir = Path(__file__).parent / "logs"
+
+    if not args.load:
         # cleanup the log_dir
         import shutil
-        shutil.rmtree(args.log_dir, ignore_errors=True)
-        print(f"Deleted log_dir: {args.log_dir}")
+        shutil.rmtree(log_dir, ignore_errors=True)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Cleared log_dir: {log_dir}")
 
-    log_dir = Path(__file__).parent / "logs"
     interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize, log_dir)
+    # interface.create_mealtime_instance("meal_5")
+    # occlusion_image = interface._render_occlusion_image(interface._scene_spec.plate_default_pose, interface._scene_spec.drink_default_pose, interface._scene_spec.before_transfer_pos)
+    # from PIL import Image
+    # Image.fromarray(occlusion_image).show()
 
     def callback(msg):
         request = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object

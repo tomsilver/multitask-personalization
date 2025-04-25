@@ -278,6 +278,7 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
 
         # spawn social 
         if self.scene_spec.spawn_social:
+            # chair
             for body in self.scene_spec.social_objects:
                 visual_shape_id = p.createVisualShape(
                     shapeType=p.GEOM_MESH,
@@ -293,6 +294,21 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
                     baseOrientation= self.scene_spec.social_base_pose.orientation,
                     physicsClientId=self.physics_client_id,
                 )
+            # person
+            visual_shape_id = p.createVisualShape(
+                shapeType=p.GEOM_MESH,
+                fileName=str(self.scene_spec.social_mesh_path),
+                meshScale=[0.1, 0.1, 0.1],
+                rgbaColor=[1, 1, 1, 1],  # Let texture show
+                physicsClientId=self.physics_client_id,
+            )
+
+            p.createMultiBody(
+                baseVisualShapeIndex=visual_shape_id,
+                basePosition=self.scene_spec.social_base_pose.position,  # X, Y, Z in meters
+                baseOrientation= self.scene_spec.social_base_pose.orientation,
+                physicsClientId=self.physics_client_id,
+            )
 
     def visualize_sample(self, pose: Pose, color: tuple[float, float, float, float]) -> None:
         """ Add a sphere to visualize a sample. """
