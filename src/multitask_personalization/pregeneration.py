@@ -74,6 +74,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--var",
+        type=str,
+        required=True,
+    )
+    parser.add_argument(
         "--outdir",
         type=Path,
         default=Path("pregeneration"),
@@ -103,15 +108,18 @@ if __name__ == "__main__":
                             explore_method=explore_method)
     initialization_var_models = {
         "feeding_side": approach._csp_generator._feeding_side_model,
+        "bite_ordering": approach._csp_generator._bite_ordering_model,
+        "ready_signal": approach._csp_generator._ready_signal_model,
+        "be_verbal": approach._csp_generator._be_verbal_model,
     }
 
     num_meals = min(len(MEALS), args.max_meals)
     meals = MEALS[:num_meals]
 
-    var_names = ["feeding_side"]
-    for var_name in var_names:
-        model = initialization_var_models[var_name]
-        init_model_state = model.get_save_state()
-        print(f"Running pregeneration for {var_name}")
-        pregenerate_initialization_variable(var_name, model, init_model_state, meals, outdir / var_name, dry_run=args.dry)
-        print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
+    var_name = args.var
+    assert var_name in initialization_var_models
+    model = initialization_var_models[var_name]
+    init_model_state = model.get_save_state()
+    print(f"Running pregeneration for {var_name}")
+    pregenerate_initialization_variable(var_name, model, init_model_state, meals, outdir / var_name, dry_run=args.dry)
+    print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
