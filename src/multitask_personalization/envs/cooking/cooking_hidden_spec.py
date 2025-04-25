@@ -145,7 +145,6 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         Returns:
             bool: True if a shift occurred, False otherwise
         """
-        # print(f"current_step: {current_step}")
         if (
             current_step > 0
             and current_step % self._min_shift_interval == 0
