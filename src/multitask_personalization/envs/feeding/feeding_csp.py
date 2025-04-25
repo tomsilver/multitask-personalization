@@ -93,6 +93,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             drink_grasp_pos = _transform_joints_relative_to_drink(
                 "drink_staging_pos", planned_drink_pose, self._sim.robot, self._sim.scene_spec
             )
+            
             occlusion_poi_relevance = {}
             for poi in self._sim.scene_spec.occlusion_points_of_interest:
                 relevance = self._get_value(f"occlusion-poi-{poi}")
