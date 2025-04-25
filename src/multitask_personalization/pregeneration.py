@@ -182,9 +182,13 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
         occluded = score >= 1.0 - occlusion_scale
         if occluded:
             occluded_pois.add(poi)
-    prediction_file = outdir / "prediction.txt"
+    prediction_file = outdir / "prediction.json"
+    saved_prediction = {
+        "relevant_pois": sorted(relevant_pois),
+        "occluded_pois": sorted(occluded_pois),
+    }
     with open(prediction_file, "w") as f:
-        f.write(str(sorted(occluded_pois)))
+        json.dump(saved_prediction, f)
     metadata = asdict(meal)
     metadata["choices"] = possible_pois
     metadata["occlusion_scale"] = occlusion_scale
