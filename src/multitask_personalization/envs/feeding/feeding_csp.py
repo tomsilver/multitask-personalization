@@ -214,11 +214,13 @@ Which choice should you make? Return only the number of the choice, e.g., {choic
     def learn_incremental(self, obs: FeedingInitializationDatasetObservation) -> None:
         self.data_obs_history.append(obs)
         history_str = self.get_history_str()
-        prompt = f"""You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `{self.name}`, which means "{self.description}". The preferences depend on context. Here is a history of (context, user choice):
+        prompt = f"""You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `{self.name}`, which means "{self.description}". Here is a history of (state, user choice):
 
 {history_str}
 
-Based on this history, summarize the user's contextual preferences.
+Based on this history, summarize the user's preferences.
+
+IMPORTANT: Use common sense to understand what aspects of the state might be relevant for the variable.
 """
 
         response, _ = self.llm.query(prompt, temperature=1.0, seed=self.seed)
