@@ -140,6 +140,7 @@ if __name__ == "__main__":
     ]
 
     current_meal = meals[args.meal_id-1]
+    assert current_meal.meal_id == args.meal_id
     bite_ordering_options = generate_bite_orderings(current_meal.food_items, current_meal.dips)
 
     # send mealContext, table_type, food_items and bite_ordering_options to multitask personalization
