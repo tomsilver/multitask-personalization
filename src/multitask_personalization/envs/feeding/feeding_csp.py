@@ -412,7 +412,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             occlusion_scale = (
                 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
             )
-            if not self._occlusion_model.incremental_X:
+            if not any(self._occlusion_model.incremental_Y):
                 occlusion_scale = 0.0
             # occlusion_scale = 0.999
             print(f"Using occlusion scale {occlusion_scale:.3f}")

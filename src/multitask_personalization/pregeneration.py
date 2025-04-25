@@ -15,6 +15,8 @@ from dataclasses import asdict
 import json
 import imageio.v2 as iio
 import numpy as np
+from functools import lru_cache
+
 
 def get_choices_for_initialization_variable(var_name: str, meal: Meal) -> list[str]:
     if var_name == "bite_ordering":
@@ -112,6 +114,13 @@ def render_bite_occlusion_image(sim: FeedingEnv, plate_pose: Pose, drink_pose: P
     return img
 
 
+@lru_cache(maxsize=None)
+def get_sim(meal_id):
+    config_file = Path(__file__).parent / "envs" / "feeding" / "configs" / f"meal_{meal_id}.yaml"
+    scene_spec = create_feeding_scene_description_from_config(config_file)
+    return FeedingEnv(scene_spec)
+
+
 def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_models, llm_model_states, occlusion_model, occlusion_model_state, remaining_meals: list[Meal], outdir: Path, dry_run: bool) -> None:
     global TOTAL_PREDICTIONS
     if not remaining_meals:
@@ -135,12 +144,13 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
                             init_plate_pose.position[1] + act.plate_delta_xy[1],
                             init_plate_pose.position[2]),
                             init_plate_pose.orientation)
-    sim = approach._csp_generator._sim
-    set_pose(sim.get_object_id_from_name("plate"), plate_pose, sim.physics_client_id)
     plate_position = plate_pose.position[:2]
-    bite_occlusion_image =  render_bite_occlusion_image(sim, plate_pose, BANISH_POSE, act.above_plate_pos)
+    viz_sim = get_sim(meal.meal_id)
+    bite_occlusion_image =  render_bite_occlusion_image(viz_sim, plate_pose, BANISH_POSE, act.above_plate_pos)
     occlusion_img_outfile = outdir / "bite_occlusion_image.png"
     iio.imsave(occlusion_img_outfile, bite_occlusion_image)
+    sim = approach._csp_generator._sim
+    set_pose(sim.get_object_id_from_name("plate"), plate_pose, sim.physics_client_id)
     # Remove possible POIs that get a score of zero from the occlusion model.
     zero_score_pois = set()
     for poi in possible_pois:
