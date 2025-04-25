@@ -295,8 +295,8 @@ class Threshold1DModel:
         return {
             "post_min": self.post_min,
             "post_max": self.post_max,
-            "incremental_X": self.incremental_X,
-            "incremental_Y": self.incremental_Y,
+            "incremental_X": list(self.incremental_X),
+            "incremental_Y": list(self.incremental_Y),
         }
 
     def load_from_state(self, state_dict: dict[str, Any]) -> None:

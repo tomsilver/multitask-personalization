@@ -139,7 +139,10 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
     approach._csp_generator._disable_drink = True
     obs = FeedingOcclusionQueryObservation(meal.context, meal.table_type, meal.food_items, meal.dips, bite_ordering_options, init_plate_pose, BANISH_POSE)
     approach.reset(obs, {})
-    act = approach.step()
+    try:
+        act = approach.step()
+    except:
+        import ipdb; ipdb.set_trace()
     plate_pose = Pose((init_plate_pose.position[0] + act.plate_delta_xy[0],
                             init_plate_pose.position[1] + act.plate_delta_xy[1],
                             init_plate_pose.position[2]),
