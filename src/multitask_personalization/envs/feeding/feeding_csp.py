@@ -90,6 +90,7 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
                               planned_drink_position[1] - obs.drink_pose.position[1])
             planned_drink_pose = _drink_position_to_pose(planned_drink_position, obs.drink_pose)
             # Rajat ToDo: change default to a logged pickup pos
+            # drink_pickup_pose = planned_drink_pose.multiply(Pose((0.0, 0.0, 0.05), (0.0, 0.0, 0.0, 1.0)))
             drink_grasp_pos = _transform_joints_relative_to_drink(
                 "drink_staging_pos", planned_drink_pose, self._sim.robot, self._sim.scene_spec
             )

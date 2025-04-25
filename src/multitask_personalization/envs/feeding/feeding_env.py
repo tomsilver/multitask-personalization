@@ -248,7 +248,7 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
             shapeType=p.GEOM_MESH,
             fileName=str(self.scene_spec.table_path),
             meshScale=[0.1, 0.1, 0.1],
-            rgbaColor=[1, 1, 1, 1],  # Let texture show
+            rgbaColor=[148/255.0, 74/255.0, 13/255.0, 1],  # Let texture show
             physicsClientId=self.physics_client_id,
         )
 
@@ -284,7 +284,7 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
                     shapeType=p.GEOM_MESH,
                     fileName=str(self.scene_spec.social_base_path / body),
                     meshScale=[0.1, 0.1, 0.1],
-                    rgbaColor=[1, 1, 1, 1],  # Let texture show
+                    rgbaColor=[196/255.0, 190/255.0, 71/255.0, 1],  # Let texture show
                     physicsClientId=self.physics_client_id,
                 )
 
@@ -401,14 +401,23 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
         target_vec = np.array(target_position) - eye_pos
         target_dir = target_vec / np.linalg.norm(target_vec)
 
+        if point_of_interest == "front":
+            occlusion_grid_delta_r = self.scene_spec.occlusion_grid_delta_r_front
+            occlusion_grid_delta_c = self.scene_spec.occlusion_grid_delta_c_front
+        else:
+            occlusion_grid_delta_r = self.scene_spec.occlusion_grid_delta_r_side
+            occlusion_grid_delta_c = self.scene_spec.occlusion_grid_delta_c_side
+
         for r in range(grid_size):
-            row_val = (r - grid_size // 2) * self.scene_spec.occlusion_grid_delta_r
+            row_val = (r - grid_size // 2) * occlusion_grid_delta_r
             for c in range(grid_size):
-                col_val = (c - grid_size // 2) * self.scene_spec.occlusion_grid_delta_c
+                col_val = (c - grid_size // 2) * occlusion_grid_delta_c
                 # Offset ray origins in local eye frame
-                local_offset = Pose((row_val, col_val, 0.0))
+                local_offset = Pose((row_val*0.1, col_val*0.1, 0.0))
                 ray_from = multiply_poses(eye_pose, local_offset).position
-                ray_to = ray_from + max_ray_length * target_dir
+                target_offset = Pose((row_val, col_val, 0.0))
+                ray_to_span = multiply_poses(eye_pose, target_offset).position
+                ray_to = ray_to_span + max_ray_length * target_dir
                 ray_from_positions.append(ray_from)
                 ray_to_positions.append(ray_to)
 
