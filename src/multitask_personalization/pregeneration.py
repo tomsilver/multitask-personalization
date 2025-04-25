@@ -158,7 +158,6 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
         score = approach._csp_generator._get_plate_occlusion_score(plate_position, poi)
         if np.isclose(score, 0.0):
             zero_score_pois.add(poi)
-    possible_pois = sorted(set(possible_pois) - zero_score_pois)
     
     # Predict which of the subset of points of interest are relevant.
     relevant_pois = set()
@@ -202,6 +201,8 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
     for relevant_poi_choice in get_all_subsets(sorted(possible_pois)):
         relevant_poi_choice_str = "none" if not relevant_poi_choice else "-".join(relevant_poi_choice)
         for occluded_poi_choice in get_all_subsets(relevant_poi_choice):
+            if set(occluded_poi_choice) & zero_score_pois:
+                continue
             occluded_poi_choice_str = "none" if not occluded_poi_choice else "-".join(occluded_poi_choice)
             choice_str = relevant_poi_choice_str + "___" + occluded_poi_choice_str
             if not choice_str:
