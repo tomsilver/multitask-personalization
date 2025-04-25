@@ -18,17 +18,24 @@ if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Feast Dummy")
     parser.add_argument("--meal_id", type=int, default=1, help="ID of the meal to use (1-5)")
-    parser.add_argument("--json_dir", type=Path, default=Path("feast_dummy_saved_responses"), help="JSON file directory for saving and loading user responses")
+    parser.add_argument("--results_dir", type=Path, default=Path("feast_default_user"), help="Directory for saving and loading results and user responses. Make one of these directories per user.")
     parser.add_argument("--load", action="store_true")
     args = parser.parse_args()
 
     field_to_choice = {}
-    json_dir: Path = args.json_dir
-    json_dir.mkdir(exist_ok=True)
-    json_file = json_dir / f"{args.meal_id}.json"
-    if args.load and json_file.exists():
-        with open(json_file, "r") as f:
+    results = {}  # field name -> {"options": ..., "prediction": ..., "choice": ...}
+    results_dir: Path = args.results_dir
+    results_dir.mkdir(exist_ok=True)
+    field_to_choice_file = results_dir / f"field_to_choice_meal{args.meal_id}.json"
+    results_file = results_dir / f"results_meal{args.meal_id}.json"
+    if args.load and field_to_choice_file.exists():
+        with open(field_to_choice_file, "r") as f:
             field_to_choice = json.load(f)
+    user_description_file = results_dir / "user_description.txt"
+    if not user_description_file.exists():
+        user_description = input("Write any kind of description for this user that will be helpful for us to refer back to later: ")
+        with open(user_description_file, "w") as f:
+            f.write(user_description)
 
     rospy.init_node("feast_dummy", anonymous=True)
 
@@ -68,6 +75,9 @@ if __name__ == "__main__":
         if args.load and field_name in field_to_choice:
             choice = field_to_choice[field_name]
             print(f"Loaded choice {choice} for {field_name}")
+            results[field_name] = {"options": options, "prediction": prediction, "choice": choice}
+            with open(results_file, "w") as f:
+                json.dump(results, f)
             return choice
         print("From the following options:")
         for i in range(len(options)):
@@ -88,8 +98,11 @@ if __name__ == "__main__":
             print(f"User preferred option: {options[preferred_id]}")
             choice = options[preferred_id]
         field_to_choice[field_name] = choice
-        with open(json_file, "w") as f:
+        with open(field_to_choice_file, "w") as f:
             json.dump(field_to_choice, f)
+        results[field_name] = {"options": options, "prediction": prediction, "choice": choice}
+        with open(results_file, "w") as f:
+            json.dump(results, f)
         return choice
         
     # Helper function to generate all possible bite orderings.
