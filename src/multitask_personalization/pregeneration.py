@@ -38,12 +38,14 @@ def pregenerate_initialization_variable(var_name: str, model, current_model_stat
     if dry_run:
         prediction = "PLACEHOLDER"
     else:
+        print("STARTING PREDICTION", TOTAL_PREDICTIONS)
         prediction = model.get_most_preferred_choice(obs)
     TOTAL_PREDICTIONS += 1
     prediction_file = outdir / "prediction.txt"
     with open(prediction_file, "w") as f:
         f.write(prediction)
     metadata = asdict(meal)
+    metadata["choices"] = choices
     metadata["llm_model_summary"] = current_model_state["summary_preferences"]
     metadata["history"] = [getattr(o, var_name) for o in current_model_state["data_obs_history"]]
     metadata_file = outdir / "metadata.json"
