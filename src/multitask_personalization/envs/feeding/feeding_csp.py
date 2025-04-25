@@ -315,10 +315,10 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             variables = [feeding_side, bite_ordering, ready_signal, be_verbal]
 
             initialization = {
-                feeding_side: "left",
-                bite_ordering: 0,
-                ready_signal: "mouth_open",
-                be_verbal: True,
+                feeding_side: self._feeding_side_model.get_most_preferred_choice(obs),
+                bite_ordering: self._bite_ordering_model.get_most_preferred_choice(obs),
+                ready_signal: self._ready_signal_model.get_most_preferred_choice(obs),
+                be_verbal: self._be_verbal_model.get_most_preferred_choice(obs),
             }
 
             return variables, initialization
