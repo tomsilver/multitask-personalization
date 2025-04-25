@@ -9,7 +9,7 @@ import yaml
 
 import numpy as np
 from numpy.typing import NDArray
-from pybullet_helpers.geometry import Pose
+from pybullet_helpers.geometry import Pose, Pose3D
 from pybullet_helpers.joint import JointPositions
 
 from multitask_personalization.structs import PublicSceneSpec
@@ -224,6 +224,12 @@ class FeedingSceneSpec(PublicSceneSpec):
     occlusion_max_ray_length: float = 10.0
     occlusion_alpha: float = 1.0
     occlusion_sigma: NDArray = np.eye(2)
+    occlusion_points_of_interest: dict[str, Pose3D] = field(
+        default_factory=lambda: {
+        "front": (10.0, 0.4, 0.4),
+        "left": (10.0, 4.0, 0.4),
+        "right": (10.0, -4.0, 0.4),
+    })
 
     # Skill waypoints.
     retract_pos: JointPositions = field(
@@ -312,7 +318,7 @@ class FeedingSceneSpec(PublicSceneSpec):
 
     # Rendering.
     image_height: int = 1024
-    image_width: int = 1600
+    image_width: int = 2400
 
     @property
     def utensil_pose(self):
@@ -325,11 +331,19 @@ class FeedingSceneSpec(PublicSceneSpec):
         pose."""
         return self.user_head_pose.multiply(self.user_eyes_relative_pose)
 
-    def get_camera_kwargs(self) -> dict[str, Any]:
+    def get_camera_kwargs(self, user_view: bool = False) -> dict[str, Any]:
         """Get camera kwargs."""
-        return {
-            "camera_target": (0.0, 0.0, 0.2),
-            "camera_distance": 2.0,
-            "camera_pitch": -35,
-            "camera_yaw": 90,
-        }
+        if user_view:
+            return {
+                "camera_target": (0.5, 0.5, 0.5),
+                "camera_distance": 0.9,
+                "camera_pitch": -15,
+                "camera_yaw": -90,
+            }
+        else:
+            return {
+                "camera_target": (0.0, 0.0, 0.2),
+                "camera_distance": 2.0,
+                "camera_pitch": -35,
+                "camera_yaw": 90,
+            }

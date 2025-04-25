@@ -49,6 +49,24 @@ class FeedingInitializationDatasetObservation(FeedingObservationWithContext):
     be_verbal: bool
 
 
+@dataclass
+class FeedingOcclusionQueryObservation(FeedingObservationWithContext):
+    """An observation of the feeding context plus plate and drink poses."""
+
+    plate_pose: Pose
+    drink_pose: Pose
+
+
+@dataclass
+class FeedingOcclusionDatasetObservation(FeedingObservationWithContext):
+    """An observation of the feeding context plus plate and drink poses,
+    along with the user's ground-truth preferences about occlusion."""
+
+    plate_pose: Pose
+    drink_pose: Pose
+    occlusion: dict[str, dict[str, bool]]
+
+
 class FeedingAction(abc.ABC):
     """An action in the feeding environment."""
 
@@ -62,6 +80,17 @@ class FeedingInitializationAction(FeedingAction):
     ready_signal: str
     be_verbal: bool
 
+
+@dataclass
+class FeedingPlateDrinkAction(FeedingAction):
+    """An action to handle plate and drink poses."""
+    
+    plate_delta_xy: tuple[float, float]
+    drink_delta_xy: tuple[float, float]
+    before_transfer_pose: Pose
+    before_transfer_pos: JointPositions
+    above_plate_pos: JointPositions
+    occlusion_poi_relevance: dict[str, bool]
 
 
 @dataclass(frozen=True)
