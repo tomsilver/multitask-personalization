@@ -145,10 +145,11 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
                             init_plate_pose.position[2]),
                             init_plate_pose.orientation)
     plate_position = plate_pose.position[:2]
-    viz_sim = get_sim(meal.meal_id)
-    bite_occlusion_image =  render_bite_occlusion_image(viz_sim, plate_pose, BANISH_POSE, act.above_plate_pos)
-    occlusion_img_outfile = outdir / "bite_occlusion_image.png"
-    iio.imsave(occlusion_img_outfile, bite_occlusion_image)
+    if not dry_run:
+        viz_sim = get_sim(meal.meal_id)
+        bite_occlusion_image =  render_bite_occlusion_image(viz_sim, plate_pose, BANISH_POSE, act.above_plate_pos)
+        occlusion_img_outfile = outdir / "bite_occlusion_image.png"
+        iio.imsave(occlusion_img_outfile, bite_occlusion_image)
     sim = approach._csp_generator._sim
     set_pose(sim.get_object_id_from_name("plate"), plate_pose, sim.physics_client_id)
     # Remove possible POIs that get a score of zero from the occlusion model.
