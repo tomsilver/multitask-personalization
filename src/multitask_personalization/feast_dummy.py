@@ -17,7 +17,7 @@ from PIL import Image
 if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Feast Dummy")
-    parser.add_argument("--meal_id", type=int, default=0, help="ID of the meal to use (0-4)")
+    parser.add_argument("--meal_id", type=int, default=1, help="ID of the meal to use (1-5)")
     parser.add_argument("--json_dir", type=Path, default=Path("feast_dummy_saved_responses"), help="JSON file directory for saving and loading user responses")
     parser.add_argument("--load", action="store_true")
     args = parser.parse_args()
@@ -65,7 +65,7 @@ if __name__ == "__main__":
         print("Field name:", field_name)
         if prediction not in options:
             raise ValueError(f"Invalid prediction: {prediction}. Expected one of {options}.")
-        if field_name in field_to_choice:
+        if args.load and field_name in field_to_choice:
             choice = field_to_choice[field_name]
             print(f"Loaded choice {choice} for {field_name}")
             return choice
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         Meal(5, "social TV-watching (with TV in front) and with friend on left side", "circular table", ["chicken nuggets"], ["ketchup", "ranch dressing"]),
     ]
 
-    current_meal = meals[args.meal_id]
+    current_meal = meals[args.meal_id-1]
     bite_ordering_options = generate_bite_orderings(current_meal.food_items, current_meal.dips)
 
     # send mealContext, table_type, food_items and bite_ordering_options to multitask personalization
@@ -176,7 +176,7 @@ if __name__ == "__main__":
 
     occlusion = True
     while occlusion:
-
+        occlusion = False
         mp_response = _send_mp_request({"request_type": "occlusion_query",
                                         "plate_pose": current_plate_pose,
                                         "drink_pose": current_drink_pose,

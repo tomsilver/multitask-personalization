@@ -312,6 +312,13 @@ class FeedingEnv(gym.Env[FeedingObservation, FeedingAction]):
             physicsClientId=self.physics_client_id,
         )
 
+    def close(self):
+        try:
+            p.disconnect(self.physics_client_id)
+            self.physics_client_id = None
+        except Exception as e:
+            print(f"Warning: failed to disconnect PyBullet: {e}")
+
     def reset(
         self,
         *,

@@ -59,6 +59,10 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
     def load(self, model_dir: Path) -> None:
         """Load from a saved model directory."""
 
+    @abc.abstractmethod
+    def close(self) -> None:
+        """Close any resources used by the generator."""
+
     def generate(
         self,
         obs: ObsType,

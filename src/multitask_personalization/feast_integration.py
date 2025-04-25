@@ -15,12 +15,26 @@ import cv2
 
 class MultitaskPersonalizationFeastInterface:
     
-    def __init__(self, use_gui: bool, personalize: bool = True) -> None:
+    def __init__(self, use_gui: bool, personalize: bool = True, log_dir: Path | None = None) -> None:
         self._seed = 0
         self._use_gui = use_gui
         self._personalize = personalize
+        self._log_dir = log_dir
 
-    def initialize_env(self, config: str) -> None:
+    def create_mealtime_instance(self, config: str) -> None:
+
+        # delete old mealtime instance
+        if hasattr(self, "_viz_sim"):
+            self._viz_sim.close()
+            del self._viz_sim
+        if hasattr(self, "_scene_spec"):
+            del self._scene_spec
+        if hasattr(self, "_approach"):
+            if self._log_dir is not None:
+                self._approach.save(self._log_dir)
+            self._approach.close()
+            del self._approach
+
         config_file = Path(__file__).parent / "envs" / "feeding" / "configs" / f"{config}.yaml"
 
         # Create "environment".
@@ -37,7 +51,10 @@ class MultitaskPersonalizationFeastInterface:
                                      csp_solver=csp_solver,
                                      llm=llm,
                                      explore_method=explore_method,
-                                     use_gui=self._use_gui)
+                                     use_gui=self._use_gui,
+                                     log_dir=self._log_dir)
+        if self._log_dir is not None:
+            self._approach.load(self._log_dir)
         self._approach.train()
         self._viz_sim = FeedingEnv(self._scene_spec)
 
@@ -48,21 +65,9 @@ class MultitaskPersonalizationFeastInterface:
         self._current_dips = None
         self._current_bite_ordering_options = None
 
-    def delete_env(self) -> None:
-        if hasattr(self, "_viz_sim"):
-            self._viz_sim.close()
-            del self._viz_sim
-        if hasattr(self, "_scene_spec"):
-            del self._scene_spec
-        if hasattr(self, "_approach"):
-            del self._approach
-
     def run(self, request_dict: dict[str, Any]) -> dict[str, Any] | None:
 
         if request_dict["request_type"] == "initialization_query":
-            
-            input("Press ENTER to delete env")
-            self.delete_env()
 
             meal_id = request_dict["meal_id"]
             context = request_dict["context"]
@@ -71,9 +76,9 @@ class MultitaskPersonalizationFeastInterface:
             dips = request_dict["dips"]
             bite_ordering_options = request_dict["bite_ordering_options"]
 
-            input("Press ENTER to create env")
-            # Initialize the environment with the meal ID.
-            self.initialize_env(f"meal_{meal_id}")
+            # Initialize the mealtime instance with the meal ID.
+            input("Press ENTER to create mealtime instance")
+            self.create_mealtime_instance(f"meal_{meal_id}")
 
             # Save these to use in initialization_dataset below.
             self._current_context = context
@@ -126,7 +131,7 @@ class MultitaskPersonalizationFeastInterface:
             plate_pose = request_dict["plate_pose"]
             drink_pose = request_dict["drink_pose"]
 
-            self._visualize("Current Scene", plate_pose, drink_pose)
+            # self._visualize("Current Scene", plate_pose, drink_pose)
 
             obs = FeedingOcclusionQueryObservation(
                 self._current_context,
@@ -239,9 +244,21 @@ if __name__ == "__main__":
         action="store_true",
         help="Personalize.",
     )
+    parser.add_argument(
+        "--load",
+        action="store_true",
+        help="Load the models.",
+    )
     args = parser.parse_args()
 
-    interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize)
+    if not args.load and args.log_dir:
+        # cleanup the log_dir
+        import shutil
+        shutil.rmtree(args.log_dir, ignore_errors=True)
+        print(f"Deleted log_dir: {args.log_dir}")
+
+    log_dir = Path(__file__).parent / "logs"
+    interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize, log_dir)
 
     def callback(msg):
         request = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object

@@ -6,6 +6,7 @@ from typing import Any, Callable, Collection
 from functools import partial
 
 import numpy as np
+import pickle
 from gymnasium.spaces import Box, Discrete
 from numpy.typing import NDArray
 from pybullet_helpers.geometry import Pose, set_pose
@@ -130,6 +131,22 @@ class LLMMultipleChoiceConstraintModel:
         self.seed = seed
         self.data_obs_history: list[FeedingInitializationDatasetObservation | FeedingOcclusionQueryObservation] = []
 
+    def save(self, model_path: Path) -> None:
+        with open(model_path, "wb") as f:
+            pickle.dump({
+                "data_obs_history": self.data_obs_history,
+                "summary_preferences": self.summary_preferences,
+            }, f)
+
+    def load(self, model_path: Path) -> None:
+        try:
+            with open(model_path, "rb") as f:
+                data = pickle.load(f)
+                self.data_obs_history = data["data_obs_history"]
+                self.summary_preferences = data["summary_preferences"]
+        except FileNotFoundError:
+            logging.warning(f"Model file {model_path} not found. Using init values.")
+
     def create_constraint(self, obs: FeedingObservation, variable: CSPVariable) -> CSPConstraint:
         assert variable.name == self.name
         preference_constraint = FunctionalCSPConstraint(
@@ -244,10 +261,47 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         }
 
     def save(self, model_dir: Path) -> None:
-        print("WARNING: saving not yet implemented for FeedingCSPGenerator.")
+        
+        # Save constraint models
+        self._feeding_side_model.save(model_dir / "feeding_side.pkl")
+        self._bite_ordering_model.save(model_dir / "bite_ordering.pkl")
+        self._ready_signal_model.save(model_dir / "ready_signal.pkl")
+        self._be_verbal_model.save(model_dir / "be_verbal.pkl")
+
+        for model in self._occlusion_poi_relevance_models.values():
+            model.save(model_dir / f"occlusion-poi-{model.name}.pkl")
+
+        # Save occlusion scale model
+        occlusion_path = model_dir / "occlusion_model.pkl"
+        with open(occlusion_path, "wb") as f:
+            pickle.dump({
+                "post_max": self._occlusion_model.post_max,
+                "post_min": self._occlusion_model.post_min,
+            }, f)
 
     def load(self, model_dir: Path) -> None:
-        print("WARNING: loading not yet implemented for FeedingCSPGenerator.")
+
+        # Load constraint models
+        self._feeding_side_model.load(model_dir / "feeding_side.pkl")
+        self._bite_ordering_model.load(model_dir / "bite_ordering.pkl")
+        self._ready_signal_model.load(model_dir / "ready_signal.pkl")
+        self._be_verbal_model.load(model_dir / "be_verbal.pkl")
+
+        for model in self._occlusion_poi_relevance_models.values():
+            model.load(model_dir / f"occlusion-poi-{model.name}.pkl")
+
+        # Load occlusion scale model
+        try:
+            occlusion_path = model_dir / "occlusion_model.pkl"
+            with open(occlusion_path, "rb") as f:
+                data = pickle.load(f)
+                self._occlusion_model.post_max = data["post_max"]
+                self._occlusion_model.post_min = data["post_min"]
+        except FileNotFoundError:
+            logging.warning(f"Model file {occlusion_path} not found. Using init values.")
+
+    def close(self) -> None:
+        self._sim.close()
 
     def _generate_variables(
         self,
