@@ -43,7 +43,7 @@ def pregenerate_initialization_variable(var_name: str, model, current_model_stat
     TOTAL_PREDICTIONS += 1
     prediction_file = outdir / "prediction.txt"
     with open(prediction_file, "w") as f:
-        f.write(prediction)
+        f.write(str(prediction))
     metadata = asdict(meal)
     metadata["choices"] = choices
     metadata["llm_model_summary"] = current_model_state["summary_preferences"]
