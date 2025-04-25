@@ -207,8 +207,8 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # Rendering.
-    image_height: int = 1024
-    image_width: int = 2400
+    image_height: int = 1024 // 2
+    image_width: int = 2400 // 2
 
     @property
     def utensil_pose(self):
