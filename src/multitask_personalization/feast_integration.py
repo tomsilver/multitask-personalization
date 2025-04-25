@@ -7,6 +7,7 @@ from multitask_personalization.envs.feeding.feeding_structs import FeedingPlateD
 from multitask_personalization.methods.csp_approach import CSPApproach
 from multitask_personalization.csp_solvers import RandomWalkCSPSolver
 from pybullet_helpers.geometry import Pose, set_pose
+from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_object
 from tomsutils.llm import OpenAILLM
 from typing import Any
 from pathlib import Path
@@ -162,8 +163,8 @@ class MultitaskPersonalizationFeastInterface:
                                 drink_pose.position[2]),
                                 drink_pose.orientation)
             
-            bite_occlusion_image =  self._render_occlusion_image(new_plate_pose, new_drink_pose, above_plate_pos)
-            drink_occlusion_image = self._render_occlusion_image(new_plate_pose, new_drink_pose, drink_grasp_pos)
+            bite_occlusion_image =  self._render_bite_occlusion_image(new_plate_pose, new_drink_pose, above_plate_pos)
+            drink_occlusion_image = self._render_drink_occlusion_image(new_plate_pose, new_drink_pose, drink_grasp_pos)
             # self._visualize("Predicted Scene", new_plate_pose, new_drink_pose)
 
             return {
@@ -202,13 +203,47 @@ class MultitaskPersonalizationFeastInterface:
         else:
             raise ValueError(f"Unknown request type: {request_dict['requestType']}")
         
-    def _render_occlusion_image(self, plate_pose: Pose, drink_pose: Pose, robot_joints: list[float]) -> None:
+    def _render_bite_occlusion_image(self, plate_pose: Pose, drink_pose: Pose, robot_joints: list[float]) -> None:
         # Set the plate and drink poses in the simulation.
+        set_pose(self._viz_sim.get_object_id_from_name("drink"), BANISH_POSE, self._viz_sim.physics_client_id)
         set_pose(self._viz_sim.get_object_id_from_name("plate"), plate_pose, self._viz_sim.physics_client_id)
         set_pose(self._viz_sim.get_object_id_from_name("drink"), drink_pose, self._viz_sim.physics_client_id)
 
-        print("robot joints", robot_joints)
-        self._viz_sim.robot.set_joints(robot_joints + [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        held_object_id = self._viz_sim.get_object_id_from_name("utensil")
+        held_object_tf = self._viz_sim.scene_spec.utensil_held_object_tf
+        set_robot_joints_with_held_object(
+            self._viz_sim.robot,
+            self._viz_sim.physics_client_id,
+            held_object_id,
+            held_object_tf,
+            robot_joints + [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        )
+        self._viz_sim.robot.set_finger_state(
+            self._viz_sim.scene_spec.tool_grasp_fingers_value
+        )
+
+        # Render the image.
+        img = self._viz_sim.render(user_view=True)
+        return img
+    
+    def _render_drink_occlusion_image(self, plate_pose: Pose, drink_pose: Pose, robot_joints: list[float]) -> None:
+        # Set the plate and drink poses in the simulation.
+        set_pose(self._viz_sim.get_object_id_from_name("utensil"), BANISH_POSE, self._viz_sim.physics_client_id)
+        set_pose(self._viz_sim.get_object_id_from_name("plate"), plate_pose, self._viz_sim.physics_client_id)
+        set_pose(self._viz_sim.get_object_id_from_name("drink"), drink_pose, self._viz_sim.physics_client_id)
+
+        held_object_id = self._viz_sim.get_object_id_from_name("drink")
+        held_object_tf = self._viz_sim.scene_spec.drink_held_object_tf
+        set_robot_joints_with_held_object(
+            self._viz_sim.robot,
+            self._viz_sim.physics_client_id,
+            held_object_id,
+            held_object_tf,
+            robot_joints + [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        )
+        self._viz_sim.robot.set_finger_state(
+            self._viz_sim.scene_spec.tool_grasp_fingers_value
+        )
 
         # Render the image.
         img = self._viz_sim.render(user_view=True)
