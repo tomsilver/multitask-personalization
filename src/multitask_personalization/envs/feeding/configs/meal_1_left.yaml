@@ -80,6 +80,11 @@ drink_staging_pos:
   type: "joint_positions"
   values: [2.5860902733967808, -1.105096803823792, 1.0315333702969696, -1.3979449215077393, 0.7852325147776451, -0.8370922506847585, 2.7182634909296315]
 
+drink_default_post_grasp_pose:
+  description: "Pose of the drink after grasping"
+  type: "pose"
+  values: [0.56, 0.55, 0.6, 0, 0.7071, 0.7071, 0]
+
 before_transfer_pos:
   description: "Config of the robot before transfer"
   type: "joint_positions"

@@ -78,6 +78,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     utensil_inside_mount: Pose
     drink_default_pose: Pose 
     drink_staging_pos: JointPositions
+    drink_default_post_grasp_pose: Pose
     before_transfer_pos: JointPositions
     above_plate_pos: JointPositions
     before_transfer_pose: Pose

@@ -48,12 +48,6 @@ class MultitaskPersonalizationFeastInterface:
         self._current_dips = None
         self._current_bite_ordering_options = None
 
-        self._viz_sim.robot.set_joints(self._scene_spec.before_transfer_pos + [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self._approach._csp_generator._sim.robot.set_joints(self._scene_spec.before_transfer_pos + [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        before_transfer_pose = self._approach._csp_generator._sim.robot.get_end_effector_pose()
-        print("Computed before_transfer_pose", before_transfer_pose)
-        print("Logged before_transfer_pose", self._scene_spec.before_transfer_pose)
-
     def delete_env(self) -> None:
         if hasattr(self, "_viz_sim"):
             self._viz_sim.close()
@@ -214,10 +208,7 @@ class MultitaskPersonalizationFeastInterface:
 
         # Render the image.
         img = self._viz_sim.render(user_view=True)
-        from PIL import Image
-        print(f"Showing occlusion image")
-        Image.fromarray(img).show()
-        input("Press enter to continue")
+        return img
 
     def _visualize(self, title: str, plate_pose: Pose, drink_pose: Pose) -> None:
         set_pose(self._viz_sim.get_object_id_from_name("plate"), plate_pose, self._viz_sim.physics_client_id)
@@ -251,18 +242,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize)
-    interface.initialize_env("meal_1_left")
-    img = interface._viz_sim.render(user_view=False)
-    from PIL import Image
-    print(f"Showing occlusion image")
-    Image.fromarray(img).show()
-    input("Press enter to continue")
 
     def callback(msg):
         request = pickle.loads(base64.b64decode(msg.data))  # convert ByteMultiArray back to object
-        print("Received request:", request)
+        # print("Received request:", request)
         response = interface.run(request)
-        print("Sending response:", response)
+        # print("Sending response:", response)
         msg = String()
         ps = pickle.dumps(response)
         s = base64.b64encode(ps).decode('ascii')

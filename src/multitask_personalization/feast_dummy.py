@@ -11,6 +11,7 @@ from pybullet_helpers.geometry import Pose
 import numpy as np
 import json
 from pathlib import Path
+from PIL import Image
 
 
 if __name__ == "__main__":
@@ -170,54 +171,68 @@ if __name__ == "__main__":
     assert mp_response["response_type"] == "initialization_dataset"
 
     # send plate and drink pose to multitask personalization
-    current_plate_pose = Pose((0.4, 0.3, 0.17))
-    current_drink_pose = Pose((0.55, 0.6, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
-    mp_response = _send_mp_request({"request_type": "occlusion_query",
-                                    "plate_pose": current_plate_pose,
-                                    "drink_pose": current_drink_pose,
-                                    })
-    assert mp_response["response_type"] == "occlusion_query"
-    plate_delta_xy = mp_response["plate_delta_xy"]
-    drink_delta_xy = mp_response["drink_delta_xy"]
-    before_transfer_pose = mp_response["before_transfer_pose"]
-    before_transfer_pos = mp_response["before_transfer_pos"]
-    above_plate_pos = mp_response["above_plate_pos"]
-    occlusion_poi_relevance = mp_response["occlusion_poi_relevance"]
+    current_plate_pose = Pose((0.4, 0.4, 0.17))
+    current_drink_pose = Pose((0.6, 0.6, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
 
-    # TODO visualize the potential occlusion points
-    new_plate_pose = Pose((current_plate_pose.position[0] + plate_delta_xy[0],
-                           current_plate_pose.position[1] + plate_delta_xy[1],
-                           current_plate_pose.position[2]),
-                           current_plate_pose.orientation)
-    new_drink_pose = Pose((current_drink_pose.position[0] + drink_delta_xy[0],
-                           current_drink_pose.position[1] + drink_delta_xy[1],
-                           current_drink_pose.position[2]),
-                           current_drink_pose.orientation)
-    occlusion_dataset_dict = {
-        "request_type": "occlusion_dataset",
-        "plate_pose": new_plate_pose,
-        "drink_pose": new_drink_pose,
-        "occlusion": {}
-    }
-    for poi, prediction in occlusion_poi_relevance.items():
-        print(f"Verifying the RELEVANCE of POI={poi} for this meal")
-        relevance = verify_predictions(f"occlusion-poi-{poi}-relevance", prediction, [True, False])
-        if relevance:
-            print(f"Verifying whether view was occluded for POI={poi} during FEEDING")
-            plate_occlusion = verify_predictions(f"occlusion-poi-{poi}-feeding", False, [True, False])
-            print(f"Verifying whether view was occluded for POI={poi} during DRINKING")
-            drink_occlusion = verify_predictions(f"occlusion-poi-{poi}-drinking", False, [True, False])
-        else:
-            plate_occlusion = False
-            drink_occlusion = False
-        occlusion_dataset_dict["occlusion"][poi] = {
-            "relevance": relevance,
-            "plate_occlusion": plate_occlusion,
-            "drink_occlusion": drink_occlusion,
+    occlusion = True
+    while occlusion:
+
+        mp_response = _send_mp_request({"request_type": "occlusion_query",
+                                        "plate_pose": current_plate_pose,
+                                        "drink_pose": current_drink_pose,
+                                        })
+        assert mp_response["response_type"] == "occlusion_query"
+        plate_delta_xy = mp_response["plate_delta_xy"]
+        drink_delta_xy = mp_response["drink_delta_xy"]
+        before_transfer_pose = mp_response["before_transfer_pose"]
+        before_transfer_pos = mp_response["before_transfer_pos"]
+        above_plate_pos = mp_response["above_plate_pos"]
+        occlusion_poi_relevance = mp_response["occlusion_poi_relevance"]
+        bite_occlusion_image = mp_response["bite_occlusion_image"]
+        drink_occlusion_image = mp_response["drink_occlusion_image"]
+
+        # TODO visualize the potential occlusion points
+        new_plate_pose = Pose((current_plate_pose.position[0] + plate_delta_xy[0],
+                            current_plate_pose.position[1] + plate_delta_xy[1],
+                            current_plate_pose.position[2]),
+                            current_plate_pose.orientation)
+        new_drink_pose = Pose((current_drink_pose.position[0] + drink_delta_xy[0],
+                            current_drink_pose.position[1] + drink_delta_xy[1],
+                            current_drink_pose.position[2]),
+                            current_drink_pose.orientation)
+        occlusion_dataset_dict = {
+            "request_type": "occlusion_dataset",
+            "plate_pose": new_plate_pose,
+            "drink_pose": new_drink_pose,
+            "occlusion": {}
         }
-    mp_response = _send_mp_request(occlusion_dataset_dict)
-    
-    # TODO: we need to resolve the issue that drink_post_grasp_pose is used to check drink occlusions
-    # but it's not actually used on the robot. I took this out earlier because it was causing strange
-    # motions on the robot but we need to add it back for consistency. Otherwise occlusion learning
-    # won't work if we try to learn from the drink.
+        for poi, prediction in occlusion_poi_relevance.items():
+            print(f"Verifying the RELEVANCE of POI={poi} for this meal")
+            relevance = verify_predictions(f"occlusion-poi-{poi}-relevance", prediction, [True, False])
+            if relevance:
+                print(f"Verifying whether view was occluded for POI={poi} during FEEDING")
+                Image.fromarray(bite_occlusion_image).show()
+                plate_occlusion = verify_predictions(f"occlusion-poi-{poi}-feeding", False, [True, False])
+                print(f"Verifying whether view was occluded for POI={poi} during DRINKING")
+                Image.fromarray(drink_occlusion_image).show()
+                drink_occlusion = verify_predictions(f"occlusion-poi-{poi}-drinking", False, [True, False])
+            else:
+                plate_occlusion = False
+                drink_occlusion = False
+            occlusion_dataset_dict["occlusion"][poi] = {
+                "relevance": relevance,
+                "plate_occlusion": plate_occlusion,
+                "drink_occlusion": drink_occlusion,
+            }
+            if plate_occlusion or drink_occlusion:
+                occlusion = True
+
+        mp_response = _send_mp_request(occlusion_dataset_dict)
+
+        current_plate_pose = new_plate_pose
+        current_drink_pose = new_drink_pose
+        
+        # TODO: we need to resolve the issue that drink_post_grasp_pose is used to check drink occlusions
+        # but it's not actually used on the robot. I took this out earlier because it was causing strange
+        # motions on the robot but we need to add it back for consistency. Otherwise occlusion learning
+        # won't work if we try to learn from the drink.
