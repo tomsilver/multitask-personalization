@@ -3,13 +3,12 @@ import os
 
 p.connect(p.GUI)
 
-# until body 7
-for body in ["body_1.obj", "body_2.obj", "body_3.obj", "body_4.obj", "body_5.obj", "body_6.obj", "body_7_on.obj"]:
+for body in ["chair_base.obj"]:
     visual_shape_id = p.createVisualShape(
         shapeType=p.GEOM_MESH,
         fileName=body,
-        meshScale=[1, 1, 1],
-        rgbaColor=[1, 1, 1, 1]  # Let texture show
+        meshScale=[0.1, 0.1, 0.1],
+        rgbaColor=[0.682476, 0.408966, 0.026520, 1]  # Let texture show
     )
 
     p.createMultiBody(baseVisualShapeIndex=visual_shape_id)

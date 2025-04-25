@@ -185,8 +185,8 @@ if __name__ == "__main__":
     assert mp_response["response_type"] == "initialization_dataset"
 
     # send plate and drink pose to multitask personalization
-    current_plate_pose = Pose((0.4, 0.5, 0.17))
-    current_drink_pose = Pose((0.6, 0.7, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
+    current_plate_pose = Pose((0.3, 0.75, 0.17))
+    current_drink_pose = Pose((0.65, 0.4, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
 
     occlusion = True
     occlusion_iter = 0
