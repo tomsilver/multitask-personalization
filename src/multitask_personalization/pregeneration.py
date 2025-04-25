@@ -139,10 +139,7 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
     approach._csp_generator._disable_drink = True
     obs = FeedingOcclusionQueryObservation(meal.context, meal.table_type, meal.food_items, meal.dips, bite_ordering_options, init_plate_pose, BANISH_POSE)
     approach.reset(obs, {})
-    try:
-        act = approach.step()
-    except:
-        import ipdb; ipdb.set_trace()
+    act = approach.step()
     plate_pose = Pose((init_plate_pose.position[0] + act.plate_delta_xy[0],
                             init_plate_pose.position[1] + act.plate_delta_xy[1],
                             init_plate_pose.position[2]),
@@ -212,8 +209,6 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
                 continue
             occluded_poi_choice_str = "none" if not occluded_poi_choice else "-".join(occluded_poi_choice)
             choice_str = relevant_poi_choice_str + "___" + occluded_poi_choice_str
-            if not choice_str:
-                choice_str = "none"
             choice_outdir = outdir / choice_str
 
             occlusion_dict = {}
@@ -244,6 +239,8 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
             else:
                 next_llm_model_states = llm_model_states
                 next_occlusion_model_state = occlusion_model_state
+            if occlusion_model.post_max < occlusion_model.post_min:
+                continue
             pregenerate_occlusion(approach, plate_pose, llm_models, next_llm_model_states, occlusion_model, next_occlusion_model_state, remaining_meals[1:], choice_outdir, dry_run)
 
 

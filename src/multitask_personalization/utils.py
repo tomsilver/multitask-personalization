@@ -303,8 +303,8 @@ class Threshold1DModel:
         """Load a model from a dictionary returned by get_save_state()."""
         self.post_min = state_dict["post_min"]
         self.post_max = state_dict["post_max"]
-        self.incremental_X = state_dict["incremental_X"]
-        self.incremental_Y = state_dict["incremental_Y"]
+        self.incremental_X = list(state_dict["incremental_X"])
+        self.incremental_Y = list(state_dict["incremental_Y"])
 
     def get_summary(self) -> str:
         """Get a short human-readable summary of the current model."""
