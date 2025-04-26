@@ -214,10 +214,20 @@ async function loadCurrentMealInfo() {
     const metadata = await response.json();
     console.log('Loaded meal metadata:', metadata); // Debug log
     
+    // Create a descriptive meal context
+    const foodItems = metadata.food_items.join(' and ');
+    const dips = metadata.dips.join(' and ');
+    const context = metadata.context.replace('_', ' '); // Convert "personal" to "personal"
+    const tableType = metadata.table_type.replace('_', ' '); // Convert "rectangular_table" to "rectangular table"
+    
+    const description = `Imagine you are having a meal in a <span class="context">${context}</span> setting at a <span class="table-type">${tableType}</span>. 
+    On your plate, you have <span class="food-items">${foodItems}</span>${dips ? ` with <span class="dips">${dips}</span> for dipping` : ''}. 
+    Please answer the following questions about this meal scenario.`;
+    
     state.currentMeal = {
       title: `Meal ${state.answers.length + 1} of 5`,
       image: `${occlusionPath}/bite_occlusion_image.png`,
-      description: metadata.description || "Please answer the following questions about this meal scenario."
+      description: description
     };
     
     console.log('Final image path:', state.currentMeal.image); // Debug log
@@ -376,7 +386,10 @@ async function showMeal() {
   
   mealTitle.textContent = state.currentMeal.title;
   mealImg.src = state.currentMeal.image;
-  mealDesc.textContent = state.currentMeal.description;
+  
+  // Set the description with proper HTML
+  mealDesc.innerHTML = state.currentMeal.description;
+  mealDesc.className = 'meal-context';
   
   renderForm();
 }

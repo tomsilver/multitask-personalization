@@ -1,5 +1,6 @@
 :root {
   --accent: #2563eb;
+  --highlight: #dbeafe;
 }
 
 * {
@@ -79,6 +80,20 @@ button {
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.meal-context {
+  line-height: 1.6;
+}
+
+.meal-context .context,
+.meal-context .table-type,
+.meal-context .food-items,
+.meal-context .dips {
+  background-color: var(--highlight);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  white-space: nowrap;
 }
 
 @media (min-width: 640px) {
