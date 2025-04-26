@@ -413,8 +413,8 @@ async function renderForm() {
   sectionHeading.textContent = state.answers.length === 0 
     ? "Help us learn your preferences" 
     : "Fine-tune your personalized experience";
-  sectionHeading.style.marginTop = "1.5rem";
-  sectionHeading.style.marginBottom = "1rem";
+  sectionHeading.style.marginTop = "0.5rem";
+  sectionHeading.style.marginBottom = "0.25rem";
   form.appendChild(sectionHeading);
   
   // Add section description
@@ -422,15 +422,15 @@ async function renderForm() {
   sectionDesc.innerHTML = state.answers.length === 0
     ? "For your first meal, please select your preferences for each setting:"
     : "Please review the robot's personalized choices and adjust if needed:";
-  sectionDesc.style.marginBottom = "1.5rem";
+  sectionDesc.style.marginBottom = "0.5rem";
   form.appendChild(sectionDesc);
   
   for (const question of QUESTIONS) {
     const options = await getOptionsForQuestion(question.key);
     
     const wrapper = document.createElement("div");
-    wrapper.style.marginBottom = "1.5rem";
-    wrapper.style.padding = "1rem";
+    wrapper.style.marginBottom = "0.5rem";
+    wrapper.style.padding = "0.75rem";
     wrapper.style.border = "1px solid #e0e0e0";
     wrapper.style.borderRadius = "4px";
     wrapper.style.backgroundColor = "#fafafa";
@@ -679,7 +679,7 @@ async function renderPredictionSummary() {
   const description = document.createElement("p");
   // Change description based on whether this is the first meal
   if (state.answers.length === 0) {
-    description.innerHTML = "This shows the default options the robot would choose for your first meal:";
+    description.innerHTML = "The robot is not yet personalized. Here are the selections it would make for your first meal, where default options are the same as the \"personalized\" ones:";
   } else {
     description.innerHTML = "Based on your previous preferences, here's how the robot has personalized its choices for you:";
   }
@@ -703,14 +703,14 @@ async function renderPredictionSummary() {
   headerRow.appendChild(questionHeader);
   
   const defaultHeader = document.createElement("th");
-  defaultHeader.textContent = "Default Choice";
+  defaultHeader.textContent = "Default";
   defaultHeader.style.padding = "0.75rem";
   defaultHeader.style.textAlign = "left";
   headerRow.appendChild(defaultHeader);
   
   const personalizedHeader = document.createElement("th");
   // Change column header for first meal
-  personalizedHeader.textContent = state.answers.length === 0 ? "Initial Selection" : "Personalized Choice";
+  personalizedHeader.textContent = "Personalized";
   personalizedHeader.style.padding = "0.75rem";
   personalizedHeader.style.textAlign = "left";
   headerRow.appendChild(personalizedHeader);
