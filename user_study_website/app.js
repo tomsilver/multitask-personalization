@@ -131,6 +131,30 @@ function getContentPath(questionKey) {
     }
   }
 
+  // Special handling for occlusion directory naming
+  if (question.contentDir === 'occlusion') {
+    // Get the last answer to determine the occlusion state
+    const lastAnswer = state.answers[state.answers.length - 1];
+    if (lastAnswer) {
+      const relevantPois = [];
+      const occludedPois = [];
+      
+      // Check each occlusion-related answer
+      if (lastAnswer.look_forward?.value === 'Yes') relevantPois.push('front');
+      if (lastAnswer.look_left?.value === 'Yes') relevantPois.push('left');
+      if (lastAnswer.block_forward?.value === 'Yes') occludedPois.push('front');
+      if (lastAnswer.block_left?.value === 'Yes') occludedPois.push('left');
+      
+      // Create the directory name
+      const relevantStr = relevantPois.length > 0 ? relevantPois.join('-') : 'none';
+      const occludedStr = occludedPois.length > 0 ? occludedPois.join('-') : 'none';
+      const occlusionDir = `${relevantStr}___${occludedStr}`;
+      
+      // Replace the last part of the path with the occlusion directory
+      pathParts[pathParts.length - 1] = occlusionDir;
+    }
+  }
+
   return pathParts.join('/');
 }
 
