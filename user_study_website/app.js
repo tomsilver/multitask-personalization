@@ -1,7 +1,6 @@
 /***********************************************************
  * CONFIGURATION
  ***********************************************************/
-const TOTAL_MEALS = 5; // N rounds
 
 // Question metadata.
 const QUESTIONS = [
@@ -53,7 +52,7 @@ const INITIAL_OPTIONS = {
   feeding_side: ["Loading..."],
   bite_order: ["Loading..."],
   ready_signal: ["Loading..."],
-  verbal: ["Yes", "No"],
+  verbal: ["Loading..."],
   look_forward: ["Yes", "No"],
   block_forward: ["Yes", "No"],
   look_left: ["Yes", "No"],
@@ -61,45 +60,13 @@ const INITIAL_OPTIONS = {
 };
 
 /***********************************************************
- * CONTENT LOADING
- ***********************************************************/
-async function loadMetadata(questionKey, scenario) {
-  const question = QUESTIONS.find(q => q.key === questionKey);
-  if (!question) return null;
-  
-  try {
-    const contentPath = getContentPath(questionKey);
-    const response = await fetch(`${contentPath}/${scenario}/metadata.json`);
-    return await response.json();
-  } catch (error) {
-    console.error(`Error loading metadata for ${questionKey}/${scenario}:`, error);
-    return null;
-  }
-}
-
-async function loadPredictions(questionKey, scenario) {
-  const question = QUESTIONS.find(q => q.key === questionKey);
-  if (!question) return null;
-  
-  try {
-    const contentPath = getContentPath(questionKey);
-    const response = await fetch(`${contentPath}/${scenario}/prediction.txt`);
-    const text = await response.text();
-    return text.trim().split('\n');
-  } catch (error) {
-    console.error(`Error loading predictions for ${questionKey}/${scenario}:`, error);
-    return null;
-  }
-}
-
-/***********************************************************
  * STATE
  ***********************************************************/
 const state = {
-  round: 0,
   answers: [], // Array of per‐meal answer objects
   metadata: {}, // Stores loaded metadata per question
   predictions: {}, // Stores loaded predictions per question
+  currentMeal: null, // Stores the current meal metadata
 };
 
 /***********************************************************
@@ -124,6 +91,16 @@ function show(el) {
 
 function hide(el) {
   el.classList.add("hidden");
+}
+
+/**
+ * Generates a test URL for a specific series of answers
+ * @param {Array} answers - Array of answer objects
+ * @returns {string} The URL with encoded answers
+ */
+function generateTestUrl(answers) {
+  const encodedAnswers = encodeURIComponent(JSON.stringify(answers));
+  return `meal.html?answers=${encodedAnswers}`;
 }
 
 /**
@@ -162,14 +139,12 @@ function getContentPath(questionKey) {
  ***********************************************************/
 function getStateFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  const round = parseInt(params.get('round') || '0');
   const answers = params.get('answers') ? JSON.parse(decodeURIComponent(params.get('answers'))) : [];
-  return { round, answers };
+  return { answers };
 }
 
 function updateUrlState() {
   const params = new URLSearchParams();
-  params.set('round', state.round.toString());
   params.set('answers', encodeURIComponent(JSON.stringify(state.answers)));
   
   // Update URL without reloading the page
@@ -180,9 +155,8 @@ function updateUrlState() {
   );
 }
 
-function navigateToMeal(round) {
+function navigateToMeal() {
   const params = new URLSearchParams();
-  params.set('round', round.toString());
   if (state.answers.length > 0) {
     params.set('answers', encodeURIComponent(JSON.stringify(state.answers)));
   }
@@ -193,31 +167,73 @@ function navigateToThanks() {
   window.location.href = 'thanks.html';
 }
 
-function restoreState() {
-  const { round, answers } = getStateFromUrl();
-  state.round = round;
-  state.answers = answers;
+/***********************************************************
+ * CONTENT LOADING
+ ***********************************************************/
+async function loadMetadata(questionKey) {
+  const question = QUESTIONS.find(q => q.key === questionKey);
+  if (!question) return null;
   
-  // If we have answers, we're in the middle of the study
-  if (answers.length > 0) {
-    hide(homeScreen);
-    show(mealScreen);
-    showMeal();
+  try {
+    const contentPath = getContentPath(questionKey);
+    const response = await fetch(`${contentPath}/metadata.json`);
+    return await response.json();
+  } catch (error) {
+    console.error(`Error loading metadata for ${questionKey}:`, error);
+    return null;
+  }
+}
+
+async function loadPredictions(questionKey) {
+  const question = QUESTIONS.find(q => q.key === questionKey);
+  if (!question) return null;
+  
+  try {
+    const contentPath = getContentPath(questionKey);
+    const response = await fetch(`${contentPath}/prediction.txt`);
+    const text = await response.text();
+    return text.trim().split('\n');
+  } catch (error) {
+    console.error(`Error loading predictions for ${questionKey}:`, error);
+    return null;
+  }
+}
+
+async function loadCurrentMealInfo() {
+  // Load meal info from occlusion metadata
+  const occlusionPath = getContentPath('look_forward');
+  try {
+    const response = await fetch(`${occlusionPath}/metadata.json`);
+    const metadata = await response.json();
+    state.currentMeal = {
+      title: `Meal ${state.answers.length + 1} of 5`,
+      image: metadata.image || `media/meal_${state.answers.length + 1}.jpg`,
+      description: metadata.description || "Please answer the following questions about this meal scenario."
+    };
+  } catch (error) {
+    console.error('Error loading meal info:', error);
+    state.currentMeal = {
+      title: `Meal ${state.answers.length + 1} of 5`,
+      image: `media/meal_${state.answers.length + 1}.jpg`,
+      description: "Please answer the following questions about this meal scenario."
+    };
   }
 }
 
 /***********************************************************
  * UI RENDERING
  ***********************************************************/
-async function loadCurrentMealContent() {
-  const meal = MEALS[state.round];
+async function loadCurrentContent() {
   state.metadata = {};
   state.predictions = {};
   
+  // Load meal info first
+  await loadCurrentMealInfo();
+  
   // Load metadata and predictions for each question
   for (const question of QUESTIONS) {
-    state.metadata[question.key] = await loadMetadata(question.key, meal.scenario);
-    state.predictions[question.key] = await loadPredictions(question.key, meal.scenario);
+    state.metadata[question.key] = await loadMetadata(question.key);
+    state.predictions[question.key] = await loadPredictions(question.key);
   }
 }
 
@@ -281,21 +297,16 @@ function renderForm() {
 }
 
 async function showMeal() {
-  const meal = MEALS[state.round];
-  
   // Load content before showing the meal
-  await loadCurrentMealContent();
+  await loadCurrentContent();
   
   const mealTitle = document.getElementById("meal-title");
   const mealImg = document.getElementById("meal-img");
   const mealDesc = document.getElementById("meal-desc");
   
-  mealTitle.textContent = meal.title;
-  mealImg.src = meal.image;
-  
-  // Use metadata for description if available
-  const description = state.metadata?.description || meal.scenario;
-  mealDesc.textContent = description;
+  mealTitle.textContent = state.currentMeal.title;
+  mealImg.src = state.currentMeal.image;
+  mealDesc.textContent = state.currentMeal.description;
   
   renderForm();
 }
@@ -338,25 +349,13 @@ function finishStudy() {
 /***********************************************************
  * EVENT HANDLERS
  ***********************************************************/
-document.getElementById("start-btn").addEventListener("click", () => {
-  document.getElementById("home-screen").classList.add("hidden");
-  document.getElementById("meal-screen").classList.remove("hidden");
-  state.round = 0;
-  state.answers = [];
-  updateUrlState();
-  showMeal();
-});
-
 function handleNextClick() {
   // Collect and save answers
   const answers = collectAnswers();
   state.answers.push(answers);
   
-  // Move to next round
-  state.round += 1;
-  
-  if (state.round < MEALS.length) {
-    navigateToMeal(state.round);
+  if (state.answers.length < 5) {
+    navigateToMeal();
   } else {
     navigateToThanks();
   }
@@ -366,17 +365,25 @@ function handleNextClick() {
  * INIT
  ***********************************************************/
 // Initialize state from URL on page load
-const { round, answers } = getStateFromUrl();
-state.round = round;
+const { answers } = getStateFromUrl();
 state.answers = answers;
 
 // Set up event listeners based on current page
-if (window.location.pathname.includes('meal.html')) {
+if (window.location.pathname.endsWith('meal.html')) {
   document.getElementById('next-btn').addEventListener('click', handleNextClick);
   showMeal();
+} else if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
+  // Handle the start button on the index page
+  document.getElementById('start-btn').addEventListener('click', () => {
+    navigateToMeal();
+  });
 }
 
 // Add browser back/forward button support
 window.addEventListener('popstate', () => {
-  restoreState();
+  const { answers } = getStateFromUrl();
+  state.answers = answers;
+  if (window.location.pathname.endsWith('meal.html')) {
+    showMeal();
+  }
 }); 
