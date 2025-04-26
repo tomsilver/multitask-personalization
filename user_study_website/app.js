@@ -746,11 +746,11 @@ function checkFormCompletion() {
   nextBtn.disabled = !allAnswered;
 }
 
-function collectAnswers() {
+async function collectAnswers() {
   const form = document.getElementById("questions-form");
   const answers = {};
   
-  QUESTIONS.forEach(question => {
+  for (const question of QUESTIONS) {
     const select = form.querySelector(`select[name="${question.key}"]`);
     const value = select.value;
     
@@ -763,11 +763,22 @@ function collectAnswers() {
       };
     } else if (question.key === 'bite_order') {
       // Store the index of the selected option
-      const options = getOptionsForQuestion(question.key);
-      const index = options.indexOf(value);
+      const options = await getOptionsForQuestion(question.key);
       
       // Log for debugging
-      console.log(`Selected bite_order: "${value}", options:`, options, `index: ${index}`);
+      console.log(`Selected bite_order: "${value}", options:`, options);
+      
+      if (!Array.isArray(options)) {
+        console.warn(`Options for bite_order is not an array:`, options);
+        // Fallback to 0 if options is not an array
+        answers[question.key] = {
+          value: "0",
+          metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
+        };
+        continue;
+      }
+      
+      const index = options.indexOf(value);
       
       if (index === -1) {
         // If we can't find the option, try to get it from metadata directly
@@ -837,27 +848,14 @@ function collectAnswers() {
         metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
       };
     }
-  });
+  }
   
   return answers;
 }
 
-function finishStudy() {
-  // Hide meal screen
-  document.getElementById("meal-screen").classList.add("hidden");
-  // Show thanks screen
-  document.getElementById("thanks-screen").classList.remove("hidden");
-  
-  // Here you could send the state.answers data to your server
-  console.log("Study completed!", state.answers);
-}
-
-/***********************************************************
- * EVENT HANDLERS
- ***********************************************************/
-function handleNextClick() {
+async function handleNextClick() {
   // Collect and save answers
-  const answers = collectAnswers();
+  const answers = await collectAnswers();
   state.answers.push(answers);
   
   if (state.answers.length < 5) {
