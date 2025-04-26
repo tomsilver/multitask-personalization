@@ -286,10 +286,11 @@ function compressState(answers) {
     return minimal;
   });
   
-  // Include intake data if available
+  // Include intake data and optionMappings if available
   const dataToCompress = {
     answers: minimalAnswers,
-    intakeData: state.intakeData
+    intakeData: state.intakeData,
+    optionMappings: state.optionMappings
   };
   
   // Convert to base64
@@ -303,17 +304,19 @@ function decompressState(compressed) {
     const json = atob(compressed);
     const decompressedData = JSON.parse(json);
     
-    // Extract answers and intake data
+    // Extract answers, intake data, and optionMappings
     let minimalAnswers = [];
     let intakeData = null;
+    let optionMappings = [];
     
     if (Array.isArray(decompressedData)) {
       // Legacy format (just an array of answers)
       minimalAnswers = decompressedData;
     } else {
-      // New format (object with answers and intake data)
+      // New format (object with answers, intake data, and optionMappings)
       minimalAnswers = decompressedData.answers || [];
       intakeData = decompressedData.intakeData || null;
+      optionMappings = decompressedData.optionMappings || [];
     }
     
     // Convert back to full format
@@ -342,12 +345,14 @@ function decompressState(compressed) {
     
     return {
       answers: fullAnswers,
-      intakeData: intakeData
+      intakeData: intakeData,
+      optionMappings: optionMappings
     };
   } catch (error) {
     return {
       answers: [],
-      intakeData: null
+      intakeData: null,
+      optionMappings: []
     };
   }
 }
@@ -357,11 +362,12 @@ function getStateFromUrl() {
   const compressed = params.get('state');
   const tempRating = params.get('temp_rating');
   
-  const decompressedState = compressed ? decompressState(compressed) : { answers: [], intakeData: null };
+  const decompressedState = compressed ? decompressState(compressed) : { answers: [], intakeData: null, optionMappings: [] };
   
   return { 
     answers: decompressedState.answers,
     intakeData: decompressedState.intakeData,
+    optionMappings: decompressedState.optionMappings,
     tempPreferenceRating: tempRating || null
   };
 }
@@ -1555,10 +1561,11 @@ function checkFormCompletion() {
  * INIT
  ***********************************************************/
 // Initialize state from URL on page load
-const { answers, tempPreferenceRating, intakeData } = getStateFromUrl();
+const { answers, tempPreferenceRating, intakeData, optionMappings } = getStateFromUrl();
 state.answers = answers;
 state.tempPreferenceRating = tempPreferenceRating;
 state.intakeData = intakeData;
+state.optionMappings = optionMappings || []; // Set the optionMappings directly
 
 // Try to load intake data from localStorage if not in URL
 if (!state.intakeData) {
@@ -1572,8 +1579,8 @@ if (!state.intakeData) {
   }
 }
 
-// Reconstruct option mappings from loaded answers if available
-if (answers && answers.length > 0) {
+// Reconstruct option mappings from loaded answers if needed (fallback for backward compatibility)
+if ((!state.optionMappings || state.optionMappings.length === 0) && answers && answers.length > 0) {
   state.optionMappings = answers.map(answer => answer.isOptionAPersonalized);
 }
 
@@ -1609,10 +1616,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Add browser back/forward button support
 window.addEventListener('popstate', () => {
-  const { answers, tempPreferenceRating, intakeData } = getStateFromUrl();
+  const { answers, tempPreferenceRating, intakeData, optionMappings } = getStateFromUrl();
   state.answers = answers;
   state.tempPreferenceRating = tempPreferenceRating;
   state.intakeData = intakeData;
+  state.optionMappings = optionMappings || [];
   
   const path = window.location.pathname;
   if (path.endsWith('meal-preferences.html')) {
