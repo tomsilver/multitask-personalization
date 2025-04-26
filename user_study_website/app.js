@@ -1132,6 +1132,8 @@ async function renderDetailsForm(descContainer, mealImg) {
             blockingSelect.value = 'No';
             blockingSelect.disabled = true;
             blockingSelect.parentNode.style.opacity = '0.6';
+            // Trigger validation check after setting the value
+            checkDetailsFormCompletion();
           } else {
             // Re-enable the blocking question
             blockingSelect.disabled = false;
@@ -1212,8 +1214,9 @@ function checkDetailsFormCompletion() {
   
   // Log each select element and its value for debugging
   selects.forEach(select => {
-    console.log(`Select ${select.name}: value = "${select.value}"`);
-    if (!select.value) {
+    console.log(`Select ${select.name}: value = "${select.value}", disabled = ${select.disabled}`);
+    // Consider a select answered if it has a value OR it's disabled (with a value)
+    if (!select.value && !select.disabled) {
       allAnswered = false;
       console.log(`Missing value for ${select.name}`);
     }
