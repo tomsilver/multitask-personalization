@@ -147,7 +147,6 @@ function getContentPath(questionKey) {
     }
   }
 
-  console.log("Content path for", questionKey, ":", pathParts.join('/'));
   return pathParts.join('/');
 }
 
@@ -527,14 +526,11 @@ async function isLeftOcclusionEnabled() {
     // Check if the metadata includes left occlusion
     // We'll look for the 'occlusion_options' property that should include 'left'
     if (metadata.choices && metadata.choices.includes('left')) {
-      console.log('Left occlusion is enabled for this meal');
       return true;
     }
     
-    console.log('Left occlusion is disabled for this meal');
     return false;
   } catch (error) {
-    console.error('Error checking if left occlusion is enabled:', error);
     throw error;
   }
 }
@@ -546,7 +542,6 @@ const optionValues = {
 };
 
 async function renderPredictionSummary() {
-  console.log("Rendering prediction summary");
   // Create summary section
   const form = document.querySelector("#preferences-form, #questions-form"); // Work with either form
   const summarySection = document.createElement("div");
@@ -609,7 +604,6 @@ async function renderPredictionSummary() {
   // Create a new randomization for this meal
   const isOptionAPersonalized = Math.random() < 0.5;
   state.optionMappings[state.answers.length] = isOptionAPersonalized;
-  console.log(`Meal ${state.answers.length + 1}: randomized isOptionAPersonalized:`, isOptionAPersonalized);
   
   // Add table body
   const tbody = document.createElement("tbody");
@@ -933,8 +927,6 @@ async function renderPreferencesForm() {
 
 // Updated function to add preference rating in the correct position
 async function addPreferenceRatingAfterImages() {
-  console.log("Adding preference rating after images");
-  
   // Find the placeholder
   const ratingContainer = document.getElementById("preference-rating-container");
   if (!ratingContainer) return;
@@ -1019,9 +1011,6 @@ async function addPreferenceRatingAfterImages() {
     ratingSelect.value = state.tempPreferenceRating;
     checkPreferenceFormCompletion();
   }
-  
-  // Debug log
-  console.log("Preference rating added, form now has", document.querySelectorAll("select").length, "select elements");
 }
 
 // Function to create just the detailed preference questions form
@@ -1271,7 +1260,6 @@ function checkPreferenceFormCompletion() {
   // Check if preference rating has been selected
   const isComplete = preferenceRating && preferenceRating.value;
   
-  console.log("Preference rating complete:", isComplete);
   nextBtn.disabled = !isComplete;
 }
 
@@ -1284,17 +1272,13 @@ function checkDetailsFormCompletion() {
   // Check if all selects have a value
   let allAnswered = true;
   
-  // Log each select element and its value for debugging
   selects.forEach(select => {
-    console.log(`Select ${select.name}: value = "${select.value}", disabled = ${select.disabled}`);
     // Consider a select answered if it has a value OR it's disabled (with a value)
     if (!select.value && !select.disabled) {
       allAnswered = false;
-      console.log(`Missing value for ${select.name}`);
     }
   });
   
-  console.log("All questions answered:", allAnswered);
   nextBtn.disabled = !allAnswered;
 }
 
@@ -1470,13 +1454,11 @@ async function sendToGoogleForm() {
 // Add back a minimal redirect version of showMeal for backward compatibility
 async function showMeal() {
   // This function just redirects to the new flow
-  console.log("Legacy showMeal called, redirecting to meal-preferences page");
   navigateToMeal();
 }
 
 // Add back a minimal version of checkFormCompletion for backward compatibility
 function checkFormCompletion() {
-  console.log("Legacy checkFormCompletion called, this function is deprecated");
   // Do nothing
 }
 
@@ -1491,7 +1473,6 @@ state.tempPreferenceRating = tempPreferenceRating;
 // Reconstruct option mappings from loaded answers if available
 if (answers && answers.length > 0) {
   state.optionMappings = answers.map(answer => answer.isOptionAPersonalized);
-  console.log("Loaded option mappings from URL:", state.optionMappings);
 }
 
 // Set up event listeners based on current page
