@@ -535,9 +535,9 @@ async function renderForm() {
     
     // Create the question text based on the type
     if (question.key === 'bite_order') {
-      label.innerHTML = `The robot's initial selection is to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Is this what you prefer?`;
+      label.innerHTML = `How would you like your <span class="context">bites served?</span>`;
     } else if (question.key === 'ready_signal') {
-      label.innerHTML = `The robot's initial selection is to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Is this what you prefer?`;
+      label.innerHTML = `What would you prefer to use as a <span class="context">ready signal?</span>`;
     } else if (question.key === 'verbal') {
       label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
     } else if (question.key.startsWith('look_')) {
