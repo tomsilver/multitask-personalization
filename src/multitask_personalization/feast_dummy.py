@@ -1,11 +1,14 @@
-import rospy
+try:
+    import rospy
+    from std_msgs.msg import String
+except:
+    pass
 import pickle
 import base64
 import time
 import itertools
 from dataclasses import dataclass
 from typing import List
-from std_msgs.msg import String
 import argparse
 from pybullet_helpers.geometry import Pose
 import numpy as np

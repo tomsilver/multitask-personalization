@@ -121,9 +121,11 @@ def get_sim(meal_id):
     return FeedingEnv(scene_spec)
 
 
-def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_models, llm_model_states, occlusion_model, occlusion_model_state, remaining_meals: list[Meal], outdir: Path, dry_run: bool) -> None:
+def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_models, llm_model_states, occlusion_model, occlusion_model_state, remaining_meals: list[Meal], outdir: Path, dry_run: bool, prune_fn=None) -> None:
     global TOTAL_PREDICTIONS
     if not remaining_meals:
+        return
+    if prune_fn is not None and prune_fn(outdir):
         return
     outdir.mkdir(exist_ok=True)
     meal = remaining_meals[0]
@@ -210,6 +212,8 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
             occluded_poi_choice_str = "none" if not occluded_poi_choice else "-".join(occluded_poi_choice)
             choice_str = relevant_poi_choice_str + "___" + occluded_poi_choice_str
             choice_outdir = outdir / choice_str
+            if prune_fn is not None and prune_fn(choice_outdir):
+                continue
 
             occlusion_dict = {}
             for poi in possible_pois:
@@ -241,7 +245,7 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
                 next_occlusion_model_state = occlusion_model_state
             if occlusion_model.post_max < occlusion_model.post_min:
                 continue
-            pregenerate_occlusion(approach, plate_pose, llm_models, next_llm_model_states, occlusion_model, next_occlusion_model_state, remaining_meals[1:], choice_outdir, dry_run)
+            pregenerate_occlusion(approach, plate_pose, llm_models, next_llm_model_states, occlusion_model, next_occlusion_model_state, remaining_meals[1:], choice_outdir, dry_run, prune_fn)
 
 
 
@@ -268,9 +272,15 @@ if __name__ == "__main__":
         "--dry",
         action="store_true"
     )
+    parser.add_argument(
+        "--test",
+        type=str,
+        default=None,
+    )
     args = parser.parse_args()
     outdir: Path = args.outdir
     outdir.mkdir(exist_ok=True)
+    test_name = args.test or None
 
     # NOTE: this config shouldn't really matter, we're just accessing the models inside the CSP generator.
     config_file = Path(__file__).parent / "envs" / "feeding" / "configs" / "meal_1.yaml"
@@ -308,6 +318,11 @@ if __name__ == "__main__":
         occlusion_model_state = occlusion_model.get_save_state()
         plate_pose = Pose((0.3, 0.75, 0.17))
         print(f"Running pregeneration for {var_name}")
-        pregenerate_occlusion(approach, plate_pose, occlusion_poi_relevance_models, llm_model_states, occlusion_model, occlusion_model_state, meals, outdir / var_name, dry_run=args.dry)
+        if test_name is not None:
+            target_dir = outdir / var_name / test_name
+            prune_fn = lambda o: not str(target_dir).startswith(str(o))
+        else:
+            prune_fn = None
+        pregenerate_occlusion(approach, plate_pose, occlusion_poi_relevance_models, llm_model_states, occlusion_model, occlusion_model_state, meals, outdir / var_name, dry_run=args.dry,
+                              prune_fn=prune_fn)
         print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
-
