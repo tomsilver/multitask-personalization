@@ -1364,7 +1364,10 @@ async function showMealDetails() {
   const mealImg = document.getElementById("meal-img");
   
   mealTitle.textContent = state.currentMeal.title;
+  
+  // Set the image source but hide it initially - we'll reposition it later
   mealImg.src = state.currentMeal.image;
+  mealImg.style.display = "none";
   
   // Create a styled container for the meal description
   const descContainer = document.createElement("div");
@@ -1378,7 +1381,7 @@ async function showMealDetails() {
   
   // Add heading for the scenario
   const scenarioHeading = document.createElement("h3");
-  scenarioHeading.textContent = "Meal Scenario";
+  scenarioHeading.textContent = "Recall the Meal Scenario";
   scenarioHeading.style.marginTop = "0";
   scenarioHeading.style.marginBottom = "0.75rem";
   scenarioHeading.style.color = "#333";
@@ -1396,12 +1399,10 @@ async function showMealDetails() {
   // Add the description to the container
   descContainer.appendChild(mealDesc);
   
-  // Insert the container after the image
-  const mealSection = document.querySelector('section');
-  mealImg.parentNode.insertBefore(descContainer, mealImg.nextSibling);
+  // We'll add this container in the correct position from renderDetailsForm
   
   // Render the form with only the detailed questions
-  await renderDetailsForm();
+  await renderDetailsForm(descContainer, mealImg);
 }
 
 // Function to create just the comparison table and preference rating
@@ -1519,11 +1520,11 @@ async function addPreferenceRatingAfterImages() {
 }
 
 // Function to create just the detailed preference questions form
-async function renderDetailsForm() {
+async function renderDetailsForm(descContainer, mealImg) {
   const form = document.getElementById("questions-form");
   form.innerHTML = ""; // Clear existing questions
   
-  // Add section heading for meal questions
+  // Add section heading for meal questions (STEP 1)
   const sectionHeading = document.createElement("h3");
   sectionHeading.textContent = "Help the robot learn your preferences";
   sectionHeading.style.marginTop = "0.5rem";
@@ -1538,6 +1539,9 @@ async function renderDetailsForm() {
   sectionDesc.style.marginBottom = "1.5rem";
   form.appendChild(sectionDesc);
   
+  // Add meal scenario section (STEP 2)
+  form.appendChild(descContainer);
+  
   // Check if left occlusion should be shown
   const showLeftOcclusion = await isLeftOcclusionEnabled();
 
@@ -1546,6 +1550,16 @@ async function renderDetailsForm() {
     QUESTIONS : 
     QUESTIONS.filter(q => !q.key.includes('left'));
   
+  // Create containers for non-occlusion and occlusion questions
+  const nonOcclusionContainer = document.createElement("div");
+  nonOcclusionContainer.className = "non-occlusion-questions";
+  nonOcclusionContainer.style.marginBottom = "1.5rem";
+  
+  const occlusionContainer = document.createElement("div");
+  occlusionContainer.className = "occlusion-questions";
+  occlusionContainer.style.marginTop = "1.5rem";
+  
+  // Sort questions into the appropriate containers
   for (const question of questionsToShow) {
     const options = await getOptionsForQuestion(question.key);
     
@@ -1668,7 +1682,38 @@ async function renderDetailsForm() {
     
     wrapper.appendChild(label);
     wrapper.appendChild(select);
-    form.appendChild(wrapper);
+    
+    // Add the question to the appropriate container
+    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      occlusionContainer.appendChild(wrapper);
+    } else {
+      nonOcclusionContainer.appendChild(wrapper);
+    }
+  }
+  
+  // STEP 3: Add non-occlusion questions to the form
+  form.appendChild(nonOcclusionContainer);
+  
+  // STEP 4: Add the meal image
+  mealImg.style.display = "block";
+  mealImg.style.maxWidth = "100%";
+  mealImg.style.marginTop = "0.75rem";
+  mealImg.style.marginBottom = "1rem";
+  mealImg.style.border = "1px solid #ddd";
+  mealImg.style.borderRadius = "8px";
+  form.appendChild(mealImg);
+  
+  // STEP 5: Add occlusion questions
+  // Add instructions for occlusion questions
+  if (occlusionContainer.children.length > 0) {
+    const occlusionInstructions = document.createElement("p");
+    occlusionInstructions.textContent = "Refer to the image above to answer the following questions:";
+    occlusionInstructions.style.marginTop = "0.5rem";
+    occlusionInstructions.style.marginBottom = "0.5rem";
+    occlusionInstructions.style.fontStyle = "italic";
+    occlusionInstructions.style.color = "#555";
+    form.appendChild(occlusionInstructions);
+    form.appendChild(occlusionContainer);
   }
   
   // Check form completion status after all fields are added
