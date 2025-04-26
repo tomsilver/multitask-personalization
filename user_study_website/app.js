@@ -1351,107 +1351,8 @@ async function renderDetailsForm() {
   sectionDesc.innerHTML = state.answers.length === 0
     ? "For your first meal, please select your preferences for each setting:"
     : "Please review the robot's personalized choices and adjust if needed:";
-  sectionDesc.style.marginBottom = "0.5rem";
+  sectionDesc.style.marginBottom = "1.5rem";
   form.appendChild(sectionDesc);
-  
-  // Add buttons to prefill forms with each option
-  const buttonContainer = document.createElement("div");
-  buttonContainer.style.display = "flex";
-  buttonContainer.style.flexDirection = "column";
-  buttonContainer.style.alignItems = "center";
-  buttonContainer.style.marginTop = "0.5rem";
-  buttonContainer.style.marginBottom = "1.5rem";
-  buttonContainer.style.padding = "1rem";
-  buttonContainer.style.backgroundColor = "#f0f7ff";
-  buttonContainer.style.border = "1px solid #d0e3ff";
-  buttonContainer.style.borderRadius = "4px";
-  
-  // Function to apply all option values to the form
-  function applyOptionValues(option) {
-    const form = document.getElementById("questions-form");
-    const optionToUse = option === 'A' ? optionValues.optionA : optionValues.optionB;
-    
-    // Apply to each select element
-    for (const [key, value] of Object.entries(optionToUse)) {
-      const select = form.querySelector(`select[name="${key}"]`);
-      if (select) {
-        select.value = value;
-      }
-    }
-    
-    // Trigger form validation after setting values
-    checkDetailsFormCompletion();
-  }
-  
-  // Add instruction text above buttons
-  const buttonInstructions = document.createElement("p");
-  buttonInstructions.innerHTML = "Use buttons to auto-fill form with your preferred option:";
-  buttonInstructions.style.margin = "0 0 1rem 0";
-  buttonInstructions.style.fontWeight = "500";
-  buttonInstructions.style.textAlign = "center";
-  buttonInstructions.style.fontSize = "1.05rem";
-  buttonInstructions.style.color = "#333";
-  
-  // Create a row for the buttons
-  const buttonRow = document.createElement("div");
-  buttonRow.style.display = "flex";
-  buttonRow.style.justifyContent = "center";
-  buttonRow.style.gap = "1rem";
-  buttonRow.style.width = "100%";
-  
-  // Create Option A button
-  const optionAButton = document.createElement("button");
-  optionAButton.type = "button";
-  optionAButton.textContent = "Apply Option A Values";
-  optionAButton.style.padding = "0.75rem 1.5rem";
-  optionAButton.style.backgroundColor = "#1a73e8";
-  optionAButton.style.color = "white";
-  optionAButton.style.border = "none";
-  optionAButton.style.borderRadius = "4px";
-  optionAButton.style.cursor = "pointer";
-  optionAButton.style.fontWeight = "500";
-  optionAButton.style.minWidth = "200px";
-  optionAButton.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-  optionAButton.style.transition = "all 0.2s ease";
-  optionAButton.onmouseover = () => {
-    optionAButton.style.backgroundColor = "#0d62d1";
-    optionAButton.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-  };
-  optionAButton.onmouseout = () => {
-    optionAButton.style.backgroundColor = "#1a73e8";
-    optionAButton.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-  };
-  optionAButton.onclick = () => applyOptionValues('A');
-  
-  // Create Option B button
-  const optionBButton = document.createElement("button");
-  optionBButton.type = "button";
-  optionBButton.textContent = "Apply Option B Values";
-  optionBButton.style.padding = "0.75rem 1.5rem";
-  optionBButton.style.backgroundColor = "#1a73e8";
-  optionBButton.style.color = "white";
-  optionBButton.style.border = "none";
-  optionBButton.style.borderRadius = "4px";
-  optionBButton.style.cursor = "pointer";
-  optionBButton.style.fontWeight = "500";
-  optionBButton.style.minWidth = "200px";
-  optionBButton.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-  optionBButton.style.transition = "all 0.2s ease";
-  optionBButton.onmouseover = () => {
-    optionBButton.style.backgroundColor = "#0d62d1";
-    optionBButton.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
-  };
-  optionBButton.onmouseout = () => {
-    optionBButton.style.backgroundColor = "#1a73e8";
-    optionBButton.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-  };
-  optionBButton.onclick = () => applyOptionValues('B');
-  
-  buttonContainer.appendChild(buttonInstructions);
-  buttonRow.appendChild(optionAButton);
-  buttonRow.appendChild(optionBButton);
-  buttonContainer.appendChild(buttonRow);
-  form.appendChild(buttonContainer);
   
   // Check if left occlusion should be shown
   const showLeftOcclusion = await isLeftOcclusionEnabled();
@@ -1567,8 +1468,17 @@ async function renderDetailsForm() {
       select.dataset.metadata = JSON.stringify(metadata);
     }
     
-    // No longer pre-selecting the predicted option
-    // Instead, we'll let users choose from Option A or Option B buttons
+    // Pre-select the value from the selected option
+    const isOptionAPersonalized = state.optionMappings[state.answers.length] || false;
+    const selectedOptionData = state.tempPreferenceRating ? 
+      (state.tempPreferenceRating <= 3 ? optionValues.optionA : 
+       state.tempPreferenceRating >= 5 ? optionValues.optionB : 
+       null) : null;
+    
+    // If user has a preference, pre-select values based on that preference
+    if (selectedOptionData && selectedOptionData[question.key]) {
+      select.value = selectedOptionData[question.key];
+    }
     
     select.addEventListener("change", checkDetailsFormCompletion);
     
@@ -1576,6 +1486,9 @@ async function renderDetailsForm() {
     wrapper.appendChild(select);
     form.appendChild(wrapper);
   }
+  
+  // Check form completion status after all fields are added
+  checkDetailsFormCompletion();
 }
 
 // Form validation for the preference page
