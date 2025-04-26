@@ -1,4 +1,8 @@
-"""Hacky FEAST pregeneration for website study."""
+"""Hacky FEAST pregeneration for website study.
+
+Useful commands:
+    python src/multitask_personalization/pregeneration.py --var occlusion --test "front___front/front-left___front/front___none/front___none/"
+"""
 
 from multitask_personalization.feast_dummy import Meal, MEALS, generate_bite_orderings
 from multitask_personalization.envs.feeding.feeding_scene_spec import create_feeding_scene_description_from_config
@@ -277,6 +281,10 @@ if __name__ == "__main__":
         type=str,
         default=None,
     )
+    parser.add_argument(
+        "--use_gui",
+        action="store_true"
+    )
     args = parser.parse_args()
     outdir: Path = args.outdir
     outdir.mkdir(exist_ok=True)
@@ -291,7 +299,8 @@ if __name__ == "__main__":
     approach = CSPApproach(scene_spec, None,
                             csp_solver=csp_solver,
                             llm=llm,
-                            explore_method=explore_method)
+                            explore_method=explore_method,
+                            use_gui=args.use_gui)
     initialization_var_models = {
         "feeding_side": approach._csp_generator._feeding_side_model,
         "bite_ordering": approach._csp_generator._bite_ordering_model,
@@ -319,8 +328,8 @@ if __name__ == "__main__":
         plate_pose = Pose((0.3, 0.75, 0.17))
         print(f"Running pregeneration for {var_name}")
         if test_name is not None:
-            target_dir = outdir / var_name / test_name
-            prune_fn = lambda o: not str(target_dir).startswith(str(o))
+            target_dir = str(outdir / var_name / test_name) + "/"
+            prune_fn = lambda o: not target_dir.startswith(str(o) + "/")
         else:
             prune_fn = None
         pregenerate_occlusion(approach, plate_pose, occlusion_poi_relevance_models, llm_model_states, occlusion_model, occlusion_model_state, meals, outdir / var_name, dry_run=args.dry,

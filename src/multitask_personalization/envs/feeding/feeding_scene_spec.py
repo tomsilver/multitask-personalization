@@ -197,7 +197,7 @@ class FeedingSceneSpec(PublicSceneSpec):
         default_factory=lambda: {
         "front": (10.0, 0.4, 0.05),
         "left": (10.0, 4.2, 0.4),
-        "right": (10.0, -4.2, 0.4),
+        # "right": (10.0, -4.2, 0.4),
     })
 
     # This is redundant, but it's convenient for the CSP solver.
