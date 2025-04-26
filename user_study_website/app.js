@@ -308,10 +308,16 @@ function renderForm() {
     // Pre-select the predicted option if available
     const prediction = state.predictions[question.key];
     if (prediction && prediction.length > 0) {
-      // For verbal, convert True/False to Yes/No
       if (question.key === 'verbal') {
+        // For verbal, convert True/False to Yes/No
         const predictedValue = prediction[0].trim();
         select.value = predictedValue === 'True' ? 'Yes' : 'No';
+      } else if (question.key === 'bite_order') {
+        // For bite_order, use prediction as an index into the choices array
+        const predictedIndex = parseInt(prediction[0].trim());
+        if (!isNaN(predictedIndex) && predictedIndex >= 0 && predictedIndex < options.length) {
+          select.value = options[predictedIndex];
+        }
       } else {
         select.value = prediction[0];
       }
