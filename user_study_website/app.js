@@ -243,9 +243,13 @@ function getOptionsForQuestion(questionKey) {
   if (questionKey === 'bite_order') {
     const metadata = state.metadata[questionKey];
     if (metadata && metadata.choices) {
-      console.log(`Bite order options from metadata:`, metadata.choices);
       return metadata.choices;
     }
+  }
+  
+  // For verbal, always use Yes/No for display
+  if (questionKey === 'verbal') {
+    return ['Yes', 'No'];
   }
   
   // For other questions, use metadata choices if available, otherwise fall back to initial options
@@ -263,7 +267,6 @@ function renderForm() {
   
   QUESTIONS.forEach((question) => {
     const options = getOptionsForQuestion(question.key);
-    console.log(`Rendering options for ${question.key}:`, options);
     
     const wrapper = document.createElement("div");
     wrapper.style.marginBottom = "1.5rem";
@@ -305,7 +308,13 @@ function renderForm() {
     // Pre-select the predicted option if available
     const prediction = state.predictions[question.key];
     if (prediction && prediction.length > 0) {
-      select.value = prediction[0];
+      // For verbal, convert True/False to Yes/No
+      if (question.key === 'verbal') {
+        const predictedValue = prediction[0].trim();
+        select.value = predictedValue === 'True' ? 'Yes' : 'No';
+      } else {
+        select.value = prediction[0];
+      }
     }
     
     select.addEventListener("change", checkFormCompletion);
