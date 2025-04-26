@@ -592,7 +592,7 @@ async function addPreferenceRating(form) {
   
   let ratingText = "";
   ratingTitle.textContent = "Compare Options";
-  ratingText = "To what extent do you prefer Option A or Option B overall?";
+  ratingText = "To what extent do you prefer Option A or Option B for this meal?";
   
   ratingDiv.appendChild(ratingTitle);
   
