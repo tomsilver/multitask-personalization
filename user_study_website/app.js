@@ -499,7 +499,7 @@ async function renderPredictionSummary() {
   if (state.answers.length === 0) {
     description.innerHTML = "The robot is providing options for your first meal. Please compare Option A and Option B:";
   } else {
-    description.innerHTML = "Based on your previous preferences, here are the robot's choices. Please compare Option A and Option B:";
+    description.innerHTML = "Based on your previous preferences, here are two possible sets of choices that the robot might make for your next meal. Please compare Option A and Option B:";
   }
   description.style.marginBottom = "1rem";
   summarySection.appendChild(description);
