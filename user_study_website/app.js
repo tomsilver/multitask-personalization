@@ -121,20 +121,18 @@ function getContentPath(questionKey) {
   // Add previous answers to build the path
   // For example, if we're on bite_order and user chose "left" for feeding_side,
   // we need to include that in the path
-  for (const answer of state.answers) {
-    // Only include answers for questions that come before the current question
-    // AND are relevant to the current question's content directory
-    const questionIndex = QUESTIONS.findIndex(q => q.key === questionKey);
-    const answerQuestionIndex = QUESTIONS.findIndex(q => q.key === Object.keys(answer)[0]);
+  for (let i = 0; i < state.answers.length; i++) {
+    const answer = state.answers[i];
     
-    if (answerQuestionIndex < questionIndex) {
-      const answerQuestion = QUESTIONS[answerQuestionIndex];
-      // Only include the answer if it's from the same content directory
-      if (answerQuestion.contentDir === question.contentDir) {
-        pathParts.push(answer[Object.keys(answer)[0]].value);
-      }
+    // Only include answers that are relevant to the current question's content directory
+    const answerKey = Object.keys(answer)[0];
+    const answerQuestion = QUESTIONS.find(q => q.key === answerKey);
+    
+    if (answerQuestion.contentDir === question.contentDir) {
+      pathParts.push(answer[answerKey].value);
     }
   }
+
 
   // Special handling for occlusion directory naming
   if (question.contentDir === 'occlusion') {
@@ -294,145 +292,33 @@ async function loadPredictions(questionKey) {
   if (!question) return null;
   
   try {
-    // First check if we have previous meals with this answer
-    const previousMealAnswers = [];
-    
+    const contentPath = getContentPath(questionKey);
+    console.log(`Loading predictions from: ${contentPath}`);
+
     // Special handling for occlusion questions
     if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
-      // For occlusion questions, we should use the standard path
-      const contentPath = getContentPath(questionKey);
-      console.log(`Using standard path for occlusion: ${contentPath}`);
-      
+      // For occlusion questions, we should use the standard path      
       const response = await fetch(`${contentPath}/prediction.json`);
       const data = await response.json();
       return data;
     }
-    
-    // For bite_order, we need to convert from the index to the actual option name
-    if (questionKey === 'bite_order') {
-      // Look for this question in previous meals' answers
-      for (const mealAnswer of state.answers) {
-        if (mealAnswer[questionKey]) {
-          // We need to get the metadata to know the actual options
-          // Load the metadata for this question first
-          const basePath = ['content', question.contentDir].join('/');
-          try {
-            const metadataResponse = await fetch(`${basePath}/metadata.json`);
-            const metadata = await metadataResponse.json();
-            if (metadata && metadata.choices) {
-              const index = parseInt(mealAnswer[questionKey].value);
-              if (!isNaN(index) && index >= 0 && index < metadata.choices.length) {
-                // Use the actual option name from metadata
-                previousMealAnswers.push(metadata.choices[index]);
-              }
-            }
-          } catch (error) {
-            console.error('Error loading metadata for bite_order conversion:', error);
-          }
-        }
-      }
-    } else if (!questionKey.startsWith('look_') && !questionKey.startsWith('block_')) {
-      // For non-occlusion questions, use regular history-based path
-      // Look for this question in previous meals' answers
-      for (const mealAnswer of state.answers) {
-        if (mealAnswer[questionKey]) {
-          previousMealAnswers.push(mealAnswer[questionKey].value);
-        }
-      }
-    }
-    
-    let contentPath;
-    
-    // If we have previous answers for this question, use the most recent ones to build a path
-    if (previousMealAnswers.length > 0 && !questionKey.startsWith('look_') && !questionKey.startsWith('block_')) {
-      // Start with base path
-      let pathParts = ['content', question.contentDir];
-      
-      // Add up to the last 3 answers to the path (most recent answers have priority)
-      const recentAnswers = previousMealAnswers.slice(-3); // Get last 3 answers at most
-      pathParts = pathParts.concat(recentAnswers);
-      
-      contentPath = pathParts.join('/');
-      console.log(`Using prediction path based on history: ${contentPath}`);
-    } else {
-      // Fall back to the standard path if no previous answers
-      contentPath = getContentPath(questionKey);
-    }
-    
-    if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
-      // For occlusion questions, load prediction.json instead of prediction.txt
-      const response = await fetch(`${contentPath}/prediction.json`);
-      const data = await response.json();
-      return data;
-    } else {
-      const response = await fetch(`${contentPath}/prediction.txt`);
-      const text = await response.text();
-      return text.trim().split('\n');
-    }
+
+    const response = await fetch(`${contentPath}/prediction.txt`).then(res => res.text());
+    console.log(`Prediction for ${questionKey}: ${response}`);
+    return response;
+  
   } catch (error) {
     console.error(`Error loading predictions for ${questionKey}:`, error);
-    // If we failed with the history-based path, try the standard path
-    try {
-      const standardPath = getContentPath(questionKey);
-      if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
-        const response = await fetch(`${standardPath}/prediction.json`);
-        const data = await response.json();
-        return data;
-      } else {
-        const response = await fetch(`${standardPath}/prediction.txt`);
-        const text = await response.text();
-        return text.trim().split('\n');
-      }
-    } catch (fallbackError) {
-      console.error(`Fallback also failed for ${questionKey}:`, fallbackError);
-      return null;
-    }
+    return null;
   }
 }
 
 async function loadCurrentMealInfo() {
   try {
-    // Build a history-based path for meal info similar to how loadPredictions works
-    const previousOcclusionAnswers = [];
-    
-    // Check if we have occlusion-related answers from previous meals
-    // We need to gather all the relevant occlusion entries from previous meals
-    for (const mealAnswer of state.answers) {
-      if (mealAnswer.occlusion) {
-        // For occlusion questions, we want to capture the full occlusion state
-        // including relevant_pois and occluded_pois
-        previousOcclusionAnswers.push(mealAnswer.occlusion);
-      }
-    }
-    
-    let occlusionPath;
-    
-    if (previousOcclusionAnswers.length > 0) {
-      // Start with base path
-      const pathParts = ['content', 'occlusion'];
-      
-      // Create directories for each previous meal's occlusion state
-      // This will give us nested subdirectories based on meal history
-      for (const occlusionState of previousOcclusionAnswers) {
-        // Format the directory name using the same pattern as in getContentPath
-        const relevantPois = occlusionState.relevant_pois || [];
-        const occludedPois = occlusionState.occluded_pois || [];
-        
-        const relevantStr = relevantPois.length > 0 ? relevantPois.join('-') : 'none';
-        const occludedStr = occludedPois.length > 0 ? occludedPois.join('-') : 'none';
-        const occlusionDir = `${relevantStr}___${occludedStr}`;
-        
-        pathParts.push(occlusionDir);
-      }
-      
-      occlusionPath = pathParts.join('/');
-      console.log(`Using meal info path based on occlusion history: ${occlusionPath}`);
-    } else {
-      // If no previous occlusion answers, use standard getContentPath approach
-      occlusionPath = getContentPath('look_forward');
-    }
-    
+    // Use getContentPath to get the correct path for occlusion questions
+    const occlusionPath = getContentPath('look_forward');
     console.log('Attempting to load meal metadata:', occlusionPath);
+    
     const response = await fetch(`${occlusionPath}/metadata.json`);
     const metadata = await response.json();
     console.log('Loaded meal metadata:', metadata);
@@ -457,37 +343,12 @@ async function loadCurrentMealInfo() {
   } catch (error) {
     console.error('Error loading meal info:', error);
     
-    // Try fallback to standard path if history-based path fails
-    try {
-      const standardPath = getContentPath('look_forward');
-      console.log('Trying fallback path for meal info:', standardPath);
-      
-      const response = await fetch(`${standardPath}/metadata.json`);
-      const metadata = await response.json();
-      
-      // Create a descriptive meal context
-      const foodItems = metadata.food_items.join(' and ');
-      const dips = metadata.dips.join(' and ');
-      const context = metadata.context.replace('_', ' ');
-      const tableType = metadata.table_type.replace('_', ' ');
-      
-      const description = `Imagine you are having a meal in a <span class="context">${context}</span> setting at a <span class="table-type">${tableType}</span>. 
-      On your plate, you have <span class="food-items">${foodItems}</span>${dips ? ` with <span class="dips">${dips}</span> for dipping` : ''}. 
-      Please answer the following questions about this meal scenario.`;
-      
-      state.currentMeal = {
-        title: `Meal ${state.answers.length + 1} of 5`,
-        image: `${standardPath}/bite_occlusion_image.png`,
-        description: description
-      };
-    } catch (fallbackError) {
-      console.error('Fallback also failed for meal info:', fallbackError);
-      state.currentMeal = {
-        title: `Meal ${state.answers.length + 1} of 5`,
-        image: 'content/occlusion/bite_occlusion_image.png',
-        description: "Please answer the following questions about this meal scenario."
-      };
-    }
+    // Fallback to default values if loading fails
+    state.currentMeal = {
+      title: `Meal ${state.answers.length + 1} of 5`,
+      image: 'content/occlusion/bite_occlusion_image.png',
+      description: "Please answer the following questions about this meal scenario."
+    };
   }
 }
 
@@ -510,95 +371,18 @@ async function loadCurrentContent() {
 }
 
 async function getOptionsForQuestion(questionKey) {
-  // For bite ordering, we need to use a history-based approach
-  if (questionKey === 'bite_order') {
-    // First try to get options from metadata using history-based path
-    const question = QUESTIONS.find(q => q.key === questionKey);
-    if (!question) return INITIAL_OPTIONS[questionKey];
-    
-    // Build a history-based path similar to loadPredictions
-    const previousMealAnswers = [];
-    
-    // Look for this question in previous meals' answers
-    for (const mealAnswer of state.answers) {
-      if (mealAnswer[questionKey]) {
-        // We need to get the metadata to know the actual options
-        // Load the metadata for this question first
-        const basePath = ['content', question.contentDir].join('/');
-        try {
-          const metadataResponse = await fetch(`${basePath}/metadata.json`);
-          const metadata = await metadataResponse.json();
-          if (metadata && metadata.choices) {
-            const index = parseInt(mealAnswer[questionKey].value);
-            if (!isNaN(index) && index >= 0 && index < metadata.choices.length) {
-              // Use the actual option name from metadata
-              previousMealAnswers.push(metadata.choices[index]);
-            }
-          }
-        } catch (error) {
-          console.error('Error loading metadata for bite_order options:', error);
-        }
-      }
-    }
-    
-    let contentPath;
-    
-    // If we have previous answers for this question, use them to build a path
-    if (previousMealAnswers.length > 0) {
-      // Start with base path
-      let pathParts = ['content', question.contentDir];
-      
-      // Add up to the last 3 answers to the path (most recent answers have priority)
-      const recentAnswers = previousMealAnswers.slice(-3); // Get last 3 answers at most
-      pathParts = pathParts.concat(recentAnswers);
-      
-      contentPath = pathParts.join('/');
-      console.log(`Using options path based on history: ${contentPath}`);
-    } else {
-      // Fall back to the standard path if no previous answers
-      contentPath = getContentPath(questionKey);
-    }
-    
-    // Try to load metadata from the history-based path
-    try {
-      const metadataResponse = await fetch(`${contentPath}/metadata.json`);
-      const metadata = await metadataResponse.json();
-      if (metadata && metadata.choices) {
-        return metadata.choices;
-      }
-    } catch (error) {
-      console.error('Error loading metadata from history-based path:', error);
-      
-      // If history-based path fails, try standard path
-      try {
-        const standardPath = getContentPath(questionKey);
-        const metadataResponse = await fetch(`${standardPath}/metadata.json`);
-        const metadata = await metadataResponse.json();
-        if (metadata && metadata.choices) {
-          return metadata.choices;
-        }
-      } catch (fallbackError) {
-        console.error('Fallback also failed for bite_order options:', fallbackError);
-      }
-    }
-  }
-  
-  // For verbal, always use Yes/No for display
-  if (questionKey === 'verbal') {
+  // For verbal and occlusion questions, always use Yes/No
+  if (questionKey === 'verbal' || questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
     return ['Yes', 'No'];
   }
   
-  // For occlusion questions, always use Yes/No
-  if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
-    return ['Yes', 'No'];
-  }
-  
-  // For other questions, use metadata choices if available, otherwise fall back to initial options
+  // For all other questions, use metadata choices if available
   const metadata = state.metadata[questionKey];
   if (metadata && metadata.choices) {
     return metadata.choices;
   }
   
+  // Fall back to initial options if no metadata
   return INITIAL_OPTIONS[questionKey];
 }
 
@@ -617,41 +401,40 @@ async function renderForm() {
     label.className = 'meal-context';
     
     // Get the prediction for this question
-    let prediction;
-    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+    let prediction = state.predictions[question.key];
+    if (Array.isArray(prediction)) {
+      prediction = prediction[0];
+    }
+    
+    // Handle bite ordering prediction (index into choices)
+    if (question.key === 'bite_order' && prediction) {
+      const index = parseInt(prediction);
+      if (!isNaN(index) && index >= 0 && index < options.length) {
+        prediction = options[index];
+      } else {
+        prediction = 'Loading...';
+      }
+    }
+    
+    // Handle Yes/No predictions for verbal and occlusion questions
+    if (question.key === 'verbal' && prediction) {
+      prediction = prediction.trim() === 'True' ? 'Yes' : 'No';
+    }
+    
+    // Handle occlusion predictions
+    if ((question.key.startsWith('look_') || question.key.startsWith('block_')) && prediction) {
+      const direction = question.key.includes('forward') ? 'front' : 'left';
+      const isLooking = question.key.startsWith('look_');
       const occlusionData = state.predictions['look_forward'];
+      
       if (occlusionData) {
-        const direction = question.key.includes('forward') ? 'front' : 'left';
-        if (question.key.startsWith('look_')) {
+        if (isLooking) {
           prediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
         } else {
           prediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
         }
-      }
-    } else {
-      const pred = state.predictions[question.key];
-      if (pred && pred.length > 0) {
-        if (question.key === 'verbal') {
-          prediction = pred[0].trim() === 'True' ? 'Yes' : 'No';
-        } else if (question.key === 'bite_order') {
-          // For bite ordering, the prediction is an index into the choices array
-          // Make sure we use the latest metadata to get the correct options
-          const index = parseInt(pred[0].trim());
-          console.log(`Bite ordering prediction index: ${index}, options:`, options);
-          if (!isNaN(index) && index >= 0 && index < options.length) {
-            prediction = options[index];
-          } else {
-            // If index is invalid, try to get a valid option from metadata
-            const metadata = state.metadata[question.key];
-            if (metadata && metadata.choices && metadata.choices.length > 0) {
-              // Use the first choice as a fallback
-              prediction = metadata.choices[0];
-              console.log(`Using fallback bite ordering prediction: ${prediction}`);
-            }
-          }
-        } else {
-          prediction = pred[0];
-        }
+      } else {
+        prediction = 'No';
       }
     }
     
@@ -659,7 +442,7 @@ async function renderForm() {
     if (question.key === 'feeding_side') {
       label.innerHTML = `The robot is planning to feed you from the <span class="context">${prediction || 'left'}</span> side. Are you happy with this choice or would you like to choose another?`;
     } else if (question.key === 'bite_order') {
-      label.innerHTML = `The robot is planning to serve your food as follows: <span class="context">${prediction || 'alternating bites'}</span>. Are you happy with this choice or would you like to choose another?`;
+      label.innerHTML = `The robot is planning to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Are you happy with this choice or would you like to choose another?`;
     } else if (question.key === 'ready_signal') {
       label.innerHTML = `The robot is planning to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Are you happy with this choice or would you like to choose another?`;
     } else if (question.key === 'verbal') {
@@ -694,8 +477,6 @@ async function renderForm() {
           select.appendChild(option);
         }
       });
-    } else {
-      console.warn(`Options for ${question.key} is not an array:`, options);
     }
     
     // If we have metadata for this question, add it as a data attribute
@@ -872,15 +653,17 @@ const { answers } = getStateFromUrl();
 state.answers = answers;
 
 // Set up event listeners based on current page
-if (window.location.pathname.endsWith('meal.html')) {
-  document.getElementById('next-btn').addEventListener('click', handleNextClick);
-  showMeal();
-} else if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
-  // Handle the start button on the index page
-  document.getElementById('start-btn').addEventListener('click', () => {
-    navigateToMeal();
-  });
-}
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.location.pathname.endsWith('meal.html')) {
+    document.getElementById('next-btn').addEventListener('click', handleNextClick);
+    showMeal();
+  } else if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
+    // Handle the start button on the index page
+    document.getElementById('start-btn').addEventListener('click', () => {
+      navigateToMeal();
+    });
+  }
+});
 
 // Add browser back/forward button support
 window.addEventListener('popstate', () => {
