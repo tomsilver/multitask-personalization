@@ -392,19 +392,57 @@ async function loadPredictions(questionKey) {
 }
 
 async function loadCurrentMealInfo() {
-  // Load meal info from occlusion metadata
-  const occlusionPath = getContentPath('look_forward');
   try {
-    console.log('Attempting to load meal metadata:', occlusionPath); // Debug log
+    // Build a history-based path for meal info similar to how loadPredictions works
+    const previousOcclusionAnswers = [];
+    
+    // Check if we have occlusion-related answers from previous meals
+    // We need to gather all the relevant occlusion entries from previous meals
+    for (const mealAnswer of state.answers) {
+      if (mealAnswer.occlusion) {
+        // For occlusion questions, we want to capture the full occlusion state
+        // including relevant_pois and occluded_pois
+        previousOcclusionAnswers.push(mealAnswer.occlusion);
+      }
+    }
+    
+    let occlusionPath;
+    
+    if (previousOcclusionAnswers.length > 0) {
+      // Start with base path
+      const pathParts = ['content', 'occlusion'];
+      
+      // Create directories for each previous meal's occlusion state
+      // This will give us nested subdirectories based on meal history
+      for (const occlusionState of previousOcclusionAnswers) {
+        // Format the directory name using the same pattern as in getContentPath
+        const relevantPois = occlusionState.relevant_pois || [];
+        const occludedPois = occlusionState.occluded_pois || [];
+        
+        const relevantStr = relevantPois.length > 0 ? relevantPois.join('-') : 'none';
+        const occludedStr = occludedPois.length > 0 ? occludedPois.join('-') : 'none';
+        const occlusionDir = `${relevantStr}___${occludedStr}`;
+        
+        pathParts.push(occlusionDir);
+      }
+      
+      occlusionPath = pathParts.join('/');
+      console.log(`Using meal info path based on occlusion history: ${occlusionPath}`);
+    } else {
+      // If no previous occlusion answers, use standard getContentPath approach
+      occlusionPath = getContentPath('look_forward');
+    }
+    
+    console.log('Attempting to load meal metadata:', occlusionPath);
     const response = await fetch(`${occlusionPath}/metadata.json`);
     const metadata = await response.json();
-    console.log('Loaded meal metadata:', metadata); // Debug log
+    console.log('Loaded meal metadata:', metadata);
     
     // Create a descriptive meal context
     const foodItems = metadata.food_items.join(' and ');
     const dips = metadata.dips.join(' and ');
-    const context = metadata.context.replace('_', ' '); // Convert "personal" to "personal"
-    const tableType = metadata.table_type.replace('_', ' '); // Convert "rectangular_table" to "rectangular table"
+    const context = metadata.context.replace('_', ' ');
+    const tableType = metadata.table_type.replace('_', ' ');
     
     const description = `Imagine you are having a meal in a <span class="context">${context}</span> setting at a <span class="table-type">${tableType}</span>. 
     On your plate, you have <span class="food-items">${foodItems}</span>${dips ? ` with <span class="dips">${dips}</span> for dipping` : ''}. 
@@ -412,18 +450,45 @@ async function loadCurrentMealInfo() {
     
     state.currentMeal = {
       title: `Meal ${state.answers.length + 1} of 5`,
-      image: 'content/occlusion/bite_occlusion_image.png',
+      image: `${occlusionPath}/bite_occlusion_image.png`,
       description: description
     };
     
-    console.log('Final image path:', state.currentMeal.image); // Debug log
+    console.log('Final image path:', state.currentMeal.image);
   } catch (error) {
     console.error('Error loading meal info:', error);
-    state.currentMeal = {
-      title: `Meal ${state.answers.length + 1} of 5`,
-      image: 'content/occlusion/bite_occlusion_image.png',
-      description: "Please answer the following questions about this meal scenario."
-    };
+    
+    // Try fallback to standard path if history-based path fails
+    try {
+      const standardPath = getContentPath('look_forward');
+      console.log('Trying fallback path for meal info:', standardPath);
+      
+      const response = await fetch(`${standardPath}/metadata.json`);
+      const metadata = await response.json();
+      
+      // Create a descriptive meal context
+      const foodItems = metadata.food_items.join(' and ');
+      const dips = metadata.dips.join(' and ');
+      const context = metadata.context.replace('_', ' ');
+      const tableType = metadata.table_type.replace('_', ' ');
+      
+      const description = `Imagine you are having a meal in a <span class="context">${context}</span> setting at a <span class="table-type">${tableType}</span>. 
+      On your plate, you have <span class="food-items">${foodItems}</span>${dips ? ` with <span class="dips">${dips}</span> for dipping` : ''}. 
+      Please answer the following questions about this meal scenario.`;
+      
+      state.currentMeal = {
+        title: `Meal ${state.answers.length + 1} of 5`,
+        image: `${standardPath}/bite_occlusion_image.png`,
+        description: description
+      };
+    } catch (fallbackError) {
+      console.error('Fallback also failed for meal info:', fallbackError);
+      state.currentMeal = {
+        title: `Meal ${state.answers.length + 1} of 5`,
+        image: 'content/occlusion/bite_occlusion_image.png',
+        description: "Please answer the following questions about this meal scenario."
+      };
+    }
   }
 }
 
