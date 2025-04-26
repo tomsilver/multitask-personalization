@@ -547,16 +547,16 @@ async function renderPredictionSummary() {
   // Check if left occlusion should be shown
   const showLeftOcclusion = await isLeftOcclusionEnabled();
 
-  // Filter questions if left occlusion is disabled
-  const questionsToShow = showLeftOcclusion ? 
-    QUESTIONS : 
-    QUESTIONS.filter(q => !q.key.includes('left'));
+  // Filter out occlusion-related questions from the summary table
+  // But keep all questions for the details page
+  const questionsToShow = QUESTIONS.filter(q => !q.key.startsWith('look_') && !q.key.startsWith('block_'));
   
   // Clear option values for this meal
   optionValues.optionA = {};
   optionValues.optionB = {};
   
-  for (const question of questionsToShow) {
+  // Still process all questions so option values are populated correctly
+  for (const question of QUESTIONS) {
     const options = await getOptionsForQuestion(question.key);
     // Get the default option (first in the list)
     const defaultOption = options.length > 0 ? options[0] : "None";
@@ -603,6 +603,19 @@ async function renderPredictionSummary() {
       }
     }
     
+    // Determine which option goes in which column based on current meal's randomization
+    const optionA = isOptionAPersonalized ? formattedPrediction : defaultOption;
+    const optionB = isOptionAPersonalized ? defaultOption : formattedPrediction;
+    
+    // Store these values in our global option values map - for ALL questions
+    optionValues.optionA[question.key] = optionA;
+    optionValues.optionB[question.key] = optionB;
+    
+    // Skip rendering occlusion questions in the table
+    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      continue;
+    }
+    
     const row = document.createElement("tr");
     row.style.borderBottom = "1px solid #eee";
     
@@ -610,14 +623,6 @@ async function renderPredictionSummary() {
     questionCell.textContent = question.text;
     questionCell.style.padding = "0.75rem";
     row.appendChild(questionCell);
-    
-    // Determine which option goes in which column based on current meal's randomization
-    const optionA = isOptionAPersonalized ? formattedPrediction : defaultOption;
-    const optionB = isOptionAPersonalized ? defaultOption : formattedPrediction;
-    
-    // Store these values in our global option values map
-    optionValues.optionA[question.key] = optionA;
-    optionValues.optionB[question.key] = optionB;
     
     const optionACell = document.createElement("td");
     optionACell.textContent = optionA || "No option";
@@ -895,6 +900,7 @@ async function renderForm() {
   }
 }
 
+// Original addPreferenceRating function - kept for the details page
 async function addPreferenceRating(form) {
   console.log("Adding preference rating to form");
   
@@ -1224,10 +1230,8 @@ async function showMealPreferences() {
   await loadCurrentContent();
   
   const mealTitle = document.getElementById("meal-title");
-  const mealImg = document.getElementById("meal-img");
   
   mealTitle.textContent = state.currentMeal.title;
-  mealImg.src = state.currentMeal.image;
   
   // Create a styled container for the meal description
   const descContainer = document.createElement("div");
@@ -1259,13 +1263,84 @@ async function showMealPreferences() {
   // Add the description to the container
   descContainer.appendChild(mealDesc);
   
-  // Insert the container after the image
+  // Insert the container after the title
   const mealSection = document.querySelector('section');
-  mealImg.parentNode.insertBefore(descContainer, mealImg.nextSibling);
+  mealTitle.parentNode.insertBefore(descContainer, mealTitle.nextSibling);
   
-  // Add only the summary and preference rating to the form
+  // Add the form with placeholder for preference rating
   await renderPreferencesForm();
+  
+  // Add the summary table
   await renderPredictionSummary();
+  
+  // Now add the image options container after the summary table
+  const form = document.getElementById("preferences-form");
+  const summaryTable = form.querySelector(".prediction-summary");
+  
+  // Create container for the option images
+  const optionImagesContainer = document.createElement("div");
+  optionImagesContainer.style.display = "flex";
+  optionImagesContainer.style.justifyContent = "space-between";
+  optionImagesContainer.style.gap = "2rem";
+  optionImagesContainer.style.margin = "2rem 0";
+  
+  // Option A Image Container
+  const optionAContainer = document.createElement("div");
+  optionAContainer.style.flex = "1";
+  optionAContainer.style.textAlign = "center";
+  
+  // Option A Heading
+  const optionAHeading = document.createElement("h3");
+  optionAHeading.textContent = "Option A";
+  optionAHeading.style.marginBottom = "1rem";
+  optionAHeading.style.color = "#1a73e8";
+  optionAContainer.appendChild(optionAHeading);
+  
+  // Option A Image
+  const optionAImage = document.createElement("img");
+  optionAImage.src = state.currentMeal.image;
+  optionAImage.alt = "Option A Preview";
+  optionAImage.style.width = "100%";
+  optionAImage.style.maxWidth = "300px";
+  optionAImage.style.border = "2px solid #1a73e8";
+  optionAImage.style.borderRadius = "8px";
+  optionAContainer.appendChild(optionAImage);
+  
+  // Option B Image Container
+  const optionBContainer = document.createElement("div");
+  optionBContainer.style.flex = "1";
+  optionBContainer.style.textAlign = "center";
+  
+  // Option B Heading
+  const optionBHeading = document.createElement("h3");
+  optionBHeading.textContent = "Option B";
+  optionBHeading.style.marginBottom = "1rem";
+  optionBHeading.style.color = "#1a73e8";
+  optionBContainer.appendChild(optionBHeading);
+  
+  // Option B Image
+  const optionBImage = document.createElement("img");
+  optionBImage.src = state.currentMeal.image; // Using the same image for now
+  optionBImage.alt = "Option B Preview";
+  optionBImage.style.width = "100%";
+  optionBImage.style.maxWidth = "300px";
+  optionBImage.style.border = "2px solid #1a73e8";
+  optionBImage.style.borderRadius = "8px";
+  optionBContainer.appendChild(optionBImage);
+  
+  // Add both option containers to the main container
+  optionImagesContainer.appendChild(optionAContainer);
+  optionImagesContainer.appendChild(optionBContainer);
+  
+  // Insert after the summary table
+  if (summaryTable && summaryTable.nextSibling) {
+    form.insertBefore(optionImagesContainer, summaryTable.nextSibling);
+  } else {
+    form.appendChild(optionImagesContainer);
+  }
+  
+  // Finally, add the preference rating after the images
+  await addPreferenceRatingAfterImages();
 }
 
 async function showMealDetails() {
@@ -1321,8 +1396,11 @@ async function renderPreferencesForm() {
   const form = document.getElementById("preferences-form");
   form.innerHTML = ""; // Clear existing content
   
-  // Add preference rating at the beginning of the form
-  await addPreferenceRating(form);
+  // We'll add the preference rating after the renderPredictionSummary and image options are added
+  // This creates a placeholder div that we'll populate later
+  const preferenceRatingPlaceholder = document.createElement("div");
+  preferenceRatingPlaceholder.id = "preference-rating-container";
+  form.appendChild(preferenceRatingPlaceholder);
   
   // Check if we have a saved temporary preference rating
   if (state.tempPreferenceRating) {
@@ -1332,6 +1410,99 @@ async function renderPreferencesForm() {
       checkPreferenceFormCompletion();
     }
   }
+}
+
+// Updated function to add preference rating in the correct position
+async function addPreferenceRatingAfterImages() {
+  console.log("Adding preference rating after images");
+  
+  // Find the placeholder
+  const ratingContainer = document.getElementById("preference-rating-container");
+  if (!ratingContainer) return;
+  
+  // Add preference rating question
+  const ratingDiv = document.createElement("div");
+  ratingDiv.className = "preference-rating";
+  ratingDiv.style.marginTop = "2.5rem";
+  ratingDiv.style.marginBottom = "2.5rem";
+  ratingDiv.style.padding = "1.25rem";
+  ratingDiv.style.border = "1px solid #d0d0d0";
+  ratingDiv.style.borderRadius = "6px";
+  ratingDiv.style.backgroundColor = "#f5f8ff";
+  ratingDiv.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+  
+  // Create title for the rating section
+  const ratingTitle = document.createElement("h3");
+  ratingTitle.style.marginTop = "0";
+  ratingTitle.style.marginBottom = "0.75rem";
+  ratingTitle.style.fontSize = "1.25rem";
+  
+  let ratingText = "";
+  ratingTitle.textContent = "Compare Options";
+  ratingText = "To what extent do you prefer Option A or Option B for this meal?";
+  
+  ratingDiv.appendChild(ratingTitle);
+  
+  const ratingLabel = document.createElement("p");
+  ratingLabel.htmlFor = "preference_rating";
+  ratingLabel.innerHTML = ratingText;
+  ratingLabel.className = "meal-context";
+  ratingLabel.style.fontSize = "1.05rem";
+  ratingLabel.style.marginBottom = "1rem";
+  
+  // Create rating select dropdown
+  const ratingSelect = document.createElement("select");
+  ratingSelect.id = "preference_rating";
+  ratingSelect.name = "preference_rating";
+  ratingSelect.style.width = "100%";
+  ratingSelect.style.padding = "0.75rem";
+  ratingSelect.style.marginTop = "0.5rem";
+  ratingSelect.style.fontSize = "1.1rem";
+  ratingSelect.style.border = "1px solid #ccc";
+  ratingSelect.style.borderRadius = "4px";
+  ratingSelect.style.backgroundColor = "#fff";
+
+  // Define the descriptive rating options
+  const ratingOptions = [
+    { value: "1", text: "1: Strongly prefer Option A" },
+    { value: "2", text: "2: Prefer Option A" },
+    { value: "3", text: "3: Somewhat prefer Option A" },
+    { value: "4", text: "4: Neutral" },
+    { value: "5", text: "5: Somewhat prefer Option B" },
+    { value: "6", text: "6: Prefer Option B" },
+    { value: "7", text: "7: Strongly prefer Option B" }
+  ];
+
+  // Add empty default option
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Select your preference...";
+  ratingSelect.appendChild(defaultOption);
+
+  // Add all rating options with descriptive text
+  ratingOptions.forEach(optionData => {
+    const option = document.createElement("option");
+    option.value = optionData.value;
+    option.textContent = optionData.text;
+    ratingSelect.appendChild(option);
+  });
+  
+  ratingSelect.addEventListener("change", checkPreferenceFormCompletion);
+  
+  ratingDiv.appendChild(ratingLabel);
+  ratingDiv.appendChild(ratingSelect);
+  
+  // Replace the placeholder with the actual rating div
+  ratingContainer.parentNode.replaceChild(ratingDiv, ratingContainer);
+  
+  // Set value if we have a saved temp rating
+  if (state.tempPreferenceRating) {
+    ratingSelect.value = state.tempPreferenceRating;
+    checkPreferenceFormCompletion();
+  }
+  
+  // Debug log
+  console.log("Preference rating added, form now has", document.querySelectorAll("select").length, "select elements");
 }
 
 // Function to create just the detailed preference questions form
