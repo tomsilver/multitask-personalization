@@ -152,6 +152,7 @@ function getContentPath(questionKey) {
     }
   }
 
+  console.log("Content path for", questionKey, ":", pathParts.join('/'));
   return pathParts.join('/');
 }
 
