@@ -440,6 +440,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 if not poi_is_relevant:
                     return True
                 score = self._get_drink_occlusion_score(drink_position, occlusion_poi)
+                # if score is not None:
+                #     input(f"Computed drink occlusion score for {occlusion_poi} to be {score:.3f} and threshold {1.0 - occlusion_scale:.3f}. Press enter to continue.")
                 return score is not None and score < 1.0 - occlusion_scale
             
             for poi, occlusion_poi_var in poi_to_occlusion_var.items():
@@ -690,14 +692,14 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
     def _get_drink_occlusion_score(self, drink_position: NDArray[np.float32], point_of_interest: str) -> float | None:
         set_pose(self._sim.get_object_id_from_name("utensil"), BANISH_POSE, self._sim.physics_client_id)
         new_drink_pose = _drink_position_to_pose(drink_position, self._sim.scene_spec.drink_default_pose)
-        drink_post_grasp_pose = _transform_pose_relative_to_drink(
-            "drink_default_post_grasp_pose", new_drink_pose, self._sim.scene_spec
-        )
-        # from pybullet_helpers.gui import visualize_pose
-        # visualize_pose(new_drink_pose, self._sim.physics_client_id)
+        field_name = "drink_staging_pos"
         try:
-            robot_joints = inverse_kinematics(
-                self._sim.robot, drink_post_grasp_pose
+            robot_joints = _transform_joints_relative_to_drink(
+                field_name,
+                new_drink_pose,
+                self._sim.robot,
+                self._sim.scene_spec,
+                arm_joints_only=False,
             )
         except InverseKinematicsError:
             print("WARNING: IK failed within _user_view_unoccluded_by_drink()")

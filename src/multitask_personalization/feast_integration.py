@@ -72,7 +72,7 @@ class MultitaskPersonalizationFeastInterface:
         # set_pose(self._sim.plate_id, self._sim.scene_spec.plate_default_pose, self._sim.physics_client_id)
         # self._sim.robot.set_joints(self._sim.scene_spec.drink_staging_pos + [0, 0, 0, 0, 0, 0])
         # # self._sim.robot.set_joints(self._sim.scene_spec.above_plate_pos + [0, 0, 0, 0, 0, 0])
-        # staging_ee_pose = Pose(position=(0.610370934009552, 0.2644931674003601, 0.45), orientation=(0.051774267107248306, 0.7472606897354126, 0.6601858139038086, 0.05545796826481819))
+        # staging_ee_pose = Pose(position=(0.610370934009552, 0.2644931674003601, 0.45), orientation=(0, -0.7071068, -0.7071068, 0))
         # try:
         #     robot_joints = inverse_kinematics(
         #         self._sim.robot, staging_ee_pose

@@ -165,7 +165,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # Table.
-    table_half_extents: tuple[float, float, float] = (0.35, 0.4, 0.001)
+    table_half_extents: tuple[float, float, float] = (0.4, 0.4, 0.001)
     # table_radius: float = 1.2/2
 
     # Plate.
@@ -189,15 +189,15 @@ class FeedingSceneSpec(PublicSceneSpec):
     occlusion_grid_delta_r_front: float = 0.3
     occlusion_grid_delta_c_front: float = 0.15
     occlusion_grid_delta_r_side: float = 0.03
-    occlusion_grid_delta_c_side: float = 0.075
+    occlusion_grid_delta_c_side: float = 0.25
     occlusion_max_ray_length: float = 4.0
     occlusion_alpha: float = 1.0
     occlusion_sigma: NDArray = np.eye(2)
     occlusion_points_of_interest: dict[str, Pose3D] = field(
         default_factory=lambda: {
         "front": (10.0, 0.4, 0.05),
-        "left": (10.0, 4.2, 0.4),
-        "right": (10.0, -4.2, 0.4),
+        "left": (10.0, 4.2, 0.0),
+        "right": (10.0, -4.2, 0.0),
     })
 
     # This is redundant, but it's convenient for the CSP solver.
