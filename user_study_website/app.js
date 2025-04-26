@@ -408,6 +408,45 @@ async function getOptionsForQuestion(questionKey) {
   return INITIAL_OPTIONS[questionKey];
 }
 
+/**
+ * Checks if left-side occlusion is enabled for the current meal
+ * @returns {boolean} True if left-side occlusion is enabled, false otherwise
+ */
+async function isLeftOcclusionEnabled() {
+  try {
+    // Get the content path for occlusion
+    const contentPath = getContentPath('look_forward');
+    
+    // Directly load the metadata for occlusion
+    const response = await fetch(`${contentPath}/metadata.json`);
+    if (!response.ok) {
+      console.error(`HTTP error loading occlusion metadata: ${response.status} ${response.statusText}`);
+      return false;
+    }
+    
+    const text = await response.text();
+    if (!text.trim()) {
+      console.error('Empty occlusion metadata file');
+      return false;
+    }
+    
+    const metadata = JSON.parse(text);
+    
+    // Check if the metadata includes left occlusion
+    // We'll look for the 'occlusion_options' property that should include 'left'
+    if (metadata.choices && metadata.choices.includes('left')) {
+      console.log('Left occlusion is enabled for this meal');
+      return true;
+    }
+    
+    console.log('Left occlusion is disabled for this meal');
+    return false;
+  } catch (error) {
+    console.error('Error checking if left occlusion is enabled:', error);
+    return false; // Default to not showing left occlusion on error
+  }
+}
+
 async function renderForm() {
   const form = document.getElementById("questions-form");
   form.innerHTML = ""; // Clear existing questions
@@ -432,7 +471,15 @@ async function renderForm() {
   sectionDesc.style.marginBottom = "0.5rem";
   form.appendChild(sectionDesc);
   
-  for (const question of QUESTIONS) {
+  // Check if left occlusion should be shown
+  const showLeftOcclusion = await isLeftOcclusionEnabled();
+
+  // Filter questions if left occlusion is disabled
+  const questionsToShow = showLeftOcclusion ? 
+    QUESTIONS : 
+    QUESTIONS.filter(q => !q.key.includes('left'));
+  
+  for (const question of questionsToShow) {
     const options = await getOptionsForQuestion(question.key);
     
     const wrapper = document.createElement("div");
@@ -731,7 +778,15 @@ async function renderPredictionSummary() {
   // Add table body
   const tbody = document.createElement("tbody");
   
-  for (const question of QUESTIONS) {
+  // Check if left occlusion should be shown
+  const showLeftOcclusion = await isLeftOcclusionEnabled();
+
+  // Filter questions if left occlusion is disabled
+  const questionsToShow = showLeftOcclusion ? 
+    QUESTIONS : 
+    QUESTIONS.filter(q => !q.key.includes('left'));
+  
+  for (const question of questionsToShow) {
     const options = await getOptionsForQuestion(question.key);
     // Get the default option (first in the list)
     const defaultOption = options.length > 0 ? options[0] : "None";
@@ -905,8 +960,26 @@ async function collectAnswers() {
   // Store which option is personalized to interpret ratings correctly
   answers.isOptionAPersonalized = state.optionMappings[state.answers.length];
   
-  for (const question of QUESTIONS) {
+  // Check if left occlusion is enabled
+  const showLeftOcclusion = await isLeftOcclusionEnabled();
+  
+  // Filter questions if left occlusion is disabled
+  const questionsToCollect = showLeftOcclusion ? 
+    QUESTIONS : 
+    QUESTIONS.filter(q => !q.key.includes('left'));
+  
+  // Initialize occlusion structure if any occlusion questions exist
+  if (questionsToCollect.some(q => q.key.startsWith('look_') || q.key.startsWith('block_'))) {
+    answers.occlusion = {
+      relevant_pois: [],
+      occluded_pois: []
+    };
+  }
+  
+  for (const question of questionsToCollect) {
     const select = form.querySelector(`select[name="${question.key}"]`);
+    if (!select) continue; // Skip if the select doesn't exist (might be filtered out)
+    
     const value = select.value;
     
     // Handle special cases for storing answers
@@ -922,14 +995,6 @@ async function collectAnswers() {
       // For occlusion questions, we need to update the prediction.json structure
       const direction = question.key.includes('forward') ? 'front' : 'left';
       const isLooking = question.key.startsWith('look_');
-      
-      // Get or create the occlusion data
-      if (!answers.occlusion) {
-        answers.occlusion = {
-          relevant_pois: [],
-          occluded_pois: []
-        };
-      }
       
       // Update the appropriate list based on the answer
       if (value === 'Yes') {
@@ -952,6 +1017,20 @@ async function collectAnswers() {
         metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
       };
     }
+  }
+  
+  // If left occlusion is disabled, explicitly set left-related values to null
+  // This ensures consistency in the data structure
+  if (!showLeftOcclusion) {
+    answers.look_left = {
+      value: null,
+      metadata: null
+    };
+    
+    answers.block_left = {
+      value: null,
+      metadata: null
+    };
   }
   
   return answers;
