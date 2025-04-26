@@ -21,7 +21,7 @@ const QUESTIONS = [
   },
   {
     key: "verbal",
-    text: "Would you like the robot to be verbal?",
+    text: "Would you like the robot to be verbal during this meal?",
     contentDir: "be_verbal"
   },
   {
@@ -299,7 +299,54 @@ function renderForm() {
     
     const label = document.createElement("label");
     label.setAttribute("for", question.key);
-    label.textContent = question.text;
+    label.className = 'meal-context';
+    
+    // Get the prediction for this question
+    let prediction;
+    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      const occlusionData = state.predictions['look_forward'];
+      if (occlusionData) {
+        const direction = question.key.includes('forward') ? 'front' : 'left';
+        if (question.key.startsWith('look_')) {
+          prediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
+        } else {
+          prediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
+        }
+      }
+    } else {
+      const pred = state.predictions[question.key];
+      if (pred && pred.length > 0) {
+        if (question.key === 'verbal') {
+          prediction = pred[0].trim() === 'True' ? 'Yes' : 'No';
+        } else if (question.key === 'bite_order') {
+          const index = parseInt(pred[0].trim());
+          if (!isNaN(index) && index >= 0 && index < options.length) {
+            prediction = options[index];
+          }
+        } else {
+          prediction = pred[0];
+        }
+      }
+    }
+    
+    // Create the question text based on the type
+    if (question.key === 'feeding_side') {
+      label.innerHTML = `The robot is planning to feed you from the <span class="context">${prediction || 'left'}</span> side. Are you happy with this choice or would you like to choose another?`;
+    } else if (question.key === 'bite_order') {
+      label.innerHTML = `The robot is planning to serve your food as follows: <span class="context">${prediction || 'alternating bites'}</span>. Are you happy with this choice or would you like to choose another?`;
+    } else if (question.key === 'ready_signal') {
+      label.innerHTML = `The robot is planning to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Are you happy with this choice or would you like to choose another?`;
+    } else if (question.key === 'verbal') {
+      label.innerHTML = `Would you like the robot to be verbal?`;
+    } else if (question.key.startsWith('look_')) {
+      const direction = question.key.includes('forward') ? 'forward' : 'left';
+      label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
+    } else if (question.key.startsWith('block_')) {
+      const direction = question.key.includes('forward') ? 'forward' : 'left';
+      label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">${direction}</span> sight?`;
+    } else {
+      label.textContent = question.text;
+    }
     
     const select = document.createElement("select");
     select.id = question.key;
@@ -332,40 +379,8 @@ function renderForm() {
     }
     
     // Pre-select the predicted option if available
-    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
-      // For occlusion questions, use prediction.json data
-      const occlusionData = state.predictions['look_forward']; // All occlusion questions share the same data
-      
-      if (occlusionData) {
-        const direction = question.key.includes('forward') ? 'front' : 'left';
-        
-        if (question.key.startsWith('look_')) {
-          // For "Would you typically be looking..." questions
-          const shouldLook = occlusionData.relevant_pois.includes(direction);
-          select.value = shouldLook ? 'Yes' : 'No';
-        } else {
-          // For "Is the robot uncomfortably blocking..." questions
-          const isBlocked = occlusionData.occluded_pois.includes(direction);
-          select.value = isBlocked ? 'Yes' : 'No';
-        }
-      }
-    } else {
-      const prediction = state.predictions[question.key];
-      if (prediction && prediction.length > 0) {
-        if (question.key === 'verbal') {
-          // For verbal, convert True/False to Yes/No
-          const predictedValue = prediction[0].trim();
-          select.value = predictedValue === 'True' ? 'Yes' : 'No';
-        } else if (question.key === 'bite_order') {
-          // For bite_order, use prediction as an index into the choices array
-          const predictedIndex = parseInt(prediction[0].trim());
-          if (!isNaN(predictedIndex) && predictedIndex >= 0 && predictedIndex < options.length) {
-            select.value = options[predictedIndex];
-          }
-        } else {
-          select.value = prediction[0];
-        }
-      }
+    if (prediction) {
+      select.value = prediction;
     }
     
     select.addEventListener("change", checkFormCompletion);
