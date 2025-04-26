@@ -773,7 +773,7 @@ async function renderPredictionSummary() {
     if (Array.isArray(prediction)) {
       prediction = prediction[0];
     }
-    
+
     // Format prediction for display
     let formattedPrediction = prediction;
     
@@ -808,6 +808,11 @@ async function renderPredictionSummary() {
           formattedPrediction = isLooking && direction === 'front' ? 'Yes' : 'No';
         }
       }
+    }
+
+    // If this is the first meal, use the default option
+    if (state.answers.length === 0) {
+      formattedPrediction = defaultOption;
     }
     
     // Determine which option goes in which column based on current meal's randomization
