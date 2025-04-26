@@ -695,7 +695,7 @@ async function renderPredictionSummary() {
   
   // Option A Image
   const optionAImage = document.createElement("img");
-  optionAImage.src = state.currentMeal.image;
+  optionAImage.src = isOptionAPersonalized ? state.currentMeal.image : `content/default_meal_images/meal${state.answers.length + 1}.png`;
   optionAImage.alt = "Option A Preview";
   optionAImage.style.width = "100%";
   optionAImage.style.maxWidth = "280px";
@@ -717,7 +717,7 @@ async function renderPredictionSummary() {
   
   // Option B Image
   const optionBImage = document.createElement("img");
-  optionBImage.src = state.currentMeal.image; // Using the same image for now
+  optionBImage.src = isOptionAPersonalized ? `content/default_meal_images/meal${state.answers.length + 1}.png` : state.currentMeal.image;
   optionBImage.alt = "Option B Preview";
   optionBImage.style.width = "100%";
   optionBImage.style.maxWidth = "280px";
