@@ -585,7 +585,7 @@ async function addPreferenceRating(form) {
   
   let ratingText = "";
   ratingTitle.textContent = "Evaluate Personalization";
-  ratingText = "To what extent do you prefer the default or the personalized choices overall? (1 = default is best, 4 = neutral, 7 = personalized is best)";
+  ratingText = "To what extent do you prefer the default or the personalized choices overall?";
   
   ratingDiv.appendChild(ratingTitle);
   
@@ -606,21 +606,21 @@ async function addPreferenceRating(form) {
   ratingDesc1.style.textAlign = "left";
   ratingDesc1.style.fontSize = "0.9rem";
   ratingDesc1.style.color = "#555";
-  ratingDesc1.innerHTML = state.answers.length === 0 ? "" : "<strong>1</strong>: Not at all personalized";
+  ratingDesc1.innerHTML = "<strong>1</strong>: Default is best";
   
   const ratingDesc2 = document.createElement("div");
   ratingDesc2.style.flex = "1";
   ratingDesc2.style.textAlign = "center";
   ratingDesc2.style.fontSize = "0.9rem";
   ratingDesc2.style.color = "#555";
-  ratingDesc2.innerHTML = state.answers.length === 0 ? "" : "<strong>4</strong>: Moderately personalized";
+  ratingDesc2.innerHTML = "<strong>4</strong>: Neutral";
   
   const ratingDesc3 = document.createElement("div");
   ratingDesc3.style.flex = "1";
   ratingDesc3.style.textAlign = "right";
   ratingDesc3.style.fontSize = "0.9rem";
   ratingDesc3.style.color = "#555";
-  ratingDesc3.innerHTML = state.answers.length === 0 ? "" : "<strong>7</strong>: Perfectly personalized";
+  ratingDesc3.innerHTML = "<strong>7</strong>: Personalized is best";
   
   ratingScale.appendChild(ratingDesc1);
   ratingScale.appendChild(ratingDesc2);
@@ -651,9 +651,7 @@ async function addPreferenceRating(form) {
   ratingSelect.addEventListener("change", checkFormCompletion);
   
   ratingDiv.appendChild(ratingLabel);
-  if (state.answers.length > 0) {
-    ratingDiv.appendChild(ratingScale);
-  }
+  ratingDiv.appendChild(ratingScale);
   ratingDiv.appendChild(ratingSelect);
   
   // Add to the form
