@@ -961,6 +961,21 @@ async function showMealPreferences() {
     scenarioHeading.style.color = "#333";
     descContainer.appendChild(scenarioHeading);
     
+    // Create the meal image element
+    const mealImage = document.createElement("img");
+    const mealNumber = state.currentMeal.title.match(/\d+/)[0]; // Extract meal number
+    mealImage.src = `content/before_meal_images/meal${mealNumber}.png`;
+    mealImage.alt = `Meal ${mealNumber} scenario`;
+    mealImage.style.width = "100%";
+    mealImage.style.maxWidth = "600px";
+    mealImage.style.display = "block";
+    mealImage.style.margin = "0 auto 1rem auto";
+    mealImage.style.borderRadius = "4px";
+    mealImage.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+    
+    // Add the image to the container
+    descContainer.appendChild(mealImage);
+    
     // Create the meal description element
     const mealDesc = document.createElement("p");
     mealDesc.id = "meal-desc";
@@ -1022,6 +1037,21 @@ async function showMealDetails() {
     scenarioHeading.style.marginBottom = "0.75rem";
     scenarioHeading.style.color = "#333";
     descContainer.appendChild(scenarioHeading);
+    
+    // Create the meal image element
+    const mealImage = document.createElement("img");
+    const mealNumber = state.currentMeal.title.match(/\d+/)[0]; // Extract meal number
+    mealImage.src = `content/before_meal_images/meal${mealNumber}.png`;
+    mealImage.alt = `Meal ${mealNumber} scenario`;
+    mealImage.style.width = "100%";
+    mealImage.style.maxWidth = "600px";
+    mealImage.style.display = "block";
+    mealImage.style.margin = "0 auto 1rem auto";
+    mealImage.style.borderRadius = "4px";
+    mealImage.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+    
+    // Add the image to the container
+    descContainer.appendChild(mealImage);
     
     // Create the meal description element
     const mealDesc = document.createElement("p");
