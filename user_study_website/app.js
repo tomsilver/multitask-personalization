@@ -926,11 +926,17 @@ async function renderForm() {
     } else if (question.key === 'verbal') {
       label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
     } else if (question.key.startsWith('look_')) {
-      const direction = question.key.includes('forward') ? 'forward' : 'left';
-      label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
+      if (question.key === 'look_left') {
+        label.innerHTML = `Would you typically be looking <span class="context">slightly left</span> during this meal?`;
+      } else {
+        label.innerHTML = `Would you typically be looking <span class="context">forward</span> during this meal?`;
+      }
     } else if (question.key.startsWith('block_')) {
-      const direction = question.key.includes('forward') ? 'forward' : 'left';
-      label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">${direction}</span> sight?`;
+      if (question.key === 'block_left') {
+        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">leftward</span> sight?`;
+      } else {
+        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">forward</span> sight?`;
+      }
     } else {
       label.textContent = question.text;
     }
@@ -1624,11 +1630,17 @@ async function renderDetailsForm(descContainer, mealImg) {
     } else if (question.key === 'verbal') {
       label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
     } else if (question.key.startsWith('look_')) {
-      const direction = question.key.includes('forward') ? 'forward' : 'left';
-      label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
+      if (question.key === 'look_left') {
+        label.innerHTML = `Would you typically be looking <span class="context">slightly left</span> during this meal?`;
+      } else {
+        label.innerHTML = `Would you typically be looking <span class="context">forward</span> during this meal?`;
+      }
     } else if (question.key.startsWith('block_')) {
-      const direction = question.key.includes('forward') ? 'forward' : 'left';
-      label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">${direction}</span> sight?`;
+      if (question.key === 'block_left') {
+        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">leftward</span> sight?`;
+      } else {
+        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">forward</span> sight?`;
+      }
     } else {
       label.textContent = question.text;
     }
