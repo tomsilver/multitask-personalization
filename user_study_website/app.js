@@ -1214,15 +1214,15 @@ async function renderDetailsForm(descContainer, mealImg) {
       label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
     } else if (question.key.startsWith('look_')) {
       if (question.key === 'look_left') {
-        label.innerHTML = `Would you typically be looking <span class="context">slightly left</span> during this meal?`;
+        label.innerHTML = `Would you sometimes be looking <span class="context">slightly left</span> during this meal?`;
       } else {
-        label.innerHTML = `Would you typically be looking <span class="context">forward</span> during this meal?`;
+        label.innerHTML = `Would you sometimes be looking <span class="context">forward</span> during this meal?`;
       }
     } else if (question.key.startsWith('block_')) {
       if (question.key === 'block_left') {
-        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">leftward</span> sight?`;
+        label.innerHTML = `Would the robot be uncomfortably blocking your view when you are looking <span class="context">slightly left</span>?`;
       } else {
-        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">forward</span> sight?`;
+        label.innerHTML = `Would the robot be uncomfortably blocking your view when you are looking <span class="context">forward</span>?`;
       }
     } else {
       label.textContent = question.text;
