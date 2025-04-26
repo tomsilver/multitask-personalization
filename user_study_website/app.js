@@ -96,7 +96,7 @@ function hide(el) {
  */
 function generateTestUrl(answers) {
   const encodedAnswers = encodeURIComponent(JSON.stringify(answers));
-  return `meal.html?answers=${encodedAnswers}`;
+  return `meal-preferences.html?answers=${encodedAnswers}`;
 }
 
 /**
