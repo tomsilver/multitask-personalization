@@ -405,6 +405,9 @@ async function renderForm() {
   const form = document.getElementById("questions-form");
   form.innerHTML = ""; // Clear existing questions
   
+  // Add preference rating at the beginning of the form
+  await addPreferenceRating(form);
+  
   for (const question of QUESTIONS) {
     const options = await getOptionsForQuestion(question.key);
     
@@ -518,6 +521,92 @@ async function renderForm() {
     wrapper.appendChild(select);
     form.appendChild(wrapper);
   }
+}
+
+async function addPreferenceRating(form) {
+  console.log("Adding preference rating to form");
+  
+  // Add preference rating question
+  const ratingDiv = document.createElement("div");
+  ratingDiv.className = "preference-rating";
+  ratingDiv.style.marginBottom = "2.5rem";
+  ratingDiv.style.padding = "1rem";
+  ratingDiv.style.border = "1px solid #ccc";
+  ratingDiv.style.borderRadius = "5px";
+  ratingDiv.style.backgroundColor = "#f9f9f9";
+  
+  // Use different wording based on whether this is the first meal
+  let ratingText = "";
+  if (state.answers.length === 0) {
+    ratingText = "<strong>For this first meal, please select the middle option (4).</strong>";
+  } else {
+    ratingText = "<strong>On a scale from 1 to 7, how much do you prefer the personalized choices over the default choices?</strong>";
+  }
+  
+  const ratingLabel = document.createElement("label");
+  ratingLabel.htmlFor = "preference_rating";
+  ratingLabel.innerHTML = ratingText;
+  ratingLabel.className = "meal-context";
+  ratingLabel.style.fontSize = "1.1rem";
+  ratingLabel.style.display = "block";
+  ratingLabel.style.marginBottom = "0.75rem";
+  
+  const ratingDescription = document.createElement("div");
+  ratingDescription.className = "rating-description";
+  ratingDescription.innerHTML = "<span>1 = Strongly prefer default</span><span>4 = No preference</span><span>7 = Strongly prefer personalized</span>";
+  ratingDescription.style.display = "flex";
+  ratingDescription.style.justifyContent = "space-between";
+  ratingDescription.style.margin = "0.5rem 0";
+  ratingDescription.style.fontSize = "0.9rem";
+  ratingDescription.style.color = "#555";
+  
+  const ratingSelect = document.createElement("select");
+  ratingSelect.id = "preference_rating";
+  ratingSelect.name = "preference_rating";
+  ratingSelect.style.width = "100%";
+  ratingSelect.style.padding = "0.5rem";
+  ratingSelect.style.marginTop = "0.5rem";
+  ratingSelect.style.fontSize = "1rem";
+  ratingSelect.style.border = "1px solid #ccc";
+  ratingSelect.style.borderRadius = "4px";
+  
+  // For first meal, only provide option 4
+  if (state.answers.length === 0) {
+    const option = document.createElement("option");
+    option.value = "4";
+    option.textContent = "4 (No preference)";
+    ratingSelect.appendChild(option);
+    ratingSelect.value = "4";
+  } else {
+    // Add default empty option
+    const defaultRatingOption = document.createElement("option");
+    defaultRatingOption.value = "";
+    defaultRatingOption.textContent = "Select a rating...";
+    ratingSelect.appendChild(defaultRatingOption);
+    
+    // Add rating options 1-7
+    for (let i = 1; i <= 7; i++) {
+      const option = document.createElement("option");
+      option.value = i.toString();
+      option.textContent = i.toString();
+      ratingSelect.appendChild(option);
+    }
+    
+    // Pre-select the middle value (4 = no preference) for convenience
+    ratingSelect.value = "4";
+  }
+  
+  ratingSelect.addEventListener("change", checkFormCompletion);
+  
+  ratingDiv.appendChild(ratingLabel);
+  ratingDiv.appendChild(ratingDescription);
+  ratingDiv.appendChild(ratingSelect);
+  
+  // Add to the form
+  form.appendChild(ratingDiv);
+  
+  // Debug log
+  console.log("Preference rating added, form now has", form.querySelectorAll("select").length, "select elements");
 }
 
 async function renderPredictionSummary() {
@@ -636,7 +725,7 @@ async function renderPredictionSummary() {
   table.appendChild(tbody);
   summarySection.appendChild(table);
   
-  // Insert at the beginning of the form
+  // Insert summary section at the beginning of the form
   form.insertBefore(summarySection, form.firstChild);
 }
 
@@ -665,13 +754,33 @@ function checkFormCompletion() {
   const selects = form.querySelectorAll("select");
   
   // Check if all selects have a value
-  const allAnswered = Array.from(selects).every(select => select.value);
+  let allAnswered = true;
+  
+  // Log each select element and its value for debugging
+  selects.forEach(select => {
+    console.log(`Select ${select.name}: value = "${select.value}"`);
+    if (!select.value) {
+      allAnswered = false;
+      console.log(`Missing value for ${select.name}`);
+    }
+  });
+  
+  console.log("All questions answered:", allAnswered);
   nextBtn.disabled = !allAnswered;
 }
 
 async function collectAnswers() {
   const form = document.getElementById("questions-form");
   const answers = {};
+  
+  // Get the preference rating if it exists
+  const preferenceRating = form.querySelector('select[name="preference_rating"]');
+  if (preferenceRating && preferenceRating.value) {
+    answers.preference_rating = {
+      value: preferenceRating.value,
+      metadata: null
+    };
+  }
   
   for (const question of QUESTIONS) {
     const select = form.querySelector(`select[name="${question.key}"]`);
@@ -786,10 +895,8 @@ state.answers = answers;
 
 // Set up event listeners based on current page
 document.addEventListener('DOMContentLoaded', () => {
-  if (window.location.pathname.endsWith('meal.html')) {
-    document.getElementById('next-btn').addEventListener('click', handleNextClick);
-    showMeal();
-  } else if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
+  // We don't need to set up event listeners for meal.html here anymore as it's handled in meal.html
+  if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
     // Handle the start button on the index page
     document.getElementById('start-btn').addEventListener('click', () => {
       navigateToMeal();

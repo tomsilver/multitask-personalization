@@ -17,14 +17,19 @@
       <img id="meal-img" src="" alt="Meal preview" />
       <p id="meal-desc"></p>
       <form id="questions-form"></form>
-      <button id="next-btn">Next</button>
+      <button id="next-btn" disabled>Next</button>
     </section>
   </main>
 
   <script src="app.js"></script>
   <script>
     // Initialize the meal page
-    showMeal();
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.location.pathname.endsWith('meal.html')) {
+        document.getElementById('next-btn').addEventListener('click', handleNextClick);
+        showMeal();
+      }
+    });
   </script>
 </body>
 </html> 
