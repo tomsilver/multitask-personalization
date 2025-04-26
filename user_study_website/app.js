@@ -190,9 +190,16 @@ async function loadPredictions(questionKey) {
   
   try {
     const contentPath = getContentPath(questionKey);
-    const response = await fetch(`${contentPath}/prediction.txt`);
-    const text = await response.text();
-    return text.trim().split('\n');
+    if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
+      // For occlusion questions, load prediction.json instead of prediction.txt
+      const response = await fetch(`${contentPath}/prediction.json`);
+      const data = await response.json();
+      return data;
+    } else {
+      const response = await fetch(`${contentPath}/prediction.txt`);
+      const text = await response.text();
+      return text.trim().split('\n');
+    }
   } catch (error) {
     console.error(`Error loading predictions for ${questionKey}:`, error);
     return null;
@@ -252,6 +259,11 @@ function getOptionsForQuestion(questionKey) {
     return ['Yes', 'No'];
   }
   
+  // For occlusion questions, always use Yes/No
+  if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
+    return ['Yes', 'No'];
+  }
+  
   // For other questions, use metadata choices if available, otherwise fall back to initial options
   const metadata = state.metadata[questionKey];
   if (metadata && metadata.choices) {
@@ -306,20 +318,39 @@ function renderForm() {
     }
     
     // Pre-select the predicted option if available
-    const prediction = state.predictions[question.key];
-    if (prediction && prediction.length > 0) {
-      if (question.key === 'verbal') {
-        // For verbal, convert True/False to Yes/No
-        const predictedValue = prediction[0].trim();
-        select.value = predictedValue === 'True' ? 'Yes' : 'No';
-      } else if (question.key === 'bite_order') {
-        // For bite_order, use prediction as an index into the choices array
-        const predictedIndex = parseInt(prediction[0].trim());
-        if (!isNaN(predictedIndex) && predictedIndex >= 0 && predictedIndex < options.length) {
-          select.value = options[predictedIndex];
+    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      // For occlusion questions, use prediction.json data
+      const occlusionData = state.predictions['look_forward']; // All occlusion questions share the same data
+      
+      if (occlusionData) {
+        const direction = question.key.includes('forward') ? 'front' : 'left';
+        
+        if (question.key.startsWith('look_')) {
+          // For "Would you typically be looking..." questions
+          const shouldLook = occlusionData.relevant_pois.includes(direction);
+          select.value = shouldLook ? 'Yes' : 'No';
+        } else {
+          // For "Is the robot uncomfortably blocking..." questions
+          const isBlocked = occlusionData.occluded_pois.includes(direction);
+          select.value = isBlocked ? 'Yes' : 'No';
         }
-      } else {
-        select.value = prediction[0];
+      }
+    } else {
+      const prediction = state.predictions[question.key];
+      if (prediction && prediction.length > 0) {
+        if (question.key === 'verbal') {
+          // For verbal, convert True/False to Yes/No
+          const predictedValue = prediction[0].trim();
+          select.value = predictedValue === 'True' ? 'Yes' : 'No';
+        } else if (question.key === 'bite_order') {
+          // For bite_order, use prediction as an index into the choices array
+          const predictedIndex = parseInt(prediction[0].trim());
+          if (!isNaN(predictedIndex) && predictedIndex >= 0 && predictedIndex < options.length) {
+            select.value = options[predictedIndex];
+          }
+        } else {
+          select.value = prediction[0];
+        }
       }
     }
     
