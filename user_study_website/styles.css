@@ -98,6 +98,50 @@ button:disabled {
   white-space: nowrap;
 }
 
+.prediction-summary {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 2rem;
+}
+
+.prediction-summary h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.prediction-summary p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.prediction-summary table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.prediction-summary th {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+}
+
+.prediction-summary td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.prediction-summary tr:last-child td {
+  border-bottom: none;
+}
+
+.prediction-summary .personalized {
+  font-weight: bold;
+  color: #0066cc;
+}
+
 @media (min-width: 640px) {
   select {
     max-width: 300px;

@@ -256,7 +256,6 @@ async function loadMetadata(questionKey) {
   
   try {
     const contentPath = getContentPath(questionKey);
-    console.log(`Loading metadata from: ${contentPath}/metadata.json`);
     
     const response = await fetch(`${contentPath}/metadata.json`);
     if (!response.ok) {
@@ -288,7 +287,6 @@ async function loadPredictions(questionKey) {
   
   try {
     const contentPath = getContentPath(questionKey);
-    console.log(`Loading predictions from: ${contentPath}`);
 
     // Special handling for occlusion questions
     if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
@@ -299,7 +297,6 @@ async function loadPredictions(questionKey) {
     }
 
     const response = await fetch(`${contentPath}/prediction.txt`).then(res => res.text());
-    console.log(`Prediction for ${questionKey}: ${response}`);
     return response;
   
   } catch (error) {
@@ -312,11 +309,9 @@ async function loadCurrentMealInfo() {
   try {
     // Use getContentPath to get the correct path for occlusion questions
     const occlusionPath = getContentPath('look_forward');
-    console.log('Attempting to load meal metadata:', occlusionPath);
     
     const response = await fetch(`${occlusionPath}/metadata.json`);
     const metadata = await response.json();
-    console.log('Loaded meal metadata:', metadata);
     
     // Create a descriptive meal context
     const foodItems = metadata.food_items.join(' and ');
@@ -334,7 +329,6 @@ async function loadCurrentMealInfo() {
       description: description
     };
     
-    console.log('Final image path:', state.currentMeal.image);
   } catch (error) {
     console.error('Error loading meal info:', error);
     
@@ -483,6 +477,109 @@ async function renderForm() {
   }
 }
 
+async function renderPredictionSummary() {
+  console.log("Rendering prediction summary");
+  // Create summary section
+  const form = document.getElementById("questions-form");
+  const summarySection = document.createElement("div");
+  summarySection.className = "prediction-summary";
+  
+  const title = document.createElement("h3");
+  title.textContent = "Robot Decision Summary";
+  summarySection.appendChild(title);
+  
+  const description = document.createElement("p");
+  description.innerHTML = "This shows what the robot would choose by default compared to what it would choose based on your previous preferences:";
+  summarySection.appendChild(description);
+  
+  // Create table for predictions
+  const table = document.createElement("table");
+  
+  // Add table header
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  
+  const questionHeader = document.createElement("th");
+  questionHeader.textContent = "Question";
+  headerRow.appendChild(questionHeader);
+  
+  const defaultHeader = document.createElement("th");
+  defaultHeader.textContent = "Default Choice";
+  headerRow.appendChild(defaultHeader);
+  
+  const personalizedHeader = document.createElement("th");
+  personalizedHeader.textContent = "Personalized Prediction";
+  headerRow.appendChild(personalizedHeader);
+  
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  
+  // Add table body
+  const tbody = document.createElement("tbody");
+  
+  for (const question of QUESTIONS) {
+    const options = await getOptionsForQuestion(question.key);
+    // Get the default option (first in the list)
+    const defaultOption = options.length > 0 ? options[0] : "None";
+    
+    // Get the personalized prediction
+    let prediction = state.predictions[question.key];
+    if (Array.isArray(prediction)) {
+      prediction = prediction[0];
+    }
+    
+    // Format prediction for display
+    let formattedPrediction = prediction;
+    
+    // Handle Yes/No predictions for verbal and occlusion questions
+    if (question.key === 'verbal' && prediction) {
+      formattedPrediction = prediction.trim() === 'True' ? 'Yes' : 'No';
+    }
+    
+    // Handle occlusion predictions
+    if ((question.key.startsWith('look_') || question.key.startsWith('block_')) && prediction) {
+      const direction = question.key.includes('forward') ? 'front' : 'left';
+      const isLooking = question.key.startsWith('look_');
+      const occlusionData = state.predictions['look_forward'];
+      
+      if (occlusionData) {
+        if (isLooking) {
+          formattedPrediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
+        } else {
+          formattedPrediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
+        }
+      } else {
+        formattedPrediction = 'No';
+      }
+    }
+    
+    const row = document.createElement("tr");
+    
+    const questionCell = document.createElement("td");
+    questionCell.textContent = question.text;
+    row.appendChild(questionCell);
+    
+    const defaultCell = document.createElement("td");
+    defaultCell.textContent = defaultOption;
+    row.appendChild(defaultCell);
+    
+    const predictionCell = document.createElement("td");
+    predictionCell.textContent = formattedPrediction || "No prediction";
+    if (formattedPrediction !== defaultOption && formattedPrediction) {
+      predictionCell.className = "personalized";
+    }
+    row.appendChild(predictionCell);
+    
+    tbody.appendChild(row);
+  }
+  
+  table.appendChild(tbody);
+  summarySection.appendChild(table);
+  
+  // Insert at the beginning of the form
+  form.insertBefore(summarySection, form.firstChild);
+}
+
 async function showMeal() {
   // Load content before showing the meal
   await loadCurrentContent();
@@ -499,6 +596,7 @@ async function showMeal() {
   mealDesc.className = 'meal-context';
   
   await renderForm();
+  await renderPredictionSummary();
 }
 
 function checkFormCompletion() {
@@ -612,7 +710,6 @@ async function sendToGoogleForm() {
       body: formData
     });
     
-    console.log("Form data sent successfully");
     return true;
   } catch (error) {
     console.error("Error sending data to Google Form:", error);
