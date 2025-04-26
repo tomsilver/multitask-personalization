@@ -155,8 +155,8 @@ function getContentPath(questionKey) {
       const occludedStr = occludedPois.length > 0 ? occludedPois.join('-') : 'none';
       const occlusionDir = `${relevantStr}___${occludedStr}`;
       
-      // Replace the last part of the path with the occlusion directory
-      pathParts[pathParts.length - 1] = occlusionDir;
+      // Append the occlusion directory instead of replacing
+      pathParts.push(occlusionDir);
     }
   }
 
@@ -166,15 +166,73 @@ function getContentPath(questionKey) {
 /***********************************************************
  * STATE MANAGEMENT
  ***********************************************************/
+function compressState(answers) {
+  // Convert answers to a minimal format
+  const minimalAnswers = answers.map(answer => {
+    const minimal = {};
+    for (const [key, value] of Object.entries(answer)) {
+      if (key === 'occlusion') {
+        // Special handling for occlusion data
+        minimal[key] = {
+          r: value.relevant_pois,
+          o: value.occluded_pois
+        };
+      } else {
+        // For other answers, just store the value
+        minimal[key] = value.value;
+      }
+    }
+    return minimal;
+  });
+  
+  // Convert to base64
+  const json = JSON.stringify(minimalAnswers);
+  return btoa(json);
+}
+
+function decompressState(compressed) {
+  try {
+    // Decode base64
+    const json = atob(compressed);
+    const minimalAnswers = JSON.parse(json);
+    
+    // Convert back to full format
+    return minimalAnswers.map(answer => {
+      const full = {};
+      for (const [key, value] of Object.entries(answer)) {
+        if (key === 'occlusion') {
+          // Special handling for occlusion data
+          full[key] = {
+            relevant_pois: value.r,
+            occluded_pois: value.o
+          };
+        } else {
+          // For other answers, restore the full format
+          full[key] = {
+            value: value,
+            metadata: null
+          };
+        }
+      }
+      return full;
+    });
+  } catch (error) {
+    console.error('Error decompressing state:', error);
+    return [];
+  }
+}
+
 function getStateFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  const answers = params.get('answers') ? JSON.parse(decodeURIComponent(params.get('answers'))) : [];
+  const compressed = params.get('state');
+  const answers = compressed ? decompressState(compressed) : [];
   return { answers };
 }
 
 function updateUrlState() {
   const params = new URLSearchParams();
-  params.set('answers', encodeURIComponent(JSON.stringify(state.answers)));
+  const compressed = compressState(state.answers);
+  params.set('state', compressed);
   
   // Update URL without reloading the page
   window.history.replaceState(
@@ -187,7 +245,8 @@ function updateUrlState() {
 function navigateToMeal() {
   const params = new URLSearchParams();
   if (state.answers.length > 0) {
-    params.set('answers', encodeURIComponent(JSON.stringify(state.answers)));
+    const compressed = compressState(state.answers);
+    params.set('state', compressed);
   }
   window.location.href = `meal.html?${params.toString()}`;
 }
@@ -257,6 +316,7 @@ async function loadCurrentMealInfo() {
   // Load meal info from occlusion metadata
   const occlusionPath = getContentPath('look_forward');
   try {
+    console.log('Attempting to load meal metadata:', occlusionPath); // Debug log
     const response = await fetch(`${occlusionPath}/metadata.json`);
     const metadata = await response.json();
     console.log('Loaded meal metadata:', metadata); // Debug log
