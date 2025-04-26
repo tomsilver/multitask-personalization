@@ -488,9 +488,15 @@ async function renderPredictionSummary() {
   const summarySection = document.createElement("div");
   summarySection.className = "prediction-summary";
   summarySection.style.marginBottom = "2rem";
+  summarySection.style.backgroundColor = "#ffffff";
+  summarySection.style.border = "1px solid #e0e0e0";
+  summarySection.style.borderRadius = "8px";
+  summarySection.style.padding = "1.5rem";
+  summarySection.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
   
   const title = document.createElement("h3");
   title.textContent = "Robot Decision Summary";
+  title.style.marginTop = "0";
   title.style.marginBottom = "0.5rem";
   summarySection.appendChild(title);
   
@@ -649,6 +655,76 @@ async function renderPredictionSummary() {
   
   table.appendChild(tbody);
   summarySection.appendChild(table);
+  
+  // Add a divider between the table and images
+  const divider = document.createElement("hr");
+  divider.style.margin = "2rem 0";
+  divider.style.border = "none";
+  divider.style.borderTop = "1px solid #e0e0e0";
+  summarySection.appendChild(divider);
+  
+  // Add a heading for the visual options
+  const visualHeading = document.createElement("h3");
+  visualHeading.textContent = "Visual Comparison";
+  visualHeading.style.marginBottom = "1.5rem";
+  visualHeading.style.textAlign = "center";
+  summarySection.appendChild(visualHeading);
+  
+  // Create container for the option images
+  const optionImagesContainer = document.createElement("div");
+  optionImagesContainer.style.display = "flex";
+  optionImagesContainer.style.justifyContent = "space-between";
+  optionImagesContainer.style.gap = "2rem";
+  optionImagesContainer.style.margin = "0 0 1rem 0";
+  summarySection.appendChild(optionImagesContainer);
+  
+  // Option A Image Container
+  const optionAContainer = document.createElement("div");
+  optionAContainer.style.flex = "1";
+  optionAContainer.style.textAlign = "center";
+  
+  // Option A Heading
+  const optionAHeading = document.createElement("h4");
+  optionAHeading.textContent = "Option A";
+  optionAHeading.style.marginBottom = "1rem";
+  optionAHeading.style.color = "#1a73e8";
+  optionAContainer.appendChild(optionAHeading);
+  
+  // Option A Image
+  const optionAImage = document.createElement("img");
+  optionAImage.src = state.currentMeal.image;
+  optionAImage.alt = "Option A Preview";
+  optionAImage.style.width = "100%";
+  optionAImage.style.maxWidth = "280px";
+  optionAImage.style.border = "2px solid #1a73e8";
+  optionAImage.style.borderRadius = "8px";
+  optionAContainer.appendChild(optionAImage);
+  
+  // Option B Image Container
+  const optionBContainer = document.createElement("div");
+  optionBContainer.style.flex = "1";
+  optionBContainer.style.textAlign = "center";
+  
+  // Option B Heading
+  const optionBHeading = document.createElement("h4");
+  optionBHeading.textContent = "Option B";
+  optionBHeading.style.marginBottom = "1rem";
+  optionBHeading.style.color = "#1a73e8";
+  optionBContainer.appendChild(optionBHeading);
+  
+  // Option B Image
+  const optionBImage = document.createElement("img");
+  optionBImage.src = state.currentMeal.image; // Using the same image for now
+  optionBImage.alt = "Option B Preview";
+  optionBImage.style.width = "100%";
+  optionBImage.style.maxWidth = "280px";
+  optionBImage.style.border = "2px solid #1a73e8";
+  optionBImage.style.borderRadius = "8px";
+  optionBContainer.appendChild(optionBImage);
+  
+  // Add both option containers to the main container
+  optionImagesContainer.appendChild(optionAContainer);
+  optionImagesContainer.appendChild(optionBContainer);
   
   // Insert summary section at the beginning of the form
   form.insertBefore(summarySection, form.firstChild);
@@ -1270,76 +1346,10 @@ async function showMealPreferences() {
   // Add the form with placeholder for preference rating
   await renderPreferencesForm();
   
-  // Add the summary table
+  // Add the summary table with images
   await renderPredictionSummary();
   
-  // Now add the image options container after the summary table
-  const form = document.getElementById("preferences-form");
-  const summaryTable = form.querySelector(".prediction-summary");
-  
-  // Create container for the option images
-  const optionImagesContainer = document.createElement("div");
-  optionImagesContainer.style.display = "flex";
-  optionImagesContainer.style.justifyContent = "space-between";
-  optionImagesContainer.style.gap = "2rem";
-  optionImagesContainer.style.margin = "2rem 0";
-  
-  // Option A Image Container
-  const optionAContainer = document.createElement("div");
-  optionAContainer.style.flex = "1";
-  optionAContainer.style.textAlign = "center";
-  
-  // Option A Heading
-  const optionAHeading = document.createElement("h3");
-  optionAHeading.textContent = "Option A";
-  optionAHeading.style.marginBottom = "1rem";
-  optionAHeading.style.color = "#1a73e8";
-  optionAContainer.appendChild(optionAHeading);
-  
-  // Option A Image
-  const optionAImage = document.createElement("img");
-  optionAImage.src = state.currentMeal.image;
-  optionAImage.alt = "Option A Preview";
-  optionAImage.style.width = "100%";
-  optionAImage.style.maxWidth = "300px";
-  optionAImage.style.border = "2px solid #1a73e8";
-  optionAImage.style.borderRadius = "8px";
-  optionAContainer.appendChild(optionAImage);
-  
-  // Option B Image Container
-  const optionBContainer = document.createElement("div");
-  optionBContainer.style.flex = "1";
-  optionBContainer.style.textAlign = "center";
-  
-  // Option B Heading
-  const optionBHeading = document.createElement("h3");
-  optionBHeading.textContent = "Option B";
-  optionBHeading.style.marginBottom = "1rem";
-  optionBHeading.style.color = "#1a73e8";
-  optionBContainer.appendChild(optionBHeading);
-  
-  // Option B Image
-  const optionBImage = document.createElement("img");
-  optionBImage.src = state.currentMeal.image; // Using the same image for now
-  optionBImage.alt = "Option B Preview";
-  optionBImage.style.width = "100%";
-  optionBImage.style.maxWidth = "300px";
-  optionBImage.style.border = "2px solid #1a73e8";
-  optionBImage.style.borderRadius = "8px";
-  optionBContainer.appendChild(optionBImage);
-  
-  // Add both option containers to the main container
-  optionImagesContainer.appendChild(optionAContainer);
-  optionImagesContainer.appendChild(optionBContainer);
-  
-  // Insert after the summary table
-  if (summaryTable && summaryTable.nextSibling) {
-    form.insertBefore(optionImagesContainer, summaryTable.nextSibling);
-  } else {
-    form.appendChild(optionImagesContainer);
-  }
-  
-  // Finally, add the preference rating after the images
+  // Finally, add the preference rating after the summary
   await addPreferenceRatingAfterImages();
 }
 
