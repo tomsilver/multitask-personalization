@@ -295,7 +295,34 @@ async function loadPredictions(questionKey) {
   if (!question) return null;
   
   try {
-    const contentPath = getContentPath(questionKey);
+    // First check if we have previous meals with this answer
+    const previousMealAnswers = [];
+    
+    // Look for this question in previous meals' answers
+    for (const mealAnswer of state.answers) {
+      if (mealAnswer[questionKey]) {
+        previousMealAnswers.push(mealAnswer[questionKey].value);
+      }
+    }
+    
+    let contentPath;
+    
+    // If we have previous answers for this question, use the most recent ones to build a path
+    if (previousMealAnswers.length > 0) {
+      // Start with base path
+      let pathParts = ['content', question.contentDir];
+      
+      // Add up to the last 3 answers to the path (most recent answers have priority)
+      const recentAnswers = previousMealAnswers.slice(-3); // Get last 3 answers at most
+      pathParts = pathParts.concat(recentAnswers);
+      
+      contentPath = pathParts.join('/');
+      console.log(`Using prediction path based on history: ${contentPath}`);
+    } else {
+      // Fall back to the standard path if no previous answers
+      contentPath = getContentPath(questionKey);
+    }
+    
     if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
       // For occlusion questions, load prediction.json instead of prediction.txt
       const response = await fetch(`${contentPath}/prediction.json`);
@@ -308,7 +335,22 @@ async function loadPredictions(questionKey) {
     }
   } catch (error) {
     console.error(`Error loading predictions for ${questionKey}:`, error);
-    return null;
+    // If we failed with the history-based path, try the standard path
+    try {
+      const standardPath = getContentPath(questionKey);
+      if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
+        const response = await fetch(`${standardPath}/prediction.json`);
+        const data = await response.json();
+        return data;
+      } else {
+        const response = await fetch(`${standardPath}/prediction.txt`);
+        const text = await response.text();
+        return text.trim().split('\n');
+      }
+    } catch (fallbackError) {
+      console.error(`Fallback also failed for ${questionKey}:`, fallbackError);
+      return null;
+    }
   }
 }
 
