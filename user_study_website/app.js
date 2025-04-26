@@ -583,15 +583,9 @@ async function addPreferenceRating(form) {
   ratingTitle.style.marginBottom = "0.75rem";
   ratingTitle.style.fontSize = "1.25rem";
   
-  // Use different wording based on whether this is the first meal
   let ratingText = "";
-  if (state.answers.length === 0) {
-    ratingTitle.textContent = "Preparation for Personalization";
-    ratingText = "For this first meal, we're establishing a baseline. Please select the middle option (4) below:";
-  } else {
-    ratingTitle.textContent = "Evaluate Personalization";
-    ratingText = "Based on the summary above, how well do you think the robot has learned your preferences?";
-  }
+  ratingTitle.textContent = "Evaluate Personalization";
+  ratingText = "Based on the summary above, how well do you think the robot has learned your preferences?";
   
   ratingDiv.appendChild(ratingTitle);
   
@@ -642,26 +636,17 @@ async function addPreferenceRating(form) {
   ratingSelect.style.border = "1px solid #ccc";
   ratingSelect.style.borderRadius = "4px";
   ratingSelect.style.backgroundColor = "#fff";
-  
-  // For first meal, only provide option 4
-  if (state.answers.length === 0) {
+
+  // Add rating options 1-7
+  for (let i = 1; i <= 7; i++) {
     const option = document.createElement("option");
-    option.value = "4";
-    option.textContent = "4 (Baseline)";
+    option.value = i.toString();
+    option.textContent = i.toString();
     ratingSelect.appendChild(option);
-    ratingSelect.value = "4";
-  } else {
-    // Add rating options 1-7
-    for (let i = 1; i <= 7; i++) {
-      const option = document.createElement("option");
-      option.value = i.toString();
-      option.textContent = i.toString();
-      ratingSelect.appendChild(option);
-    }
-    
-    // Pre-select the middle value (4 = moderate) for convenience
-    ratingSelect.value = "4";
   }
+    
+  // Pre-select the middle value (4 = moderate) for convenience
+  ratingSelect.value = "4";
   
   ratingSelect.addEventListener("change", checkFormCompletion);
   
