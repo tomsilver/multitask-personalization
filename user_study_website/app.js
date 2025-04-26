@@ -337,7 +337,7 @@ function renderForm() {
     } else if (question.key === 'ready_signal') {
       label.innerHTML = `The robot is planning to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Are you happy with this choice or would you like to choose another?`;
     } else if (question.key === 'verbal') {
-      label.innerHTML = `Would you like the robot to be verbal?`;
+      label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
     } else if (question.key.startsWith('look_')) {
       const direction = question.key.includes('forward') ? 'forward' : 'left';
       label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
