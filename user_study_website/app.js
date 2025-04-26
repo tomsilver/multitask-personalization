@@ -61,6 +61,7 @@ const state = {
   metadata: {}, // Stores loaded metadata per question
   predictions: {}, // Stores loaded predictions per question
   currentMeal: null, // Stores the current meal metadata
+  isOptionAPersonalized: false, // Track if Option A is personalized (or Option B)
 };
 
 /***********************************************************
@@ -584,8 +585,8 @@ async function addPreferenceRating(form) {
   ratingTitle.style.fontSize = "1.25rem";
   
   let ratingText = "";
-  ratingTitle.textContent = "Evaluate Personalization";
-  ratingText = "To what extent do you prefer the default or the personalized choices overall?";
+  ratingTitle.textContent = "Compare Options";
+  ratingText = "To what extent do you prefer Option A or Option B overall?";
   
   ratingDiv.appendChild(ratingTitle);
   
@@ -606,7 +607,7 @@ async function addPreferenceRating(form) {
   ratingDesc1.style.textAlign = "left";
   ratingDesc1.style.fontSize = "0.9rem";
   ratingDesc1.style.color = "#555";
-  ratingDesc1.innerHTML = "<strong>1</strong>: Default is best";
+  ratingDesc1.innerHTML = "<strong>1</strong>: Option A is best";
   
   const ratingDesc2 = document.createElement("div");
   ratingDesc2.style.flex = "1";
@@ -620,7 +621,7 @@ async function addPreferenceRating(form) {
   ratingDesc3.style.textAlign = "right";
   ratingDesc3.style.fontSize = "0.9rem";
   ratingDesc3.style.color = "#555";
-  ratingDesc3.innerHTML = "<strong>7</strong>: Personalized is best";
+  ratingDesc3.innerHTML = "<strong>7</strong>: Option B is best";
   
   ratingScale.appendChild(ratingDesc1);
   ratingScale.appendChild(ratingDesc2);
@@ -677,9 +678,9 @@ async function renderPredictionSummary() {
   const description = document.createElement("p");
   // Change description based on whether this is the first meal
   if (state.answers.length === 0) {
-    description.innerHTML = "The robot is not yet personalized. Here are the selections it would make for your first meal, where default options are the same as the \"personalized\" ones:";
+    description.innerHTML = "The robot is providing options for your first meal. Please compare Option A and Option B:";
   } else {
-    description.innerHTML = "Based on your previous preferences, here's how the robot has personalized its choices for you:";
+    description.innerHTML = "Based on your previous preferences, here are the robot's choices. Please compare Option A and Option B:";
   }
   description.style.marginBottom = "1rem";
   summarySection.appendChild(description);
@@ -700,21 +701,26 @@ async function renderPredictionSummary() {
   questionHeader.style.textAlign = "left";
   headerRow.appendChild(questionHeader);
   
-  const defaultHeader = document.createElement("th");
-  defaultHeader.textContent = "Default";
-  defaultHeader.style.padding = "0.75rem";
-  defaultHeader.style.textAlign = "left";
-  headerRow.appendChild(defaultHeader);
+  const optionAHeader = document.createElement("th");
+  optionAHeader.textContent = "Option A";
+  optionAHeader.style.padding = "0.75rem";
+  optionAHeader.style.textAlign = "left";
+  headerRow.appendChild(optionAHeader);
   
-  const personalizedHeader = document.createElement("th");
-  // Change column header for first meal
-  personalizedHeader.textContent = "Personalized";
-  personalizedHeader.style.padding = "0.75rem";
-  personalizedHeader.style.textAlign = "left";
-  headerRow.appendChild(personalizedHeader);
+  const optionBHeader = document.createElement("th");
+  optionBHeader.textContent = "Option B";
+  optionBHeader.style.padding = "0.75rem";
+  optionBHeader.style.textAlign = "left";
+  headerRow.appendChild(optionBHeader);
   
   thead.appendChild(headerRow);
   table.appendChild(thead);
+  
+  // Randomize which one is personalized for each meal
+  if (state.answers.length === 0) {
+    // For the first meal, randomize whether A or B is "personalized"
+    state.isOptionAPersonalized = Math.random() < 0.5;
+  }
   
   // Add table body
   const tbody = document.createElement("tbody");
@@ -774,20 +780,29 @@ async function renderPredictionSummary() {
     questionCell.style.padding = "0.75rem";
     row.appendChild(questionCell);
     
-    const defaultCell = document.createElement("td");
-    defaultCell.textContent = defaultOption;
-    defaultCell.style.padding = "0.75rem";
-    row.appendChild(defaultCell);
+    // Determine which option goes in which column based on randomization
+    const optionA = state.isOptionAPersonalized ? formattedPrediction : defaultOption;
+    const optionB = state.isOptionAPersonalized ? defaultOption : formattedPrediction;
     
-    const predictionCell = document.createElement("td");
-    predictionCell.textContent = formattedPrediction || "No prediction";
-    predictionCell.style.padding = "0.75rem";
-    if (formattedPrediction !== defaultOption && formattedPrediction) {
-      predictionCell.className = "personalized";
-      predictionCell.style.fontWeight = "bold";
-      predictionCell.style.color = "#1a73e8";
+    const optionACell = document.createElement("td");
+    optionACell.textContent = optionA || "No option";
+    optionACell.style.padding = "0.75rem";
+    
+    const optionBCell = document.createElement("td");
+    optionBCell.textContent = optionB || "No option";
+    optionBCell.style.padding = "0.75rem";
+    
+    // Highlight both cells if the options are different
+    if (optionA !== optionB) {
+      optionACell.style.fontWeight = "bold";
+      optionACell.style.color = "#1a73e8";
+      
+      optionBCell.style.fontWeight = "bold";
+      optionBCell.style.color = "#1a73e8";
     }
-    row.appendChild(predictionCell);
+    
+    row.appendChild(optionACell);
+    row.appendChild(optionBCell);
     
     tbody.appendChild(row);
   }
@@ -880,6 +895,9 @@ async function collectAnswers() {
       metadata: null
     };
   }
+  
+  // Store which option is personalized to interpret ratings correctly
+  answers.isOptionAPersonalized = state.isOptionAPersonalized;
   
   for (const question of QUESTIONS) {
     const select = form.querySelector(`select[name="${question.key}"]`);
