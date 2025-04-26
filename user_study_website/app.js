@@ -138,24 +138,23 @@ function getContentPath(questionKey) {
 
   // Special handling for occlusion directory naming
   if (question.contentDir === 'occlusion') {
-    // Get the last answer to determine the occlusion state
-    const lastAnswer = state.answers[state.answers.length - 1];
-    if (lastAnswer) {
+    // Build path by considering each answer's occlusion state in sequence
+    for (const answer of state.answers) {
       const relevantPois = [];
       const occludedPois = [];
       
-      // Check each occlusion-related answer
-      if (lastAnswer.look_forward?.value === 'Yes') relevantPois.push('front');
-      if (lastAnswer.look_left?.value === 'Yes') relevantPois.push('left');
-      if (lastAnswer.block_forward?.value === 'Yes') occludedPois.push('front');
-      if (lastAnswer.block_left?.value === 'Yes') occludedPois.push('left');
+      // Check each occlusion-related answer for this specific answer
+      if (answer.look_forward?.value === 'Yes') relevantPois.push('front');
+      if (answer.look_left?.value === 'Yes') relevantPois.push('left');
+      if (answer.block_forward?.value === 'Yes') occludedPois.push('front');
+      if (answer.block_left?.value === 'Yes') occludedPois.push('left');
       
-      // Create the directory name
+      // Create the directory name for this answer
       const relevantStr = relevantPois.length > 0 ? relevantPois.join('-') : 'none';
       const occludedStr = occludedPois.length > 0 ? occludedPois.join('-') : 'none';
       const occlusionDir = `${relevantStr}___${occludedStr}`;
       
-      // Append the occlusion directory instead of replacing
+      // Append this answer's occlusion directory to the path
       pathParts.push(occlusionDir);
     }
   }
