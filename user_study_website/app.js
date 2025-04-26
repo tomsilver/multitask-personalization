@@ -822,14 +822,43 @@ async function showMeal() {
   
   const mealTitle = document.getElementById("meal-title");
   const mealImg = document.getElementById("meal-img");
-  const mealDesc = document.getElementById("meal-desc");
   
   mealTitle.textContent = state.currentMeal.title;
   mealImg.src = state.currentMeal.image;
   
-  // Set the description with proper HTML
+  // Create a styled container for the meal description
+  const descContainer = document.createElement("div");
+  descContainer.style.backgroundColor = "#ffffff";
+  descContainer.style.border = "1px solid #e0e0e0";
+  descContainer.style.borderRadius = "6px";
+  descContainer.style.padding = "1.25rem";
+  descContainer.style.marginTop = "1rem";
+  descContainer.style.marginBottom = "1.5rem";
+  descContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+  
+  // Add heading for the scenario
+  const scenarioHeading = document.createElement("h3");
+  scenarioHeading.textContent = "Meal Scenario";
+  scenarioHeading.style.marginTop = "0";
+  scenarioHeading.style.marginBottom = "0.75rem";
+  scenarioHeading.style.color = "#333";
+  descContainer.appendChild(scenarioHeading);
+  
+  // Create the meal description element
+  const mealDesc = document.createElement("p");
+  mealDesc.id = "meal-desc";
   mealDesc.innerHTML = state.currentMeal.description;
   mealDesc.className = 'meal-context';
+  mealDesc.style.margin = "0";
+  mealDesc.style.lineHeight = "1.5";
+  mealDesc.style.fontSize = "1.05rem";
+  
+  // Add the description to the container
+  descContainer.appendChild(mealDesc);
+  
+  // Insert the container after the image
+  const mealSection = document.querySelector('section');
+  mealImg.parentNode.insertBefore(descContainer, mealImg.nextSibling);
   
   await renderForm();
   await renderPredictionSummary();
