@@ -510,12 +510,77 @@ async function loadCurrentContent() {
   }
 }
 
-function getOptionsForQuestion(questionKey) {
-  // For bite ordering, use the choices from metadata
+async function getOptionsForQuestion(questionKey) {
+  // For bite ordering, we need to use a history-based approach
   if (questionKey === 'bite_order') {
-    const metadata = state.metadata[questionKey];
-    if (metadata && metadata.choices) {
-      return metadata.choices;
+    // First try to get options from metadata using history-based path
+    const question = QUESTIONS.find(q => q.key === questionKey);
+    if (!question) return INITIAL_OPTIONS[questionKey];
+    
+    // Build a history-based path similar to loadPredictions
+    const previousMealAnswers = [];
+    
+    // Look for this question in previous meals' answers
+    for (const mealAnswer of state.answers) {
+      if (mealAnswer[questionKey]) {
+        // We need to get the metadata to know the actual options
+        // Load the metadata for this question first
+        const basePath = ['content', question.contentDir].join('/');
+        try {
+          const metadataResponse = await fetch(`${basePath}/metadata.json`);
+          const metadata = await metadataResponse.json();
+          if (metadata && metadata.choices) {
+            const index = parseInt(mealAnswer[questionKey].value);
+            if (!isNaN(index) && index >= 0 && index < metadata.choices.length) {
+              // Use the actual option name from metadata
+              previousMealAnswers.push(metadata.choices[index]);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading metadata for bite_order options:', error);
+        }
+      }
+    }
+    
+    let contentPath;
+    
+    // If we have previous answers for this question, use them to build a path
+    if (previousMealAnswers.length > 0) {
+      // Start with base path
+      let pathParts = ['content', question.contentDir];
+      
+      // Add up to the last 3 answers to the path (most recent answers have priority)
+      const recentAnswers = previousMealAnswers.slice(-3); // Get last 3 answers at most
+      pathParts = pathParts.concat(recentAnswers);
+      
+      contentPath = pathParts.join('/');
+      console.log(`Using options path based on history: ${contentPath}`);
+    } else {
+      // Fall back to the standard path if no previous answers
+      contentPath = getContentPath(questionKey);
+    }
+    
+    // Try to load metadata from the history-based path
+    try {
+      const metadataResponse = await fetch(`${contentPath}/metadata.json`);
+      const metadata = await metadataResponse.json();
+      if (metadata && metadata.choices) {
+        return metadata.choices;
+      }
+    } catch (error) {
+      console.error('Error loading metadata from history-based path:', error);
+      
+      // If history-based path fails, try standard path
+      try {
+        const standardPath = getContentPath(questionKey);
+        const metadataResponse = await fetch(`${standardPath}/metadata.json`);
+        const metadata = await metadataResponse.json();
+        if (metadata && metadata.choices) {
+          return metadata.choices;
+        }
+      } catch (fallbackError) {
+        console.error('Fallback also failed for bite_order options:', fallbackError);
+      }
     }
   }
   
@@ -538,12 +603,12 @@ function getOptionsForQuestion(questionKey) {
   return INITIAL_OPTIONS[questionKey];
 }
 
-function renderForm() {
+async function renderForm() {
   const form = document.getElementById("questions-form");
   form.innerHTML = ""; // Clear existing questions
   
-  QUESTIONS.forEach((question) => {
-    const options = getOptionsForQuestion(question.key);
+  for (const question of QUESTIONS) {
+    const options = await getOptionsForQuestion(question.key);
     
     const wrapper = document.createElement("div");
     wrapper.style.marginBottom = "1.5rem";
@@ -650,7 +715,7 @@ function renderForm() {
     wrapper.appendChild(label);
     wrapper.appendChild(select);
     form.appendChild(wrapper);
-  });
+  }
 }
 
 async function showMeal() {
@@ -668,7 +733,7 @@ async function showMeal() {
   mealDesc.innerHTML = state.currentMeal.description;
   mealDesc.className = 'meal-context';
   
-  renderForm();
+  await renderForm();
 }
 
 function checkFormCompletion() {
