@@ -3,8 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Assistive Feeding Study - Meal Round</title>
+  <title>Assistive Feeding Study - Redirecting</title>
   <link rel="stylesheet" href="styles.css">
+  <meta http-equiv="refresh" content="0;url=meal-preferences.html">
+  <script>
+    // Redirect with any existing query parameters
+    document.addEventListener('DOMContentLoaded', function() {
+      const currentUrl = new URL(window.location.href);
+      const searchParams = currentUrl.search;
+      window.location.href = `meal-preferences.html${searchParams}`;
+    });
+  </script>
 </head>
 <body>
   <header>
@@ -13,25 +22,9 @@
 
   <main>
     <section>
-      <h2 id="meal-title">Meal 1 of 5</h2>
-      <img id="meal-img" src="" alt="Meal preview" />
-      <!-- Meal description will be inserted here dynamically -->
-      <form id="questions-form"></form>
-      <div style="text-align: center; margin: 2rem 0;">
-        <button id="next-btn" style="padding: 0.75rem 2rem; font-size: 1.1rem; cursor: pointer; background-color: #1a73e8; color: white; border: none; border-radius: 4px;">Next</button>
-      </div>
+      <h2>Redirecting...</h2>
+      <p>Please wait while we redirect you to the updated meal page. If you are not redirected automatically, please <a href="meal-preferences.html">click here</a>.</p>
     </section>
   </main>
-
-  <script src="app.js"></script>
-  <script>
-    // Initialize the meal page
-    document.addEventListener('DOMContentLoaded', function() {
-      if (window.location.pathname.endsWith('meal.html')) {
-        document.getElementById('next-btn').addEventListener('click', handleNextClick);
-        showMeal();
-      }
-    });
-  </script>
 </body>
 </html> 
