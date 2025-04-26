@@ -298,17 +298,54 @@ async function loadPredictions(questionKey) {
     // First check if we have previous meals with this answer
     const previousMealAnswers = [];
     
-    // Look for this question in previous meals' answers
-    for (const mealAnswer of state.answers) {
-      if (mealAnswer[questionKey]) {
-        previousMealAnswers.push(mealAnswer[questionKey].value);
+    // Special handling for occlusion questions
+    if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
+      // For occlusion questions, we should use the standard path
+      const contentPath = getContentPath(questionKey);
+      console.log(`Using standard path for occlusion: ${contentPath}`);
+      
+      const response = await fetch(`${contentPath}/prediction.json`);
+      const data = await response.json();
+      return data;
+    }
+    
+    // For bite_order, we need to convert from the index to the actual option name
+    if (questionKey === 'bite_order') {
+      // Look for this question in previous meals' answers
+      for (const mealAnswer of state.answers) {
+        if (mealAnswer[questionKey]) {
+          // We need to get the metadata to know the actual options
+          // Load the metadata for this question first
+          const basePath = ['content', question.contentDir].join('/');
+          try {
+            const metadataResponse = await fetch(`${basePath}/metadata.json`);
+            const metadata = await metadataResponse.json();
+            if (metadata && metadata.choices) {
+              const index = parseInt(mealAnswer[questionKey].value);
+              if (!isNaN(index) && index >= 0 && index < metadata.choices.length) {
+                // Use the actual option name from metadata
+                previousMealAnswers.push(metadata.choices[index]);
+              }
+            }
+          } catch (error) {
+            console.error('Error loading metadata for bite_order conversion:', error);
+          }
+        }
+      }
+    } else if (!questionKey.startsWith('look_') && !questionKey.startsWith('block_')) {
+      // For non-occlusion questions, use regular history-based path
+      // Look for this question in previous meals' answers
+      for (const mealAnswer of state.answers) {
+        if (mealAnswer[questionKey]) {
+          previousMealAnswers.push(mealAnswer[questionKey].value);
+        }
       }
     }
     
     let contentPath;
     
     // If we have previous answers for this question, use the most recent ones to build a path
-    if (previousMealAnswers.length > 0) {
+    if (previousMealAnswers.length > 0 && !questionKey.startsWith('look_') && !questionKey.startsWith('block_')) {
       // Start with base path
       let pathParts = ['content', question.contentDir];
       

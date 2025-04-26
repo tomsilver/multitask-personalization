@@ -63,7 +63,11 @@ def pregenerate_initialization_variable(var_name: str, model, current_model_stat
     with open(metadata_file, "w") as f:
         json.dump(metadata, f)
     for choice in choices:
-        choice_outdir = outdir / str(choice)
+        if var_name == "bite_ordering":
+            idx = choices.index(choice)
+            choice_outdir = outdir / str(idx)
+        else:
+            choice_outdir = outdir / str(choice)
         feeding_side = choice if var_name == "feeding_side" else None
         bite_ordering = choice if var_name == "bite_ordering" else None
         ready_signal = choice if var_name == "ready_signal" else None
