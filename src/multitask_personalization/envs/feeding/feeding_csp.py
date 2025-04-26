@@ -273,6 +273,29 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             for poi in self._sim.scene_spec.occlusion_points_of_interest
         }
 
+    def get_save_state(self) -> dict:
+        return {
+            "feeding_side_model": self._feeding_side_model.get_save_state(),
+            "bite_ordering_model": self._bite_ordering_model.get_save_state(),
+            "ready_signal_model": self._ready_signal_model.get_save_state(),
+            "be_verbal_model": self._be_verbal_model.get_save_state(),
+            "occlusion_poi_relevance_models": {
+                poi: model.get_save_state() for poi, model in self._occlusion_poi_relevance_models.items()
+            },
+            "occlusion_model": self._occlusion_model.get_save_state(),
+        }
+    
+    def load_from_state(self, state_dict: dict) -> None:
+        self._feeding_side_model.load_from_state(state_dict["feeding_side_model"])
+        self._bite_ordering_model.load_from_state(state_dict["bite_ordering_model"])
+        self._ready_signal_model.load_from_state(state_dict["ready_signal_model"])
+        self._be_verbal_model.load_from_state(state_dict["be_verbal_model"])
+        
+        for poi, model_state in state_dict["occlusion_poi_relevance_models"].items():
+            self._occlusion_poi_relevance_models[poi].load_from_state(model_state)
+
+        self._occlusion_model.load_from_state(state_dict["occlusion_model"])
+
     def save(self, model_dir: Path) -> None:
         
         # Save constraint models
@@ -509,6 +532,28 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             )
             if not (hasattr(self, "_disable_drink") and self._disable_drink):
                 constraints.append(plate_behind_drink)
+
+            def _plate_waypoints_reachable(
+                plate_position: NDArray[np.float32],
+            ) -> bool:
+                planned_plate_pose = _plate_position_to_pose(plate_position, obs.plate_pose)
+                try:
+                    _transform_joints_relative_to_plate(
+                        "before_transfer_pos", planned_plate_pose, self._sim.robot, self._sim.scene_spec
+                    )
+                    _transform_joints_relative_to_plate(
+                        "above_plate_pos", planned_plate_pose, self._sim.robot, self._sim.scene_spec,
+                    )
+                except InverseKinematicsError:
+                    return False
+                return True
+            
+            plate_waypoints_reachable_constraint = FunctionalCSPConstraint(
+                "plate_waypoints_reachable",
+                [plate_position],
+                _plate_waypoints_reachable,
+            )
+            constraints.append(plate_waypoints_reachable_constraint)
 
         return constraints
         

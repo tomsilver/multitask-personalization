@@ -125,7 +125,7 @@ def get_sim(meal_id):
     return FeedingEnv(scene_spec)
 
 
-def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_models, llm_model_states, occlusion_model, occlusion_model_state, remaining_meals: list[Meal], outdir: Path, dry_run: bool, prune_fn=None) -> None:
+def pregenerate_occlusion(approach: CSPApproach, current_approach_state, init_plate_pose: Pose, remaining_meals: list[Meal], outdir: Path, dry_run: bool, prune_fn=None) -> None:
     global TOTAL_PREDICTIONS
     if not remaining_meals:
         return
@@ -134,18 +134,21 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
     outdir.mkdir(exist_ok=True)
     meal = remaining_meals[0]
     possible_pois = get_choices_for_occlusion_poi(meal)
-    # Set up the approach for the current meal. We only need to save and load the occlusion models.
-    occlusion_model.load_from_state(occlusion_model_state)
-    for poi in possible_pois:
-        model = llm_models[poi]
-        model_state = llm_model_states[poi]
-        model.load_from_state(model_state)
+    approach.load_from_state(current_approach_state)
+
+    llm_models = approach._csp_generator._occlusion_poi_relevance_models
+    occlusion_model = approach._csp_generator._occlusion_model
+
     bite_ordering_options = get_choices_for_initialization_variable("bite_ordering", meal)
+
     # Predict the next plate pose using the current model.
     approach._csp_generator._disable_drink = True
     obs = FeedingOcclusionQueryObservation(meal.context, meal.table_type, meal.food_items, meal.dips, bite_ordering_options, init_plate_pose, BANISH_POSE)
     approach.reset(obs, {})
-    act = approach.step()
+    try:
+        act = approach.step()
+    except:
+        import ipdb; ipdb.set_trace()
     plate_pose = Pose((init_plate_pose.position[0] + act.plate_delta_xy[0],
                             init_plate_pose.position[1] + act.plate_delta_xy[1],
                             init_plate_pose.position[2]),
@@ -198,10 +201,6 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
     metadata = asdict(meal)
     metadata["choices"] = possible_pois
     metadata["occlusion_scale"] = occlusion_scale
-    for poi in possible_pois:
-        model_state = llm_model_states[poi]
-        metadata[f"{poi}_llm_model_summaries"] = model_state["summary_preferences"]
-        metadata[f"{poi}_history"] = [getattr(o, var_name) for o in model_state["data_obs_history"]]
     metadata_file = outdir / "metadata.json"
     with open(metadata_file, "w") as f:
         json.dump(metadata, f)
@@ -230,26 +229,15 @@ def pregenerate_occlusion(approach: CSPApproach, init_plate_pose: Pose, llm_mode
                                                           plate_pose, BANISH_POSE, occlusion_dict)
             # TODO: Don't forget to save and load ALL models including the occlusion model.
             if not dry_run:
+                approach.load_from_state(current_approach_state)
                 # Update occlusion relevance models.
-                next_llm_model_states = {}
-                for poi in ["front", "left"]:
-                    model = llm_models[poi]
-                    model_state = llm_model_states[poi]
-                    model.load_from_state(model_state)
-                # Update occlusion model.
-                occlusion_model.load_from_state(occlusion_model_state)
                 approach._csp_generator.observe_transition(obs, act, next_obs, False, {})
-                for poi in ["front", "left"]:
-                    model = llm_models[poi]
-                    next_model_state = model.get_save_state()
-                    next_llm_model_states[poi] = next_model_state
-                next_occlusion_model_state = occlusion_model.get_save_state()
+                next_approach_state = approach.get_save_state()
             else:
-                next_llm_model_states = llm_model_states
-                next_occlusion_model_state = occlusion_model_state
+                next_approach_state = current_approach_state.copy()
             if occlusion_model.post_max < occlusion_model.post_min:
                 continue
-            pregenerate_occlusion(approach, plate_pose, llm_models, next_llm_model_states, occlusion_model, next_occlusion_model_state, remaining_meals[1:], choice_outdir, dry_run, prune_fn)
+            pregenerate_occlusion(approach, next_approach_state, plate_pose, remaining_meals[1:], choice_outdir, dry_run, prune_fn)
 
 
 
@@ -301,6 +289,7 @@ if __name__ == "__main__":
                             llm=llm,
                             explore_method=explore_method,
                             use_gui=args.use_gui)
+    current_approach_state = approach.get_save_state()
     initialization_var_models = {
         "feeding_side": approach._csp_generator._feeding_side_model,
         "bite_ordering": approach._csp_generator._bite_ordering_model,
@@ -321,10 +310,6 @@ if __name__ == "__main__":
 
     else:
         assert var_name == "occlusion"
-        occlusion_poi_relevance_models = approach._csp_generator._occlusion_poi_relevance_models
-        llm_model_states = {name: model.get_save_state() for name, model in occlusion_poi_relevance_models.items() }
-        occlusion_model = approach._csp_generator._occlusion_model
-        occlusion_model_state = occlusion_model.get_save_state()
         plate_pose = Pose((0.3, 0.75, 0.17))
         print(f"Running pregeneration for {var_name}")
         if test_name is not None:
@@ -332,6 +317,7 @@ if __name__ == "__main__":
             prune_fn = lambda o: not target_dir.startswith(str(o) + "/")
         else:
             prune_fn = None
-        pregenerate_occlusion(approach, plate_pose, occlusion_poi_relevance_models, llm_model_states, occlusion_model, occlusion_model_state, meals, outdir / var_name, dry_run=args.dry,
+        approach_state = approach.get_save_state()
+        pregenerate_occlusion(approach, approach_state, plate_pose, meals, outdir / var_name, dry_run=args.dry,
                               prune_fn=prune_fn)
         print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")

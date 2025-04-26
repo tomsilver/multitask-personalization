@@ -143,8 +143,14 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
     def save(self, model_dir: Path) -> None:
         self._csp_generator.save(model_dir)
 
+    def get_save_state(self):
+        return self._csp_generator.get_save_state()
+
     def load(self, model_dir: Path) -> None:
         self._csp_generator.load(model_dir)
+
+    def load_from_state(self, state_dict):
+        return self._csp_generator.load_from_state(state_dict)
 
     def close(self) -> None:
         self._csp_generator.close()
