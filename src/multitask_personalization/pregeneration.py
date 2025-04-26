@@ -164,12 +164,6 @@ def pregenerate_occlusion(approach: CSPApproach, current_approach_state, init_pl
         iio.imsave(occlusion_img_outfile, bite_occlusion_image)
     sim = approach._csp_generator._sim
     set_pose(sim.get_object_id_from_name("plate"), plate_pose, sim.physics_client_id)
-    # Remove possible POIs that get a score of zero from the occlusion model.
-    zero_score_pois = set()
-    for poi in possible_pois:
-        score = approach._csp_generator._get_plate_occlusion_score(plate_position, poi)
-        if np.isclose(score, 0.0):
-            zero_score_pois.add(poi)
     
     # Predict which of the subset of points of interest are relevant.
     relevant_pois = set()
@@ -213,8 +207,6 @@ def pregenerate_occlusion(approach: CSPApproach, current_approach_state, init_pl
     for relevant_poi_choice in get_all_subsets(sorted(possible_pois)):
         relevant_poi_choice_str = "none" if not relevant_poi_choice else "-".join(relevant_poi_choice)
         for occluded_poi_choice in get_all_subsets(relevant_poi_choice):
-            if set(occluded_poi_choice) & zero_score_pois:
-                continue
             occluded_poi_choice_str = "none" if not occluded_poi_choice else "-".join(occluded_poi_choice)
             choice_str = relevant_poi_choice_str + "___" + occluded_poi_choice_str
             choice_outdir = outdir / choice_str
@@ -230,7 +222,6 @@ def pregenerate_occlusion(approach: CSPApproach, current_approach_state, init_pl
                 }
             next_obs = FeedingOcclusionDatasetObservation(meal.context, meal.table_type, meal.food_items, meal.dips, bite_ordering_options,
                                                           plate_pose, BANISH_POSE, occlusion_dict)
-            # TODO: Don't forget to save and load ALL models including the occlusion model.
             if not dry_run:
                 approach.load_from_state(current_approach_state)
                 # Update occlusion relevance models.
