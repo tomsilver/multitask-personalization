@@ -674,12 +674,6 @@ async function isLeftOcclusionEnabled() {
   }
 }
 
-// Add a global optionValues object to store values for each option
-const optionValues = {
-  optionA: {},
-  optionB: {}
-};
-
 async function renderPredictionSummary() {
   // Create summary section
   const form = document.querySelector("#preferences-form, #questions-form"); // Work with either form
@@ -754,14 +748,11 @@ async function renderPredictionSummary() {
   // But keep all questions for the details page
   const questionsToShow = QUESTIONS.filter(q => !q.key.startsWith('look_') && !q.key.startsWith('block_'));
   
-  // Clear option values for this meal
-  optionValues.optionA = {};
-  optionValues.optionB = {};
-  
-  // Still process all questions so option values are populated correctly
-  for (const question of QUESTIONS) {
+  // Process all questions for displaying in the table
+  for (const question of questionsToShow) {
     const options = await getOptionsForQuestion(question.key);
     // Get the default option (first in the list)
+    let defaultOption;
     if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
       defaultOption = "No";
     } else {
@@ -782,34 +773,6 @@ async function renderPredictionSummary() {
       formattedPrediction = prediction.trim() === 'True' ? 'Yes' : 'No';
     }
     
-    // Handle occlusion predictions
-    if ((question.key.startsWith('look_') || question.key.startsWith('block_')) && prediction) {
-      const direction = question.key.includes('forward') ? 'front' : 'left';
-      const isLooking = question.key.startsWith('look_');
-      
-      if (prediction.relevant_pois && prediction.occluded_pois) {
-        // Use the prediction data directly from this question
-        if (isLooking) {
-          formattedPrediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
-        } else {
-          formattedPrediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
-        }
-      } else {
-        // Fallback defaults if prediction data is missing
-        if (state.answers.length === 0) {
-          if (isLooking) {
-            // Default to looking forward only
-            formattedPrediction = direction === 'front' ? 'Yes' : 'No';
-          } else {
-            // Default to no occlusion
-            formattedPrediction = 'No';
-          }
-        } else {
-          formattedPrediction = isLooking && direction === 'front' ? 'Yes' : 'No';
-        }
-      }
-    }
-
     // If this is the first meal, use the default option
     if (state.answers.length === 0) {
       formattedPrediction = defaultOption;
@@ -818,15 +781,6 @@ async function renderPredictionSummary() {
     // Determine which option goes in which column based on current meal's randomization
     const optionA = isOptionAPersonalized ? formattedPrediction : defaultOption;
     const optionB = isOptionAPersonalized ? defaultOption : formattedPrediction;
-    
-    // Store these values in our global option values map - for ALL questions
-    optionValues.optionA[question.key] = optionA;
-    optionValues.optionB[question.key] = optionB;
-    
-    // Skip rendering occlusion questions in the table
-    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
-      continue;
-    }
     
     const row = document.createElement("tr");
     row.style.borderBottom = "1px solid #eee";
@@ -1245,45 +1199,6 @@ async function renderDetailsForm(descContainer, mealImg) {
     label.style.display = "block";
     label.style.marginBottom = "0.75rem";
     
-    // Get the prediction for this question
-    let prediction = state.predictions[question.key];
-    if (Array.isArray(prediction)) {
-      prediction = prediction[0];
-    }
-    
-    // Handle Yes/No predictions for verbal and occlusion questions
-    if (question.key === 'verbal' && prediction) {
-      prediction = prediction.trim() === 'True' ? 'Yes' : 'No';
-    }
-    
-    // Handle occlusion predictions
-    if ((question.key.startsWith('look_') || question.key.startsWith('block_')) && prediction) {
-      const direction = question.key.includes('forward') ? 'front' : 'left';
-      const isLooking = question.key.startsWith('look_');
-      
-      if (prediction.relevant_pois && prediction.occluded_pois) {
-        // Use the prediction data directly from this question
-        if (isLooking) {
-          prediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
-        } else {
-          prediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
-        }
-      } else {
-        // Fallback defaults if prediction data is missing
-        if (state.answers.length === 0) {
-          if (isLooking) {
-            // Default to looking forward only
-            prediction = direction === 'front' ? 'Yes' : 'No';
-          } else {
-            // Default to no occlusion
-            prediction = 'No';
-          }
-        } else {
-          prediction = isLooking && direction === 'front' ? 'Yes' : 'No';
-        }
-      }
-    }
-    
     // Create the question text based on the type
     if (question.key === 'bite_order') {
       label.innerHTML = `How would you like your <span class="context">bites prepared?</span>`;
@@ -1338,18 +1253,6 @@ async function renderDetailsForm(descContainer, mealImg) {
     const metadata = state.metadata[question.key];
     if (metadata) {
       select.dataset.metadata = JSON.stringify(metadata);
-    }
-    
-    // Pre-select the value from the selected option
-    const isOptionAPersonalized = state.optionMappings[state.answers.length] || false;
-    const selectedOptionData = state.tempPreferenceRating ? 
-      (state.tempPreferenceRating <= 3 ? optionValues.optionA : 
-       state.tempPreferenceRating >= 5 ? optionValues.optionB : 
-       null) : null;
-    
-    // If user has a preference, pre-select values based on that preference
-    if (selectedOptionData && selectedOptionData[question.key]) {
-      select.value = selectedOptionData[question.key];
     }
     
     select.addEventListener("change", checkDetailsFormCompletion);
