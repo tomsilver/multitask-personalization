@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assistive Feeding Study - Welcome</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Assistive Feeding User Study</h1>
+  </header>
+
+  <main>
+    <section>
+      <p>
+        Thank you for participating in our study! You will evaluate five meal
+        scenarios for an assistive feeding robot. Each scenario contains an
+        image, description, and several questions. Your answers help us design
+        more comfortable and intuitive feeding behaviors.
+      </p>
+      <p>
+        Click <strong>Start</strong> when you're ready. (This works best in a
+        modern browser on mobile or desktop.)
+      </p>
+      <button id="start-btn">Start</button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    document.getElementById("start-btn").addEventListener("click", () => {
+      window.location.href = "meal.html";
+    });
+  </script>
+</body>
+</html> 
