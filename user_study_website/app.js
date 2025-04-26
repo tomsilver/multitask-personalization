@@ -366,8 +366,9 @@ async function loadCurrentMealInfo() {
   try {
     // Use getContentPath to get the correct path for occlusion questions
     const occlusionPath = getContentPath('look_forward');
+    const metadataPath = getContentPath('bite_order');
     
-    const response = await fetch(`${occlusionPath}/metadata.json`);
+    const response = await fetch(`${metadataPath}/metadata.json`);
     const metadata = await response.json();
     
     // Create a descriptive meal context
