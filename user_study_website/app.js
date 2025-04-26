@@ -281,67 +281,40 @@ function navigateToThanks() {
  ***********************************************************/
 async function loadMetadata(questionKey) {
   const question = QUESTIONS.find(q => q.key === questionKey);
-  if (!question) return null;
+  if (!question) {
+    throw new Error(`Question key not found: ${questionKey}`);
+  }
   
   try {
     const contentPath = getContentPath(questionKey);
     
     const response = await fetch(`${contentPath}/metadata.json`);
     if (!response.ok) {
-      console.error(`HTTP error loading metadata for ${questionKey}: ${response.status} ${response.statusText}`);
-      return null;
+      throw new Error(`Failed to load metadata for ${questionKey}: ${response.status} ${response.statusText}`);
     }
     
     const text = await response.text();
     if (!text.trim()) {
-      console.error(`Empty metadata file for ${questionKey}`);
-      return null;
+      throw new Error(`Empty metadata file for ${questionKey}`);
     }
     
     try {
       return JSON.parse(text);
     } catch (parseError) {
-      console.error(`Invalid JSON in metadata for ${questionKey}:`, text);
-      return null;
+      throw new Error(`Invalid JSON in metadata for ${questionKey}: ${parseError.message}`);
     }
   } catch (error) {
     console.error(`Error loading metadata for ${questionKey}:`, error);
-    return null;
+    throw error;
   }
 }
 
 async function loadPredictions(questionKey) {
   const question = QUESTIONS.find(q => q.key === questionKey);
-  if (!question) return null;
-  
-  // For the first meal, use the first option instead of predictions
-  if (state.answers.length === 0) {
-    // For verbal and occlusion questions, return appropriate defaults
-    if (questionKey === 'verbal') {
-      return 'True';  // Default to "Yes" for verbal
-    }
-    
-    // Create a single occlusion data structure for the first meal and reuse it
-    if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
-      // Initialize with default occlusion data
-      const occlusionData = {
-        relevant_pois: [],  // Default to no for everything
-        occluded_pois: [],
-      };
-      return occlusionData;
-    }
-  
-    // For other questions, use the first option from metadata if available
-    const metadata = state.metadata[questionKey];
-    if (metadata && metadata.choices && metadata.choices.length > 0) {
-      return metadata.choices[0];
-    }
-    
-    // Fallback to initial options
-    return INITIAL_OPTIONS[questionKey][0];
+  if (!question) {
+    throw new Error(`Question key not found: ${questionKey}`);
   }
   
-  // For subsequent meals, use the normal prediction loading logic
   try {
     const contentPath = getContentPath(questionKey);
 
@@ -349,16 +322,27 @@ async function loadPredictions(questionKey) {
     if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
       // For occlusion questions, we should use the standard path      
       const response = await fetch(`${contentPath}/prediction.json`);
+      if (!response.ok) {
+        throw new Error(`Failed to load occlusion prediction for ${questionKey}: ${response.status} ${response.statusText}`);
+      }
       const data = await response.json();
       return data;
     }
 
-    const response = await fetch(`${contentPath}/prediction.txt`).then(res => res.text());
-    return response;
+    // For all other questions, use text predictions
+    const response = await fetch(`${contentPath}/prediction.txt`);
+    if (!response.ok) {
+      throw new Error(`Failed to load prediction for ${questionKey}: ${response.status} ${response.statusText}`);
+    }
+    const text = await response.text();
+    if (!text.trim()) {
+      throw new Error(`Empty prediction file for ${questionKey}`);
+    }
+    return text;
   
   } catch (error) {
     console.error(`Error loading predictions for ${questionKey}:`, error);
-    return null;
+    throw error;
   }
 }
 
@@ -368,8 +352,18 @@ async function loadCurrentMealInfo() {
     const occlusionPath = getContentPath('look_forward');
     const metadataPath = getContentPath('bite_order');
     
-    const response = await fetch(`${metadataPath}/metadata.json`);
-    const metadata = await response.json();
+    // Load metadata
+    const metadataResponse = await fetch(`${metadataPath}/metadata.json`);
+    if (!metadataResponse.ok) {
+      throw new Error(`Failed to load meal metadata: ${metadataResponse.status} ${metadataResponse.statusText}`);
+    }
+    const metadata = await metadataResponse.json();
+    
+    // Verify the image exists
+    const imageResponse = await fetch(`${occlusionPath}/bite_occlusion_image.png`, { method: 'HEAD' });
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to load meal image: ${imageResponse.status} ${imageResponse.statusText}`);
+    }
     
     // Create a descriptive meal context
     const foodItems = metadata.food_items.join(' and ');
@@ -389,13 +383,77 @@ async function loadCurrentMealInfo() {
     
   } catch (error) {
     console.error('Error loading meal info:', error);
-    
-    // Fallback to default values if loading fails
-    state.currentMeal = {
-      title: `Meal ${state.answers.length + 1} of 5`,
-      image: 'content/occlusion/bite_occlusion_image.png',
-      description: "Please answer the following questions about this meal scenario."
-    };
+    throw error;
+  }
+}
+
+/**
+ * Display an error message on the page
+ * @param {string} message - The error message to display
+ */
+function showErrorMessage(message) {
+  // Clear existing content
+  const mealScreen = document.getElementById("meal-screen");
+  if (mealScreen) {
+    mealScreen.innerHTML = "";
+  }
+
+  // Create error container
+  const errorContainer = document.createElement("div");
+  errorContainer.style.backgroundColor = "#ffebee";
+  errorContainer.style.border = "1px solid #f44336";
+  errorContainer.style.borderRadius = "4px";
+  errorContainer.style.padding = "1.5rem";
+  errorContainer.style.margin = "2rem auto";
+  errorContainer.style.maxWidth = "800px";
+  errorContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+  errorContainer.style.textAlign = "center";
+
+  // Create error icon
+  const errorIcon = document.createElement("div");
+  errorIcon.innerHTML = "⚠️";
+  errorIcon.style.fontSize = "3rem";
+  errorIcon.style.marginBottom = "1rem";
+  errorContainer.appendChild(errorIcon);
+
+  // Create error title
+  const errorTitle = document.createElement("h2");
+  errorTitle.textContent = "Error Loading Content";
+  errorTitle.style.marginBottom = "1rem";
+  errorTitle.style.color = "#d32f2f";
+  errorContainer.appendChild(errorTitle);
+
+  // Create error message
+  const errorMessage = document.createElement("p");
+  errorMessage.textContent = message;
+  errorMessage.style.fontSize = "1.1rem";
+  errorMessage.style.marginBottom = "1.5rem";
+  errorContainer.appendChild(errorMessage);
+
+  // Create refresh button
+  const refreshButton = document.createElement("button");
+  refreshButton.textContent = "Try Again";
+  refreshButton.style.padding = "0.75rem 1.5rem";
+  refreshButton.style.backgroundColor = "#f44336";
+  refreshButton.style.color = "white";
+  refreshButton.style.border = "none";
+  refreshButton.style.borderRadius = "4px";
+  refreshButton.style.fontSize = "1rem";
+  refreshButton.style.cursor = "pointer";
+  refreshButton.onclick = () => window.location.reload();
+  errorContainer.appendChild(refreshButton);
+
+  // Add to page
+  if (mealScreen) {
+    mealScreen.appendChild(errorContainer);
+  } else {
+    document.body.appendChild(errorContainer);
+  }
+
+  // Hide next button
+  const nextBtn = document.getElementById("next-btn");
+  if (nextBtn) {
+    nextBtn.style.display = "none";
   }
 }
 
@@ -403,17 +461,23 @@ async function loadCurrentMealInfo() {
  * UI RENDERING
  ***********************************************************/
 async function loadCurrentContent() {
-  state.metadata = {};
-  state.predictions = {};
-  
-  // Load meal info first
-  await loadCurrentMealInfo();
-  
-  // Load metadata and predictions for each question
-  for (const question of QUESTIONS) {
-    const key = question.key;
-    state.metadata[key] = await loadMetadata(key);
-    state.predictions[key] = await loadPredictions(key);
+  try {
+    state.metadata = {};
+    state.predictions = {};
+    
+    // Load meal info first
+    await loadCurrentMealInfo();
+    
+    // Load metadata and predictions for each question
+    for (const question of QUESTIONS) {
+      const key = question.key;
+      state.metadata[key] = await loadMetadata(key);
+      state.predictions[key] = await loadPredictions(key);
+    }
+  } catch (error) {
+    console.error("Failed to load content:", error);
+    showErrorMessage(error.message || "Failed to load content. Please try again.");
+    throw error; // Re-throw to stop further processing
   }
 }
 
@@ -440,6 +504,7 @@ async function getOptionsForQuestion(questionKey) {
 /**
  * Checks if left-side occlusion is enabled for the current meal
  * @returns {boolean} True if left-side occlusion is enabled, false otherwise
+ * @throws {Error} If metadata fails to load
  */
 async function isLeftOcclusionEnabled() {
   try {
@@ -449,14 +514,12 @@ async function isLeftOcclusionEnabled() {
     // Directly load the metadata for occlusion
     const response = await fetch(`${contentPath}/metadata.json`);
     if (!response.ok) {
-      console.error(`HTTP error loading occlusion metadata: ${response.status} ${response.statusText}`);
-      return false;
+      throw new Error(`Failed to load occlusion metadata: ${response.status} ${response.statusText}`);
     }
     
     const text = await response.text();
     if (!text.trim()) {
-      console.error('Empty occlusion metadata file');
-      return false;
+      throw new Error('Empty occlusion metadata file');
     }
     
     const metadata = JSON.parse(text);
@@ -472,7 +535,7 @@ async function isLeftOcclusionEnabled() {
     return false;
   } catch (error) {
     console.error('Error checking if left occlusion is enabled:', error);
-    return false; // Default to not showing left occlusion on error
+    throw error;
   }
 }
 
@@ -739,104 +802,112 @@ async function renderPredictionSummary() {
 }
 
 async function showMealPreferences() {
-  // Load content before showing the meal
-  await loadCurrentContent();
-  
-  const mealTitle = document.getElementById("meal-title");
-  
-  mealTitle.textContent = state.currentMeal.title;
-  
-  // Create a styled container for the meal description
-  const descContainer = document.createElement("div");
-  descContainer.style.backgroundColor = "#ffffff";
-  descContainer.style.border = "1px solid #e0e0e0";
-  descContainer.style.borderRadius = "6px";
-  descContainer.style.padding = "1.25rem";
-  descContainer.style.marginTop = "1rem";
-  descContainer.style.marginBottom = "1.5rem";
-  descContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
-  
-  // Add heading for the scenario
-  const scenarioHeading = document.createElement("h3");
-  scenarioHeading.textContent = "Meal Scenario";
-  scenarioHeading.style.marginTop = "0";
-  scenarioHeading.style.marginBottom = "0.75rem";
-  scenarioHeading.style.color = "#333";
-  descContainer.appendChild(scenarioHeading);
-  
-  // Create the meal description element
-  const mealDesc = document.createElement("p");
-  mealDesc.id = "meal-desc";
-  mealDesc.innerHTML = state.currentMeal.description;
-  mealDesc.className = 'meal-context';
-  mealDesc.style.margin = "0";
-  mealDesc.style.lineHeight = "1.5";
-  mealDesc.style.fontSize = "1.05rem";
-  
-  // Add the description to the container
-  descContainer.appendChild(mealDesc);
-  
-  // Insert the container after the title
-  const mealSection = document.querySelector('section');
-  mealTitle.parentNode.insertBefore(descContainer, mealTitle.nextSibling);
-  
-  // Add the form with placeholder for preference rating
-  await renderPreferencesForm();
-  
-  // Add the summary table with images
-  await renderPredictionSummary();
-  
-  // Finally, add the preference rating after the summary
-  await addPreferenceRatingAfterImages();
+  try {
+    // Load content before showing the meal
+    await loadCurrentContent();
+    
+    const mealTitle = document.getElementById("meal-title");
+    
+    mealTitle.textContent = state.currentMeal.title;
+    
+    // Create a styled container for the meal description
+    const descContainer = document.createElement("div");
+    descContainer.style.backgroundColor = "#ffffff";
+    descContainer.style.border = "1px solid #e0e0e0";
+    descContainer.style.borderRadius = "6px";
+    descContainer.style.padding = "1.25rem";
+    descContainer.style.marginTop = "1rem";
+    descContainer.style.marginBottom = "1.5rem";
+    descContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+    
+    // Add heading for the scenario
+    const scenarioHeading = document.createElement("h3");
+    scenarioHeading.textContent = "Meal Scenario";
+    scenarioHeading.style.marginTop = "0";
+    scenarioHeading.style.marginBottom = "0.75rem";
+    scenarioHeading.style.color = "#333";
+    descContainer.appendChild(scenarioHeading);
+    
+    // Create the meal description element
+    const mealDesc = document.createElement("p");
+    mealDesc.id = "meal-desc";
+    mealDesc.innerHTML = state.currentMeal.description;
+    mealDesc.className = 'meal-context';
+    mealDesc.style.margin = "0";
+    mealDesc.style.lineHeight = "1.5";
+    mealDesc.style.fontSize = "1.05rem";
+    
+    // Add the description to the container
+    descContainer.appendChild(mealDesc);
+    
+    // Insert the container after the title
+    const mealSection = document.querySelector('section');
+    mealTitle.parentNode.insertBefore(descContainer, mealTitle.nextSibling);
+    
+    // Add the form with placeholder for preference rating
+    await renderPreferencesForm();
+    
+    // Add the summary table with images
+    await renderPredictionSummary();
+    
+    // Finally, add the preference rating after the summary
+    await addPreferenceRatingAfterImages();
+  } catch (error) {
+    console.error("Failed to show meal preferences:", error);
+    showErrorMessage(error.message || "Failed to display meal preferences. Please try again.");
+  }
 }
 
 async function showMealDetails() {
-  // Load content before showing the meal details (reusing the same content)
-  await loadCurrentContent();
-  
-  const mealTitle = document.getElementById("meal-title");
-  const mealImg = document.getElementById("meal-img");
-  
-  mealTitle.textContent = state.currentMeal.title;
-  
-  // Set the image source but hide it initially - we'll reposition it later
-  mealImg.src = state.currentMeal.image;
-  mealImg.style.display = "none";
-  
-  // Create a styled container for the meal description
-  const descContainer = document.createElement("div");
-  descContainer.style.backgroundColor = "#ffffff";
-  descContainer.style.border = "1px solid #e0e0e0";
-  descContainer.style.borderRadius = "6px";
-  descContainer.style.padding = "1.25rem";
-  descContainer.style.marginTop = "1rem";
-  descContainer.style.marginBottom = "1.5rem";
-  descContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
-  
-  // Add heading for the scenario
-  const scenarioHeading = document.createElement("h3");
-  scenarioHeading.textContent = "Recall the Meal Scenario";
-  scenarioHeading.style.marginTop = "0";
-  scenarioHeading.style.marginBottom = "0.75rem";
-  scenarioHeading.style.color = "#333";
-  descContainer.appendChild(scenarioHeading);
-  
-  // Create the meal description element
-  const mealDesc = document.createElement("p");
-  mealDesc.id = "meal-desc";
-  mealDesc.innerHTML = state.currentMeal.description;
-  mealDesc.className = 'meal-context';
-  mealDesc.style.margin = "0";
-  mealDesc.style.lineHeight = "1.5";
-  mealDesc.style.fontSize = "1.05rem";
-  
-  // Add the description to the container
-  descContainer.appendChild(mealDesc);
-  
-  // We'll add this container in the correct position from renderDetailsForm
-  
-  // Render the form with only the detailed questions
-  await renderDetailsForm(descContainer, mealImg);
+  try {
+    // Load content before showing the meal details (reusing the same content)
+    await loadCurrentContent();
+    
+    const mealTitle = document.getElementById("meal-title");
+    const mealImg = document.getElementById("meal-img");
+    
+    mealTitle.textContent = state.currentMeal.title;
+    
+    // Set the image source but hide it initially - we'll reposition it later
+    mealImg.src = state.currentMeal.image;
+    mealImg.style.display = "none";
+    
+    // Create a styled container for the meal description
+    const descContainer = document.createElement("div");
+    descContainer.style.backgroundColor = "#ffffff";
+    descContainer.style.border = "1px solid #e0e0e0";
+    descContainer.style.borderRadius = "6px";
+    descContainer.style.padding = "1.25rem";
+    descContainer.style.marginTop = "1rem";
+    descContainer.style.marginBottom = "1.5rem";
+    descContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+    
+    // Add heading for the scenario
+    const scenarioHeading = document.createElement("h3");
+    scenarioHeading.textContent = "Recall the Meal Scenario";
+    scenarioHeading.style.marginTop = "0";
+    scenarioHeading.style.marginBottom = "0.75rem";
+    scenarioHeading.style.color = "#333";
+    descContainer.appendChild(scenarioHeading);
+    
+    // Create the meal description element
+    const mealDesc = document.createElement("p");
+    mealDesc.id = "meal-desc";
+    mealDesc.innerHTML = state.currentMeal.description;
+    mealDesc.className = 'meal-context';
+    mealDesc.style.margin = "0";
+    mealDesc.style.lineHeight = "1.5";
+    mealDesc.style.fontSize = "1.05rem";
+    
+    // Add the description to the container
+    descContainer.appendChild(mealDesc);
+    
+    // Render the form with only the detailed questions
+    await renderDetailsForm(descContainer, mealImg);
+  } catch (error) {
+    console.error("Failed to show meal details:", error);
+    showErrorMessage(error.message || "Failed to display meal details. Please try again.");
+  }
 }
 
 // Function to create just the comparison table and preference rating
