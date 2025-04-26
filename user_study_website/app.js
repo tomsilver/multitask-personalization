@@ -60,26 +60,6 @@ const INITIAL_OPTIONS = {
   block_left: ["Yes", "No"],
 };
 
-// Meal scenarios with their metadata
-const MEALS = [
-    {
-      title: "Meal 1 of 5",
-      scenario: "french fries dipped in ketchup",
-      image: "media/meal_1.jpg",
-    },
-    {
-      title: "Meal 2 of 5",
-      scenario: "french fries without any dipping",
-      image: "media/meal_2.jpg",
-    },
-    {
-      title: "Meal 3 of 5",
-      scenario: "french fries dipped in ranch dressing",
-      image: "media/meal_3.jpg",
-    },
-    // Add more meals as needed
-];
-
 /***********************************************************
  * CONTENT LOADING
  ***********************************************************/
@@ -88,7 +68,8 @@ async function loadMetadata(questionKey, scenario) {
   if (!question) return null;
   
   try {
-    const response = await fetch(`content/${question.contentDir}/${scenario}/metadata.json`);
+    const contentPath = getContentPath(questionKey);
+    const response = await fetch(`${contentPath}/${scenario}/metadata.json`);
     return await response.json();
   } catch (error) {
     console.error(`Error loading metadata for ${questionKey}/${scenario}:`, error);
@@ -101,7 +82,8 @@ async function loadPredictions(questionKey, scenario) {
   if (!question) return null;
   
   try {
-    const response = await fetch(`content/${question.contentDir}/${scenario}/prediction.txt`);
+    const contentPath = getContentPath(questionKey);
+    const response = await fetch(`${contentPath}/${scenario}/prediction.txt`);
     const text = await response.text();
     return text.trim().split('\n');
   } catch (error) {
@@ -142,6 +124,37 @@ function show(el) {
 
 function hide(el) {
   el.classList.add("hidden");
+}
+
+/**
+ * Builds the content directory path for a given question based on previous answers.
+ * Example: If user chose "left" for feeding_side, then "right" for bite_order,
+ * the path for bite_order would be: "content/bite_ordering/left/"
+ * 
+ * @param {string} questionKey - The key of the current question (e.g., "feeding_side", "bite_order")
+ * @returns {string} The full path to the content directory for this question
+ */
+function getContentPath(questionKey) {
+  const question = QUESTIONS.find(q => q.key === questionKey);
+  if (!question) return null;
+
+  // Start with the base content directory and question type
+  const pathParts = ['content', question.contentDir];
+
+  // Add previous answers to build the path
+  // For example, if we're on bite_order and user chose "left" for feeding_side,
+  // we need to include that in the path
+  for (const answer of state.answers) {
+    // Only include answers for questions that come before the current question
+    const questionIndex = QUESTIONS.findIndex(q => q.key === questionKey);
+    const answerQuestionIndex = QUESTIONS.findIndex(q => q.key === Object.keys(answer)[0]);
+    
+    if (answerQuestionIndex < questionIndex) {
+      pathParts.push(answer[Object.keys(answer)[0]].value);
+    }
+  }
+
+  return pathParts.join('/');
 }
 
 /***********************************************************
