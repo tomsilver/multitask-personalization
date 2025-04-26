@@ -285,6 +285,34 @@ async function loadPredictions(questionKey) {
   const question = QUESTIONS.find(q => q.key === questionKey);
   if (!question) return null;
   
+  // For the first meal, use the first option instead of predictions
+  if (state.answers.length === 0) {
+    // For verbal and occlusion questions, return appropriate defaults
+    if (questionKey === 'verbal') {
+      return 'True';  // Default to "Yes" for verbal
+    }
+    
+    // Create a single occlusion data structure for the first meal and reuse it
+    if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
+      // Initialize with default occlusion data
+      const occlusionData = {
+        relevant_pois: ['front', 'left'],  // Default to yes for everything
+        occluded_pois: ['front', 'left'],
+      };
+      return occlusionData;
+    }
+  
+    // For other questions, use the first option from metadata if available
+    const metadata = state.metadata[questionKey];
+    if (metadata && metadata.choices && metadata.choices.length > 0) {
+      return metadata.choices[0];
+    }
+    
+    // Fallback to initial options
+    return INITIAL_OPTIONS[questionKey][0];
+  }
+  
+  // For subsequent meals, use the normal prediction loading logic
   try {
     const contentPath = getContentPath(questionKey);
 
@@ -404,26 +432,52 @@ async function renderForm() {
     if ((question.key.startsWith('look_') || question.key.startsWith('block_')) && prediction) {
       const direction = question.key.includes('forward') ? 'front' : 'left';
       const isLooking = question.key.startsWith('look_');
+      
+      // Get occlusionData from the look_forward prediction
       const occlusionData = state.predictions['look_forward'];
       
       if (occlusionData) {
-        if (isLooking) {
-          prediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
+        // For the first meal, set defaults
+        if (state.answers.length === 0) {
+          if (isLooking) {
+            // Default to looking forward only
+            prediction = direction === 'front' ? 'Yes' : 'No';
+          } else {
+            // Default to no occlusion
+            prediction = 'No';
+          }
         } else {
-          prediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
+          // For subsequent meals, use the prediction data
+          if (isLooking) {
+            prediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
+          } else {
+            prediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
+          }
         }
       } else {
-        prediction = 'No';
+        prediction = isLooking && direction === 'front' ? 'Yes' : 'No';
       }
     }
     
     // Create the question text based on the type
     if (question.key === 'feeding_side') {
-      label.innerHTML = `The robot is planning to feed you from the <span class="context">${prediction || 'left'}</span> side. Are you happy with this choice or would you like to choose another?`;
+      if (state.answers.length === 0) {
+        label.innerHTML = `For your first meal, the robot's initial selection is to feed you from the <span class="context">${prediction || 'left'}</span> side. Are you happy with this choice or would you like to choose another?`;
+      } else {
+        label.innerHTML = `The robot is planning to feed you from the <span class="context">${prediction || 'left'}</span> side. Are you happy with this choice or would you like to choose another?`;
+      }
     } else if (question.key === 'bite_order') {
-      label.innerHTML = `The robot is planning to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Are you happy with this choice or would you like to choose another?`;
+      if (state.answers.length === 0) {
+        label.innerHTML = `For your first meal, the robot's initial selection is to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Are you happy with this choice or would you like to choose another?`;
+      } else {
+        label.innerHTML = `The robot is planning to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Are you happy with this choice or would you like to choose another?`;
+      }
     } else if (question.key === 'ready_signal') {
-      label.innerHTML = `The robot is planning to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Are you happy with this choice or would you like to choose another?`;
+      if (state.answers.length === 0) {
+        label.innerHTML = `For your first meal, the robot's initial selection is to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Are you happy with this choice or would you like to choose another?`;
+      } else {
+        label.innerHTML = `The robot is planning to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Are you happy with this choice or would you like to choose another?`;
+      }
     } else if (question.key === 'verbal') {
       label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
     } else if (question.key.startsWith('look_')) {
@@ -489,7 +543,12 @@ async function renderPredictionSummary() {
   summarySection.appendChild(title);
   
   const description = document.createElement("p");
-  description.innerHTML = "This shows what the robot would choose by default compared to what it would choose based on your previous preferences:";
+  // Change description based on whether this is the first meal
+  if (state.answers.length === 0) {
+    description.innerHTML = "This shows the default options the robot would choose for your first meal:";
+  } else {
+    description.innerHTML = "This shows what the robot would choose by default compared to what it would choose based on your previous preferences:";
+  }
   summarySection.appendChild(description);
   
   // Create table for predictions
@@ -508,7 +567,8 @@ async function renderPredictionSummary() {
   headerRow.appendChild(defaultHeader);
   
   const personalizedHeader = document.createElement("th");
-  personalizedHeader.textContent = "Personalized Prediction";
+  // Change column header for first meal
+  personalizedHeader.textContent = state.answers.length === 0 ? "Initial Selection" : "Personalized Prediction";
   headerRow.appendChild(personalizedHeader);
   
   thead.appendChild(headerRow);
@@ -540,16 +600,15 @@ async function renderPredictionSummary() {
     if ((question.key.startsWith('look_') || question.key.startsWith('block_')) && prediction) {
       const direction = question.key.includes('forward') ? 'front' : 'left';
       const isLooking = question.key.startsWith('look_');
+      
+      // Get occlusionData from the look_forward prediction
       const occlusionData = state.predictions['look_forward'];
       
       if (occlusionData) {
-        if (isLooking) {
-          formattedPrediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
-        } else {
-          formattedPrediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
-        }
+        prediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
+        prediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
       } else {
-        formattedPrediction = 'No';
+        prediction = isLooking && direction === 'front' ? 'Yes' : 'No';
       }
     }
     
