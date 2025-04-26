@@ -5,11 +5,6 @@
 // Question metadata.
 const QUESTIONS = [
   {
-    key: "feeding_side",
-    text: "Which side should the robot feed you from?",
-    contentDir: "feeding_side"
-  },
-  {
     key: "bite_order",
     text: "What bite order would you like?",
     contentDir: "bite_ordering"
@@ -49,7 +44,6 @@ const QUESTIONS = [
 // Fallback option lists for the very first meal.
 // These will be replaced automatically per-meal using prediction files.
 const INITIAL_OPTIONS = {
-  feeding_side: ["Loading..."],
   bite_order: ["Loading..."],
   ready_signal: ["Loading..."],
   verbal: ["Loading..."],
@@ -105,10 +99,10 @@ function generateTestUrl(answers) {
 
 /**
  * Builds the content directory path for a given question based on previous answers.
- * Example: If user chose "left" for feeding_side, then "right" for bite_order,
- * the path for bite_order would be: "content/bite_ordering/left/"
+ * Example: If user chose "right" for bite_order,
+ * the path for bite_order would be: "content/bite_ordering/right/"
  * 
- * @param {string} questionKey - The key of the current question (e.g., "feeding_side", "bite_order")
+ * @param {string} questionKey - The key of the current question (e.g., "bite_order")
  * @returns {string} The full path to the content directory for this question
  */
 function getContentPath(questionKey) {
@@ -119,15 +113,14 @@ function getContentPath(questionKey) {
   const pathParts = ['content', question.contentDir];
 
   // Add previous answers to build the path
-  // For example, if we're on bite_order and user chose "left" for feeding_side,
-  // we need to include that in the path
+  // For example, if we're on bite_order and the user chose specific options
+  // for previous questions, we need to include those in the path
   if (question.contentDir !== 'occlusion') {
     for (let i = 0; i < state.answers.length; i++) {
       const answer = state.answers[i];
       pathParts.push(answer[questionKey].value);
     }
   }
-
 
   // Special handling for occlusion directory naming
   if (question.contentDir === 'occlusion') {
@@ -458,13 +451,7 @@ async function renderForm() {
     }
     
     // Create the question text based on the type
-    if (question.key === 'feeding_side') {
-      if (state.answers.length === 0) {
-        label.innerHTML = `For your first meal, the robot's initial selection is to feed you from the <span class="context">${prediction || 'left'}</span> side. Are you happy with this choice or would you like to choose another?`;
-      } else {
-        label.innerHTML = `The robot is planning to feed you from the <span class="context">${prediction || 'left'}</span> side. Are you happy with this choice or would you like to choose another?`;
-      }
-    } else if (question.key === 'bite_order') {
+    if (question.key === 'bite_order') {
       if (state.answers.length === 0) {
         label.innerHTML = `For your first meal, the robot's initial selection is to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Are you happy with this choice or would you like to choose another?`;
       } else {
