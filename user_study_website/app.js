@@ -1615,7 +1615,7 @@ async function sendToGoogleForm() {
     
     // Combine all data into a single object
     const combinedData = {
-      compressedState: compressState(state.answers),
+      answers: state.answers,
       optionMappings: mappingSummary,
       participantInfo: participantInfo
     };
