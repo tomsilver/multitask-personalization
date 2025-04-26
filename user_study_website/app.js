@@ -1115,6 +1115,28 @@ async function renderDetailsForm(descContainer, mealImg) {
     
     select.addEventListener("change", checkDetailsFormCompletion);
     
+    // Add special handling for "looking" questions to disable corresponding "blocking" questions
+    if (question.key.startsWith('look_')) {
+      select.addEventListener("change", (e) => {
+        const direction = question.key.includes('forward') ? 'forward' : 'left';
+        const blockingQuestionId = `block_${direction}`;
+        const blockingSelect = document.getElementById(blockingQuestionId);
+        
+        if (blockingSelect) {
+          if (e.target.value === 'No') {
+            // If not looking in this direction, can't be uncomfortably blocking
+            blockingSelect.value = 'No';
+            blockingSelect.disabled = true;
+            blockingSelect.parentNode.style.opacity = '0.6';
+          } else {
+            // Re-enable the blocking question
+            blockingSelect.disabled = false;
+            blockingSelect.parentNode.style.opacity = '1';
+          }
+        }
+      });
+    }
+    
     wrapper.appendChild(label);
     wrapper.appendChild(select);
     
@@ -1149,6 +1171,13 @@ async function renderDetailsForm(descContainer, mealImg) {
     occlusionInstructions.style.color = "#555";
     form.appendChild(occlusionInstructions);
     form.appendChild(occlusionContainer);
+    
+    // Trigger change events for looking questions to initialize blocking questions properly
+    const lookingSelects = form.querySelectorAll('select[id^="look_"]');
+    lookingSelects.forEach(select => {
+      const event = new Event('change');
+      select.dispatchEvent(event);
+    });
   }
   
   // Check form completion status after all fields are added
