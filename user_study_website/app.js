@@ -423,7 +423,7 @@ async function getOptionsForQuestion(questionKey) {
   }
 
   if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
-    return ['No', 'Yes'];
+    return ['Yes', 'No'];
   }
   
   // For all other questions, use metadata choices if available
@@ -565,7 +565,11 @@ async function renderPredictionSummary() {
   for (const question of QUESTIONS) {
     const options = await getOptionsForQuestion(question.key);
     // Get the default option (first in the list)
-    const defaultOption = options.length > 0 ? options[0] : "None";
+    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      defaultOption = "No";
+    } else {
+      defaultOption = options.length > 0 ? options[0] : "None";
+    }
     
     // Get the personalized prediction
     let prediction = state.predictions[question.key];
