@@ -90,6 +90,72 @@ function hide(el) {
 }
 
 /**
+ * Helper function to pretty-print the current state to the console
+ * @param {boolean} verbose - Whether to show detailed information
+ */
+function logState(verbose = false) {
+  // Create a simplified version of the state for display
+  const simplifiedState = {
+    currentMeal: state.currentMeal ? {
+      title: state.currentMeal.title,
+      image: state.currentMeal.image
+    } : null,
+    answers: state.answers.map((answer, index) => {
+      const simplified = {
+        meal: index + 1,
+        preference: answer.preference_rating?.value || "N/A",
+        isOptionAPersonalized: answer.isOptionAPersonalized ? "Yes" : "No"
+      };
+      
+      // Add specific answers for each question
+      QUESTIONS.forEach(question => {
+        const key = question.key;
+        if (answer[key] && answer[key].value) {
+          simplified[key] = answer[key].value;
+        }
+      });
+      
+      return simplified;
+    }),
+    totalMeals: state.answers.length,
+    optionMappings: state.optionMappings.map((isA, index) => 
+      `Meal ${index + 1}: ${isA ? 'A is personalized' : 'B is personalized'}`
+    )
+  };
+  
+  // Add a header
+  console.group("%cCurrent Application State", "color: #1a73e8; font-size: 14px; font-weight: bold;");
+  
+  // Log the summary
+  console.log("%cSummary:", "font-weight: bold;");
+  console.table({
+    "Total Meals Completed": state.answers.length,
+    "Current Meal": state.currentMeal?.title || "Not loaded",
+    "Has Temp Rating": state.tempPreferenceRating ? "Yes" : "No"
+  });
+  
+  // Log the answers as a table
+  if (state.answers.length > 0) {
+    console.log("%cAnswer History:", "font-weight: bold;");
+    console.table(simplifiedState.answers);
+  }
+  
+  // Log option mappings
+  if (simplifiedState.optionMappings.length > 0) {
+    console.log("%cOption Mappings:", "font-weight: bold;");
+    simplifiedState.optionMappings.forEach(mapping => console.log(mapping));
+  }
+  
+  // If verbose mode, show more details
+  if (verbose) {
+    console.log("%cRaw State Data:", "font-weight: bold;");
+    console.log(state);
+  }
+  
+  console.groupEnd();
+}
+
+/**
  * Generates a test URL for a specific series of answers
  * @param {Array} answers - Array of answer objects
  * @returns {string} The URL with encoded answers
