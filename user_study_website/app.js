@@ -411,7 +411,7 @@ async function renderForm() {
   // Add section heading for meal questions
   const sectionHeading = document.createElement("h3");
   sectionHeading.textContent = state.answers.length === 0 
-    ? "Help us learn your preferences" 
+    ? "Help the robot learn your preferences" 
     : "Fine-tune your personalized experience";
   sectionHeading.style.marginTop = "0.5rem";
   sectionHeading.style.marginBottom = "0.25rem";
@@ -585,7 +585,7 @@ async function addPreferenceRating(form) {
   
   let ratingText = "";
   ratingTitle.textContent = "Evaluate Personalization";
-  ratingText = "Based on the summary above, how well do you think the robot has learned your preferences?";
+  ratingText = "To what extent do you prefer the default or the personalized choices overall? (1 = default is best, 4 = neutral, 7 = personalized is best)";
   
   ratingDiv.appendChild(ratingTitle);
   
