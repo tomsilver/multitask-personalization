@@ -663,12 +663,15 @@ async function renderPredictionSummary() {
   divider.style.borderTop = "1px solid #e0e0e0";
   summarySection.appendChild(divider);
   
-  // Add a heading for the visual options
-  const visualHeading = document.createElement("h3");
-  visualHeading.textContent = "Visual Comparison";
-  visualHeading.style.marginBottom = "1.5rem";
-  visualHeading.style.textAlign = "center";
-  summarySection.appendChild(visualHeading);
+  // Replace the visual heading with the requested text
+  const visualText = document.createElement("p");
+  visualText.textContent = "The robot is also considering two different configurations:";
+  visualText.style.marginBottom = "1.5rem";
+  visualText.style.textAlign = "center";
+  visualText.style.fontSize = "1.1rem";
+  visualText.style.fontWeight = "500";
+  visualText.style.color = "#333";
+  summarySection.appendChild(visualText);
   
   // Create container for the option images
   const optionImagesContainer = document.createElement("div");
