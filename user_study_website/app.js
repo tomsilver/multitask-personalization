@@ -121,15 +121,10 @@ function getContentPath(questionKey) {
   // Add previous answers to build the path
   // For example, if we're on bite_order and user chose "left" for feeding_side,
   // we need to include that in the path
-  for (let i = 0; i < state.answers.length; i++) {
-    const answer = state.answers[i];
-    
-    // Only include answers that are relevant to the current question's content directory
-    const answerKey = Object.keys(answer)[0];
-    const answerQuestion = QUESTIONS.find(q => q.key === answerKey);
-    
-    if (answerQuestion.contentDir === question.contentDir) {
-      pathParts.push(answer[answerKey].value);
+  if (question.contentDir !== 'occlusion') {
+    for (let i = 0; i < state.answers.length; i++) {
+      const answer = state.answers[i];
+      pathParts.push(answer[questionKey].value);
     }
   }
 
