@@ -1596,33 +1596,32 @@ async function sendToGoogleForm() {
     const googleFormUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfLnBKpCIQQxVQ44__VRmmsQveIIDsWFEgBioKYcoFBqh2KOA/formResponse";
     
     // Prepare the data to send
-    // You need to use the actual field names from your Google Form
-    // These are typically named "entry.XXXXXXX" where X is a number
     const formData = new FormData();
     
-    // Add the compressed state as a single field
-    // Replace "entry.XXXXXXX" with your actual form field ID
-    formData.append("entry.437529290", compressState(state.answers));
-    
-    // Add a summary of option mappings for easier analysis
+    // Create a mapping summary for easier analysis
     // This creates a string like "1:A,2:B,3:A,4:A,5:B" where A/B means personalized was option A or B
     const mappingSummary = state.optionMappings
       .map((isA, index) => `${index + 1}:${isA ? 'A' : 'B'}`)
       .join(',');
-    formData.append("entry.437529291", mappingSummary);
     
-    // Add participant information
-    if (state.intakeData) {
-      // Format participant info for easy reading
-      const participantSummary = JSON.stringify({
-        name: state.intakeData.name,
-        age: state.intakeData.age,
-        gender: state.intakeData.gender,
-        robotExp: state.intakeData.robotExperience,
-        fedExp: state.intakeData.fedExperience
-      });
-      formData.append("entry.437529292", participantSummary);
-    }
+    // Prepare participant info if available
+    const participantInfo = state.intakeData ? {
+      name: state.intakeData.name,
+      age: state.intakeData.age,
+      gender: state.intakeData.gender,
+      robotExp: state.intakeData.robotExperience,
+      fedExp: state.intakeData.fedExperience
+    } : null;
+    
+    // Combine all data into a single object
+    const combinedData = {
+      compressedState: compressState(state.answers),
+      optionMappings: mappingSummary,
+      participantInfo: participantInfo
+    };
+    
+    // Stringify the combined data and append to the form
+    formData.append("entry.437529290", JSON.stringify(combinedData));
     
     // Send the data using fetch API with POST method
     const response = await fetch(googleFormUrl, {
