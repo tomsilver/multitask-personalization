@@ -456,9 +456,7 @@ async function renderForm() {
   
   // Add section heading for meal questions
   const sectionHeading = document.createElement("h3");
-  sectionHeading.textContent = state.answers.length === 0 
-    ? "Help the robot learn your preferences" 
-    : "Fine-tune your personalized experience";
+  sectionHeading.textContent = "Help the robot learn your preferences";
   sectionHeading.style.marginTop = "0.5rem";
   sectionHeading.style.marginBottom = "0.25rem";
   form.appendChild(sectionHeading);
@@ -537,37 +535,17 @@ async function renderForm() {
     
     // Create the question text based on the type
     if (question.key === 'bite_order') {
-      if (state.answers.length === 0) {
-        label.innerHTML = `The robot's initial selection is to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Is this what you prefer?`;
-      } else {
-        label.innerHTML = `The robot has learned to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Is this correct?`;
-      }
+      label.innerHTML = `The robot's initial selection is to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Is this what you prefer?`;
     } else if (question.key === 'ready_signal') {
-      if (state.answers.length === 0) {
-        label.innerHTML = `The robot's initial selection is to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Is this what you prefer?`;
-      } else {
-        label.innerHTML = `The robot has learned to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Is this correct?`;
-      }
+      label.innerHTML = `The robot's initial selection is to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Is this what you prefer?`;
     } else if (question.key === 'verbal') {
-      if (state.answers.length === 0) {
-        label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
-      } else {
-        label.innerHTML = `The robot has learned that you prefer it to <span class="context">${prediction === 'Yes' ? 'be verbal' : 'remain silent'}</span> during meals. Is this correct?`;
-      }
+      label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
     } else if (question.key.startsWith('look_')) {
       const direction = question.key.includes('forward') ? 'forward' : 'left';
-      if (state.answers.length === 0) {
-        label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
-      } else {
-        label.innerHTML = `The robot has learned that you typically ${prediction === 'Yes' ? 'look' : 'do not look'} <span class="context">${direction}</span> during meals. Is this correct?`;
-      }
+      label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
     } else if (question.key.startsWith('block_')) {
       const direction = question.key.includes('forward') ? 'forward' : 'left';
-      if (state.answers.length === 0) {
-        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">${direction}</span> sight?`;
-      } else {
-        label.innerHTML = `The robot has learned that it ${prediction === 'Yes' ? 'does' : 'does not'} block your <span class="context">${direction}</span> sight. Is this correct?`;
-      }
+      label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">${direction}</span> sight?`;
     } else {
       label.textContent = question.text;
     }
