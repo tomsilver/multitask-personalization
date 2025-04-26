@@ -63,6 +63,7 @@ const state = {
   currentMeal: null, // Stores the current meal metadata
   optionMappings: [], // Array of booleans tracking isOptionAPersonalized for each meal
   tempPreferenceRating: null, // Temporarily stored preference rating when transitioning between screens
+  intakeData: null, // Stores participant intake data
 };
 
 /***********************************************************
@@ -120,7 +121,8 @@ function logState(verbose = false) {
     totalMeals: state.answers.length,
     optionMappings: state.optionMappings.map((isA, index) => 
       `Meal ${index + 1}: ${isA ? 'A is personalized' : 'B is personalized'}`
-    )
+    ),
+    intakeData: state.intakeData
   };
   
   // Add a header
@@ -131,8 +133,21 @@ function logState(verbose = false) {
   console.table({
     "Total Meals Completed": state.answers.length,
     "Current Meal": state.currentMeal?.title || "Not loaded",
-    "Has Temp Rating": state.tempPreferenceRating ? "Yes" : "No"
+    "Has Temp Rating": state.tempPreferenceRating ? "Yes" : "No",
+    "Participant": state.intakeData?.name || "Not set"
   });
+  
+  // Log participant data if available
+  if (state.intakeData) {
+    console.log("%cParticipant Information:", "font-weight: bold;");
+    console.table({
+      "Name": state.intakeData.name,
+      "Age": state.intakeData.age,
+      "Gender": state.intakeData.gender,
+      "Robot Experience": state.intakeData.robotExperience,
+      "Fed Experience": state.intakeData.fedExperience
+    });
+  }
   
   // Log the answers as a table
   if (state.answers.length > 0) {
@@ -154,6 +169,36 @@ function logState(verbose = false) {
   
   console.groupEnd();
 }
+
+/**
+ * Saves participant intake data to the application state
+ * @param {Object} intakeData - The intake form data
+ */
+function saveIntakeData(intakeData) {
+  state.intakeData = intakeData;
+  updateUrlState(); // Update URL with the new state including intake data
+  
+  // Also update localStorage as a backup
+  try {
+    localStorage.setItem('intakeData', JSON.stringify(intakeData));
+  } catch (error) {
+    // Silently fail if localStorage is unavailable
+  }
+  
+  return compressState(state.answers); // Return compressed state for URL redirection
+}
+
+/**
+ * Returns the current state as a compressed string for URL parameters
+ * @returns {string} Base64 encoded compressed state
+ */
+function getCompressedState() {
+  return compressState(state.answers);
+}
+
+// Expose functions to the global scope
+window.saveIntakeData = saveIntakeData;
+window.getCompressedState = getCompressedState;
 
 /**
  * Generates a test URL for a specific series of answers
@@ -241,8 +286,14 @@ function compressState(answers) {
     return minimal;
   });
   
+  // Include intake data if available
+  const dataToCompress = {
+    answers: minimalAnswers,
+    intakeData: state.intakeData
+  };
+  
   // Convert to base64
-  const json = JSON.stringify(minimalAnswers);
+  const json = JSON.stringify(dataToCompress);
   return btoa(json);
 }
 
@@ -250,10 +301,23 @@ function decompressState(compressed) {
   try {
     // Decode base64
     const json = atob(compressed);
-    const minimalAnswers = JSON.parse(json);
+    const decompressedData = JSON.parse(json);
+    
+    // Extract answers and intake data
+    let minimalAnswers = [];
+    let intakeData = null;
+    
+    if (Array.isArray(decompressedData)) {
+      // Legacy format (just an array of answers)
+      minimalAnswers = decompressedData;
+    } else {
+      // New format (object with answers and intake data)
+      minimalAnswers = decompressedData.answers || [];
+      intakeData = decompressedData.intakeData || null;
+    }
     
     // Convert back to full format
-    return minimalAnswers.map(answer => {
+    const fullAnswers = minimalAnswers.map(answer => {
       const full = {};
       for (const [key, value] of Object.entries(answer)) {
         if (key === 'occlusion') {
@@ -266,7 +330,7 @@ function decompressState(compressed) {
           // Special handling for the option flag - keep it as a direct property
           full[key] = value;
         } else {
-          // For other answers, restore the full format
+          // For all other questions, store the value as is
           full[key] = {
             value: value,
             metadata: null
@@ -275,9 +339,16 @@ function decompressState(compressed) {
       }
       return full;
     });
+    
+    return {
+      answers: fullAnswers,
+      intakeData: intakeData
+    };
   } catch (error) {
-    console.error('Error decompressing state:', error);
-    return [];
+    return {
+      answers: [],
+      intakeData: null
+    };
   }
 }
 
@@ -285,9 +356,12 @@ function getStateFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const compressed = params.get('state');
   const tempRating = params.get('temp_rating');
-  const answers = compressed ? decompressState(compressed) : [];
+  
+  const decompressedState = compressed ? decompressState(compressed) : { answers: [], intakeData: null };
+  
   return { 
-    answers,
+    answers: decompressedState.answers,
+    intakeData: decompressedState.intakeData,
     tempPreferenceRating: tempRating || null
   };
 }
@@ -313,21 +387,20 @@ function updateUrlState() {
 function navigateToMeal() {
   // Changed to navigate to the new meal-preferences.html page
   const params = new URLSearchParams();
-  if (state.answers.length > 0) {
-    const compressed = compressState(state.answers);
-    params.set('state', compressed);
-  }
+  
+  // Use the compressState function directly to include all state data (answers and intakeData)
+  const compressed = compressState(state.answers);
+  params.set('state', compressed);
+  
   window.location.href = `meal-preferences.html?${params.toString()}`;
 }
 
 function navigateToMealDetails() {
   const params = new URLSearchParams();
   
-  // Include existing answers
-  if (state.answers.length > 0) {
-    const compressed = compressState(state.answers);
-    params.set('state', compressed);
-  }
+  // Use the compressState function directly to include all state data (answers and intakeData)
+  const compressed = compressState(state.answers);
+  params.set('state', compressed);
   
   // Pass temporary preference rating
   if (state.tempPreferenceRating) {
@@ -1503,6 +1576,19 @@ async function sendToGoogleForm() {
       .join(',');
     formData.append("entry.437529291", mappingSummary);
     
+    // Add participant information
+    if (state.intakeData) {
+      // Format participant info for easy reading
+      const participantSummary = JSON.stringify({
+        name: state.intakeData.name,
+        age: state.intakeData.age,
+        gender: state.intakeData.gender,
+        robotExp: state.intakeData.robotExperience,
+        fedExp: state.intakeData.fedExperience
+      });
+      formData.append("entry.437529292", participantSummary);
+    }
+    
     // Send the data using fetch API with POST method
     const response = await fetch(googleFormUrl, {
       method: "POST",
@@ -1532,9 +1618,22 @@ function checkFormCompletion() {
  * INIT
  ***********************************************************/
 // Initialize state from URL on page load
-const { answers, tempPreferenceRating } = getStateFromUrl();
+const { answers, tempPreferenceRating, intakeData } = getStateFromUrl();
 state.answers = answers;
 state.tempPreferenceRating = tempPreferenceRating;
+state.intakeData = intakeData;
+
+// Try to load intake data from localStorage if not in URL
+if (!state.intakeData) {
+  try {
+    const storedIntakeData = localStorage.getItem('intakeData');
+    if (storedIntakeData) {
+      state.intakeData = JSON.parse(storedIntakeData);
+    }
+  } catch (error) {
+    // Silently fail if localStorage access fails
+  }
+}
 
 // Reconstruct option mappings from loaded answers if available
 if (answers && answers.length > 0) {
@@ -1545,18 +1644,38 @@ if (answers && answers.length > 0) {
 document.addEventListener('DOMContentLoaded', () => {
   // We don't set up event listeners here anymore as they are now set in each HTML file
   if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
-    // Handle the start button on the index page
-    document.getElementById('start-btn').addEventListener('click', () => {
-      navigateToMeal();
-    });
+    // Check if we already have intake data - if so, pre-fill the form
+    if (state.intakeData) {
+      try {
+        const form = document.getElementById('intake-form');
+        if (form) {
+          // Pre-fill the form with existing data
+          document.getElementById('participant_name').value = state.intakeData.name || '';
+          document.getElementById('participant_age').value = state.intakeData.age || '';
+          document.getElementById('participant_gender').value = state.intakeData.gender || '';
+          
+          // Set radio buttons
+          if (state.intakeData.robotExperience) {
+            document.querySelector(`input[name="robot_experience"][value="${state.intakeData.robotExperience}"]`).checked = true;
+          }
+          
+          if (state.intakeData.fedExperience) {
+            document.querySelector(`input[name="fed_experience"][value="${state.intakeData.fedExperience}"]`).checked = true;
+          }
+        }
+      } catch (error) {
+        // Silently fail if form pre-fill fails
+      }
+    }
   }
 });
 
 // Add browser back/forward button support
 window.addEventListener('popstate', () => {
-  const { answers, tempPreferenceRating } = getStateFromUrl();
+  const { answers, tempPreferenceRating, intakeData } = getStateFromUrl();
   state.answers = answers;
   state.tempPreferenceRating = tempPreferenceRating;
+  state.intakeData = intakeData;
   
   const path = window.location.pathname;
   if (path.endsWith('meal-preferences.html')) {
