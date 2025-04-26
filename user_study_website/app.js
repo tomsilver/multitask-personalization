@@ -510,7 +510,7 @@ async function loadCurrentMealInfo() {
     const tableType = metadata.table_type.replace('_', ' ');
     
     const description = `Imagine you are having a meal in a <span class="context">${context}</span> setting at a <span class="table-type">${tableType}</span>. 
-    On your plate, you have <span class="food-items">${foodItems}</span>${dips ? ` with <span class="dips">${dips}</span> for dipping` : ''}. 
+    On your plate, you will have <span class="food-items">${foodItems}</span>${dips ? ` with <span class="dips">${dips}</span> for dipping` : ''}. 
     Please answer the following questions about this meal scenario.`;
     
     state.currentMeal = {
