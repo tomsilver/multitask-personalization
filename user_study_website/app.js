@@ -433,11 +433,15 @@ async function renderForm() {
       const direction = question.key.includes('forward') ? 'front' : 'left';
       const isLooking = question.key.startsWith('look_');
       
-      // Get occlusionData from the look_forward prediction
-      const occlusionData = state.predictions['look_forward'];
-      
-      if (occlusionData) {
-        // For the first meal, set defaults
+      if (prediction.relevant_pois && prediction.occluded_pois) {
+        // Use the prediction data directly from this question
+        if (isLooking) {
+          prediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
+        } else {
+          prediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
+        }
+      } else {
+        // Fallback defaults if prediction data is missing
         if (state.answers.length === 0) {
           if (isLooking) {
             // Default to looking forward only
@@ -447,15 +451,8 @@ async function renderForm() {
             prediction = 'No';
           }
         } else {
-          // For subsequent meals, use the prediction data
-          if (isLooking) {
-            prediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
-          } else {
-            prediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
-          }
+          prediction = isLooking && direction === 'front' ? 'Yes' : 'No';
         }
-      } else {
-        prediction = isLooking && direction === 'front' ? 'Yes' : 'No';
       }
     }
     
@@ -601,14 +598,26 @@ async function renderPredictionSummary() {
       const direction = question.key.includes('forward') ? 'front' : 'left';
       const isLooking = question.key.startsWith('look_');
       
-      // Get occlusionData from the look_forward prediction
-      const occlusionData = state.predictions['look_forward'];
-      
-      if (occlusionData) {
-        prediction = occlusionData.relevant_pois.includes(direction) ? 'Yes' : 'No';
-        prediction = occlusionData.occluded_pois.includes(direction) ? 'Yes' : 'No';
+      if (prediction.relevant_pois && prediction.occluded_pois) {
+        // Use the prediction data directly from this question
+        if (isLooking) {
+          formattedPrediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
+        } else {
+          formattedPrediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
+        }
       } else {
-        prediction = isLooking && direction === 'front' ? 'Yes' : 'No';
+        // Fallback defaults if prediction data is missing
+        if (state.answers.length === 0) {
+          if (isLooking) {
+            // Default to looking forward only
+            formattedPrediction = direction === 'front' ? 'Yes' : 'No';
+          } else {
+            // Default to no occlusion
+            formattedPrediction = 'No';
+          }
+        } else {
+          formattedPrediction = isLooking && direction === 'front' ? 'Yes' : 'No';
+        }
       }
     }
     
