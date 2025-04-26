@@ -447,6 +447,180 @@ async function isLeftOcclusionEnabled() {
   }
 }
 
+// Add a global optionValues object to store values for each option
+const optionValues = {
+  optionA: {},
+  optionB: {}
+};
+
+async function renderPredictionSummary() {
+  console.log("Rendering prediction summary");
+  // Create summary section
+  const form = document.getElementById("questions-form");
+  const summarySection = document.createElement("div");
+  summarySection.className = "prediction-summary";
+  summarySection.style.marginBottom = "2rem";
+  
+  const title = document.createElement("h3");
+  title.textContent = "Robot Decision Summary";
+  title.style.marginBottom = "0.5rem";
+  summarySection.appendChild(title);
+  
+  const description = document.createElement("p");
+  // Change description based on whether this is the first meal
+  if (state.answers.length === 0) {
+    description.innerHTML = "The robot is providing options for your first meal. Please compare Option A and Option B:";
+  } else {
+    description.innerHTML = "Based on your previous preferences, here are the robot's choices. Please compare Option A and Option B:";
+  }
+  description.style.marginBottom = "1rem";
+  summarySection.appendChild(description);
+  
+  // Create table for predictions
+  const table = document.createElement("table");
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+  
+  // Add table header
+  const thead = document.createElement("thead");
+  thead.style.backgroundColor = "#f0f0f0";
+  const headerRow = document.createElement("tr");
+  
+  const questionHeader = document.createElement("th");
+  questionHeader.textContent = "Setting";
+  questionHeader.style.padding = "0.75rem";
+  questionHeader.style.textAlign = "left";
+  headerRow.appendChild(questionHeader);
+  
+  const optionAHeader = document.createElement("th");
+  optionAHeader.textContent = "Option A";
+  optionAHeader.style.padding = "0.75rem";
+  optionAHeader.style.textAlign = "left";
+  headerRow.appendChild(optionAHeader);
+  
+  const optionBHeader = document.createElement("th");
+  optionBHeader.textContent = "Option B";
+  optionBHeader.style.padding = "0.75rem";
+  optionBHeader.style.textAlign = "left";
+  headerRow.appendChild(optionBHeader);
+  
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  
+  // Randomize for each meal independently
+  // Create a new randomization for this meal
+  const isOptionAPersonalized = Math.random() < 0.5;
+  state.optionMappings[state.answers.length] = isOptionAPersonalized;
+  console.log(`Meal ${state.answers.length + 1}: randomized isOptionAPersonalized:`, isOptionAPersonalized);
+  
+  // Add table body
+  const tbody = document.createElement("tbody");
+  
+  // Check if left occlusion should be shown
+  const showLeftOcclusion = await isLeftOcclusionEnabled();
+
+  // Filter questions if left occlusion is disabled
+  const questionsToShow = showLeftOcclusion ? 
+    QUESTIONS : 
+    QUESTIONS.filter(q => !q.key.includes('left'));
+  
+  // Clear option values for this meal
+  optionValues.optionA = {};
+  optionValues.optionB = {};
+  
+  for (const question of questionsToShow) {
+    const options = await getOptionsForQuestion(question.key);
+    // Get the default option (first in the list)
+    const defaultOption = options.length > 0 ? options[0] : "None";
+    
+    // Get the personalized prediction
+    let prediction = state.predictions[question.key];
+    if (Array.isArray(prediction)) {
+      prediction = prediction[0];
+    }
+    
+    // Format prediction for display
+    let formattedPrediction = prediction;
+    
+    // Handle Yes/No predictions for verbal and occlusion questions
+    if (question.key === 'verbal' && prediction) {
+      formattedPrediction = prediction.trim() === 'True' ? 'Yes' : 'No';
+    }
+    
+    // Handle occlusion predictions
+    if ((question.key.startsWith('look_') || question.key.startsWith('block_')) && prediction) {
+      const direction = question.key.includes('forward') ? 'front' : 'left';
+      const isLooking = question.key.startsWith('look_');
+      
+      if (prediction.relevant_pois && prediction.occluded_pois) {
+        // Use the prediction data directly from this question
+        if (isLooking) {
+          formattedPrediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
+        } else {
+          formattedPrediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
+        }
+      } else {
+        // Fallback defaults if prediction data is missing
+        if (state.answers.length === 0) {
+          if (isLooking) {
+            // Default to looking forward only
+            formattedPrediction = direction === 'front' ? 'Yes' : 'No';
+          } else {
+            // Default to no occlusion
+            formattedPrediction = 'No';
+          }
+        } else {
+          formattedPrediction = isLooking && direction === 'front' ? 'Yes' : 'No';
+        }
+      }
+    }
+    
+    const row = document.createElement("tr");
+    row.style.borderBottom = "1px solid #eee";
+    
+    const questionCell = document.createElement("td");
+    questionCell.textContent = question.text;
+    questionCell.style.padding = "0.75rem";
+    row.appendChild(questionCell);
+    
+    // Determine which option goes in which column based on current meal's randomization
+    const optionA = isOptionAPersonalized ? formattedPrediction : defaultOption;
+    const optionB = isOptionAPersonalized ? defaultOption : formattedPrediction;
+    
+    // Store these values in our global option values map
+    optionValues.optionA[question.key] = optionA;
+    optionValues.optionB[question.key] = optionB;
+    
+    const optionACell = document.createElement("td");
+    optionACell.textContent = optionA || "No option";
+    optionACell.style.padding = "0.75rem";
+    
+    const optionBCell = document.createElement("td");
+    optionBCell.textContent = optionB || "No option";
+    optionBCell.style.padding = "0.75rem";
+    
+    // Highlight both cells if the options are different
+    if (optionA !== optionB) {
+      optionACell.style.fontWeight = "bold";
+      optionACell.style.color = "#1a73e8";
+      
+      optionBCell.style.fontWeight = "bold";
+      optionBCell.style.color = "#1a73e8";
+    }
+    
+    row.appendChild(optionACell);
+    row.appendChild(optionBCell);
+    
+    tbody.appendChild(row);
+  }
+  
+  table.appendChild(tbody);
+  summarySection.appendChild(table);
+  
+  // Insert summary section at the beginning of the form
+  form.insertBefore(summarySection, form.firstChild);
+}
+
 async function renderForm() {
   const form = document.getElementById("questions-form");
   form.innerHTML = ""; // Clear existing questions
@@ -468,6 +642,105 @@ async function renderForm() {
     : "Please review the robot's personalized choices and adjust if needed:";
   sectionDesc.style.marginBottom = "0.5rem";
   form.appendChild(sectionDesc);
+  
+  // Add buttons to prefill forms with each option
+  const buttonContainer = document.createElement("div");
+  buttonContainer.style.display = "flex";
+  buttonContainer.style.flexDirection = "column";
+  buttonContainer.style.alignItems = "center";
+  buttonContainer.style.marginTop = "0.5rem";
+  buttonContainer.style.marginBottom = "1.5rem";
+  buttonContainer.style.padding = "1rem";
+  buttonContainer.style.backgroundColor = "#f0f7ff";
+  buttonContainer.style.border = "1px solid #d0e3ff";
+  buttonContainer.style.borderRadius = "4px";
+  
+  // Function to apply all option values to the form
+  function applyOptionValues(option) {
+    const form = document.getElementById("questions-form");
+    const optionToUse = option === 'A' ? optionValues.optionA : optionValues.optionB;
+    
+    // Apply to each select element
+    for (const [key, value] of Object.entries(optionToUse)) {
+      const select = form.querySelector(`select[name="${key}"]`);
+      if (select) {
+        select.value = value;
+      }
+    }
+    
+    // Trigger form validation after setting values
+    checkFormCompletion();
+  }
+  
+  // Add instruction text above buttons
+  const buttonInstructions = document.createElement("p");
+  buttonInstructions.innerHTML = "Use buttons to auto-fill form with your preferred option:";
+  buttonInstructions.style.margin = "0 0 1rem 0";
+  buttonInstructions.style.fontWeight = "500";
+  buttonInstructions.style.textAlign = "center";
+  buttonInstructions.style.fontSize = "1.05rem";
+  buttonInstructions.style.color = "#333";
+  
+  // Create a row for the buttons
+  const buttonRow = document.createElement("div");
+  buttonRow.style.display = "flex";
+  buttonRow.style.justifyContent = "center";
+  buttonRow.style.gap = "1rem";
+  buttonRow.style.width = "100%";
+  
+  // Create Option A button
+  const optionAButton = document.createElement("button");
+  optionAButton.type = "button";
+  optionAButton.textContent = "Apply Option A Values";
+  optionAButton.style.padding = "0.75rem 1.5rem";
+  optionAButton.style.backgroundColor = "#1a73e8";
+  optionAButton.style.color = "white";
+  optionAButton.style.border = "none";
+  optionAButton.style.borderRadius = "4px";
+  optionAButton.style.cursor = "pointer";
+  optionAButton.style.fontWeight = "500";
+  optionAButton.style.minWidth = "200px";
+  optionAButton.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+  optionAButton.style.transition = "all 0.2s ease";
+  optionAButton.onmouseover = () => {
+    optionAButton.style.backgroundColor = "#0d62d1";
+    optionAButton.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+  };
+  optionAButton.onmouseout = () => {
+    optionAButton.style.backgroundColor = "#1a73e8";
+    optionAButton.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+  };
+  optionAButton.onclick = () => applyOptionValues('A');
+  
+  // Create Option B button
+  const optionBButton = document.createElement("button");
+  optionBButton.type = "button";
+  optionBButton.textContent = "Apply Option B Values";
+  optionBButton.style.padding = "0.75rem 1.5rem";
+  optionBButton.style.backgroundColor = "#1a73e8";
+  optionBButton.style.color = "white";
+  optionBButton.style.border = "none";
+  optionBButton.style.borderRadius = "4px";
+  optionBButton.style.cursor = "pointer";
+  optionBButton.style.fontWeight = "500";
+  optionBButton.style.minWidth = "200px";
+  optionBButton.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+  optionBButton.style.transition = "all 0.2s ease";
+  optionBButton.onmouseover = () => {
+    optionBButton.style.backgroundColor = "#0d62d1";
+    optionBButton.style.boxShadow = "0 4px 8px rgba(0,0,0,0.15)";
+  };
+  optionBButton.onmouseout = () => {
+    optionBButton.style.backgroundColor = "#1a73e8";
+    optionBButton.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+  };
+  optionBButton.onclick = () => applyOptionValues('B');
+  
+  buttonContainer.appendChild(buttonInstructions);
+  buttonRow.appendChild(optionAButton);
+  buttonRow.appendChild(optionBButton);
+  buttonContainer.appendChild(buttonRow);
+  form.appendChild(buttonContainer);
   
   // Check if left occlusion should be shown
   const showLeftOcclusion = await isLeftOcclusionEnabled();
@@ -583,10 +856,8 @@ async function renderForm() {
       select.dataset.metadata = JSON.stringify(metadata);
     }
     
-    // Pre-select the predicted option if available
-    if (prediction) {
-      select.value = prediction;
-    }
+    // No longer pre-selecting the predicted option
+    // Instead, we'll let users choose from Option A or Option B buttons
     
     select.addEventListener("change", checkFormCompletion);
     
@@ -675,166 +946,6 @@ async function addPreferenceRating(form) {
   
   // Debug log
   console.log("Preference rating added, form now has", form.querySelectorAll("select").length, "select elements");
-}
-
-async function renderPredictionSummary() {
-  console.log("Rendering prediction summary");
-  // Create summary section
-  const form = document.getElementById("questions-form");
-  const summarySection = document.createElement("div");
-  summarySection.className = "prediction-summary";
-  summarySection.style.marginBottom = "2rem";
-  
-  const title = document.createElement("h3");
-  title.textContent = "Robot Decision Summary";
-  title.style.marginBottom = "0.5rem";
-  summarySection.appendChild(title);
-  
-  const description = document.createElement("p");
-  // Change description based on whether this is the first meal
-  if (state.answers.length === 0) {
-    description.innerHTML = "The robot is providing options for your first meal. Please compare Option A and Option B:";
-  } else {
-    description.innerHTML = "Based on your previous preferences, here are the robot's choices. Please compare Option A and Option B:";
-  }
-  description.style.marginBottom = "1rem";
-  summarySection.appendChild(description);
-  
-  // Create table for predictions
-  const table = document.createElement("table");
-  table.style.width = "100%";
-  table.style.borderCollapse = "collapse";
-  
-  // Add table header
-  const thead = document.createElement("thead");
-  thead.style.backgroundColor = "#f0f0f0";
-  const headerRow = document.createElement("tr");
-  
-  const questionHeader = document.createElement("th");
-  questionHeader.textContent = "Setting";
-  questionHeader.style.padding = "0.75rem";
-  questionHeader.style.textAlign = "left";
-  headerRow.appendChild(questionHeader);
-  
-  const optionAHeader = document.createElement("th");
-  optionAHeader.textContent = "Option A";
-  optionAHeader.style.padding = "0.75rem";
-  optionAHeader.style.textAlign = "left";
-  headerRow.appendChild(optionAHeader);
-  
-  const optionBHeader = document.createElement("th");
-  optionBHeader.textContent = "Option B";
-  optionBHeader.style.padding = "0.75rem";
-  optionBHeader.style.textAlign = "left";
-  headerRow.appendChild(optionBHeader);
-  
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-  
-  // Randomize for each meal independently
-  // Create a new randomization for this meal
-  const isOptionAPersonalized = Math.random() < 0.5;
-  state.optionMappings[state.answers.length] = isOptionAPersonalized;
-  console.log(`Meal ${state.answers.length + 1}: randomized isOptionAPersonalized:`, isOptionAPersonalized);
-  
-  // Add table body
-  const tbody = document.createElement("tbody");
-  
-  // Check if left occlusion should be shown
-  const showLeftOcclusion = await isLeftOcclusionEnabled();
-
-  // Filter questions if left occlusion is disabled
-  const questionsToShow = showLeftOcclusion ? 
-    QUESTIONS : 
-    QUESTIONS.filter(q => !q.key.includes('left'));
-  
-  for (const question of questionsToShow) {
-    const options = await getOptionsForQuestion(question.key);
-    // Get the default option (first in the list)
-    const defaultOption = options.length > 0 ? options[0] : "None";
-    
-    // Get the personalized prediction
-    let prediction = state.predictions[question.key];
-    if (Array.isArray(prediction)) {
-      prediction = prediction[0];
-    }
-    
-    // Format prediction for display
-    let formattedPrediction = prediction;
-    
-    // Handle Yes/No predictions for verbal and occlusion questions
-    if (question.key === 'verbal' && prediction) {
-      formattedPrediction = prediction.trim() === 'True' ? 'Yes' : 'No';
-    }
-    
-    // Handle occlusion predictions
-    if ((question.key.startsWith('look_') || question.key.startsWith('block_')) && prediction) {
-      const direction = question.key.includes('forward') ? 'front' : 'left';
-      const isLooking = question.key.startsWith('look_');
-      
-      if (prediction.relevant_pois && prediction.occluded_pois) {
-        // Use the prediction data directly from this question
-        if (isLooking) {
-          formattedPrediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
-        } else {
-          formattedPrediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
-        }
-      } else {
-        // Fallback defaults if prediction data is missing
-        if (state.answers.length === 0) {
-          if (isLooking) {
-            // Default to looking forward only
-            formattedPrediction = direction === 'front' ? 'Yes' : 'No';
-          } else {
-            // Default to no occlusion
-            formattedPrediction = 'No';
-          }
-        } else {
-          formattedPrediction = isLooking && direction === 'front' ? 'Yes' : 'No';
-        }
-      }
-    }
-    
-    const row = document.createElement("tr");
-    row.style.borderBottom = "1px solid #eee";
-    
-    const questionCell = document.createElement("td");
-    questionCell.textContent = question.text;
-    questionCell.style.padding = "0.75rem";
-    row.appendChild(questionCell);
-    
-    // Determine which option goes in which column based on current meal's randomization
-    const optionA = isOptionAPersonalized ? formattedPrediction : defaultOption;
-    const optionB = isOptionAPersonalized ? defaultOption : formattedPrediction;
-    
-    const optionACell = document.createElement("td");
-    optionACell.textContent = optionA || "No option";
-    optionACell.style.padding = "0.75rem";
-    
-    const optionBCell = document.createElement("td");
-    optionBCell.textContent = optionB || "No option";
-    optionBCell.style.padding = "0.75rem";
-    
-    // Highlight both cells if the options are different
-    if (optionA !== optionB) {
-      optionACell.style.fontWeight = "bold";
-      optionACell.style.color = "#1a73e8";
-      
-      optionBCell.style.fontWeight = "bold";
-      optionBCell.style.color = "#1a73e8";
-    }
-    
-    row.appendChild(optionACell);
-    row.appendChild(optionBCell);
-    
-    tbody.appendChild(row);
-  }
-  
-  table.appendChild(tbody);
-  summarySection.appendChild(table);
-  
-  // Insert summary section at the beginning of the form
-  form.insertBefore(summarySection, form.firstChild);
 }
 
 async function showMeal() {
