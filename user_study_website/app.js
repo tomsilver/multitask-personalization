@@ -575,7 +575,48 @@ async function handleNextClick() {
   if (state.answers.length < 5) {
     navigateToMeal();
   } else {
+    // Send final state to Google Form before navigating to thanks page
+    await sendToGoogleForm();
     navigateToThanks();
+  }
+}
+
+/**
+ * Sends the final state data to a Google Form
+ */
+async function sendToGoogleForm() {
+  try {
+    // Replace with your actual Google Form URL
+    // The URL should be the form's "formResponse" endpoint
+    const googleFormUrl = "https://docs.google.com/forms/d/e/1FAIpQLSfLnBKpCIQQxVQ44__VRmmsQveIIDsWFEgBioKYcoFBqh2KOA/formResponse";
+    
+    // Prepare the data to send
+    // You need to use the actual field names from your Google Form
+    // These are typically named "entry.XXXXXXX" where X is a number
+    const formData = new FormData();
+    
+    // Add the compressed state as a single field
+    // Replace "entry.XXXXXXX" with your actual form field ID
+    formData.append("entry.437529290", compressState(state.answers));
+    
+    // Alternatively, you can add each answer separately if you have multiple form fields
+    // Example:
+    // state.answers.forEach((mealAnswer, index) => {
+    //   formData.append(`entry.XXXXX.${index}`, JSON.stringify(mealAnswer));
+    // });
+    
+    // Send the data using fetch API with POST method
+    const response = await fetch(googleFormUrl, {
+      method: "POST",
+      mode: "no-cors", // Google Forms requires this
+      body: formData
+    });
+    
+    console.log("Form data sent successfully");
+    return true;
+  } catch (error) {
+    console.error("Error sending data to Google Form:", error);
+    return false;
   }
 }
 
