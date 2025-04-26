@@ -408,15 +408,39 @@ async function renderForm() {
   // Add preference rating at the beginning of the form
   await addPreferenceRating(form);
   
+  // Add section heading for meal questions
+  const sectionHeading = document.createElement("h3");
+  sectionHeading.textContent = state.answers.length === 0 
+    ? "Help us learn your preferences" 
+    : "Fine-tune your personalized experience";
+  sectionHeading.style.marginTop = "1.5rem";
+  sectionHeading.style.marginBottom = "1rem";
+  form.appendChild(sectionHeading);
+  
+  // Add section description
+  const sectionDesc = document.createElement("p");
+  sectionDesc.innerHTML = state.answers.length === 0
+    ? "For your first meal, please select your preferences for each setting:"
+    : "Please review the robot's personalized choices and adjust if needed:";
+  sectionDesc.style.marginBottom = "1.5rem";
+  form.appendChild(sectionDesc);
+  
   for (const question of QUESTIONS) {
     const options = await getOptionsForQuestion(question.key);
     
     const wrapper = document.createElement("div");
     wrapper.style.marginBottom = "1.5rem";
+    wrapper.style.padding = "1rem";
+    wrapper.style.border = "1px solid #e0e0e0";
+    wrapper.style.borderRadius = "4px";
+    wrapper.style.backgroundColor = "#fafafa";
     
     const label = document.createElement("label");
     label.setAttribute("for", question.key);
     label.className = 'meal-context';
+    label.style.fontWeight = "500";
+    label.style.display = "block";
+    label.style.marginBottom = "0.75rem";
     
     // Get the prediction for this question
     let prediction = state.predictions[question.key];
@@ -460,24 +484,36 @@ async function renderForm() {
     // Create the question text based on the type
     if (question.key === 'bite_order') {
       if (state.answers.length === 0) {
-        label.innerHTML = `For your first meal, the robot's initial selection is to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Are you happy with this choice or would you like to choose another?`;
+        label.innerHTML = `The robot's initial selection is to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Is this what you prefer?`;
       } else {
-        label.innerHTML = `The robot is planning to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Are you happy with this choice or would you like to choose another?`;
+        label.innerHTML = `The robot has learned to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Is this correct?`;
       }
     } else if (question.key === 'ready_signal') {
       if (state.answers.length === 0) {
-        label.innerHTML = `For your first meal, the robot's initial selection is to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Are you happy with this choice or would you like to choose another?`;
+        label.innerHTML = `The robot's initial selection is to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Is this what you prefer?`;
       } else {
-        label.innerHTML = `The robot is planning to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Are you happy with this choice or would you like to choose another?`;
+        label.innerHTML = `The robot has learned to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Is this correct?`;
       }
     } else if (question.key === 'verbal') {
-      label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
+      if (state.answers.length === 0) {
+        label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
+      } else {
+        label.innerHTML = `The robot has learned that you prefer it to <span class="context">${prediction === 'Yes' ? 'be verbal' : 'remain silent'}</span> during meals. Is this correct?`;
+      }
     } else if (question.key.startsWith('look_')) {
       const direction = question.key.includes('forward') ? 'forward' : 'left';
-      label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
+      if (state.answers.length === 0) {
+        label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
+      } else {
+        label.innerHTML = `The robot has learned that you typically ${prediction === 'Yes' ? 'look' : 'do not look'} <span class="context">${direction}</span> during meals. Is this correct?`;
+      }
     } else if (question.key.startsWith('block_')) {
       const direction = question.key.includes('forward') ? 'forward' : 'left';
-      label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">${direction}</span> sight?`;
+      if (state.answers.length === 0) {
+        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">${direction}</span> sight?`;
+      } else {
+        label.innerHTML = `The robot has learned that it ${prediction === 'Yes' ? 'does' : 'does not'} block your <span class="context">${direction}</span> sight. Is this correct?`;
+      }
     } else {
       label.textContent = question.text;
     }
@@ -485,6 +521,11 @@ async function renderForm() {
     const select = document.createElement("select");
     select.id = question.key;
     select.name = question.key;
+    select.style.width = "100%";
+    select.style.padding = "0.5rem";
+    select.style.fontSize = "1rem";
+    select.style.borderRadius = "4px";
+    select.style.border = "1px solid #ccc";
     
     // Add empty default option
     const defaultOption = document.createElement("option");
@@ -530,60 +571,86 @@ async function addPreferenceRating(form) {
   const ratingDiv = document.createElement("div");
   ratingDiv.className = "preference-rating";
   ratingDiv.style.marginBottom = "2.5rem";
-  ratingDiv.style.padding = "1rem";
-  ratingDiv.style.border = "1px solid #ccc";
-  ratingDiv.style.borderRadius = "5px";
-  ratingDiv.style.backgroundColor = "#f9f9f9";
+  ratingDiv.style.padding = "1.25rem";
+  ratingDiv.style.border = "1px solid #d0d0d0";
+  ratingDiv.style.borderRadius = "6px";
+  ratingDiv.style.backgroundColor = "#f5f8ff";
+  ratingDiv.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+  
+  // Create title for the rating section
+  const ratingTitle = document.createElement("h3");
+  ratingTitle.style.marginTop = "0";
+  ratingTitle.style.marginBottom = "0.75rem";
+  ratingTitle.style.fontSize = "1.25rem";
   
   // Use different wording based on whether this is the first meal
   let ratingText = "";
   if (state.answers.length === 0) {
-    ratingText = "<strong>For this first meal, please select the middle option (4).</strong>";
+    ratingTitle.textContent = "Preparation for Personalization";
+    ratingText = "For this first meal, we're establishing a baseline. Please select the middle option (4) below:";
   } else {
-    ratingText = "<strong>On a scale from 1 to 7, how much do you prefer the personalized choices over the default choices?</strong>";
+    ratingTitle.textContent = "Evaluate Personalization";
+    ratingText = "Based on the summary above, how well do you think the robot has learned your preferences?";
   }
   
-  const ratingLabel = document.createElement("label");
+  ratingDiv.appendChild(ratingTitle);
+  
+  const ratingLabel = document.createElement("p");
   ratingLabel.htmlFor = "preference_rating";
   ratingLabel.innerHTML = ratingText;
   ratingLabel.className = "meal-context";
-  ratingLabel.style.fontSize = "1.1rem";
-  ratingLabel.style.display = "block";
-  ratingLabel.style.marginBottom = "0.75rem";
+  ratingLabel.style.fontSize = "1.05rem";
+  ratingLabel.style.marginBottom = "1rem";
   
-  const ratingDescription = document.createElement("div");
-  ratingDescription.className = "rating-description";
-  ratingDescription.innerHTML = "<span>1 = Strongly prefer default</span><span>4 = No preference</span><span>7 = Strongly prefer personalized</span>";
-  ratingDescription.style.display = "flex";
-  ratingDescription.style.justifyContent = "space-between";
-  ratingDescription.style.margin = "0.5rem 0";
-  ratingDescription.style.fontSize = "0.9rem";
-  ratingDescription.style.color = "#555";
+  const ratingScale = document.createElement("div");
+  ratingScale.style.display = "flex";
+  ratingScale.style.alignItems = "center";
+  ratingScale.style.marginBottom = "1rem";
+  
+  const ratingDesc1 = document.createElement("div");
+  ratingDesc1.style.flex = "1";
+  ratingDesc1.style.textAlign = "left";
+  ratingDesc1.style.fontSize = "0.9rem";
+  ratingDesc1.style.color = "#555";
+  ratingDesc1.innerHTML = state.answers.length === 0 ? "" : "<strong>1</strong>: Not at all personalized";
+  
+  const ratingDesc2 = document.createElement("div");
+  ratingDesc2.style.flex = "1";
+  ratingDesc2.style.textAlign = "center";
+  ratingDesc2.style.fontSize = "0.9rem";
+  ratingDesc2.style.color = "#555";
+  ratingDesc2.innerHTML = state.answers.length === 0 ? "" : "<strong>4</strong>: Moderately personalized";
+  
+  const ratingDesc3 = document.createElement("div");
+  ratingDesc3.style.flex = "1";
+  ratingDesc3.style.textAlign = "right";
+  ratingDesc3.style.fontSize = "0.9rem";
+  ratingDesc3.style.color = "#555";
+  ratingDesc3.innerHTML = state.answers.length === 0 ? "" : "<strong>7</strong>: Perfectly personalized";
+  
+  ratingScale.appendChild(ratingDesc1);
+  ratingScale.appendChild(ratingDesc2);
+  ratingScale.appendChild(ratingDesc3);
   
   const ratingSelect = document.createElement("select");
   ratingSelect.id = "preference_rating";
   ratingSelect.name = "preference_rating";
   ratingSelect.style.width = "100%";
-  ratingSelect.style.padding = "0.5rem";
+  ratingSelect.style.padding = "0.75rem";
   ratingSelect.style.marginTop = "0.5rem";
-  ratingSelect.style.fontSize = "1rem";
+  ratingSelect.style.fontSize = "1.1rem";
   ratingSelect.style.border = "1px solid #ccc";
   ratingSelect.style.borderRadius = "4px";
+  ratingSelect.style.backgroundColor = "#fff";
   
   // For first meal, only provide option 4
   if (state.answers.length === 0) {
     const option = document.createElement("option");
     option.value = "4";
-    option.textContent = "4 (No preference)";
+    option.textContent = "4 (Baseline)";
     ratingSelect.appendChild(option);
     ratingSelect.value = "4";
   } else {
-    // Add default empty option
-    const defaultRatingOption = document.createElement("option");
-    defaultRatingOption.value = "";
-    defaultRatingOption.textContent = "Select a rating...";
-    ratingSelect.appendChild(defaultRatingOption);
-    
     // Add rating options 1-7
     for (let i = 1; i <= 7; i++) {
       const option = document.createElement("option");
@@ -592,14 +659,16 @@ async function addPreferenceRating(form) {
       ratingSelect.appendChild(option);
     }
     
-    // Pre-select the middle value (4 = no preference) for convenience
+    // Pre-select the middle value (4 = moderate) for convenience
     ratingSelect.value = "4";
   }
   
   ratingSelect.addEventListener("change", checkFormCompletion);
   
   ratingDiv.appendChild(ratingLabel);
-  ratingDiv.appendChild(ratingDescription);
+  if (state.answers.length > 0) {
+    ratingDiv.appendChild(ratingScale);
+  }
   ratingDiv.appendChild(ratingSelect);
   
   // Add to the form
@@ -615,9 +684,11 @@ async function renderPredictionSummary() {
   const form = document.getElementById("questions-form");
   const summarySection = document.createElement("div");
   summarySection.className = "prediction-summary";
+  summarySection.style.marginBottom = "2rem";
   
   const title = document.createElement("h3");
   title.textContent = "Robot Decision Summary";
+  title.style.marginBottom = "0.5rem";
   summarySection.appendChild(title);
   
   const description = document.createElement("p");
@@ -625,28 +696,38 @@ async function renderPredictionSummary() {
   if (state.answers.length === 0) {
     description.innerHTML = "This shows the default options the robot would choose for your first meal:";
   } else {
-    description.innerHTML = "This shows what the robot would choose by default compared to what it would choose based on your previous preferences:";
+    description.innerHTML = "Based on your previous preferences, here's how the robot has personalized its choices for you:";
   }
+  description.style.marginBottom = "1rem";
   summarySection.appendChild(description);
   
   // Create table for predictions
   const table = document.createElement("table");
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
   
   // Add table header
   const thead = document.createElement("thead");
+  thead.style.backgroundColor = "#f0f0f0";
   const headerRow = document.createElement("tr");
   
   const questionHeader = document.createElement("th");
-  questionHeader.textContent = "Question";
+  questionHeader.textContent = "Setting";
+  questionHeader.style.padding = "0.75rem";
+  questionHeader.style.textAlign = "left";
   headerRow.appendChild(questionHeader);
   
   const defaultHeader = document.createElement("th");
   defaultHeader.textContent = "Default Choice";
+  defaultHeader.style.padding = "0.75rem";
+  defaultHeader.style.textAlign = "left";
   headerRow.appendChild(defaultHeader);
   
   const personalizedHeader = document.createElement("th");
   // Change column header for first meal
-  personalizedHeader.textContent = state.answers.length === 0 ? "Initial Selection" : "Personalized Prediction";
+  personalizedHeader.textContent = state.answers.length === 0 ? "Initial Selection" : "Personalized Choice";
+  personalizedHeader.style.padding = "0.75rem";
+  personalizedHeader.style.textAlign = "left";
   headerRow.appendChild(personalizedHeader);
   
   thead.appendChild(headerRow);
@@ -703,19 +784,25 @@ async function renderPredictionSummary() {
     }
     
     const row = document.createElement("tr");
+    row.style.borderBottom = "1px solid #eee";
     
     const questionCell = document.createElement("td");
     questionCell.textContent = question.text;
+    questionCell.style.padding = "0.75rem";
     row.appendChild(questionCell);
     
     const defaultCell = document.createElement("td");
     defaultCell.textContent = defaultOption;
+    defaultCell.style.padding = "0.75rem";
     row.appendChild(defaultCell);
     
     const predictionCell = document.createElement("td");
     predictionCell.textContent = formattedPrediction || "No prediction";
+    predictionCell.style.padding = "0.75rem";
     if (formattedPrediction !== defaultOption && formattedPrediction) {
       predictionCell.className = "personalized";
+      predictionCell.style.fontWeight = "bold";
+      predictionCell.style.color = "#1a73e8";
     }
     row.appendChild(predictionCell);
     
