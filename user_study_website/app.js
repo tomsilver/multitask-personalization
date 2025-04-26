@@ -61,7 +61,7 @@ const state = {
   metadata: {}, // Stores loaded metadata per question
   predictions: {}, // Stores loaded predictions per question
   currentMeal: null, // Stores the current meal metadata
-  isOptionAPersonalized: false, // Track if Option A is personalized (or Option B)
+  optionMappings: [], // Array of booleans tracking isOptionAPersonalized for each meal
 };
 
 /***********************************************************
@@ -164,6 +164,9 @@ function compressState(answers) {
           r: value.relevant_pois,
           o: value.occluded_pois
         };
+      } else if (key === 'isOptionAPersonalized') {
+        // Special handling for the option flag - keep it as is
+        minimal[key] = value;
       } else {
         // For other answers, just store the value
         minimal[key] = value.value;
@@ -193,6 +196,9 @@ function decompressState(compressed) {
             relevant_pois: value.r,
             occluded_pois: value.o
           };
+        } else if (key === 'isOptionAPersonalized') {
+          // Special handling for the option flag - keep it as a direct property
+          full[key] = value;
         } else {
           // For other answers, restore the full format
           full[key] = {
@@ -716,11 +722,11 @@ async function renderPredictionSummary() {
   thead.appendChild(headerRow);
   table.appendChild(thead);
   
-  // Randomize which one is personalized for each meal
-  if (state.answers.length === 0) {
-    // For the first meal, randomize whether A or B is "personalized"
-    state.isOptionAPersonalized = Math.random() < 0.5;
-  }
+  // Randomize for each meal independently
+  // Create a new randomization for this meal
+  const isOptionAPersonalized = Math.random() < 0.5;
+  state.optionMappings[state.answers.length] = isOptionAPersonalized;
+  console.log(`Meal ${state.answers.length + 1}: randomized isOptionAPersonalized:`, isOptionAPersonalized);
   
   // Add table body
   const tbody = document.createElement("tbody");
@@ -780,9 +786,9 @@ async function renderPredictionSummary() {
     questionCell.style.padding = "0.75rem";
     row.appendChild(questionCell);
     
-    // Determine which option goes in which column based on randomization
-    const optionA = state.isOptionAPersonalized ? formattedPrediction : defaultOption;
-    const optionB = state.isOptionAPersonalized ? defaultOption : formattedPrediction;
+    // Determine which option goes in which column based on current meal's randomization
+    const optionA = isOptionAPersonalized ? formattedPrediction : defaultOption;
+    const optionB = isOptionAPersonalized ? defaultOption : formattedPrediction;
     
     const optionACell = document.createElement("td");
     optionACell.textContent = optionA || "No option";
@@ -897,7 +903,7 @@ async function collectAnswers() {
   }
   
   // Store which option is personalized to interpret ratings correctly
-  answers.isOptionAPersonalized = state.isOptionAPersonalized;
+  answers.isOptionAPersonalized = state.optionMappings[state.answers.length];
   
   for (const question of QUESTIONS) {
     const select = form.querySelector(`select[name="${question.key}"]`);
@@ -983,11 +989,12 @@ async function sendToGoogleForm() {
     // Replace "entry.XXXXXXX" with your actual form field ID
     formData.append("entry.437529290", compressState(state.answers));
     
-    // Alternatively, you can add each answer separately if you have multiple form fields
-    // Example:
-    // state.answers.forEach((mealAnswer, index) => {
-    //   formData.append(`entry.XXXXX.${index}`, JSON.stringify(mealAnswer));
-    // });
+    // Add a summary of option mappings for easier analysis
+    // This creates a string like "1:A,2:B,3:A,4:A,5:B" where A/B means personalized was option A or B
+    const mappingSummary = state.optionMappings
+      .map((isA, index) => `${index + 1}:${isA ? 'A' : 'B'}`)
+      .join(',');
+    formData.append("entry.437529291", mappingSummary);
     
     // Send the data using fetch API with POST method
     const response = await fetch(googleFormUrl, {
@@ -1009,6 +1016,12 @@ async function sendToGoogleForm() {
 // Initialize state from URL on page load
 const { answers } = getStateFromUrl();
 state.answers = answers;
+
+// Reconstruct option mappings from loaded answers if available
+if (answers && answers.length > 0) {
+  state.optionMappings = answers.map(answer => answer.isOptionAPersonalized);
+  console.log("Loaded option mappings from URL:", state.optionMappings);
+}
 
 // Set up event listeners based on current page
 document.addEventListener('DOMContentLoaded', () => {
