@@ -406,16 +406,6 @@ async function renderForm() {
       prediction = prediction[0];
     }
     
-    // Handle bite ordering prediction (index into choices)
-    if (question.key === 'bite_order' && prediction) {
-      const index = parseInt(prediction);
-      if (!isNaN(index) && index >= 0 && index < options.length) {
-        prediction = options[index];
-      } else {
-        prediction = 'Loading...';
-      }
-    }
-    
     // Handle Yes/No predictions for verbal and occlusion questions
     if (question.key === 'verbal' && prediction) {
       prediction = prediction.trim() === 'True' ? 'Yes' : 'No';
@@ -541,60 +531,9 @@ async function collectAnswers() {
         value: value === 'Yes' ? 'True' : 'False',
         metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
       };
-    } else if (question.key === 'bite_order') {
-      // Store the index of the selected option
-      const options = await getOptionsForQuestion(question.key);
-      
-      // Log for debugging
-      console.log(`Selected bite_order: "${value}", options:`, options);
-      
-      if (!Array.isArray(options)) {
-        console.warn(`Options for bite_order is not an array:`, options);
-        // Fallback to 0 if options is not an array
-        answers[question.key] = {
-          value: "0",
-          metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
-        };
-        continue;
-      }
-      
-      const index = options.indexOf(value);
-      
-      if (index === -1) {
-        // If we can't find the option, try to get it from metadata directly
-        const metadata = state.metadata[question.key];
-        if (metadata && metadata.choices) {
-          const metadataIndex = metadata.choices.indexOf(value);
-          if (metadataIndex !== -1) {
-            console.log(`Found bite_order index ${metadataIndex} in metadata.choices`);
-            answers[question.key] = {
-              value: metadataIndex.toString(),
-              metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
-            };
-          } else {
-            // Fallback to 0 if we still can't find it
-            console.warn(`Could not find bite_order "${value}" in options or metadata, using index 0`);
-            answers[question.key] = {
-              value: "0",
-              metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
-            };
-          }
-        } else {
-          // Fallback if no metadata
-          console.warn(`No metadata available for bite_order, using index 0`);
-          answers[question.key] = {
-            value: "0",
-            metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
-          };
-        }
-      } else {
-        // Normal case - we found the index
-        answers[question.key] = {
-          value: index.toString(),
-          metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
-        };
-      }
-    } else if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+    } 
+    
+    else if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
       // For occlusion questions, we need to update the prediction.json structure
       const direction = question.key.includes('forward') ? 'front' : 'left';
       const isLooking = question.key.startsWith('look_');

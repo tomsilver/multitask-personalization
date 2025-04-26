@@ -51,6 +51,9 @@ def pregenerate_initialization_variable(var_name: str, model, current_model_stat
     else:
         print("STARTING PREDICTION", TOTAL_PREDICTIONS)
         prediction = model.get_most_preferred_choice(obs)
+        if var_name == "bite_ordering":
+            assert isinstance(prediction, int)
+            prediction = choices[prediction]
     TOTAL_PREDICTIONS += 1
     prediction_file = outdir / "prediction.txt"
     with open(prediction_file, "w") as f:
