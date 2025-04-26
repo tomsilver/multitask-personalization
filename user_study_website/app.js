@@ -123,11 +123,16 @@ function getContentPath(questionKey) {
   // we need to include that in the path
   for (const answer of state.answers) {
     // Only include answers for questions that come before the current question
+    // AND are relevant to the current question's content directory
     const questionIndex = QUESTIONS.findIndex(q => q.key === questionKey);
     const answerQuestionIndex = QUESTIONS.findIndex(q => q.key === Object.keys(answer)[0]);
     
     if (answerQuestionIndex < questionIndex) {
-      pathParts.push(answer[Object.keys(answer)[0]].value);
+      const answerQuestion = QUESTIONS[answerQuestionIndex];
+      // Only include the answer if it's from the same content directory
+      if (answerQuestion.contentDir === question.contentDir) {
+        pathParts.push(answer[Object.keys(answer)[0]].value);
+      }
     }
   }
 
@@ -200,8 +205,26 @@ async function loadMetadata(questionKey) {
   
   try {
     const contentPath = getContentPath(questionKey);
+    console.log(`Loading metadata from: ${contentPath}/metadata.json`);
+    
     const response = await fetch(`${contentPath}/metadata.json`);
-    return await response.json();
+    if (!response.ok) {
+      console.error(`HTTP error loading metadata for ${questionKey}: ${response.status} ${response.statusText}`);
+      return null;
+    }
+    
+    const text = await response.text();
+    if (!text.trim()) {
+      console.error(`Empty metadata file for ${questionKey}`);
+      return null;
+    }
+    
+    try {
+      return JSON.parse(text);
+    } catch (parseError) {
+      console.error(`Invalid JSON in metadata for ${questionKey}:`, text);
+      return null;
+    }
   } catch (error) {
     console.error(`Error loading metadata for ${questionKey}:`, error);
     return null;
@@ -250,7 +273,7 @@ async function loadCurrentMealInfo() {
     
     state.currentMeal = {
       title: `Meal ${state.answers.length + 1} of 5`,
-      image: `${occlusionPath}/bite_occlusion_image.png`,
+      image: 'content/occlusion/bite_occlusion_image.png',
       description: description
     };
     
@@ -259,7 +282,7 @@ async function loadCurrentMealInfo() {
     console.error('Error loading meal info:', error);
     state.currentMeal = {
       title: `Meal ${state.answers.length + 1} of 5`,
-      image: `${occlusionPath}/bite_occlusion_image.png`,
+      image: 'content/occlusion/bite_occlusion_image.png',
       description: "Please answer the following questions about this meal scenario."
     };
   }
