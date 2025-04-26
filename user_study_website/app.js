@@ -290,8 +290,8 @@ async function loadPredictions(questionKey) {
     if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
       // Initialize with default occlusion data
       const occlusionData = {
-        relevant_pois: ['front', 'left'],  // Default to yes for everything
-        occluded_pois: ['front', 'left'],
+        relevant_pois: [],  // Default to no for everything
+        occluded_pois: [],
       };
       return occlusionData;
     }
@@ -383,8 +383,12 @@ async function loadCurrentContent() {
 
 async function getOptionsForQuestion(questionKey) {
   // For verbal and occlusion questions, always use Yes/No
-  if (questionKey === 'verbal' || questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
+  if (questionKey === 'verbal') {
     return ['Yes', 'No'];
+  }
+
+  if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
+    return ['No', 'Yes'];
   }
   
   // For all other questions, use metadata choices if available
