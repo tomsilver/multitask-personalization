@@ -650,36 +650,7 @@ async function addPreferenceRating(form) {
   ratingLabel.style.fontSize = "1.05rem";
   ratingLabel.style.marginBottom = "1rem";
   
-  const ratingScale = document.createElement("div");
-  ratingScale.style.display = "flex";
-  ratingScale.style.alignItems = "center";
-  ratingScale.style.marginBottom = "1rem";
-  
-  const ratingDesc1 = document.createElement("div");
-  ratingDesc1.style.flex = "1";
-  ratingDesc1.style.textAlign = "left";
-  ratingDesc1.style.fontSize = "0.9rem";
-  ratingDesc1.style.color = "#555";
-  ratingDesc1.innerHTML = "<strong>1</strong>: Option A is best";
-  
-  const ratingDesc2 = document.createElement("div");
-  ratingDesc2.style.flex = "1";
-  ratingDesc2.style.textAlign = "center";
-  ratingDesc2.style.fontSize = "0.9rem";
-  ratingDesc2.style.color = "#555";
-  ratingDesc2.innerHTML = "<strong>4</strong>: Neutral";
-  
-  const ratingDesc3 = document.createElement("div");
-  ratingDesc3.style.flex = "1";
-  ratingDesc3.style.textAlign = "right";
-  ratingDesc3.style.fontSize = "0.9rem";
-  ratingDesc3.style.color = "#555";
-  ratingDesc3.innerHTML = "<strong>7</strong>: Option B is best";
-  
-  ratingScale.appendChild(ratingDesc1);
-  ratingScale.appendChild(ratingDesc2);
-  ratingScale.appendChild(ratingDesc3);
-  
+  // Create rating select dropdown
   const ratingSelect = document.createElement("select");
   ratingSelect.id = "preference_rating";
   ratingSelect.name = "preference_rating";
@@ -691,21 +662,34 @@ async function addPreferenceRating(form) {
   ratingSelect.style.borderRadius = "4px";
   ratingSelect.style.backgroundColor = "#fff";
 
-  // Add rating options 1-7
-  for (let i = 1; i <= 7; i++) {
+  // Define the descriptive rating options
+  const ratingOptions = [
+    { value: "1", text: "1: Strongly prefer Option A" },
+    { value: "2", text: "2: Prefer Option A" },
+    { value: "3", text: "3: Somewhat prefer Option A" },
+    { value: "4", text: "4: Neutral" },
+    { value: "5", text: "5: Somewhat prefer Option B" },
+    { value: "6", text: "6: Prefer Option B" },
+    { value: "7", text: "7: Strongly prefer Option B" }
+  ];
+
+  // Add empty default option
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = "Select your preference...";
+  ratingSelect.appendChild(defaultOption);
+
+  // Add all rating options with descriptive text
+  ratingOptions.forEach(optionData => {
     const option = document.createElement("option");
-    option.value = i.toString();
-    option.textContent = i.toString();
+    option.value = optionData.value;
+    option.textContent = optionData.text;
     ratingSelect.appendChild(option);
-  }
-    
-  // Pre-select the middle value (4 = moderate) for convenience
-  ratingSelect.value = "4";
+  });
   
   ratingSelect.addEventListener("change", checkFormCompletion);
   
   ratingDiv.appendChild(ratingLabel);
-  ratingDiv.appendChild(ratingScale);
   ratingDiv.appendChild(ratingSelect);
   
   // Add to the form
