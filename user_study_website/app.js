@@ -6,7 +6,7 @@
 const QUESTIONS = [
   {
     key: "bite_order",
-    text: "What bite order would you like?",
+    text: "What are your dipping preferences?",
     contentDir: "bite_ordering"
   },
   {
@@ -871,7 +871,7 @@ async function renderPredictionSummary() {
   
   // Replace the visual heading with the requested text
   const visualText = document.createElement("p");
-  visualText.textContent = "The robot is also considering two different configurations:";
+  visualText.textContent = "The robot is also considering two plate positions:";
   visualText.style.marginBottom = "1.5rem";
   visualText.style.textAlign = "center";
   visualText.style.fontSize = "1.1rem";
@@ -1286,7 +1286,7 @@ async function renderDetailsForm(descContainer, mealImg) {
     
     // Create the question text based on the type
     if (question.key === 'bite_order') {
-      label.innerHTML = `How would you like your <span class="context">bites served?</span>`;
+      label.innerHTML = `How would you like your <span class="context">bites prepared?</span>`;
     } else if (question.key === 'ready_signal') {
       label.innerHTML = `What would you prefer to use as a <span class="context">ready signal?</span>`;
     } else if (question.key === 'verbal') {
