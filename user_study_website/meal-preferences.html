@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assistive Feeding Study - Meal Options</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Assistive Feeding User Study</h1>
+  </header>
+
+  <main>
+    <section>
+      <h2 id="meal-title">Meal 1 of 5</h2>
+      <!-- Removed the single image, will add option images dynamically -->
+      <!-- Meal description will be inserted here dynamically -->
+      <form id="preferences-form"></form>
+      <div style="text-align: center; margin: 2rem 0;">
+        <button id="next-btn" style="padding: 0.75rem 2rem; font-size: 1.1rem; cursor: pointer; background-color: #1a73e8; color: white; border: none; border-radius: 4px;">Next</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    // Initialize the meal preferences page
+    document.addEventListener('DOMContentLoaded', function() {
+      if (window.location.pathname.endsWith('meal-preferences.html')) {
+        document.getElementById('next-btn').addEventListener('click', handlePreferencesNextClick);
+        showMealPreferences();
+      }
+    });
+  </script>
+</body>
+</html> 

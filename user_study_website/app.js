@@ -62,6 +62,7 @@ const state = {
   predictions: {}, // Stores loaded predictions per question
   currentMeal: null, // Stores the current meal metadata
   optionMappings: [], // Array of booleans tracking isOptionAPersonalized for each meal
+  tempPreferenceRating: null, // Temporarily stored preference rating when transitioning between screens
 };
 
 /***********************************************************
@@ -218,14 +219,23 @@ function decompressState(compressed) {
 function getStateFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const compressed = params.get('state');
+  const tempRating = params.get('temp_rating');
   const answers = compressed ? decompressState(compressed) : [];
-  return { answers };
+  return { 
+    answers,
+    tempPreferenceRating: tempRating || null
+  };
 }
 
 function updateUrlState() {
   const params = new URLSearchParams();
   const compressed = compressState(state.answers);
   params.set('state', compressed);
+  
+  // Include temporary preference rating if it exists
+  if (state.tempPreferenceRating) {
+    params.set('temp_rating', state.tempPreferenceRating);
+  }
   
   // Update URL without reloading the page
   window.history.replaceState(
@@ -236,12 +246,30 @@ function updateUrlState() {
 }
 
 function navigateToMeal() {
+  // Changed to navigate to the new meal-preferences.html page
   const params = new URLSearchParams();
   if (state.answers.length > 0) {
     const compressed = compressState(state.answers);
     params.set('state', compressed);
   }
-  window.location.href = `meal.html?${params.toString()}`;
+  window.location.href = `meal-preferences.html?${params.toString()}`;
+}
+
+function navigateToMealDetails() {
+  const params = new URLSearchParams();
+  
+  // Include existing answers
+  if (state.answers.length > 0) {
+    const compressed = compressState(state.answers);
+    params.set('state', compressed);
+  }
+  
+  // Pass temporary preference rating
+  if (state.tempPreferenceRating) {
+    params.set('temp_rating', state.tempPreferenceRating);
+  }
+  
+  window.location.href = `meal-details.html?${params.toString()}`;
 }
 
 function navigateToThanks() {
@@ -395,7 +423,7 @@ async function getOptionsForQuestion(questionKey) {
   }
 
   if (questionKey.startsWith('look_') || questionKey.startsWith('block_')) {
-    return ['No', 'Yes'];
+    return ['Yes', 'No'];
   }
   
   // For all other questions, use metadata choices if available
@@ -447,64 +475,114 @@ async function isLeftOcclusionEnabled() {
   }
 }
 
-async function renderForm() {
-  const form = document.getElementById("questions-form");
-  form.innerHTML = ""; // Clear existing questions
+// Add a global optionValues object to store values for each option
+const optionValues = {
+  optionA: {},
+  optionB: {}
+};
+
+async function renderPredictionSummary() {
+  console.log("Rendering prediction summary");
+  // Create summary section
+  const form = document.querySelector("#preferences-form, #questions-form"); // Work with either form
+  const summarySection = document.createElement("div");
+  summarySection.className = "prediction-summary";
+  summarySection.style.marginBottom = "2rem";
+  summarySection.style.backgroundColor = "#ffffff";
+  summarySection.style.border = "1px solid #e0e0e0";
+  summarySection.style.borderRadius = "8px";
+  summarySection.style.padding = "1.5rem";
+  summarySection.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
   
-  // Add preference rating at the beginning of the form
-  await addPreferenceRating(form);
+  const title = document.createElement("h3");
+  title.textContent = "Robot Decision Summary";
+  title.style.marginTop = "0";
+  title.style.marginBottom = "0.5rem";
+  summarySection.appendChild(title);
   
-  // Add section heading for meal questions
-  const sectionHeading = document.createElement("h3");
-  sectionHeading.textContent = state.answers.length === 0 
-    ? "Help the robot learn your preferences" 
-    : "Fine-tune your personalized experience";
-  sectionHeading.style.marginTop = "0.5rem";
-  sectionHeading.style.marginBottom = "0.25rem";
-  form.appendChild(sectionHeading);
+  const description = document.createElement("p");
+  // Change description based on whether this is the first meal
+  if (state.answers.length === 0) {
+    description.innerHTML = "The robot is providing options for your first meal. Please compare Option A and Option B:";
+  } else {
+    description.innerHTML = "Based on your previous preferences, here are two possible sets of choices that the robot might make for your next meal. Please compare Option A and Option B:";
+  }
+  description.style.marginBottom = "1rem";
+  summarySection.appendChild(description);
   
-  // Add section description
-  const sectionDesc = document.createElement("p");
-  sectionDesc.innerHTML = state.answers.length === 0
-    ? "For your first meal, please select your preferences for each setting:"
-    : "Please review the robot's personalized choices and adjust if needed:";
-  sectionDesc.style.marginBottom = "0.5rem";
-  form.appendChild(sectionDesc);
+  // Create table for predictions
+  const table = document.createElement("table");
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+  
+  // Add table header
+  const thead = document.createElement("thead");
+  thead.style.backgroundColor = "#f0f0f0";
+  const headerRow = document.createElement("tr");
+  
+  const questionHeader = document.createElement("th");
+  questionHeader.textContent = "Setting";
+  questionHeader.style.padding = "0.75rem";
+  questionHeader.style.textAlign = "left";
+  headerRow.appendChild(questionHeader);
+  
+  const optionAHeader = document.createElement("th");
+  optionAHeader.textContent = "Option A";
+  optionAHeader.style.padding = "0.75rem";
+  optionAHeader.style.textAlign = "left";
+  headerRow.appendChild(optionAHeader);
+  
+  const optionBHeader = document.createElement("th");
+  optionBHeader.textContent = "Option B";
+  optionBHeader.style.padding = "0.75rem";
+  optionBHeader.style.textAlign = "left";
+  headerRow.appendChild(optionBHeader);
+  
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  
+  // Randomize for each meal independently
+  // Create a new randomization for this meal
+  const isOptionAPersonalized = Math.random() < 0.5;
+  state.optionMappings[state.answers.length] = isOptionAPersonalized;
+  console.log(`Meal ${state.answers.length + 1}: randomized isOptionAPersonalized:`, isOptionAPersonalized);
+  
+  // Add table body
+  const tbody = document.createElement("tbody");
   
   // Check if left occlusion should be shown
   const showLeftOcclusion = await isLeftOcclusionEnabled();
 
-  // Filter questions if left occlusion is disabled
-  const questionsToShow = showLeftOcclusion ? 
-    QUESTIONS : 
-    QUESTIONS.filter(q => !q.key.includes('left'));
+  // Filter out occlusion-related questions from the summary table
+  // But keep all questions for the details page
+  const questionsToShow = QUESTIONS.filter(q => !q.key.startsWith('look_') && !q.key.startsWith('block_'));
   
-  for (const question of questionsToShow) {
+  // Clear option values for this meal
+  optionValues.optionA = {};
+  optionValues.optionB = {};
+  
+  // Still process all questions so option values are populated correctly
+  for (const question of QUESTIONS) {
     const options = await getOptionsForQuestion(question.key);
+    // Get the default option (first in the list)
+    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      defaultOption = "No";
+    } else {
+      defaultOption = options.length > 0 ? options[0] : "None";
+    }
     
-    const wrapper = document.createElement("div");
-    wrapper.style.marginBottom = "0.5rem";
-    wrapper.style.padding = "0.75rem";
-    wrapper.style.border = "1px solid #e0e0e0";
-    wrapper.style.borderRadius = "4px";
-    wrapper.style.backgroundColor = "#fafafa";
-    
-    const label = document.createElement("label");
-    label.setAttribute("for", question.key);
-    label.className = 'meal-context';
-    label.style.fontWeight = "500";
-    label.style.display = "block";
-    label.style.marginBottom = "0.75rem";
-    
-    // Get the prediction for this question
+    // Get the personalized prediction
     let prediction = state.predictions[question.key];
     if (Array.isArray(prediction)) {
       prediction = prediction[0];
     }
     
+    // Format prediction for display
+    let formattedPrediction = prediction;
+    
     // Handle Yes/No predictions for verbal and occlusion questions
     if (question.key === 'verbal' && prediction) {
-      prediction = prediction.trim() === 'True' ? 'Yes' : 'No';
+      formattedPrediction = prediction.trim() === 'True' ? 'Yes' : 'No';
     }
     
     // Handle occlusion predictions
@@ -515,115 +593,284 @@ async function renderForm() {
       if (prediction.relevant_pois && prediction.occluded_pois) {
         // Use the prediction data directly from this question
         if (isLooking) {
-          prediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
+          formattedPrediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
         } else {
-          prediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
+          formattedPrediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
         }
       } else {
         // Fallback defaults if prediction data is missing
         if (state.answers.length === 0) {
           if (isLooking) {
             // Default to looking forward only
-            prediction = direction === 'front' ? 'Yes' : 'No';
+            formattedPrediction = direction === 'front' ? 'Yes' : 'No';
           } else {
             // Default to no occlusion
-            prediction = 'No';
+            formattedPrediction = 'No';
           }
         } else {
-          prediction = isLooking && direction === 'front' ? 'Yes' : 'No';
+          formattedPrediction = isLooking && direction === 'front' ? 'Yes' : 'No';
         }
       }
     }
     
-    // Create the question text based on the type
-    if (question.key === 'bite_order') {
-      if (state.answers.length === 0) {
-        label.innerHTML = `The robot's initial selection is to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Is this what you prefer?`;
-      } else {
-        label.innerHTML = `The robot has learned to serve your food as follows: <span class="context">${prediction || 'Loading...'}</span>. Is this correct?`;
-      }
-    } else if (question.key === 'ready_signal') {
-      if (state.answers.length === 0) {
-        label.innerHTML = `The robot's initial selection is to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Is this what you prefer?`;
-      } else {
-        label.innerHTML = `The robot has learned to use <span class="context">${prediction || 'a button'}</span> as a ready signal. Is this correct?`;
-      }
-    } else if (question.key === 'verbal') {
-      if (state.answers.length === 0) {
-        label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
-      } else {
-        label.innerHTML = `The robot has learned that you prefer it to <span class="context">${prediction === 'Yes' ? 'be verbal' : 'remain silent'}</span> during meals. Is this correct?`;
-      }
-    } else if (question.key.startsWith('look_')) {
-      const direction = question.key.includes('forward') ? 'forward' : 'left';
-      if (state.answers.length === 0) {
-        label.innerHTML = `Would you typically be looking <span class="context">${direction}</span> during this meal?`;
-      } else {
-        label.innerHTML = `The robot has learned that you typically ${prediction === 'Yes' ? 'look' : 'do not look'} <span class="context">${direction}</span> during meals. Is this correct?`;
-      }
-    } else if (question.key.startsWith('block_')) {
-      const direction = question.key.includes('forward') ? 'forward' : 'left';
-      if (state.answers.length === 0) {
-        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">${direction}</span> sight?`;
-      } else {
-        label.innerHTML = `The robot has learned that it ${prediction === 'Yes' ? 'does' : 'does not'} block your <span class="context">${direction}</span> sight. Is this correct?`;
-      }
-    } else {
-      label.textContent = question.text;
+    // Determine which option goes in which column based on current meal's randomization
+    const optionA = isOptionAPersonalized ? formattedPrediction : defaultOption;
+    const optionB = isOptionAPersonalized ? defaultOption : formattedPrediction;
+    
+    // Store these values in our global option values map - for ALL questions
+    optionValues.optionA[question.key] = optionA;
+    optionValues.optionB[question.key] = optionB;
+    
+    // Skip rendering occlusion questions in the table
+    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      continue;
     }
     
-    const select = document.createElement("select");
-    select.id = question.key;
-    select.name = question.key;
-    select.style.width = "100%";
-    select.style.padding = "0.5rem";
-    select.style.fontSize = "1rem";
-    select.style.borderRadius = "4px";
-    select.style.border = "1px solid #ccc";
+    const row = document.createElement("tr");
+    row.style.borderBottom = "1px solid #eee";
     
-    // Add empty default option
-    const defaultOption = document.createElement("option");
-    defaultOption.value = "";
-    defaultOption.textContent = "Select an option...";
-    select.appendChild(defaultOption);
+    const questionCell = document.createElement("td");
+    questionCell.textContent = question.text;
+    questionCell.style.padding = "0.75rem";
+    row.appendChild(questionCell);
     
-    // Add all available options
-    if (Array.isArray(options)) {
-      options.forEach((optionText) => {
-        if (optionText) {  // Only add non-empty options
-          const option = document.createElement("option");
-          option.value = optionText;
-          option.textContent = optionText;
-          select.appendChild(option);
-        }
-      });
+    const optionACell = document.createElement("td");
+    optionACell.textContent = optionA || "No option";
+    optionACell.style.padding = "0.75rem";
+    
+    const optionBCell = document.createElement("td");
+    optionBCell.textContent = optionB || "No option";
+    optionBCell.style.padding = "0.75rem";
+    
+    // Highlight both cells if the options are different
+    if (optionA !== optionB) {
+      optionACell.style.fontWeight = "bold";
+      optionACell.style.color = "#1a73e8";
+      
+      optionBCell.style.fontWeight = "bold";
+      optionBCell.style.color = "#1a73e8";
     }
     
-    // If we have metadata for this question, add it as a data attribute
-    const metadata = state.metadata[question.key];
-    if (metadata) {
-      select.dataset.metadata = JSON.stringify(metadata);
+    row.appendChild(optionACell);
+    row.appendChild(optionBCell);
+    
+    tbody.appendChild(row);
+  }
+  
+  table.appendChild(tbody);
+  summarySection.appendChild(table);
+  
+  // Add a divider between the table and images
+  const divider = document.createElement("hr");
+  divider.style.margin = "2rem 0";
+  divider.style.border = "none";
+  divider.style.borderTop = "1px solid #e0e0e0";
+  summarySection.appendChild(divider);
+  
+  // Replace the visual heading with the requested text
+  const visualText = document.createElement("p");
+  visualText.textContent = "The robot is also considering two different configurations:";
+  visualText.style.marginBottom = "1.5rem";
+  visualText.style.textAlign = "center";
+  visualText.style.fontSize = "1.1rem";
+  visualText.style.fontWeight = "500";
+  visualText.style.color = "#333";
+  summarySection.appendChild(visualText);
+  
+  // Create container for the option images
+  const optionImagesContainer = document.createElement("div");
+  optionImagesContainer.style.display = "flex";
+  optionImagesContainer.style.justifyContent = "space-between";
+  optionImagesContainer.style.gap = "2rem";
+  optionImagesContainer.style.margin = "0 0 1rem 0";
+  summarySection.appendChild(optionImagesContainer);
+  
+  // Option A Image Container
+  const optionAContainer = document.createElement("div");
+  optionAContainer.style.flex = "1";
+  optionAContainer.style.textAlign = "center";
+  
+  // Option A Heading
+  const optionAHeading = document.createElement("h4");
+  optionAHeading.textContent = "Option A";
+  optionAHeading.style.marginBottom = "1rem";
+  optionAHeading.style.color = "#1a73e8";
+  optionAContainer.appendChild(optionAHeading);
+  
+  // Option A Image
+  const optionAImage = document.createElement("img");
+  optionAImage.src = isOptionAPersonalized ? state.currentMeal.image : `content/default_meal_images/meal${state.answers.length + 1}.png`;
+  optionAImage.alt = "Option A Preview";
+  optionAImage.style.width = "100%";
+  optionAImage.style.maxWidth = "280px";
+  optionAImage.style.border = "2px solid #1a73e8";
+  optionAImage.style.borderRadius = "8px";
+  optionAContainer.appendChild(optionAImage);
+  
+  // Option B Image Container
+  const optionBContainer = document.createElement("div");
+  optionBContainer.style.flex = "1";
+  optionBContainer.style.textAlign = "center";
+  
+  // Option B Heading
+  const optionBHeading = document.createElement("h4");
+  optionBHeading.textContent = "Option B";
+  optionBHeading.style.marginBottom = "1rem";
+  optionBHeading.style.color = "#1a73e8";
+  optionBContainer.appendChild(optionBHeading);
+  
+  // Option B Image
+  const optionBImage = document.createElement("img");
+  optionBImage.src = isOptionAPersonalized ? `content/default_meal_images/meal${state.answers.length + 1}.png` : state.currentMeal.image;
+  optionBImage.alt = "Option B Preview";
+  optionBImage.style.width = "100%";
+  optionBImage.style.maxWidth = "280px";
+  optionBImage.style.border = "2px solid #1a73e8";
+  optionBImage.style.borderRadius = "8px";
+  optionBContainer.appendChild(optionBImage);
+  
+  // Add both option containers to the main container
+  optionImagesContainer.appendChild(optionAContainer);
+  optionImagesContainer.appendChild(optionBContainer);
+  
+  // Insert summary section at the beginning of the form
+  form.insertBefore(summarySection, form.firstChild);
+}
+
+async function showMealPreferences() {
+  // Load content before showing the meal
+  await loadCurrentContent();
+  
+  const mealTitle = document.getElementById("meal-title");
+  
+  mealTitle.textContent = state.currentMeal.title;
+  
+  // Create a styled container for the meal description
+  const descContainer = document.createElement("div");
+  descContainer.style.backgroundColor = "#ffffff";
+  descContainer.style.border = "1px solid #e0e0e0";
+  descContainer.style.borderRadius = "6px";
+  descContainer.style.padding = "1.25rem";
+  descContainer.style.marginTop = "1rem";
+  descContainer.style.marginBottom = "1.5rem";
+  descContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+  
+  // Add heading for the scenario
+  const scenarioHeading = document.createElement("h3");
+  scenarioHeading.textContent = "Meal Scenario";
+  scenarioHeading.style.marginTop = "0";
+  scenarioHeading.style.marginBottom = "0.75rem";
+  scenarioHeading.style.color = "#333";
+  descContainer.appendChild(scenarioHeading);
+  
+  // Create the meal description element
+  const mealDesc = document.createElement("p");
+  mealDesc.id = "meal-desc";
+  mealDesc.innerHTML = state.currentMeal.description;
+  mealDesc.className = 'meal-context';
+  mealDesc.style.margin = "0";
+  mealDesc.style.lineHeight = "1.5";
+  mealDesc.style.fontSize = "1.05rem";
+  
+  // Add the description to the container
+  descContainer.appendChild(mealDesc);
+  
+  // Insert the container after the title
+  const mealSection = document.querySelector('section');
+  mealTitle.parentNode.insertBefore(descContainer, mealTitle.nextSibling);
+  
+  // Add the form with placeholder for preference rating
+  await renderPreferencesForm();
+  
+  // Add the summary table with images
+  await renderPredictionSummary();
+  
+  // Finally, add the preference rating after the summary
+  await addPreferenceRatingAfterImages();
+}
+
+async function showMealDetails() {
+  // Load content before showing the meal details (reusing the same content)
+  await loadCurrentContent();
+  
+  const mealTitle = document.getElementById("meal-title");
+  const mealImg = document.getElementById("meal-img");
+  
+  mealTitle.textContent = state.currentMeal.title;
+  
+  // Set the image source but hide it initially - we'll reposition it later
+  mealImg.src = state.currentMeal.image;
+  mealImg.style.display = "none";
+  
+  // Create a styled container for the meal description
+  const descContainer = document.createElement("div");
+  descContainer.style.backgroundColor = "#ffffff";
+  descContainer.style.border = "1px solid #e0e0e0";
+  descContainer.style.borderRadius = "6px";
+  descContainer.style.padding = "1.25rem";
+  descContainer.style.marginTop = "1rem";
+  descContainer.style.marginBottom = "1.5rem";
+  descContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
+  
+  // Add heading for the scenario
+  const scenarioHeading = document.createElement("h3");
+  scenarioHeading.textContent = "Recall the Meal Scenario";
+  scenarioHeading.style.marginTop = "0";
+  scenarioHeading.style.marginBottom = "0.75rem";
+  scenarioHeading.style.color = "#333";
+  descContainer.appendChild(scenarioHeading);
+  
+  // Create the meal description element
+  const mealDesc = document.createElement("p");
+  mealDesc.id = "meal-desc";
+  mealDesc.innerHTML = state.currentMeal.description;
+  mealDesc.className = 'meal-context';
+  mealDesc.style.margin = "0";
+  mealDesc.style.lineHeight = "1.5";
+  mealDesc.style.fontSize = "1.05rem";
+  
+  // Add the description to the container
+  descContainer.appendChild(mealDesc);
+  
+  // We'll add this container in the correct position from renderDetailsForm
+  
+  // Render the form with only the detailed questions
+  await renderDetailsForm(descContainer, mealImg);
+}
+
+// Function to create just the comparison table and preference rating
+async function renderPreferencesForm() {
+  const form = document.getElementById("preferences-form");
+  form.innerHTML = ""; // Clear existing content
+  
+  // We'll add the preference rating after the renderPredictionSummary and image options are added
+  // This creates a placeholder div that we'll populate later
+  const preferenceRatingPlaceholder = document.createElement("div");
+  preferenceRatingPlaceholder.id = "preference-rating-container";
+  form.appendChild(preferenceRatingPlaceholder);
+  
+  // Check if we have a saved temporary preference rating
+  if (state.tempPreferenceRating) {
+    const ratingSelect = form.querySelector('select[name="preference_rating"]');
+    if (ratingSelect) {
+      ratingSelect.value = state.tempPreferenceRating;
+      checkPreferenceFormCompletion();
     }
-    
-    // Pre-select the predicted option if available
-    if (prediction) {
-      select.value = prediction;
-    }
-    
-    select.addEventListener("change", checkFormCompletion);
-    
-    wrapper.appendChild(label);
-    wrapper.appendChild(select);
-    form.appendChild(wrapper);
   }
 }
 
-async function addPreferenceRating(form) {
-  console.log("Adding preference rating to form");
+// Updated function to add preference rating in the correct position
+async function addPreferenceRatingAfterImages() {
+  console.log("Adding preference rating after images");
+  
+  // Find the placeholder
+  const ratingContainer = document.getElementById("preference-rating-container");
+  if (!ratingContainer) return;
   
   // Add preference rating question
   const ratingDiv = document.createElement("div");
   ratingDiv.className = "preference-rating";
+  ratingDiv.style.marginTop = "2.5rem";
   ratingDiv.style.marginBottom = "2.5rem";
   ratingDiv.style.padding = "1.25rem";
   ratingDiv.style.border = "1px solid #d0d0d0";
@@ -687,80 +934,46 @@ async function addPreferenceRating(form) {
     ratingSelect.appendChild(option);
   });
   
-  ratingSelect.addEventListener("change", checkFormCompletion);
+  ratingSelect.addEventListener("change", checkPreferenceFormCompletion);
   
   ratingDiv.appendChild(ratingLabel);
   ratingDiv.appendChild(ratingSelect);
   
-  // Add to the form
-  form.appendChild(ratingDiv);
+  // Replace the placeholder with the actual rating div
+  ratingContainer.parentNode.replaceChild(ratingDiv, ratingContainer);
+  
+  // Set value if we have a saved temp rating
+  if (state.tempPreferenceRating) {
+    ratingSelect.value = state.tempPreferenceRating;
+    checkPreferenceFormCompletion();
+  }
   
   // Debug log
-  console.log("Preference rating added, form now has", form.querySelectorAll("select").length, "select elements");
+  console.log("Preference rating added, form now has", document.querySelectorAll("select").length, "select elements");
 }
 
-async function renderPredictionSummary() {
-  console.log("Rendering prediction summary");
-  // Create summary section
+// Function to create just the detailed preference questions form
+async function renderDetailsForm(descContainer, mealImg) {
   const form = document.getElementById("questions-form");
-  const summarySection = document.createElement("div");
-  summarySection.className = "prediction-summary";
-  summarySection.style.marginBottom = "2rem";
+  form.innerHTML = ""; // Clear existing questions
   
-  const title = document.createElement("h3");
-  title.textContent = "Robot Decision Summary";
-  title.style.marginBottom = "0.5rem";
-  summarySection.appendChild(title);
+  // Add section heading for meal questions (STEP 1)
+  const sectionHeading = document.createElement("h3");
+  sectionHeading.textContent = "Help the robot learn your preferences";
+  sectionHeading.style.marginTop = "0.5rem";
+  sectionHeading.style.marginBottom = "0.25rem";
+  form.appendChild(sectionHeading);
   
-  const description = document.createElement("p");
-  // Change description based on whether this is the first meal
-  if (state.answers.length === 0) {
-    description.innerHTML = "The robot is providing options for your first meal. Please compare Option A and Option B:";
-  } else {
-    description.innerHTML = "Based on your previous preferences, here are the robot's choices. Please compare Option A and Option B:";
-  }
-  description.style.marginBottom = "1rem";
-  summarySection.appendChild(description);
+  // Add section description
+  const sectionDesc = document.createElement("p");
+  sectionDesc.innerHTML = state.answers.length === 0
+    ? "For your first meal, please select your preferences for each setting:"
+    : "Please review the robot's personalized choices and adjust if needed:";
+  sectionDesc.style.marginBottom = "1.5rem";
+  form.appendChild(sectionDesc);
   
-  // Create table for predictions
-  const table = document.createElement("table");
-  table.style.width = "100%";
-  table.style.borderCollapse = "collapse";
-  
-  // Add table header
-  const thead = document.createElement("thead");
-  thead.style.backgroundColor = "#f0f0f0";
-  const headerRow = document.createElement("tr");
-  
-  const questionHeader = document.createElement("th");
-  questionHeader.textContent = "Setting";
-  questionHeader.style.padding = "0.75rem";
-  questionHeader.style.textAlign = "left";
-  headerRow.appendChild(questionHeader);
-  
-  const optionAHeader = document.createElement("th");
-  optionAHeader.textContent = "Option A";
-  optionAHeader.style.padding = "0.75rem";
-  optionAHeader.style.textAlign = "left";
-  headerRow.appendChild(optionAHeader);
-  
-  const optionBHeader = document.createElement("th");
-  optionBHeader.textContent = "Option B";
-  optionBHeader.style.padding = "0.75rem";
-  optionBHeader.style.textAlign = "left";
-  headerRow.appendChild(optionBHeader);
-  
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-  
-  // Randomize for each meal independently
-  // Create a new randomization for this meal
-  const isOptionAPersonalized = Math.random() < 0.5;
-  state.optionMappings[state.answers.length] = isOptionAPersonalized;
-  console.log(`Meal ${state.answers.length + 1}: randomized isOptionAPersonalized:`, isOptionAPersonalized);
-  
-  // Add table body
-  const tbody = document.createElement("tbody");
+  // Add meal scenario section (STEP 2)
+  form.appendChild(descContainer);
   
   // Check if left occlusion should be shown
   const showLeftOcclusion = await isLeftOcclusionEnabled();
@@ -770,23 +983,42 @@ async function renderPredictionSummary() {
     QUESTIONS : 
     QUESTIONS.filter(q => !q.key.includes('left'));
   
+  // Create containers for non-occlusion and occlusion questions
+  const nonOcclusionContainer = document.createElement("div");
+  nonOcclusionContainer.className = "non-occlusion-questions";
+  nonOcclusionContainer.style.marginBottom = "1.5rem";
+  
+  const occlusionContainer = document.createElement("div");
+  occlusionContainer.className = "occlusion-questions";
+  occlusionContainer.style.marginTop = "1.5rem";
+  
+  // Sort questions into the appropriate containers
   for (const question of questionsToShow) {
     const options = await getOptionsForQuestion(question.key);
-    // Get the default option (first in the list)
-    const defaultOption = options.length > 0 ? options[0] : "None";
     
-    // Get the personalized prediction
+    const wrapper = document.createElement("div");
+    wrapper.style.marginBottom = "0.5rem";
+    wrapper.style.padding = "0.75rem";
+    wrapper.style.border = "1px solid #e0e0e0";
+    wrapper.style.borderRadius = "4px";
+    wrapper.style.backgroundColor = "#fafafa";
+    
+    const label = document.createElement("label");
+    label.setAttribute("for", question.key);
+    label.className = 'meal-context';
+    label.style.fontWeight = "500";
+    label.style.display = "block";
+    label.style.marginBottom = "0.75rem";
+    
+    // Get the prediction for this question
     let prediction = state.predictions[question.key];
     if (Array.isArray(prediction)) {
       prediction = prediction[0];
     }
     
-    // Format prediction for display
-    let formattedPrediction = prediction;
-    
     // Handle Yes/No predictions for verbal and occlusion questions
     if (question.key === 'verbal' && prediction) {
-      formattedPrediction = prediction.trim() === 'True' ? 'Yes' : 'No';
+      prediction = prediction.trim() === 'True' ? 'Yes' : 'No';
     }
     
     // Handle occlusion predictions
@@ -797,117 +1029,182 @@ async function renderPredictionSummary() {
       if (prediction.relevant_pois && prediction.occluded_pois) {
         // Use the prediction data directly from this question
         if (isLooking) {
-          formattedPrediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
+          prediction = prediction.relevant_pois.includes(direction) ? 'Yes' : 'No';
         } else {
-          formattedPrediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
+          prediction = prediction.occluded_pois.includes(direction) ? 'Yes' : 'No';
         }
       } else {
         // Fallback defaults if prediction data is missing
         if (state.answers.length === 0) {
           if (isLooking) {
             // Default to looking forward only
-            formattedPrediction = direction === 'front' ? 'Yes' : 'No';
+            prediction = direction === 'front' ? 'Yes' : 'No';
           } else {
             // Default to no occlusion
-            formattedPrediction = 'No';
+            prediction = 'No';
           }
         } else {
-          formattedPrediction = isLooking && direction === 'front' ? 'Yes' : 'No';
+          prediction = isLooking && direction === 'front' ? 'Yes' : 'No';
         }
       }
     }
     
-    const row = document.createElement("tr");
-    row.style.borderBottom = "1px solid #eee";
-    
-    const questionCell = document.createElement("td");
-    questionCell.textContent = question.text;
-    questionCell.style.padding = "0.75rem";
-    row.appendChild(questionCell);
-    
-    // Determine which option goes in which column based on current meal's randomization
-    const optionA = isOptionAPersonalized ? formattedPrediction : defaultOption;
-    const optionB = isOptionAPersonalized ? defaultOption : formattedPrediction;
-    
-    const optionACell = document.createElement("td");
-    optionACell.textContent = optionA || "No option";
-    optionACell.style.padding = "0.75rem";
-    
-    const optionBCell = document.createElement("td");
-    optionBCell.textContent = optionB || "No option";
-    optionBCell.style.padding = "0.75rem";
-    
-    // Highlight both cells if the options are different
-    if (optionA !== optionB) {
-      optionACell.style.fontWeight = "bold";
-      optionACell.style.color = "#1a73e8";
-      
-      optionBCell.style.fontWeight = "bold";
-      optionBCell.style.color = "#1a73e8";
+    // Create the question text based on the type
+    if (question.key === 'bite_order') {
+      label.innerHTML = `How would you like your <span class="context">bites served?</span>`;
+    } else if (question.key === 'ready_signal') {
+      label.innerHTML = `What would you prefer to use as a <span class="context">ready signal?</span>`;
+    } else if (question.key === 'verbal') {
+      label.innerHTML = `Would you like the robot to be <span class="context">verbal</span> during this meal?`;
+    } else if (question.key.startsWith('look_')) {
+      if (question.key === 'look_left') {
+        label.innerHTML = `Would you typically be looking <span class="context">slightly left</span> during this meal?`;
+      } else {
+        label.innerHTML = `Would you typically be looking <span class="context">forward</span> during this meal?`;
+      }
+    } else if (question.key.startsWith('block_')) {
+      if (question.key === 'block_left') {
+        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">leftward</span> sight?`;
+      } else {
+        label.innerHTML = `Is the robot uncomfortably blocking your <span class="context">forward</span> sight?`;
+      }
+    } else {
+      label.textContent = question.text;
     }
     
-    row.appendChild(optionACell);
-    row.appendChild(optionBCell);
+    const select = document.createElement("select");
+    select.id = question.key;
+    select.name = question.key;
+    select.style.width = "100%";
+    select.style.padding = "0.5rem";
+    select.style.fontSize = "1rem";
+    select.style.borderRadius = "4px";
+    select.style.border = "1px solid #ccc";
     
-    tbody.appendChild(row);
+    // Add empty default option
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "Select an option...";
+    select.appendChild(defaultOption);
+    
+    // Add all available options
+    if (Array.isArray(options)) {
+      options.forEach((optionText) => {
+        if (optionText) {  // Only add non-empty options
+          const option = document.createElement("option");
+          option.value = optionText;
+          option.textContent = optionText;
+          select.appendChild(option);
+        }
+      });
+    }
+    
+    // If we have metadata for this question, add it as a data attribute
+    const metadata = state.metadata[question.key];
+    if (metadata) {
+      select.dataset.metadata = JSON.stringify(metadata);
+    }
+    
+    // Pre-select the value from the selected option
+    const isOptionAPersonalized = state.optionMappings[state.answers.length] || false;
+    const selectedOptionData = state.tempPreferenceRating ? 
+      (state.tempPreferenceRating <= 3 ? optionValues.optionA : 
+       state.tempPreferenceRating >= 5 ? optionValues.optionB : 
+       null) : null;
+    
+    // If user has a preference, pre-select values based on that preference
+    if (selectedOptionData && selectedOptionData[question.key]) {
+      select.value = selectedOptionData[question.key];
+    }
+    
+    select.addEventListener("change", checkDetailsFormCompletion);
+    
+    // Add special handling for "looking" questions to disable corresponding "blocking" questions
+    if (question.key.startsWith('look_')) {
+      select.addEventListener("change", (e) => {
+        const direction = question.key.includes('forward') ? 'forward' : 'left';
+        const blockingQuestionId = `block_${direction}`;
+        const blockingSelect = document.getElementById(blockingQuestionId);
+        
+        if (blockingSelect) {
+          if (e.target.value === 'No') {
+            // If not looking in this direction, can't be uncomfortably blocking
+            blockingSelect.value = 'No';
+            blockingSelect.disabled = true;
+            blockingSelect.parentNode.style.opacity = '0.6';
+            // Trigger validation check after setting the value
+            checkDetailsFormCompletion();
+          } else {
+            // Re-enable the blocking question
+            blockingSelect.disabled = false;
+            blockingSelect.parentNode.style.opacity = '1';
+          }
+        }
+      });
+    }
+    
+    wrapper.appendChild(label);
+    wrapper.appendChild(select);
+    
+    // Add the question to the appropriate container
+    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      occlusionContainer.appendChild(wrapper);
+    } else {
+      nonOcclusionContainer.appendChild(wrapper);
+    }
   }
   
-  table.appendChild(tbody);
-  summarySection.appendChild(table);
+  // STEP 3: Add non-occlusion questions to the form
+  form.appendChild(nonOcclusionContainer);
   
-  // Insert summary section at the beginning of the form
-  form.insertBefore(summarySection, form.firstChild);
+  // STEP 4: Add the meal image
+  mealImg.style.display = "block";
+  mealImg.style.maxWidth = "100%";
+  mealImg.style.marginTop = "0.75rem";
+  mealImg.style.marginBottom = "1rem";
+  mealImg.style.border = "1px solid #ddd";
+  mealImg.style.borderRadius = "8px";
+  form.appendChild(mealImg);
+  
+  // STEP 5: Add occlusion questions
+  // Add instructions for occlusion questions
+  if (occlusionContainer.children.length > 0) {
+    const occlusionInstructions = document.createElement("p");
+    occlusionInstructions.textContent = "Refer to the image above to answer the following questions:";
+    occlusionInstructions.style.marginTop = "0.5rem";
+    occlusionInstructions.style.marginBottom = "0.5rem";
+    occlusionInstructions.style.fontStyle = "italic";
+    occlusionInstructions.style.color = "#555";
+    form.appendChild(occlusionInstructions);
+    form.appendChild(occlusionContainer);
+    
+    // Trigger change events for looking questions to initialize blocking questions properly
+    const lookingSelects = form.querySelectorAll('select[id^="look_"]');
+    lookingSelects.forEach(select => {
+      const event = new Event('change');
+      select.dispatchEvent(event);
+    });
+  }
+  
+  // Check form completion status after all fields are added
+  checkDetailsFormCompletion();
 }
 
-async function showMeal() {
-  // Load content before showing the meal
-  await loadCurrentContent();
+// Form validation for the preference page
+function checkPreferenceFormCompletion() {
+  const form = document.getElementById("preferences-form");
+  const nextBtn = document.getElementById("next-btn");
+  const preferenceRating = form.querySelector('select[name="preference_rating"]');
   
-  const mealTitle = document.getElementById("meal-title");
-  const mealImg = document.getElementById("meal-img");
+  // Check if preference rating has been selected
+  const isComplete = preferenceRating && preferenceRating.value;
   
-  mealTitle.textContent = state.currentMeal.title;
-  mealImg.src = state.currentMeal.image;
-  
-  // Create a styled container for the meal description
-  const descContainer = document.createElement("div");
-  descContainer.style.backgroundColor = "#ffffff";
-  descContainer.style.border = "1px solid #e0e0e0";
-  descContainer.style.borderRadius = "6px";
-  descContainer.style.padding = "1.25rem";
-  descContainer.style.marginTop = "1rem";
-  descContainer.style.marginBottom = "1.5rem";
-  descContainer.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)";
-  
-  // Add heading for the scenario
-  const scenarioHeading = document.createElement("h3");
-  scenarioHeading.textContent = "Meal Scenario";
-  scenarioHeading.style.marginTop = "0";
-  scenarioHeading.style.marginBottom = "0.75rem";
-  scenarioHeading.style.color = "#333";
-  descContainer.appendChild(scenarioHeading);
-  
-  // Create the meal description element
-  const mealDesc = document.createElement("p");
-  mealDesc.id = "meal-desc";
-  mealDesc.innerHTML = state.currentMeal.description;
-  mealDesc.className = 'meal-context';
-  mealDesc.style.margin = "0";
-  mealDesc.style.lineHeight = "1.5";
-  mealDesc.style.fontSize = "1.05rem";
-  
-  // Add the description to the container
-  descContainer.appendChild(mealDesc);
-  
-  // Insert the container after the image
-  const mealSection = document.querySelector('section');
-  mealImg.parentNode.insertBefore(descContainer, mealImg.nextSibling);
-  
-  await renderForm();
-  await renderPredictionSummary();
+  console.log("Preference rating complete:", isComplete);
+  nextBtn.disabled = !isComplete;
 }
 
-function checkFormCompletion() {
+// Form validation for the details page
+function checkDetailsFormCompletion() {
   const form = document.getElementById("questions-form");
   const nextBtn = document.getElementById("next-btn");
   const selects = form.querySelectorAll("select");
@@ -917,8 +1214,9 @@ function checkFormCompletion() {
   
   // Log each select element and its value for debugging
   selects.forEach(select => {
-    console.log(`Select ${select.name}: value = "${select.value}"`);
-    if (!select.value) {
+    console.log(`Select ${select.name}: value = "${select.value}", disabled = ${select.disabled}`);
+    // Consider a select answered if it has a value OR it's disabled (with a value)
+    if (!select.value && !select.disabled) {
       allAnswered = false;
       console.log(`Missing value for ${select.name}`);
     }
@@ -928,21 +1226,59 @@ function checkFormCompletion() {
   nextBtn.disabled = !allAnswered;
 }
 
-async function collectAnswers() {
-  const form = document.getElementById("questions-form");
-  const answers = {};
-  
-  // Get the preference rating if it exists
+// Handler for the next button on preferences page
+async function handlePreferencesNextClick() {
+  const form = document.getElementById("preferences-form");
   const preferenceRating = form.querySelector('select[name="preference_rating"]');
+  
   if (preferenceRating && preferenceRating.value) {
+    // Store the preference rating temporarily
+    state.tempPreferenceRating = preferenceRating.value;
+    
+    // Update URL to include the temporary preference
+    updateUrlState();
+    
+    // Navigate to the details page
+    navigateToMealDetails();
+  }
+}
+
+// Handler for the next button on details page
+async function handleDetailsNextClick() {
+  // Collect answers from the details form
+  const answers = await collectAnswers();
+  
+  // Add the temporary preference rating to answers
+  if (state.tempPreferenceRating) {
     answers.preference_rating = {
-      value: preferenceRating.value,
+      value: state.tempPreferenceRating,
       metadata: null
     };
+    
+    // Clear the temporary preference rating
+    state.tempPreferenceRating = null;
   }
   
   // Store which option is personalized to interpret ratings correctly
   answers.isOptionAPersonalized = state.optionMappings[state.answers.length];
+  
+  // Save answers and proceed
+  state.answers.push(answers);
+  
+  if (state.answers.length < 5) {
+    navigateToMeal();
+  } else {
+    // Send final state to Google Form before navigating to thanks page
+    await sendToGoogleForm();
+    navigateToThanks();
+  }
+}
+
+async function collectAnswers() {
+  const form = document.getElementById("questions-form");
+  const answers = {};
+  
+  // Note: We don't collect preference_rating here anymore as it's passed in from the previous page
   
   // Check if left occlusion is enabled
   const showLeftOcclusion = await isLeftOcclusionEnabled();
@@ -1020,20 +1356,6 @@ async function collectAnswers() {
   return answers;
 }
 
-async function handleNextClick() {
-  // Collect and save answers
-  const answers = await collectAnswers();
-  state.answers.push(answers);
-  
-  if (state.answers.length < 5) {
-    navigateToMeal();
-  } else {
-    // Send final state to Google Form before navigating to thanks page
-    await sendToGoogleForm();
-    navigateToThanks();
-  }
-}
-
 /**
  * Sends the final state data to a Google Form
  */
@@ -1073,12 +1395,26 @@ async function sendToGoogleForm() {
   }
 }
 
+// Add back a minimal redirect version of showMeal for backward compatibility
+async function showMeal() {
+  // This function just redirects to the new flow
+  console.log("Legacy showMeal called, redirecting to meal-preferences page");
+  navigateToMeal();
+}
+
+// Add back a minimal version of checkFormCompletion for backward compatibility
+function checkFormCompletion() {
+  console.log("Legacy checkFormCompletion called, this function is deprecated");
+  // Do nothing
+}
+
 /***********************************************************
  * INIT
  ***********************************************************/
 // Initialize state from URL on page load
-const { answers } = getStateFromUrl();
+const { answers, tempPreferenceRating } = getStateFromUrl();
 state.answers = answers;
+state.tempPreferenceRating = tempPreferenceRating;
 
 // Reconstruct option mappings from loaded answers if available
 if (answers && answers.length > 0) {
@@ -1088,7 +1424,7 @@ if (answers && answers.length > 0) {
 
 // Set up event listeners based on current page
 document.addEventListener('DOMContentLoaded', () => {
-  // We don't need to set up event listeners for meal.html here anymore as it's handled in meal.html
+  // We don't set up event listeners here anymore as they are now set in each HTML file
   if (window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/')) {
     // Handle the start button on the index page
     document.getElementById('start-btn').addEventListener('click', () => {
@@ -1099,9 +1435,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Add browser back/forward button support
 window.addEventListener('popstate', () => {
-  const { answers } = getStateFromUrl();
+  const { answers, tempPreferenceRating } = getStateFromUrl();
   state.answers = answers;
-  if (window.location.pathname.endsWith('meal.html')) {
-    showMeal();
+  state.tempPreferenceRating = tempPreferenceRating;
+  
+  const path = window.location.pathname;
+  if (path.endsWith('meal-preferences.html')) {
+    showMealPreferences();
+  } else if (path.endsWith('meal-details.html')) {
+    showMealDetails();
   }
 }); 
