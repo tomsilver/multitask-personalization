@@ -232,8 +232,9 @@ async function loadCurrentContent() {
   
   // Load metadata and predictions for each question
   for (const question of QUESTIONS) {
-    state.metadata[question.key] = await loadMetadata(question.key);
-    state.predictions[question.key] = await loadPredictions(question.key);
+    const key = question.key;
+    state.metadata[key] = await loadMetadata(key);
+    state.predictions[key] = await loadPredictions(key);
   }
 }
 
@@ -242,12 +243,18 @@ function getOptionsForQuestion(questionKey) {
   if (questionKey === 'bite_order') {
     const metadata = state.metadata[questionKey];
     if (metadata && metadata.choices) {
+      console.log(`Bite order options from metadata:`, metadata.choices);
       return metadata.choices;
     }
   }
   
-  // For other questions, use predictions if available, otherwise fall back to initial options
-  return state.predictions[questionKey] || INITIAL_OPTIONS[questionKey];
+  // For other questions, use metadata choices if available, otherwise fall back to initial options
+  const metadata = state.metadata[questionKey];
+  if (metadata && metadata.choices) {
+    return metadata.choices;
+  }
+  
+  return INITIAL_OPTIONS[questionKey];
 }
 
 function renderForm() {
@@ -256,6 +263,7 @@ function renderForm() {
   
   QUESTIONS.forEach((question) => {
     const options = getOptionsForQuestion(question.key);
+    console.log(`Rendering options for ${question.key}:`, options);
     
     const wrapper = document.createElement("div");
     wrapper.style.marginBottom = "1.5rem";
@@ -274,18 +282,30 @@ function renderForm() {
     defaultOption.textContent = "Select an option...";
     select.appendChild(defaultOption);
     
-    // Add predicted/available options
-    options.forEach((optionText) => {
-      const option = document.createElement("option");
-      option.value = optionText;
-      option.textContent = optionText;
-      select.appendChild(option);
-    });
+    // Add all available options
+    if (Array.isArray(options)) {
+      options.forEach((optionText) => {
+        if (optionText) {  // Only add non-empty options
+          const option = document.createElement("option");
+          option.value = optionText;
+          option.textContent = optionText;
+          select.appendChild(option);
+        }
+      });
+    } else {
+      console.warn(`Options for ${question.key} is not an array:`, options);
+    }
     
     // If we have metadata for this question, add it as a data attribute
     const metadata = state.metadata[question.key];
     if (metadata) {
       select.dataset.metadata = JSON.stringify(metadata);
+    }
+    
+    // Pre-select the predicted option if available
+    const prediction = state.predictions[question.key];
+    if (prediction && prediction.length > 0) {
+      select.value = prediction[0];
     }
     
     select.addEventListener("change", checkFormCompletion);
