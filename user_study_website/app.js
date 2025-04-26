@@ -212,16 +212,20 @@ async function loadCurrentMealInfo() {
   try {
     const response = await fetch(`${occlusionPath}/metadata.json`);
     const metadata = await response.json();
+    console.log('Loaded meal metadata:', metadata); // Debug log
+    
     state.currentMeal = {
       title: `Meal ${state.answers.length + 1} of 5`,
-      image: metadata.image || `media/meal_${state.answers.length + 1}.jpg`,
+      image: `${occlusionPath}/bite_occlusion_image.png`,
       description: metadata.description || "Please answer the following questions about this meal scenario."
     };
+    
+    console.log('Final image path:', state.currentMeal.image); // Debug log
   } catch (error) {
     console.error('Error loading meal info:', error);
     state.currentMeal = {
       title: `Meal ${state.answers.length + 1} of 5`,
-      image: `media/meal_${state.answers.length + 1}.jpg`,
+      image: `${occlusionPath}/bite_occlusion_image.png`,
       description: "Please answer the following questions about this meal scenario."
     };
   }
@@ -393,10 +397,57 @@ function collectAnswers() {
   
   QUESTIONS.forEach(question => {
     const select = form.querySelector(`select[name="${question.key}"]`);
-    answers[question.key] = {
-      value: select.value,
-      metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
-    };
+    const value = select.value;
+    
+    // Handle special cases for storing answers
+    if (question.key === 'verbal') {
+      // Convert Yes/No back to True/False
+      answers[question.key] = {
+        value: value === 'Yes' ? 'True' : 'False',
+        metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
+      };
+    } else if (question.key === 'bite_order') {
+      // Store the index of the selected option
+      const options = getOptionsForQuestion(question.key);
+      const index = options.indexOf(value);
+      answers[question.key] = {
+        value: index.toString(),
+        metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
+      };
+    } else if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
+      // For occlusion questions, we need to update the prediction.json structure
+      const direction = question.key.includes('forward') ? 'front' : 'left';
+      const isLooking = question.key.startsWith('look_');
+      
+      // Get or create the occlusion data
+      if (!answers.occlusion) {
+        answers.occlusion = {
+          relevant_pois: [],
+          occluded_pois: []
+        };
+      }
+      
+      // Update the appropriate list based on the answer
+      if (value === 'Yes') {
+        if (isLooking) {
+          answers.occlusion.relevant_pois.push(direction);
+        } else {
+          answers.occlusion.occluded_pois.push(direction);
+        }
+      }
+      
+      // Store the individual answer as well
+      answers[question.key] = {
+        value,
+        metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
+      };
+    } else {
+      // For all other questions, store the value as is
+      answers[question.key] = {
+        value,
+        metadata: select.dataset.metadata ? JSON.parse(select.dataset.metadata) : null
+      };
+    }
   });
   
   return answers;
