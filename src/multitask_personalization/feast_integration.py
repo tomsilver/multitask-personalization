@@ -72,7 +72,7 @@ class MultitaskPersonalizationFeastInterface:
         # set_pose(self._sim.plate_id, self._sim.scene_spec.plate_default_pose, self._sim.physics_client_id)
         # self._sim.robot.set_joints(self._sim.scene_spec.drink_staging_pos + [0, 0, 0, 0, 0, 0])
         # # self._sim.robot.set_joints(self._sim.scene_spec.above_plate_pos + [0, 0, 0, 0, 0, 0])
-        # staging_ee_pose = Pose(position=(0.610370934009552, 0.2644931674003601, 0.45), orientation=(0, -0.7071068, -0.7071068, 0))
+        # staging_ee_pose = Pose(position=(0.610370934009552, 0.2644931674003601, 0.55), orientation=(0, -0.7071068, -0.7071068, 0))
         # try:
         #     robot_joints = inverse_kinematics(
         #         self._sim.robot, staging_ee_pose
@@ -150,7 +150,7 @@ class MultitaskPersonalizationFeastInterface:
             plate_pose = request_dict["plate_pose"]
             drink_pose = request_dict["drink_pose"]
 
-            self._visualize("Current Scene", plate_pose, drink_pose)
+            # self._visualize("Current Scene", plate_pose, drink_pose)
 
             obs = FeedingOcclusionQueryObservation(
                 self._current_context,
@@ -317,7 +317,7 @@ if __name__ == "__main__":
 
     interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize, log_dir)
     # interface.create_mealtime_instance("meal_5")
-    # occlusion_image = interface._render_bite_occlusion_image(interface._scene_spec.plate_default_pose, interface._scene_spec.drink_default_pose, interface._scene_spec.before_transfer_pos)
+    # occlusion_image = interface._render_drink_occlusion_image(interface._scene_spec.plate_default_pose, interface._scene_spec.drink_default_pose, interface._scene_spec.before_transfer_pos)
     # from PIL import Image
     # Image.fromarray(occlusion_image).show()
 

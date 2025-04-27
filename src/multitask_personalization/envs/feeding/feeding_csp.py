@@ -92,9 +92,14 @@ class _FeedingCSPPolicy(CSPPolicy[FeedingObservation, FeedingAction]):
             # Rajat ToDo: change default to a logged pickup pos
             # drink_pickup_pose = planned_drink_pose.multiply(Pose((0.0, 0.0, 0.05), (0.0, 0.0, 0.0, 1.0)))
             if not obs.drink_pose.allclose(BANISH_POSE):
-                drink_grasp_pos = _transform_joints_relative_to_drink(
-                    "drink_staging_pos", planned_drink_pose, self._sim.robot, self._sim.scene_spec
-                )
+                try:
+                    drink_grasp_pos = _transform_joints_relative_to_drink(
+                        "drink_staging_pos", planned_drink_pose, self._sim.robot, self._sim.scene_spec
+                    )
+                    print(f"Found IK for Drink: field name drink_staging_pos, pose {planned_drink_pose}")
+                except InverseKinematicsError:
+                    print(f"Failed to find IK")
+                    import ipdb; ipdb.set_trace()
             else:
                 drink_grasp_pos = None
             
@@ -526,7 +531,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             ) -> bool:
                 plate_pos = _plate_position_to_pose(plate_position, obs.plate_pose).position
                 drink_pos = _drink_position_to_pose(drink_position, obs.drink_pose).position
-                return plate_pos[0] < drink_pos[0]
+                return plate_pos[0] < drink_pos[0] - 0.2  # plate must be 20 cms behind the drink
             
             plate_behind_drink = FunctionalCSPConstraint(
                 "plate_behind_drink",
@@ -756,6 +761,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 self._sim.scene_spec,
                 arm_joints_only=False,
             )
+            print(f"Found IK for Drink: field name {field_name}, pose {new_drink_pose}")
         except InverseKinematicsError:
             print("WARNING: IK failed within _user_view_unoccluded_by_drink()")
             return None
