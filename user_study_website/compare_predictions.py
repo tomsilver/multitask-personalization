@@ -76,26 +76,43 @@ def _get_model_prediction(variable, current_path):
     raise NotImplementedError
 
 
-def _get_prediction_success_sequence(variable, var_sequence):
+def _get_non_personalized_prediction(variable, meal_id):
+    if variable == "occlusion":
+        # For occlusion, we use a fixed prediction
+        return "none___none"
+    path = Path(__file__).parent / "content" / "non_personalized" / _variable_to_outer_dir(variable) / f"meal{meal_id}"
+    return _get_model_prediction(variable, path)
+
+
+def _variable_to_outer_dir(variable):
     if variable == "bite_order":
         outer_dir = "bite_ordering"
     elif variable == "verbal":
         outer_dir = "be_verbal"
     else:
         outer_dir = variable
+    return outer_dir
+
+
+def _get_prediction_success_sequence(variable, var_sequence, non_personalized):
+    outer_dir = _variable_to_outer_dir(variable)
 
     current_path = Path(__file__).parent / "content" / outer_dir
     assert current_path.exists(), f"Path {current_path} does not exist."
     success_sequence = []
-    for user_selected_value in var_sequence:
-        model_prediction = _get_model_prediction(variable, current_path)
+    for i, user_selected_value in enumerate(var_sequence):
+        meal_id = i + 1
+        if non_personalized:
+            model_prediction = _get_non_personalized_prediction(variable, meal_id)
+        else:
+            model_prediction = _get_model_prediction(variable, current_path)
         success = 1 if user_selected_value == model_prediction else 0
         success_sequence.append(success)
         current_path = current_path / str(user_selected_value)
     return success_sequence
 
 
-def main(file_path):
+def main(file_path, non_personalized):
     responses = load_responses(file_path)
     simplified_responses = _get_simplified_responses(responses)
     variables = ['occlusion', 'bite_order', 'ready_signal', 'verbal']
@@ -105,7 +122,7 @@ def main(file_path):
         var_prediction_success_sequences = []
         for response in simplified_responses:
             var_sequence = [answer[variable] for answer in response]
-            success_sequence = _get_prediction_success_sequence(variable, var_sequence)
+            success_sequence = _get_prediction_success_sequence(variable, var_sequence, non_personalized)
             var_prediction_success_sequences.append(success_sequence)
         var_to_prediction_success_sequences[variable] = var_prediction_success_sequences
     # Print the prediction success sequences, averaging over all responses
@@ -120,6 +137,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Analyze meal preference data from Google Form responses.')
     parser.add_argument('file_path', nargs='?', default='form_responses.txt',
                         help='Path to the form responses file (default: form_responses.txt)')
+    parser.add_argument('--non_personalized', action='store_true')
 
     # Parse arguments
     args = parser.parse_args()
@@ -129,4 +147,4 @@ if __name__ == "__main__":
         print(f"Error: File {file_path} does not exist.")
 
     else:
-        main(file_path)
+        main(file_path, args.non_personalized)
