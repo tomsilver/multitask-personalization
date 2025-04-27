@@ -757,14 +757,9 @@ async function renderPredictionSummary() {
   // Process all questions for displaying in the table
   for (const question of questionsToShow) {
     const options = await getOptionsForQuestion(question.key);
-    // Get the default option (first in the list)
-    let defaultOption;
-    if (question.key.startsWith('look_') || question.key.startsWith('block_')) {
-      defaultOption = "No";
-    } else {
-      defaultOption = options.length > 0 ? options[0] : "None";
-    }
-    
+    // Baseline: randomize the default option
+    const defaultOption = options[Math.floor(Math.random() * options.length)];
+
     // Get the personalized prediction
     let prediction = state.predictions[question.key];
     if (Array.isArray(prediction)) {
@@ -777,11 +772,6 @@ async function renderPredictionSummary() {
     // Handle Yes/No predictions for verbal and occlusion questions
     if (question.key === 'verbal' && prediction) {
       formattedPrediction = prediction.trim() === 'True' ? 'Yes' : 'No';
-    }
-    
-    // If this is the first meal, use the default option
-    if (state.answers.length === 0) {
-      formattedPrediction = defaultOption;
     }
     
     // Determine which option goes in which column based on current meal's randomization
