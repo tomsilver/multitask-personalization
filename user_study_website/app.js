@@ -1111,11 +1111,9 @@ async function addPreferenceRatingAfterImages() {
   const ratingOptions = [
     { value: "1", text: "1: Strongly prefer Option A" },
     { value: "2", text: "2: Prefer Option A" },
-    { value: "3", text: "3: Somewhat prefer Option A" },
-    { value: "4", text: "4: Neutral" },
-    { value: "5", text: "5: Somewhat prefer Option B" },
-    { value: "6", text: "6: Prefer Option B" },
-    { value: "7", text: "7: Strongly prefer Option B" }
+    { value: "3", text: "3: Neutral" },
+    { value: "4", text: "4: Prefer Option B" },
+    { value: "5", text: "5: Strongly prefer Option B" }
   ];
 
   // Add empty default option
