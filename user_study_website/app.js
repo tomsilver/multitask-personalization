@@ -680,6 +680,31 @@ async function isLeftOcclusionEnabled() {
   }
 }
 
+// Added function to load non-personalized predictions from files
+async function loadNonPersonalizedPrediction(questionKey) {
+  try {
+    const mealNumber = state.answers.length + 1;
+    const nonPersonalizedPath = `content/non_personalized/${QUESTIONS.find(q => q.key === questionKey).contentDir}/meal${mealNumber}`;
+    
+    const response = await fetch(`${nonPersonalizedPath}/prediction.txt`);
+    if (!response.ok) {
+      console.warn(`Failed to load non-personalized prediction for ${questionKey}: ${response.status}`);
+      // Fall back to randomizing
+      const options = await getOptionsForQuestion(questionKey);
+      return options[Math.floor(Math.random() * options.length)];
+    }
+    
+    const text = await response.text();
+    return text.trim();
+  } catch (error) {
+    console.error(`Error loading non-personalized prediction for ${questionKey}:`, error);
+    // Fall back to randomizing
+    const options = await getOptionsForQuestion(questionKey);
+    return options[Math.floor(Math.random() * options.length)];
+  }
+}
+
+// Modify renderPredictionSummary function to use non-personalized predictions
 async function renderPredictionSummary() {
   // Create summary section
   const form = document.querySelector("#preferences-form, #questions-form"); // Work with either form
@@ -756,15 +781,14 @@ async function renderPredictionSummary() {
   
   // Process all questions for displaying in the table
   for (const question of questionsToShow) {
-    const options = await getOptionsForQuestion(question.key);
-    // Baseline: randomize the default option
-    const defaultOption = options[Math.floor(Math.random() * options.length)];
-
     // Get the personalized prediction
     let prediction = state.predictions[question.key];
     if (Array.isArray(prediction)) {
       prediction = prediction[0];
     }
+
+    // Load non-personalized prediction
+    let defaultOption = await loadNonPersonalizedPrediction(question.key);
 
     // Format prediction for display
     let formattedPrediction = prediction;
@@ -772,6 +796,7 @@ async function renderPredictionSummary() {
     // Handle Yes/No predictions for verbal and occlusion questions
     if (question.key === 'verbal' && prediction) {
       formattedPrediction = prediction.trim() === 'True' ? 'Yes' : 'No';
+      defaultOption = defaultOption.trim() === 'True' ? 'Yes' : 'No';
     }
     
     // Determine which option goes in which column based on current meal's randomization

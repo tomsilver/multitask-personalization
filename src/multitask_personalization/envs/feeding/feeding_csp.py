@@ -185,6 +185,7 @@ class LLMMultipleChoiceConstraintModel:
         choices = self.get_choices_from_observation(obs)
         choice_nums = [str(i+1) for i in range(len(choices))]
         prompt = self.get_prompt(obs, choices)
+        # print(prompt)
         logprobs, _ = self.llm.get_multiple_choice_logprobs(prompt, choice_nums, self.seed)
         selected_num_str = max(choice_nums, key=logprobs.get)
         assert selected_num_str.isdigit()

@@ -36,7 +36,7 @@ def get_choices_for_initialization_variable(var_name: str, meal: Meal) -> list[s
 
 TOTAL_PREDICTIONS = 0
 
-def pregenerate_initialization_variable(var_name: str, model, current_model_state: dict, remaining_meals: list[Meal], outdir: Path, dry_run: bool) -> None:
+def pregenerate_initialization_variable(var_name: str, model, current_model_state: dict, remaining_meals: list[Meal], outdir: Path, dry_run: bool, nonpersonalized: bool) -> None:
     global TOTAL_PREDICTIONS
     if not remaining_meals:
         return
@@ -74,14 +74,14 @@ def pregenerate_initialization_variable(var_name: str, model, current_model_stat
         assert sum([x is not None for x in [feeding_side, bite_ordering, ready_signal, be_verbal]]) == 1
         next_obs = FeedingInitializationDatasetObservation(meal.context, meal.table_type, meal.food_items, meal.dips, bite_ordering_options,
                                                            feeding_side, bite_ordering, ready_signal, be_verbal)
-        if not dry_run:
+        if not (dry_run or nonpersonalized):
             model.load_from_state(current_model_state)
             model.learn_incremental(next_obs)
             next_model_state = model.get_save_state()
         else:
             next_model_state = current_model_state.copy()
             next_model_state["data_obs_history"] = current_model_state["data_obs_history"] + [next_obs]
-        pregenerate_initialization_variable(var_name, model, next_model_state, remaining_meals[1:], choice_outdir, dry_run)
+        pregenerate_initialization_variable(var_name, model, next_model_state, remaining_meals[1:], choice_outdir, dry_run, nonpersonalized)
 
     
 
@@ -264,6 +264,10 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
+        "--non_personalized",
+        action="store_true"
+    )
+    parser.add_argument(
         "--use_gui",
         action="store_true"
     )
@@ -295,23 +299,38 @@ if __name__ == "__main__":
     meals = MEALS[:num_meals]
 
     var_name = args.var
-    if var_name in initialization_var_models:
-        model = initialization_var_models[var_name]
-        init_model_state = model.get_save_state()
-        print(f"Running pregeneration for {var_name}")
-        pregenerate_initialization_variable(var_name, model, init_model_state, meals, outdir / var_name, dry_run=args.dry)
-        print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
+
+    if args.non_personalized:
+        assert var_name in initialization_var_models
+        for meal in MEALS:
+            model = initialization_var_models[var_name]
+            init_model_state = model.get_save_state()
+            print(f"Running pregeneration for {var_name}")
+            subdir = outdir / "non_personalized" / var_name
+            subdir.mkdir(parents=True, exist_ok=True)
+            pregenerate_initialization_variable(var_name, model, init_model_state, [meal], subdir / f"meal{meal.meal_id}", dry_run=args.dry, nonpersonalized=True)
+            model.load_from_state(init_model_state)
+            print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
 
     else:
-        assert var_name == "occlusion"
-        plate_pose = Pose((0.3, 0.75, 0.17))
-        print(f"Running pregeneration for {var_name}")
-        if test_name is not None:
-            target_dir = str(outdir / var_name / test_name) + "/"
-            prune_fn = lambda o: not target_dir.startswith(str(o) + "/")
+
+        if var_name in initialization_var_models:
+            model = initialization_var_models[var_name]
+            init_model_state = model.get_save_state()
+            print(f"Running pregeneration for {var_name}")
+            pregenerate_initialization_variable(var_name, model, init_model_state, meals, outdir / var_name, dry_run=args.dry)
+            print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
+
         else:
-            prune_fn = None
-        approach_state = approach.get_save_state()
-        pregenerate_occlusion(approach, approach_state, plate_pose, meals, outdir / var_name, dry_run=args.dry,
-                              prune_fn=prune_fn)
-        print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
+            assert var_name == "occlusion"
+            plate_pose = Pose((0.3, 0.75, 0.17))
+            print(f"Running pregeneration for {var_name}")
+            if test_name is not None:
+                target_dir = str(outdir / var_name / test_name) + "/"
+                prune_fn = lambda o: not target_dir.startswith(str(o) + "/")
+            else:
+                prune_fn = None
+            approach_state = approach.get_save_state()
+            pregenerate_occlusion(approach, approach_state, plate_pose, meals, outdir / var_name, dry_run=args.dry,
+                                prune_fn=prune_fn)
+            print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
