@@ -86,7 +86,7 @@ def _main(outfile: Path) -> None:
     ticks[-1].tick1line.set_visible(False)
     ticks[-1].tick2line.set_visible(False)
     plt.tight_layout()
-    plt.savefig(outfile, dpi=800)
+    plt.savefig(outfile, dpi=800, transparent=True)
     print(f"Plot saved to {outfile}")
 
 
