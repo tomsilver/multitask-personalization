@@ -26,11 +26,11 @@ class Meal:
     dips: List[str]
 
 MEALS = [
-    Meal(1, "personal", "rectangular table", ["french fries"], ["ketchup", "ranch dressing"]),
+    Meal(1, "personal", "rectangular table", ["french fries"], ["ketchup", "BBQ sauce"]),
     Meal(2, "social with friend on left", "circular table", ["carrot sticks"], ["ranch dressing", "hummus"]),
-    Meal(3, "watching TV in front", "circular table", ["potato wedges"], ["ketchup", "ranch dressing"]),
+    Meal(3, "watching TV in front", "circular table", ["potato wedges"], ["ketchup", "BBQ sauce"]),
     Meal(4, "personal", "circular table", ["celery sticks"], ["ranch dressing", "hummus"]),
-    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"]),
+    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "BBQ sauce"]),
 ]
 
 # Helper function to generate all possible bite orderings.

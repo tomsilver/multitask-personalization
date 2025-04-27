@@ -36,9 +36,11 @@ def get_choices_for_initialization_variable(var_name: str, meal: Meal) -> list[s
 
 TOTAL_PREDICTIONS = 0
 
-def pregenerate_initialization_variable(var_name: str, model, current_model_state: dict, remaining_meals: list[Meal], outdir: Path, dry_run: bool, nonpersonalized: bool) -> None:
+def pregenerate_initialization_variable(var_name: str, model, current_model_state: dict, remaining_meals: list[Meal], outdir: Path, dry_run: bool, nonpersonalized: bool = False, prune_fn=None) -> None:
     global TOTAL_PREDICTIONS
     if not remaining_meals:
+        return
+    if prune_fn is not None and prune_fn(outdir):
         return
     outdir.mkdir(exist_ok=True)
     meal = remaining_meals[0]
@@ -81,7 +83,7 @@ def pregenerate_initialization_variable(var_name: str, model, current_model_stat
         else:
             next_model_state = current_model_state.copy()
             next_model_state["data_obs_history"] = current_model_state["data_obs_history"] + [next_obs]
-        pregenerate_initialization_variable(var_name, model, next_model_state, remaining_meals[1:], choice_outdir, dry_run, nonpersonalized)
+        pregenerate_initialization_variable(var_name, model, next_model_state, remaining_meals[1:], choice_outdir, dry_run, nonpersonalized, prune_fn=prune_fn)
 
     
 
@@ -299,6 +301,11 @@ if __name__ == "__main__":
     meals = MEALS[:num_meals]
 
     var_name = args.var
+    if test_name is not None:
+        target_dir = str(outdir / var_name / test_name) + "/"
+        prune_fn = lambda o: not target_dir.startswith(str(o) + "/")
+    else:
+        prune_fn = None
 
     if args.non_personalized:
         assert var_name in initialization_var_models
@@ -308,7 +315,7 @@ if __name__ == "__main__":
             print(f"Running pregeneration for {var_name}")
             subdir = outdir / "non_personalized" / var_name
             subdir.mkdir(parents=True, exist_ok=True)
-            pregenerate_initialization_variable(var_name, model, init_model_state, [meal], subdir / f"meal{meal.meal_id}", dry_run=args.dry, nonpersonalized=True)
+            pregenerate_initialization_variable(var_name, model, init_model_state, [meal], subdir / f"meal{meal.meal_id}", dry_run=args.dry, nonpersonalized=True, prune_fn=prune_fn)
             model.load_from_state(init_model_state)
             print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
 
@@ -318,18 +325,13 @@ if __name__ == "__main__":
             model = initialization_var_models[var_name]
             init_model_state = model.get_save_state()
             print(f"Running pregeneration for {var_name}")
-            pregenerate_initialization_variable(var_name, model, init_model_state, meals, outdir / var_name, dry_run=args.dry)
+            pregenerate_initialization_variable(var_name, model, init_model_state, meals, outdir / var_name, dry_run=args.dry, prune_fn=prune_fn)
             print(f"Made {TOTAL_PREDICTIONS} predictions for {var_name}")
 
         else:
             assert var_name == "occlusion"
             plate_pose = Pose((0.3, 0.75, 0.17))
             print(f"Running pregeneration for {var_name}")
-            if test_name is not None:
-                target_dir = str(outdir / var_name / test_name) + "/"
-                prune_fn = lambda o: not target_dir.startswith(str(o) + "/")
-            else:
-                prune_fn = None
             approach_state = approach.get_save_state()
             pregenerate_occlusion(approach, approach_state, plate_pose, meals, outdir / var_name, dry_run=args.dry,
                                 prune_fn=prune_fn)

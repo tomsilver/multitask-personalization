@@ -265,7 +265,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         self._occlusion_model = occlusion_scale_model
         super().__init__(*args, **kwargs)
         self._feeding_side_model = LLMMultipleChoiceConstraintModel("feeding_side", "the side that the robot arm will feed from", llm, lambda o: ["left", "right"])
-        self._bite_ordering_model = LLMMultipleChoiceConstraintModel("bite_ordering","the order of food items that the robot will serve", llm,lambda o: o.bite_ordering_options,
+        self._bite_ordering_model = LLMMultipleChoiceConstraintModel("bite_ordering","the user's preferred dip (or no dip) for this meal", llm,lambda o: o.bite_ordering_options,
                                                                      get_variable_value_from_choice=lambda x,o: o.bite_ordering_options.index(x))
         self._ready_signal_model = LLMMultipleChoiceConstraintModel("ready_signal", "how the robot should indicate ready for food or drink transfer", llm, lambda o: ["mouth_open", "button", "auto_continue"])
         self._be_verbal_model = LLMMultipleChoiceConstraintModel("be_verbal", "whether the robot should speak", llm, lambda o: [True, False])
