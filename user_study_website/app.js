@@ -1422,6 +1422,7 @@ async function handleDetailsNextClick() {
   } else {
     // Send final state to Google Form before navigating to thanks page
     await sendToGoogleForm();
+    await sendToFormSpree();
     navigateToThanks();
   }
 }
@@ -1509,6 +1510,34 @@ async function collectAnswers() {
 }
 
 /**
+ * Creates the data object to be sent to forms
+ * @returns {Object} Combined data object with answers, optionMappings and participantInfo
+ */
+function createFormDataObject() {
+  // Create a mapping summary for easier analysis
+  // This creates a string like "1:A,2:B,3:A,4:A,5:B" where A/B means personalized was option A or B
+  const mappingSummary = state.optionMappings
+    .map((isA, index) => `${index + 1}:${isA ? 'A' : 'B'}`)
+    .join(',');
+  
+  // Prepare participant info if available
+  const participantInfo = state.intakeData ? {
+    name: state.intakeData.name,
+    age: state.intakeData.age,
+    gender: state.intakeData.gender,
+    robotExp: state.intakeData.robotExperience,
+    fedExp: state.intakeData.fedExperience
+  } : null;
+  
+  // Combine all data into a single object
+  return {
+    answers: state.answers,
+    optionMappings: mappingSummary,
+    participantInfo: participantInfo
+  };
+}
+
+/**
  * Sends the final state data to a Google Form
  */
 async function sendToGoogleForm() {
@@ -1520,27 +1549,8 @@ async function sendToGoogleForm() {
     // Prepare the data to send
     const formData = new FormData();
     
-    // Create a mapping summary for easier analysis
-    // This creates a string like "1:A,2:B,3:A,4:A,5:B" where A/B means personalized was option A or B
-    const mappingSummary = state.optionMappings
-      .map((isA, index) => `${index + 1}:${isA ? 'A' : 'B'}`)
-      .join(',');
-    
-    // Prepare participant info if available
-    const participantInfo = state.intakeData ? {
-      name: state.intakeData.name,
-      age: state.intakeData.age,
-      gender: state.intakeData.gender,
-      robotExp: state.intakeData.robotExperience,
-      fedExp: state.intakeData.fedExperience
-    } : null;
-    
-    // Combine all data into a single object
-    const combinedData = {
-      answers: state.answers,
-      optionMappings: mappingSummary,
-      participantInfo: participantInfo
-    };
+    // Use the helper function to create the data object
+    const combinedData = createFormDataObject();
     
     // Stringify the combined data and append to the form
     formData.append("entry.437529290", JSON.stringify(combinedData));
@@ -1555,6 +1565,39 @@ async function sendToGoogleForm() {
     return true;
   } catch (error) {
     console.error("Error sending data to Google Form:", error);
+    return false;
+  }
+}
+
+/**
+ * Sends the final state data to a FormSpree Form
+ */
+async function sendToFormSpree() {
+  try {
+    const formSpreeURL = "https://formspree.io/f/xyzwzlny";
+    
+    // Use the helper function to create the data object
+    const combinedData = createFormDataObject();
+    
+    // For FormSpree, we can send JSON directly
+    const response = await fetch(formSpreeURL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: "Meal Preferences Study Data",
+        data: combinedData
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`FormSpree submission failed: ${response.status}`);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error sending data to FormSpree:", error);
     return false;
   }
 }
