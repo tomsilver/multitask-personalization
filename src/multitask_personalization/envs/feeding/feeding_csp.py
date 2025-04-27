@@ -425,6 +425,8 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         # Add occlusion constraints.
         if isinstance(obs, FeedingOcclusionQueryObservation):
             plate_position, drink_position = variables[:2]
+            obs_plate_pose = obs.plate_pose
+            obs_drink_pose = obs.drink_pose
             occlusion_poi_vars = variables[2:]
             poi_to_occlusion_var = {}
             for occlusion_poi_var in occlusion_poi_vars:
@@ -448,30 +450,32 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
             
             def _user_view_unoccluded_by_utensil(
                 occlusion_poi: str,
+                obs_plate_pose: Pose,
                 poi_is_relevant: bool,
                 plate_position: NDArray[np.float32],
             ) -> bool:
                 if not poi_is_relevant:
                     return True
-                score = self._get_plate_occlusion_score(plate_position, occlusion_poi)
+                score = self._get_plate_occlusion_score(plate_position, occlusion_poi, obs_plate_pose)
                 return score is not None and score < 1.0 - occlusion_scale
             
             for poi, occlusion_poi_var in poi_to_occlusion_var.items():
                 user_view_unoccluded_by_utensil_constraint = FunctionalCSPConstraint(
                     f"user_view_unoccluded_by_utensil_{poi}",
                     [occlusion_poi_var, plate_position],
-                    partial(_user_view_unoccluded_by_utensil, poi),
+                    partial(_user_view_unoccluded_by_utensil, poi, obs_plate_pose),
                 )
                 constraints.append(user_view_unoccluded_by_utensil_constraint)
 
             def _user_view_unoccluded_by_drink(
                 occlusion_poi: str,
+                obs_drink_pose: Pose,
                 poi_is_relevant: bool,
                 drink_position: NDArray[np.float32],
             ) -> bool:
                 if not poi_is_relevant:
                     return True
-                score = self._get_drink_occlusion_score(drink_position, occlusion_poi)
+                score = self._get_drink_occlusion_score(drink_position, occlusion_poi, obs_drink_pose)
                 # if score is not None:
                 #     input(f"Computed drink occlusion score for {occlusion_poi} to be {score:.3f} and threshold {1.0 - occlusion_scale:.3f}. Press enter to continue.")
                 return score is not None and score < 1.0 - occlusion_scale
@@ -481,7 +485,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                     user_view_unoccluded_by_drink_constraint = FunctionalCSPConstraint(
                         f"user_view_unoccluded_by_drink_{poi}",
                         [occlusion_poi_var, drink_position],
-                        partial(_user_view_unoccluded_by_drink, poi),
+                        partial(_user_view_unoccluded_by_drink, poi, obs_drink_pose),
                     )
                     constraints.append(user_view_unoccluded_by_drink_constraint)
             
@@ -693,7 +697,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 relevance_model.learn_incremental(next_obs)
                 if relevant:
                     plate_pose = next_obs.plate_pose
-                    plate_score = self._get_plate_occlusion_score(plate_pose.position[:2], point_of_interest)
+                    plate_score = self._get_plate_occlusion_score(plate_pose.position[:2], point_of_interest, plate_pose)
                     assert plate_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
                     plate_label = feedback["plate_occlusion"]
                     # if plate_label and np.isclose(plate_score, 0.0):
@@ -704,7 +708,7 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
 
                     if not (hasattr(self, "_disable_drink") and self._disable_drink):
                         drink_pose = next_obs.drink_pose
-                        drink_score = self._get_drink_occlusion_score(drink_pose.position[:2], point_of_interest)
+                        drink_score = self._get_drink_occlusion_score(drink_pose.position[:2], point_of_interest, drink_pose)
                         assert drink_score is not None, "Shouldn't be possible if IK is checked during constraint solving..."
                         drink_label = feedback["drink_occlusion"]
                         # if drink_label and np.isclose(drink_score, 0.0):
@@ -718,9 +722,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
                 1.0 - (self._occlusion_model.post_max + self._occlusion_model.post_min) / 2
             ))
 
-    def _get_plate_occlusion_score(self, plate_position: NDArray[np.float32], point_of_interest: str) -> float | None:
+    def _get_plate_occlusion_score(self, plate_position: NDArray[np.float32], point_of_interest: str, obs_plate_pose: Pose) -> float | None:
         set_pose(self._sim.get_object_id_from_name("drink"), BANISH_POSE, self._sim.physics_client_id)
-        new_plate_pose = _plate_position_to_pose(plate_position, self._sim.scene_spec.plate_default_pose)
+        new_plate_pose = _plate_position_to_pose(plate_position, obs_plate_pose)
         field_name = "above_plate_pos"
         try:
             robot_joints = _transform_joints_relative_to_plate(
@@ -749,9 +753,9 @@ class FeedingCSPGenerator(CSPGenerator[FeedingObservation, FeedingAction]):
         )
         return self._sim.get_occlusion_score(point_of_interest)
 
-    def _get_drink_occlusion_score(self, drink_position: NDArray[np.float32], point_of_interest: str) -> float | None:
+    def _get_drink_occlusion_score(self, drink_position: NDArray[np.float32], point_of_interest: str, obs_drink_pose: Pose) -> float | None:
         set_pose(self._sim.get_object_id_from_name("utensil"), BANISH_POSE, self._sim.physics_client_id)
-        new_drink_pose = _drink_position_to_pose(drink_position, self._sim.scene_spec.drink_default_pose)
+        new_drink_pose = _drink_position_to_pose(drink_position, obs_drink_pose)
         field_name = "drink_staging_pos"
         try:
             robot_joints = _transform_joints_relative_to_drink(

@@ -195,9 +195,9 @@ if __name__ == "__main__":
 
     # send plate and drink pose to multitask personalization
     # current_plate_pose = Pose((0.3, 0.75, 0.17))
-    current_plate_pose = Pose((0.22365856, 0.4845229 , 0.22233607))
+    current_plate_pose = Pose((0.22365856, 0.4845229 , 0.17))
     # current_drink_pose = Pose((0.65, 0.5, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
-    current_drink_pose = Pose((0.46142988, 0.70170701, 0.22553458), (0, -np.sqrt(2) / 2, -np.sqrt(2) / 2, 0))
+    current_drink_pose = Pose((0.46142988, 0.70170701, 0.35), (0, -np.sqrt(2) / 2, -np.sqrt(2) / 2, 0))
 
     occlusion = True
     occlusion_iter = 0
