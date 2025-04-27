@@ -165,7 +165,7 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # Table.
-    table_half_extents: tuple[float, float, float] = (0.35, 0.5, 0.001)
+    table_half_extents: tuple[float, float, float] = (0.35, 0.4, 0.001)
     # table_radius: float = 1.2/2
 
     # Plate.
