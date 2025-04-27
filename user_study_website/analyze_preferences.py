@@ -68,7 +68,7 @@ def process_preferences(responses):
             if 'preference_rating' not in meal_answer:
                 continue
                 
-            # Get raw preference rating (1-7 scale)
+            # Get raw preference rating (1-5 scale)
             raw_rating = int(meal_answer['preference_rating']['value'])
             
             # Determine if personalized option was A or B based on option mappings
@@ -77,21 +77,21 @@ def process_preferences(responses):
             
             # Adjust rating to reflect preference for personalized option
             # If option A is personalized:
-            #   - Ratings 1-3 (prefer A) become 7-5 (prefer personalized)
-            #   - Rating 4 (neutral) stays 4
-            #   - Ratings 5-7 (prefer B) become 3-1 (dislike personalized)
+            #   - Ratings 1-2 (prefer A) become 5-4 (prefer personalized)
+            #   - Rating 3 (neutral) stays 3
+            #   - Ratings 4-5 (prefer B) become 2-1 (dislike personalized)
             # If option B is personalized:
-            #   - Ratings 1-3 (prefer A) become 1-3 (dislike personalized)
-            #   - Rating 4 (neutral) stays 4
-            #   - Ratings 5-7 (prefer B) become 5-7 (prefer personalized)
+            #   - Ratings 1-2 (prefer A) become 1-2 (dislike personalized)
+            #   - Rating 3 (neutral) stays 3
+            #   - Ratings 4-5 (prefer B) become 4-5 (prefer personalized)
             
             if is_option_a_personalized:
-                if raw_rating < 4:  # Prefer A (personalized)
-                    preference_for_personalized = 8 - raw_rating  # 1->7, 2->6, 3->5
-                elif raw_rating == 4:  # Neutral
-                    preference_for_personalized = 4
+                if raw_rating < 3:  # Prefer A (personalized)
+                    preference_for_personalized = 6 - raw_rating  # 1->5, 2->4
+                elif raw_rating == 3:  # Neutral
+                    preference_for_personalized = 3
                 else:  # Prefer B (non-personalized)
-                    preference_for_personalized = 8 - raw_rating  # 5->3, 6->2, 7->1
+                    preference_for_personalized = 6 - raw_rating  # 4->2, 5->1
             else:  # Option B is personalized
                 preference_for_personalized = raw_rating  # Already aligned correctly
             
@@ -149,21 +149,21 @@ def plot_preferences(df):
         jitter=True
     )
     
-    # Add a horizontal line at the neutral point (4)
-    plt.axhline(y=4, color='gray', linestyle='--', alpha=0.7)
+    # Add a horizontal line at the neutral point (3)
+    plt.axhline(y=3, color='gray', linestyle='--', alpha=0.7)
     
     # Customize the plot
     plt.title('Preference for Personalized Option by Meal Number', fontsize=16)
     plt.xlabel('Meal Number', fontsize=14)
-    plt.ylabel('Preference for Personalized Option (1-7)', fontsize=14)
-    plt.ylim(0.5, 7.5)  # Set y-axis limits
+    plt.ylabel('Preference for Personalized Option (1-5)', fontsize=14)
+    plt.ylim(0.5, 5.5)  # Set y-axis limits
     
     # Add text labels to explain the scale
     plt.text(df['meal_number'].max() + 0.3, 1, 'Strongly Dislike', 
              va='center', ha='left', fontsize=10, color='gray')
-    plt.text(df['meal_number'].max() + 0.3, 4, 'Neutral', 
+    plt.text(df['meal_number'].max() + 0.3, 3, 'Neutral', 
              va='center', ha='left', fontsize=10, color='gray')
-    plt.text(df['meal_number'].max() + 0.3, 7, 'Strongly Prefer', 
+    plt.text(df['meal_number'].max() + 0.3, 5, 'Strongly Prefer', 
              va='center', ha='left', fontsize=10, color='gray')
     
     # Calculate mean preference for each meal
@@ -191,14 +191,14 @@ def plot_preferences(df):
         color='navy'
     )
     
-    # Add a horizontal line at the neutral point (4)
-    plt.axhline(y=4, color='gray', linestyle='--', alpha=0.7)
+    # Add a horizontal line at the neutral point (3)
+    plt.axhline(y=3, color='gray', linestyle='--', alpha=0.7)
     
     # Customize the plot
     plt.title('Trend of Preference for Personalized Option', fontsize=16)
     plt.xlabel('Meal Number', fontsize=14)
-    plt.ylabel('Average Preference for Personalized Option (1-7)', fontsize=14)
-    plt.ylim(0.5, 7.5)  # Set y-axis limits
+    plt.ylabel('Average Preference for Personalized Option (1-5)', fontsize=14)
+    plt.ylim(0.5, 5.5)  # Set y-axis limits
     plt.xticks(df['meal_number'].unique())
     
     # Save the trend plot
