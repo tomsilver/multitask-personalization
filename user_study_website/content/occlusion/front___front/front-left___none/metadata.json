@@ -1,1 +1,1 @@
-{"meal_id": 3, "context": "watching TV in front", "table_type": "circular table", "food_items": ["steak", "potatoes"], "dips": [], "choices": ["front"], "occlusion_scale": 0.8077004374492631}
+{"meal_id": 3, "context": "watching TV in front", "table_type": "circular table", "food_items": ["potato wedges"], "dips": ["ketchup", "BBQ sauce"], "choices": ["front"], "occlusion_scale": 0.807418275892819}

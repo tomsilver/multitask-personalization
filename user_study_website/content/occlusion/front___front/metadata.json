@@ -1,1 +1,1 @@
-{"meal_id": 2, "context": "social with friend on left", "table_type": "circular table", "food_items": ["celery", "apple slices"], "dips": ["ranch dressing"], "choices": ["front", "left"], "occlusion_scale": 0.8639698341424066}
+{"meal_id": 2, "context": "social with friend on left", "table_type": "circular table", "food_items": ["raw vegetables"], "dips": ["ranch dressing", "hummus"], "choices": ["front", "left"], "occlusion_scale": 0.8639698341424066}

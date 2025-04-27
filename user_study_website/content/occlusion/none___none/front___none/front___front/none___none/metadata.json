@@ -1,1 +1,1 @@
-{"meal_id": 5, "context": "social TV-watching (with TV in front) and with friend on left side", "table_type": "rectangular table", "food_items": ["chicken nuggets"], "dips": ["ketchup", "ranch dressing"], "choices": ["front", "left"], "occlusion_scale": 0.7279396682848132}
+{"meal_id": 5, "context": "social TV-watching (with TV in front) and with friend on left side", "table_type": "rectangular table", "food_items": ["tater tots"], "dips": ["ketchup", "BBQ sauce"], "choices": ["front", "left"], "occlusion_scale": 0.7279396682848132}

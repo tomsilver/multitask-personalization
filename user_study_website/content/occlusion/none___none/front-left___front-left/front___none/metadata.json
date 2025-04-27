@@ -1,1 +1,1 @@
-{"meal_id": 4, "context": "personal", "table_type": "circular table", "food_items": ["pear slices"], "dips": ["ranch dressing"], "choices": ["front"], "occlusion_scale": 0.807505569609059}
+{"meal_id": 4, "context": "personal", "table_type": "circular table", "food_items": ["carrot sticks"], "dips": ["ranch dressing", "hummus"], "choices": ["front"], "occlusion_scale": 0.8075766209180446}
