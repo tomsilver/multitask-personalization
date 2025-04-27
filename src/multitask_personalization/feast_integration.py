@@ -31,8 +31,8 @@ class MultitaskPersonalizationFeastInterface:
         if hasattr(self, "_scene_spec"):
             del self._scene_spec
         if hasattr(self, "_approach"):
-            if self._log_dir is not None:
-                self._approach.save(self._log_dir)
+            # if self._log_dir is not None:
+                # self._approach.save(self._log_dir)
             self._approach.close()
             del self._approach
 
@@ -308,12 +308,12 @@ if __name__ == "__main__":
 
     log_dir = Path(__file__).parent / "logs"
 
-    if not args.load:
-        # cleanup the log_dir
-        import shutil
-        shutil.rmtree(log_dir, ignore_errors=True)
-        log_dir.mkdir(parents=True, exist_ok=True)
-        print(f"Cleared log_dir: {log_dir}")
+    # if not args.load:
+    #     # cleanup the log_dir
+    #     import shutil
+    #     shutil.rmtree(log_dir, ignore_errors=True)
+    #     log_dir.mkdir(parents=True, exist_ok=True)
+    #     print(f"Cleared log_dir: {log_dir}")
 
     interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize, log_dir)
     # interface.create_mealtime_instance("meal_5")

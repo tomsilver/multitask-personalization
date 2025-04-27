@@ -69,6 +69,7 @@ table_pose:
   description: "Pose of the table used for sampling"
   type: "pose"
   values: [0.5, 0.45, 0.15, 0, 0, 0, 1]
+  # more x is forward away from the robot
 
 plate_default_pose:
   description: "Default pose of the plate"
