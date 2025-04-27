@@ -1099,7 +1099,7 @@ async function addPreferenceRatingAfterImages() {
   
   let ratingText = "";
   ratingTitle.textContent = "Compare Options";
-  ratingText = "To what extent do you prefer Option A or Option B for this meal?";
+  ratingText = "To what extent do you prefer Option A or Option B for this meal? If the options are the same, select 3 (Neutral).";
   
   ratingDiv.appendChild(ratingTitle);
   
