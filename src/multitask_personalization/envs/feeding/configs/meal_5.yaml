@@ -68,7 +68,7 @@ user_eyes_relative_pose:
 table_pose:
   description: "Pose of the table used for sampling"
   type: "pose"
-  values: [0.45, 0.45, 0.15, 0, 0, 0, 1]
+  values: [0.5, 0.45, 0.15, 0, 0, 0, 1]
 
 plate_default_pose:
   description: "Default pose of the plate"
