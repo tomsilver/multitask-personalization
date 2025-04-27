@@ -11,10 +11,10 @@ from omegaconf import DictConfig
 
 ENV_TO_DISPLAY_NAME = {
     # "tiny": "Tiny",
-    "cooking-nonstationary": "Cooking (Non-Stationary)",
+    # "cooking-nonstationary": "Cooking (Non-Stationary)",
     "cooking-stationary": "Cooking",
-    # "cleaning-stationary": "Cleaning",
-    # "overnight-stationary": "Books",
+    "cleaning-stationary": "Cleaning",
+    "overnight-stationary": "Books",
 }
 
 APPROACH_TO_DISPLAY_NAME = {
