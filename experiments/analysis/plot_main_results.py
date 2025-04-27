@@ -27,11 +27,11 @@ APPROACH_TO_DISPLAY_NAME = {
 
 # https://colorbrewer2.org/#type=diverging&scheme=Spectral&n=8
 APPROACH_TO_COLOR = {
-    "ours": "#3288bd",
-    "nothing_personal": "#66c2a5",
-    "epsilon_greedy": "#abdda4",
-    "exploit_only": "#e6f598",
-    "no_learning": "#fee08b",
+    "ours": "#228833",
+    "nothing_personal": "#4477aa",
+    "epsilon_greedy": "#ee6677",
+    "exploit_only": "#aa3377",
+    "no_learning": "#66ccee",
 }
 
 # Colors for preference shift backgrounds
