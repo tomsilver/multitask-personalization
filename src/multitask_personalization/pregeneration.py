@@ -231,8 +231,6 @@ def pregenerate_occlusion(approach: CSPApproach, current_approach_state, init_pl
                 next_approach_state = approach.get_save_state()
             else:
                 next_approach_state = current_approach_state.copy()
-            if occlusion_model.post_max < occlusion_model.post_min:
-                continue
             pregenerate_occlusion(approach, next_approach_state, plate_pose, remaining_meals[1:], choice_outdir, dry_run, prune_fn)
 
 

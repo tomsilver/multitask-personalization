@@ -260,6 +260,15 @@ class Threshold1DModel:
         self.incremental_X.extend(X)
         self.incremental_Y.extend(Y)
         self._update_posterior_from_data(self.incremental_X, self.incremental_Y)
+        while self.post_max < self.post_min:
+            # If the posterior interval is invalid, drop earlier data until
+            # it becomes valid again.
+            if not self.incremental_X or not self.incremental_Y:
+                self.post_min = self.min_theta
+                self.post_max = self.max_theta
+            self.incremental_X.pop(0)
+            self.incremental_Y.pop(0)
+            self._update_posterior_from_data(self.incremental_X, self.incremental_Y)
 
     def predict_proba(self, X: list[float]) -> list[float]:
         """Return the posterior predictive P(y=1 | x).
