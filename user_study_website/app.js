@@ -726,7 +726,7 @@ async function renderPredictionSummary() {
   const description = document.createElement("p");
   // Change description based on whether this is the first meal
   if (state.answers.length === 0) {
-    description.innerHTML = "The robot is providing options for your first meal. Please compare Option A and Option B:";
+    description.innerHTML = "The robot is providing two sets of choices for your first meal. Please compare Option A and Option B. (They may be partly or completely the same.)";
   } else {
     description.innerHTML = "Based on your previous preferences, here are two possible sets of choices that the robot might make for your next meal. Please compare Option A and Option B:";
   }
