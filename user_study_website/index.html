@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personalized Robot Feeding User Study</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .intake-form {
+      margin: 2rem 0;
+      padding: 1.5rem;
+      background-color: #f5f8ff;
+      border: 1px solid #d0d0d0;
+      border-radius: 8px;
+    }
+    
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    
+    .form-group label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .error-message {
+      color: #d32f2f;
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Personalized Robot Feeding User Study</h1>
+  </header>
+
+  <main>
+    <section>
+      <p>
+        Thank you for participating in our study! Robot-assisted feeding systems can improve the quality of life for care recipients with mobility limitations and reduce caregiver workload. Your participation can help us design more comfortable and intuitive feeding behaviors.
+      </p>
+
+      <!-- Add the real system image with appropriate styling -->
+      <div class="system-image-container" style="text-align: center; margin: 2rem 0;">
+        <img src="content/real_system.jpg" alt="Real Robot Feeding System" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+        <p style="margin-top: 0.75rem; font-style: italic; color: #555;">The assistive feeding robot system you'll be evaluating in this study.</p>
+      </div>
+
+      <p>
+        People eat in a variety of contexts—personal settings, while watching TV, or at social gatherings—and may have different expectations for how the robot should behave depending upon the context. In this study, we evaluate the robot's ability to predict your preferences in new meal contexts based on what it has learned from earlier interactions. We focus on:
+      </p>
+
+      <ul>
+        <li>
+          <strong>Food-Dip Combinations:</strong> Which dips you prefer for specific food items.
+          <em>Example:</em> Dip apple slices in caramel, but feed watermelon plain.
+        </li>
+        <li>
+          <strong>Transfer Cue:</strong> The signal the robot waits for after picking up a bite:
+          <ul>
+            <li><strong>Open Mouth:</strong> Wait until you open your mouth.</li>
+            <li><strong>Button:</strong> Wait until you press a button.</li>
+            <li><strong>Auto-Continue:</strong> Transfer automatically without waiting.</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Verbal Prompts:</strong> Whether the robot should verbally announce its actions, such as saying "Please open your mouth when ready" or "Please press the button when ready" after picking up a bite.
+        </li>
+        <li>
+          <strong>Visual Occlusion:</strong> Which side(s) of you should remain unobstructed and whether the robot is blocking those sides. <em>Example:</em> In a social setting with a friend on your left, minimize occlusion on that side by repositioning the plate to the right.
+        </li>
+      </ul>
+
+      <p>You will see five mealtime contexts. For each one:</p>
+      <ol>
+        <li>
+          Compare two sets of robot-predicted preferences—one that incorporates your past preferences and context, and one that does not.
+        </li>
+        <li>
+          Indicate your true preferences for food-dip combinations, transfer cue, verbal prompts, and visual occlusion.
+        </li>
+      </ol>
+
+      <p>
+        Please fill out the following information before you begin:
+      </p>
+
+      <!-- Intake Questionnaire Form -->
+      <form id="intake-form" class="intake-form">
+        <h2>Participant Information</h2>
+        
+        <div class="form-group">
+          <label for="participant_name">What is your name?</label>
+          <input type="text" id="participant_name" name="participant_name" required>
+          <div class="error-message" id="name-error">Please enter your name.</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="participant_age">What is your age?</label>
+          <input type="number" id="participant_age" name="participant_age" min="18" max="120" required>
+          <div class="error-message" id="age-error">Please enter a valid age (18-120).</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="participant_gender">What is your gender?</label>
+          <select id="participant_gender" name="participant_gender" required>
+            <option value="">Select an option...</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Non-binary">Non-binary</option>
+            <option value="Prefer not to say">Prefer not to say</option>
+            <option value="Other">Other</option>
+          </select>
+          <div class="error-message" id="gender-error">Please select your gender.</div>
+        </div>
+        
+        <div class="form-group">
+          <label>Do you have any prior experience with robots?</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" id="robot_exp_yes" name="robot_experience" value="Yes" required>
+              <label for="robot_exp_yes">Yes</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" id="robot_exp_no" name="robot_experience" value="No">
+              <label for="robot_exp_no">No</label>
+            </div>
+          </div>
+          <div class="error-message" id="robot-exp-error">Please select an option.</div>
+        </div>
+        
+        <div class="form-group">
+          <label>Have you ever been fed by someone else as an adult?</label>
+          <div class="radio-group">
+            <div class="radio-option">
+              <input type="radio" id="fed_exp_yes" name="fed_experience" value="Yes" required>
+              <label for="fed_exp_yes">Yes</label>
+            </div>
+            <div class="radio-option">
+              <input type="radio" id="fed_exp_no" name="fed_experience" value="No">
+              <label for="fed_exp_no">No</label>
+            </div>
+          </div>
+          <div class="error-message" id="fed-exp-error">Please select an option.</div>
+        </div>
+      </form>
+
+      <p>
+        Click <strong>Start</strong> when you're ready. (Best viewed in a modern browser on mobile or desktop.)
+      </p>
+
+      <button id="start-btn">Start</button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    document.getElementById('start-btn').addEventListener('click', () => {
+      // Validate the form before proceeding
+      if (validateIntakeForm()) {
+        // Save intake data to the application state
+        submitIntakeData();
+        
+        // Get the state data from localStorage or create a new empty state
+        let stateParam = '';
+        try {
+          // Try to get the compressed state from the saveIntakeData function result
+          if (typeof window.getCompressedState === 'function') {
+            stateParam = window.getCompressedState();
+          } else {
+            // Fallback if the function doesn't exist: try to construct minimal state from localStorage
+            const intakeData = JSON.parse(localStorage.getItem('intakeData') || '{}');
+            const minimalState = {
+              answers: [],
+              intakeData: intakeData
+            };
+            stateParam = btoa(JSON.stringify(minimalState));
+          }
+        } catch (error) {
+          // If all fails, continue without state parameter
+          console.error('Error preparing state parameter:', error);
+        }
+        
+        // Navigate to the meal page with state parameter
+        if (stateParam) {
+          window.location.href = `meal-preferences.html?state=${stateParam}`;
+        } else {
+          window.location.href = 'meal-preferences.html';
+        }
+      }
+    });
+
+    function validateIntakeForm() {
+      const form = document.getElementById('intake-form');
+      let isValid = true;
+      
+      // Reset error messages
+      document.querySelectorAll('.error-message').forEach(el => {
+        el.style.display = 'none';
+      });
+      
+      // Validate name
+      const nameInput = document.getElementById('participant_name');
+      if (!nameInput.value.trim()) {
+        document.getElementById('name-error').style.display = 'block';
+        isValid = false;
+      }
+      
+      // Validate age
+      const ageInput = document.getElementById('participant_age');
+      if (!ageInput.value || ageInput.value < 18 || ageInput.value > 120) {
+        document.getElementById('age-error').style.display = 'block';
+        isValid = false;
+      }
+      
+      // Validate gender
+      const genderSelect = document.getElementById('participant_gender');
+      if (!genderSelect.value) {
+        document.getElementById('gender-error').style.display = 'block';
+        isValid = false;
+      }
+      
+      // Validate robot experience
+      const robotExpInputs = document.querySelectorAll('input[name="robot_experience"]');
+      let robotExpSelected = false;
+      robotExpInputs.forEach(input => {
+        if (input.checked) robotExpSelected = true;
+      });
+      if (!robotExpSelected) {
+        document.getElementById('robot-exp-error').style.display = 'block';
+        isValid = false;
+      }
+      
+      // Validate fed experience
+      const fedExpInputs = document.querySelectorAll('input[name="fed_experience"]');
+      let fedExpSelected = false;
+      fedExpInputs.forEach(input => {
+        if (input.checked) fedExpSelected = true;
+      });
+      if (!fedExpSelected) {
+        document.getElementById('fed-exp-error').style.display = 'block';
+        isValid = false;
+      }
+      
+      return isValid;
+    }
+    
+    function submitIntakeData() {
+      const intakeData = {
+        name: document.getElementById('participant_name').value,
+        age: document.getElementById('participant_age').value,
+        gender: document.getElementById('participant_gender').value,
+        robotExperience: document.querySelector('input[name="robot_experience"]:checked').value,
+        fedExperience: document.querySelector('input[name="fed_experience"]:checked').value
+      };
+      
+      // Use the saveIntakeData function from app.js
+      if (typeof window.saveIntakeData === 'function') {
+        window.saveIntakeData(intakeData);
+      } else {
+        // Fallback if the function doesn't exist yet
+        localStorage.setItem('intakeData', JSON.stringify(intakeData));
+      }
+    }
+  </script>
+</body>
+</html>

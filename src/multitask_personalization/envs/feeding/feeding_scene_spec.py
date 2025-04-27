@@ -197,7 +197,7 @@ class FeedingSceneSpec(PublicSceneSpec):
         default_factory=lambda: {
         "front": (10.0, 0.4, 0.05),
         "left": (10.0, 4.2, 0.0),
-        "right": (10.0, -4.2, 0.0),
+        # "right": (10.0, -4.2, 0.0),
     })
 
     # This is redundant, but it's convenient for the CSP solver.
@@ -207,8 +207,8 @@ class FeedingSceneSpec(PublicSceneSpec):
     )
 
     # Rendering.
-    image_height: int = 1024
-    image_width: int = 2400
+    image_height: int = 1024 // 2
+    image_width: int = 2400 // 2
 
     @property
     def utensil_pose(self):

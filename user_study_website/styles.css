@@ -1,0 +1,149 @@
+:root {
+  --accent: #2563eb;
+  --highlight: #dbeafe;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+}
+
+header {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+  padding: 1rem 0;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+main {
+  width: 100%;
+  max-width: 700px;
+  padding: 1rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+img {
+  width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+label {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  display: block;
+  margin-bottom: 0.75rem;
+}
+
+select {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+}
+
+button {
+  align-self: flex-end;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.meal-context {
+  line-height: 1.6;
+}
+
+.meal-context .context,
+.meal-context .table-type,
+.meal-context .food-items,
+.meal-context .dips {
+  background-color: var(--highlight);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  white-space: nowrap;
+}
+
+.prediction-summary {
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 2rem;
+}
+
+.prediction-summary h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.prediction-summary p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.prediction-summary table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.prediction-summary th {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+}
+
+.prediction-summary td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.prediction-summary tr:last-child td {
+  border-bottom: none;
+}
+
+.prediction-summary .personalized {
+  font-weight: bold;
+  color: #0066cc;
+}
+
+@media (min-width: 640px) {
+  select {
+    max-width: 300px;
+  }
+} 

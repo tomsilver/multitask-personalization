@@ -1,11 +1,14 @@
-import rospy
+try:
+    import rospy
+    from std_msgs.msg import String
+except:
+    pass
 import pickle
 import base64
 import time
 import itertools
 from dataclasses import dataclass
 from typing import List
-from std_msgs.msg import String
 import argparse
 from pybullet_helpers.geometry import Pose
 import numpy as np
@@ -24,10 +27,10 @@ class Meal:
 
 MEALS = [
     Meal(1, "personal", "rectangular table", ["french fries"], ["ketchup", "ranch dressing"]),
-    Meal(2, "social with friend on left", "circular table", ["celery", "apple slices"], ["ranch dressing"]),
-    Meal(3, "watching TV in front", "circular table", ["steak", "potatoes"], []),
-    Meal(4, "personal", "circular table", ["pear slices"], ["ranch dressing"]),
-    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["chicken nuggets"], ["ketchup", "ranch dressing"]),
+    Meal(2, "social with friend on left", "circular table", ["carrot sticks"], ["ranch dressing", "hummus"]),
+    Meal(3, "watching TV in front", "circular table", ["potato wedges"], ["ketchup", "ranch dressing"]),
+    Meal(4, "personal", "circular table", ["celery sticks"], ["ranch dressing", "hummus"]),
+    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"]),
 ]
 
 # Helper function to generate all possible bite orderings.
