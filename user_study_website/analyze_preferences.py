@@ -127,8 +127,80 @@ def plot_preferences(df):
     Args:
         df: pandas DataFrame with processed preference data
     """
+    # Set the style and font configurations
+    plt.rcParams.update({
+        'font.family': 'serif',
+        'font.serif': ['Times New Roman', 'Times', 'DejaVu Serif', 'Bitstream Vera Serif', 'Computer Modern Roman', 'New Century Schoolbook', 'Century Schoolbook L', 'Utopia', 'ITC Bookman', 'Bookman', 'Nimbus Roman No9 L', 'Palatino', 'Charter', 'serif'],
+        'font.sans-serif': ['Helvetica', 'Avant Garde', 'Computer Modern Sans Serif'],
+        'font.cursive': 'Zapf Chancery',
+        'font.monospace': ['Courier', 'Computer Modern Typewriter'],
+        'font.size': 18.0,
+        'axes.titlesize': 28.0,
+        'axes.titlepad': 20,
+        'axes.labelsize': 'large',
+        'axes.labelweight': 300,
+        'lines.linewidth': 2,
+        'mathtext.rm': 'serif',
+        'mathtext.it': 'serif:italic',
+        'mathtext.bf': 'serif:bold'
+    })
+    
+    # Verify font settings
+    print("Current font settings:")
+    print(f"Font family: {plt.rcParams['font.family']}")
+    print(f"Serif fonts: {plt.rcParams['font.serif']}")
+    print(f"Font size: {plt.rcParams['font.size']}")
+    
     # Set the style
-    sns.set(style="whitegrid")
+    sns.set(style="whitegrid", font_scale=1.2)
+    
+    # Create the horizontal bar plot
+    plt.figure(figsize=(12, 8))
+    
+    # Calculate mean preferences for each meal
+    meal_means = df.groupby('meal_number')['preference_for_personalized'].mean().reset_index()
+    meal_means['meal_label'] = meal_means['meal_number'].apply(lambda x: f'Meal {x}')
+    
+    # Calculate standard error for each meal
+    meal_counts = df.groupby('meal_number').size()
+    meal_stds = df.groupby('meal_number')['preference_for_personalized'].std()
+    meal_stderr = meal_stds / np.sqrt(meal_counts)
+    
+    # Create the horizontal bar plot
+    ax = sns.barplot(
+        y='meal_label',
+        x='preference_for_personalized',
+        data=meal_means,
+        palette='Blues_d',
+        alpha=0.8
+    )
+    
+    # Add a vertical line at the neutral point (3)
+    plt.axvline(x=3, color='gray', linestyle='--', alpha=0.7)
+    
+    # Customize the plot with larger fonts
+    plt.xlabel('Preference for CBTL (Ours)', fontsize=18, fontfamily='serif')
+    plt.ylabel('')  # Remove y-axis label
+    plt.xlim(0.5, 5.5)  # Set x-axis limits
+    
+    # Set custom x-axis ticks with labels
+    plt.xticks([1, 2, 3, 4, 5], 
+               ['Strongly\nDislike', 'Dislike', 'Neutral', 'Prefer', 'Strongly\nPrefer'],
+               fontsize=18, fontfamily='serif')
+    
+    # Increase y-tick label size
+    plt.yticks(fontsize=18, fontfamily='serif')
+    
+    # Add error bars using standard error
+    for i, (meal_num, stderr) in enumerate(meal_stderr.items()):
+        mean = meal_means.loc[i, 'preference_for_personalized']
+        plt.errorbar(mean, i, xerr=stderr, color='black', capsize=5, alpha=0.5)
+    
+    # Save the horizontal bar plot
+    plt.tight_layout()
+    plt.savefig('personalized_preference_horizontal.png', dpi=300, bbox_inches='tight')
+    
+    # Create the original box plot
     plt.figure(figsize=(12, 8))
     
     # Create the main plot - preference for personalized by meal number
@@ -173,11 +245,11 @@ def plot_preferences(df):
     for i, mean_val in enumerate(mean_prefs):
         plt.text(i, mean_val + 0.2, f'Mean: {mean_val:.2f}', ha='center', color='navy', fontweight='bold')
     
-    # Save the plot
+    # Save the box plot
     plt.tight_layout()
     plt.savefig('personalized_preference_by_meal.png', dpi=300)
     
-    # Create a second plot - average preference trend
+    # Create the trend plot
     plt.figure(figsize=(10, 6))
     
     # Line plot with error bars showing the trend over meals
@@ -205,7 +277,7 @@ def plot_preferences(df):
     plt.tight_layout()
     plt.savefig('personalized_preference_trend.png', dpi=300)
     
-    print("Plots created: personalized_preference_by_meal.png and personalized_preference_trend.png")
+    print("Plots created: personalized_preference_horizontal.png, personalized_preference_by_meal.png, and personalized_preference_trend.png")
 
 def generate_summary_statistics(df):
     """
