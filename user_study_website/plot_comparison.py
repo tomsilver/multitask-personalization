@@ -50,7 +50,7 @@ def create_comparison_plot():
     """Create a line plot comparing personalized vs non-personalized predictions."""
     personalized_agg, non_personalized_agg = load_and_prepare_data()
     
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(5, 6))
     
     # Plot lines with error bars
     plt.errorbar(personalized_agg['meal_number'], 
@@ -58,7 +58,7 @@ def create_comparison_plot():
                 yerr=personalized_agg['sem'],
                 label='CBTL (Ours)',
                 marker='o',
-                capsize=5,
+                capsize=2,
                 color='#228833')
     
     plt.errorbar(non_personalized_agg['meal_number'],
@@ -66,13 +66,13 @@ def create_comparison_plot():
                 yerr=non_personalized_agg['sem'],
                 label='No Personalization',
                 marker='s',
-                capsize=5,
+                capsize=2,
                 color='#66ccee')
     
     # Customize the plot
     plt.xlabel('Meal Number')
     plt.ylabel('Mean Prediction Success Rate')
-    plt.legend(labelspacing=1.5)  # Increase vertical spacing between legend items
+    plt.legend(labelspacing=0.9, loc='lower right', prop={'size': 16}, markerscale=0.7)  # Smaller markers in legend
     plt.grid(True, alpha=0.3)
     
     # Set x-axis to only show actual meal numbers
