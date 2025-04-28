@@ -60,7 +60,7 @@ def create_comparison_plot():
     plt.errorbar(non_personalized_agg['meal_number'],
                 non_personalized_agg['mean_success_rate'],
                 yerr=non_personalized_agg['sem'],
-                label='No Learning',
+                label='No Personalization',
                 marker='s',
                 capsize=5,
                 color='#66ccee')
