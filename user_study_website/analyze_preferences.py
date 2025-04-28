@@ -128,35 +128,13 @@ def plot_preferences(df):
     Args:
         df: pandas DataFrame with processed preference data
     """
-    # Set the style and font configurations
-    plt.rcParams.update({
-        'font.family': 'serif',
-        'font.serif': ['Times New Roman', 'Times', 'DejaVu Serif', 'Bitstream Vera Serif', 'Computer Modern Roman', 'New Century Schoolbook', 'Century Schoolbook L', 'Utopia', 'ITC Bookman', 'Bookman', 'Nimbus Roman No9 L', 'Palatino', 'Charter', 'serif'],
-        'font.sans-serif': ['Helvetica', 'Avant Garde', 'Computer Modern Sans Serif'],
-        'font.cursive': 'Zapf Chancery',
-        'font.monospace': ['Courier', 'Computer Modern Typewriter'],
-        'font.size': 18.0,
-        'axes.titlesize': 28.0,
-        'axes.titlepad': 20,
-        'axes.labelsize': 'large',
-        'axes.labelweight': 300,
-        'lines.linewidth': 2,
-        'mathtext.rm': 'serif',
-        'mathtext.it': 'serif:italic',
-        'mathtext.bf': 'serif:bold'
-    })
-    
-    # Verify font settings
-    print("Current font settings:")
-    print(f"Font family: {plt.rcParams['font.family']}")
-    print(f"Serif fonts: {plt.rcParams['font.serif']}")
-    print(f"Font size: {plt.rcParams['font.size']}")
+    plt.style.use('custom.mplstyle')
     
     # Set the style
     sns.set(style="whitegrid", font_scale=1.2)
     
     # Create the horizontal bar plot
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(6, 8))
     
     # Calculate mean preferences for each meal
     meal_means = df.groupby('meal_number')['preference_for_personalized'].mean().reset_index()
@@ -191,11 +169,11 @@ def plot_preferences(df):
     # Customize the plot with larger fonts
     plt.xlabel('Preference for CBTL (Ours)', fontsize=24, fontfamily='serif')
     plt.ylabel('')  # Remove y-axis label
-    plt.xlim(0.5, 5.5)  # Set x-axis limits
+    plt.xlim(2.5, 5.5)  # Set x-axis limits
     
     # Set custom x-axis ticks with labels
-    plt.xticks([1, 2, 3, 4, 5], 
-               ['Strongly\nDislike', 'Dislike', 'Neutral', 'Prefer', 'Strongly\nPrefer'],
+    plt.xticks([3, 4, 5], 
+               ['Neutral', 'Prefer', 'Strongly\nPrefer'],
                fontsize=18, fontfamily='serif')
     
     # Increase y-tick label size
