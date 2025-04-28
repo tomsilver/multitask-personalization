@@ -22,7 +22,7 @@ APPROACH_TO_DISPLAY_NAME = {
     "nothing_personal": "Free Explore",
     "epsilon_greedy": "Epsilon Greedy",
     "exploit_only": "Exploit Only",
-    "no_learning": "No Learning",
+    "no_learning": "No Personalization",
 }
 
 # https://colorbrewer2.org/#type=diverging&scheme=Spectral&n=8
@@ -168,7 +168,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
     fig.legend(lines, labels, loc="center right", bbox_to_anchor=(1.0, 0.5))
 
     # Adjust layout with extra space for legend.
-    plt.tight_layout(rect=(0, 0, 0.9, 1.0))
+    plt.tight_layout(rect=(0, 0, 0.875, 1.0))
 
     plt.savefig(outfile, dpi=1000, bbox_inches="tight", pad_inches=0.05)
     print(f"Wrote out to {outfile}")
