@@ -112,6 +112,39 @@ def _get_prediction_success_sequence(variable, var_sequence, non_personalized):
     return success_sequence
 
 
+def create_results_dataframe(var_to_prediction_success_sequences):
+    """
+    Create a DataFrame from the prediction success sequences.
+    
+    Args:
+        var_to_prediction_success_sequences: Dictionary mapping variables to their prediction success sequences
+        
+    Returns:
+        DataFrame with columns:
+        - prediction_type: The type of prediction (occlusion, bite_order, ready_signal, or verbal)
+        - meal_number: The meal number (1-based index)
+        - mean_success_rate: The average success rate across all participants
+        - sem: Standard Error of the Mean (standard deviation / sqrt(n))
+    """
+    rows = []
+    for variable, success_sequences in var_to_prediction_success_sequences.items():
+        # Convert to numpy array for easier calculation
+        success_sequences = np.array(success_sequences)
+        # Calculate mean and standard error for each meal number
+        for meal_number in range(success_sequences.shape[1]):
+            success_rates = success_sequences[:, meal_number]
+            mean_success = np.mean(success_rates)
+            # Standard Error of the Mean (SEM) = standard deviation / sqrt(n)
+            sem = np.std(success_rates) / np.sqrt(len(success_rates))
+            rows.append({
+                'prediction_type': variable,
+                'meal_number': meal_number + 1,
+                'mean_success_rate': mean_success,
+                'sem': sem
+            })
+    return pd.DataFrame(rows)
+
+
 def main(file_path, non_personalized):
     responses = load_responses(file_path)
     simplified_responses = _get_simplified_responses(responses)
@@ -125,6 +158,13 @@ def main(file_path, non_personalized):
             success_sequence = _get_prediction_success_sequence(variable, var_sequence, non_personalized)
             var_prediction_success_sequences.append(success_sequence)
         var_to_prediction_success_sequences[variable] = var_prediction_success_sequences
+    
+    # Create DataFrame and save to CSV
+    df = create_results_dataframe(var_to_prediction_success_sequences)
+    output_file = f"prediction_results{'__non_personalized' if non_personalized else ''}.csv"
+    df.to_csv(output_file, index=False)
+    print(f"\nResults saved to {output_file}")
+    
     # Print the prediction success sequences, averaging over all responses
     for variable, success_sequences in var_to_prediction_success_sequences.items():
         print(f"Variable: {variable}")
