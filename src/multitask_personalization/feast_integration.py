@@ -31,7 +31,7 @@ class MultitaskPersonalizationFeastInterface:
             del self._scene_spec
         if hasattr(self, "_approach"):
             # if self._log_dir is not None:
-                # self._approach.save(self._log_dir)
+            #     self._approach.save(self._log_dir)
             self._approach.close()
             del self._approach
 
@@ -149,6 +149,12 @@ class MultitaskPersonalizationFeastInterface:
             plate_pose = request_dict["plate_pose"]
             drink_pose = request_dict["drink_pose"]
 
+            if drink_pose is None:
+                self._approach._csp_generator._disable_drink = True
+                drink_pose = BANISH_POSE
+            else:
+                self._approach._csp_generator._disable_drink = False
+
             # self._visualize("Current Scene", plate_pose, drink_pose)
 
             obs = FeedingOcclusionQueryObservation(
@@ -204,6 +210,12 @@ class MultitaskPersonalizationFeastInterface:
             drink_pose = request_dict["drink_pose"]
             occlusion = request_dict["occlusion"]
 
+            if drink_pose is None:
+                self._approach._csp_generator._disable_drink = True
+                drink_pose = BANISH_POSE
+            else:
+                self._approach._csp_generator._disable_drink = False
+
             obs = FeedingOcclusionDatasetObservation(
                 self._current_context,
                 self._current_table_type,
@@ -251,6 +263,10 @@ class MultitaskPersonalizationFeastInterface:
         set_pose(self._viz_sim.get_object_id_from_name("plate"), plate_pose, self._viz_sim.physics_client_id)
 
         print("robot joints", robot_joints)
+
+        # in cases there is no drink on the table
+        if robot_joints is None:
+            robot_joints = [0.0, -0.34903602299465675, -3.141591055693139, -2.5482592711638783, 0.0, -0.872688061814757, 1.57075917569769]
 
         held_object_id = self._viz_sim.get_object_id_from_name("drink")
         held_object_tf = self._viz_sim.scene_spec.drink_held_object_tf
@@ -305,7 +321,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    log_dir = Path(__file__).parent / "logs"
+    log_dir = Path(__file__).parent / "logs_rajat"
 
     # if not args.load:
     #     # cleanup the log_dir

@@ -16,6 +16,8 @@ import json
 from pathlib import Path
 from PIL import Image
 
+from multitask_personalization.envs.feeding.feeding_env import BANISH_POSE
+
 
 @dataclass
 class Meal:
@@ -24,13 +26,17 @@ class Meal:
     table_type: str
     food_items: List[str]
     dips: List[str]
+    plate_pose: Pose = None
+    drink_pose: Pose = None
 
 MEALS = [
-    Meal(1, "personal", "rectangular table", ["french fries"], ["ketchup", "ranch dressing"]),
-    Meal(2, "social with friend on left", "circular table", ["carrot sticks"], ["ranch dressing", "hummus"]),
-    Meal(3, "watching TV in front", "circular table", ["potato wedges"], ["ketchup", "ranch dressing"]),
-    Meal(4, "personal", "circular table", ["celery sticks"], ["ranch dressing", "hummus"]),
-    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"]),
+    Meal(1, "personal", "rectangular table", ["french fries"], ["ketchup", "ranch dressing"], Pose((0.3, 0.75, 0.17)), None),
+    Meal(2, "social with friend on left", "circular table", ["carrot sticks"], ["ranch dressing", "hummus"], Pose((0.3, 0.75, 0.17)), None),
+    Meal(3, "watching TV in front", "circular table", ["potato wedges"], ["ketchup", "ranch dressing"], Pose((0.3, 0.75, 0.17)), None),
+    Meal(4, "personal", "circular table", ["celery sticks"], ["ranch dressing", "hummus"], Pose((0.3, 0.75, 0.17)), None),
+    # Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"], Pose((0.22365856, 0.4845229 , 0.22233607)), Pose((0.46142988, 0.70170701, 0.22553458), (0, -np.sqrt(2) / 2, -np.sqrt(2) / 2, 0))),
+    # Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"], Pose((0.3, 0.75, 0.17)), Pose((0.65, 0.4, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))),
+    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"], Pose((0.22365856, 0.4845229 , 0.17)), Pose((0.46142988, 0.70170701, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))),
 ]
 
 # Helper function to generate all possible bite orderings.
@@ -195,9 +201,9 @@ if __name__ == "__main__":
 
     # send plate and drink pose to multitask personalization
     # current_plate_pose = Pose((0.3, 0.75, 0.17))
-    current_plate_pose = Pose((0.22365856, 0.4845229 , 0.17))
+    current_plate_pose = current_meal.plate_pose
     # current_drink_pose = Pose((0.65, 0.5, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))
-    current_drink_pose = Pose((0.46142988, 0.70170701, 0.35), (0, -np.sqrt(2) / 2, -np.sqrt(2) / 2, 0))
+    current_drink_pose = current_meal.drink_pose
 
     occlusion = True
     occlusion_iter = 0
@@ -222,10 +228,13 @@ if __name__ == "__main__":
                             current_plate_pose.position[1] + plate_delta_xy[1],
                             current_plate_pose.position[2]),
                             current_plate_pose.orientation)
-        new_drink_pose = Pose((current_drink_pose.position[0] + drink_delta_xy[0],
-                            current_drink_pose.position[1] + drink_delta_xy[1],
-                            current_drink_pose.position[2]),
-                            current_drink_pose.orientation)
+        if current_drink_pose is not None:
+            new_drink_pose = Pose((current_drink_pose.position[0] + drink_delta_xy[0],
+                                current_drink_pose.position[1] + drink_delta_xy[1],
+                                current_drink_pose.position[2]),
+                                current_drink_pose.orientation)
+        else:
+            new_drink_pose = None
         occlusion_dataset_dict = {
             "request_type": "occlusion_dataset",
             "plate_pose": new_plate_pose,
@@ -239,9 +248,12 @@ if __name__ == "__main__":
                 print(f"Verifying whether view was occluded for POI={poi} during FEEDING")
                 Image.fromarray(bite_occlusion_image).show()
                 plate_occlusion = verify_predictions(f"occlusion-poi-{poi}-feeding-iter{occlusion_iter}", False, [True, False])
-                print(f"Verifying whether view was occluded for POI={poi} during DRINKING")
-                Image.fromarray(drink_occlusion_image).show()
-                drink_occlusion = verify_predictions(f"occlusion-poi-{poi}-drinking-iter{occlusion_iter}", False, [True, False])
+                if new_drink_pose is not None:
+                    print(f"Verifying whether view was occluded for POI={poi} during DRINKING")
+                    Image.fromarray(drink_occlusion_image).show()
+                    drink_occlusion = verify_predictions(f"occlusion-poi-{poi}-drinking-iter{occlusion_iter}", False, [True, False])
+                else:
+                    drink_occlusion = False
             else:
                 plate_occlusion = False
                 drink_occlusion = False
