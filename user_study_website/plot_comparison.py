@@ -12,6 +12,10 @@ def load_and_prepare_data():
     personalized_df = pd.read_csv('raw_predictions.csv')
     non_personalized_df = pd.read_csv('raw_predictions__non_personalized.csv')
     
+    # Exclude occlusion predictions
+    personalized_df = personalized_df[personalized_df['prediction_type'] != 'occlusion']
+    non_personalized_df = non_personalized_df[non_personalized_df['prediction_type'] != 'occlusion']
+    
     # Group by meal number and calculate mean success rate and SEM
     def aggregate_data(df):
         # First aggregate by prediction type and meal number
