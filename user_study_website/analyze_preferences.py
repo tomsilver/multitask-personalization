@@ -173,7 +173,7 @@ def plot_preferences(df):
         meal_data = df[df['meal_number'] == meal_num]['preference_for_personalized']
         # Test against neutral value of 3
         statistic, p_value = stats.wilcoxon(meal_data - 3)
-        if p_value < 0.05:
+        if p_value < 0.005:
             significant_meals.append(meal_num)
     
     # Create the horizontal bar plot
