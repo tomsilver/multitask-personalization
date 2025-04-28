@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 import argparse
+from scipy import stats
 
 def load_responses(file_path):
     """
@@ -166,6 +167,15 @@ def plot_preferences(df):
     meal_stds = df.groupby('meal_number')['preference_for_personalized'].std()
     meal_stderr = meal_stds / np.sqrt(meal_counts)
     
+    # Perform Wilcoxon signed-rank test for each meal
+    significant_meals = []
+    for meal_num in df['meal_number'].unique():
+        meal_data = df[df['meal_number'] == meal_num]['preference_for_personalized']
+        # Test against neutral value of 3
+        statistic, p_value = stats.wilcoxon(meal_data - 3)
+        if p_value < 0.05:
+            significant_meals.append(meal_num)
+    
     # Create the horizontal bar plot
     ax = sns.barplot(
         y='meal_label',
@@ -195,6 +205,16 @@ def plot_preferences(df):
     for i, (meal_num, stderr) in enumerate(meal_stderr.items()):
         mean = meal_means.loc[i, 'preference_for_personalized']
         plt.errorbar(mean, i, xerr=stderr, color='black', capsize=5, alpha=0.5)
+        
+        # Add star for statistically significant meals
+        if meal_num in significant_meals:
+            # Position star to the right of the bar, vertically centered
+            plt.text(mean + 0.3, i + 0.1, '*', 
+                    fontsize=32,  # Large font size
+                    color='black', 
+                    ha='center',  # Center horizontally
+                    va='center',  # Center vertically
+                    fontweight='bold')  # Make star bolder
     
     # Save the horizontal bar plot
     plt.tight_layout()
