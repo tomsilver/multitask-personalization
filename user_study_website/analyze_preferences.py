@@ -173,7 +173,7 @@ def plot_preferences(df):
     
     # Set custom x-axis ticks with labels
     plt.xticks([3, 4, 5], 
-               ['Neutral', 'Prefer', 'Strongly\nPrefer'],
+               ['Neutral', 'Prefer', 'Strongly Prefer'],
                fontsize=18, fontfamily='serif')
     
     # Increase y-tick label size
@@ -196,7 +196,7 @@ def plot_preferences(df):
     
     # Save the horizontal bar plot
     plt.tight_layout()
-    plt.savefig('personalized_preference_horizontal.png', dpi=300, bbox_inches='tight')
+    plt.savefig('personalized_preference_horizontal.png', dpi=800, bbox_inches='tight')
     
     # Create the original box plot
     plt.figure(figsize=(12, 8))
