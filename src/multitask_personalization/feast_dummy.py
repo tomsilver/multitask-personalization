@@ -30,13 +30,13 @@ class Meal:
     drink_pose: Pose = None
 
 MEALS = [
-    Meal(1, "personal", "rectangular table", ["french fries"], ["ketchup", "ranch dressing"], Pose((0.3, 0.75, 0.17)), None),
-    Meal(2, "social with friend on left", "circular table", ["carrot sticks"], ["ranch dressing", "hummus"], Pose((0.3, 0.75, 0.17)), None),
-    Meal(3, "watching TV in front", "circular table", ["potato wedges"], ["ketchup", "ranch dressing"], Pose((0.3, 0.75, 0.17)), None),
-    Meal(4, "personal", "circular table", ["celery sticks"], ["ranch dressing", "hummus"], Pose((0.3, 0.75, 0.17)), None),
+    Meal(1, "personal", "rectangular table", ["french fries"], ["ketchup", "BBQ sauce"], Pose((0.3, 0.75, 0.17)), None),
+    Meal(2, "social with friend on left", "circular table", ["raw vegetables"], ["ranch dressing", "hummus"], Pose((0.3, 0.75, 0.17)), None),
+    Meal(3, "watching TV in front", "circular table", ["potato wedges"], ["ketchup", "BBQ sauce"], Pose((0.3, 0.75, 0.17)), None),
+    Meal(4, "personal", "circular table", ["carrot sticks"], ["ranch dressing", "hummus"], Pose((0.3, 0.75, 0.17)), None),
     # Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"], Pose((0.22365856, 0.4845229 , 0.22233607)), Pose((0.46142988, 0.70170701, 0.22553458), (0, -np.sqrt(2) / 2, -np.sqrt(2) / 2, 0))),
     # Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"], Pose((0.3, 0.75, 0.17)), Pose((0.65, 0.4, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))),
-    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "ranch dressing"], Pose((0.22365856, 0.4845229 , 0.17)), Pose((0.46142988, 0.70170701, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))),
+    Meal(5, "social TV-watching (with TV in front) and with friend on left side", "rectangular table", ["tater tots"], ["ketchup", "BBQ sauce"], Pose((0.22365856, 0.4845229 , 0.17)), Pose((0.46142988, 0.70170701, 0.35), (0, np.sqrt(2) / 2, np.sqrt(2) / 2, 0))),
 ]
 
 # Helper function to generate all possible bite orderings.
