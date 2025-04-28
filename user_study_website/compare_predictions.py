@@ -123,25 +123,23 @@ def create_results_dataframe(var_to_prediction_success_sequences):
         DataFrame with columns:
         - prediction_type: The type of prediction (occlusion, bite_order, ready_signal, or verbal)
         - meal_number: The meal number (1-based index)
-        - mean_success_rate: The average success rate across all participants
-        - sem: Standard Error of the Mean (standard deviation / sqrt(n))
+        - participant_id: The index of the participant
+        - success: Whether the prediction was successful (0 or 1)
     """
     rows = []
     for variable, success_sequences in var_to_prediction_success_sequences.items():
         # Convert to numpy array for easier calculation
         success_sequences = np.array(success_sequences)
-        # Calculate mean and standard error for each meal number
-        for meal_number in range(success_sequences.shape[1]):
-            success_rates = success_sequences[:, meal_number]
-            mean_success = np.mean(success_rates)
-            # Standard Error of the Mean (SEM) = standard deviation / sqrt(n)
-            sem = np.std(success_rates) / np.sqrt(len(success_rates))
-            rows.append({
-                'prediction_type': variable,
-                'meal_number': meal_number + 1,
-                'mean_success_rate': mean_success,
-                'sem': sem
-            })
+        # For each participant and meal
+        for participant_id in range(success_sequences.shape[0]):
+            for meal_number in range(success_sequences.shape[1]):
+                success = success_sequences[participant_id, meal_number]
+                rows.append({
+                    'prediction_type': variable,
+                    'meal_number': meal_number + 1,
+                    'participant_id': participant_id,
+                    'success': success
+                })
     return pd.DataFrame(rows)
 
 
@@ -161,11 +159,11 @@ def main(file_path, non_personalized):
     
     # Create DataFrame and save to CSV
     df = create_results_dataframe(var_to_prediction_success_sequences)
-    output_file = f"prediction_results{'__non_personalized' if non_personalized else ''}.csv"
+    output_file = f"raw_predictions{'__non_personalized' if non_personalized else ''}.csv"
     df.to_csv(output_file, index=False)
-    print(f"\nResults saved to {output_file}")
+    print(f"\nRaw prediction data saved to {output_file}")
     
-    # Print the prediction success sequences, averaging over all responses
+    # Print summary statistics
     for variable, success_sequences in var_to_prediction_success_sequences.items():
         print(f"Variable: {variable}")
         avg_success_sequence = np.mean(success_sequences, axis=0)
