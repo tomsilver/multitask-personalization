@@ -3,6 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Use custom style
+plt.style.use('custom.mplstyle')
+
 def load_and_prepare_data():
     """Load both CSV files and prepare the data for plotting."""
     # Load the raw data
@@ -49,23 +52,27 @@ def create_comparison_plot():
     plt.errorbar(personalized_agg['meal_number'], 
                 personalized_agg['mean_success_rate'],
                 yerr=personalized_agg['sem'],
-                label='Personalized',
+                label='CBTL (Ours)',
                 marker='o',
-                capsize=5)
+                capsize=5,
+                color='#228833')
     
     plt.errorbar(non_personalized_agg['meal_number'],
                 non_personalized_agg['mean_success_rate'],
                 yerr=non_personalized_agg['sem'],
-                label='Non-personalized',
+                label='No Learning',
                 marker='s',
-                capsize=5)
+                capsize=5,
+                color='#66ccee')
     
     # Customize the plot
     plt.xlabel('Meal Number')
     plt.ylabel('Mean Prediction Success Rate')
-    plt.title('Comparison of Personalized vs Non-personalized Predictions')
-    plt.legend()
+    plt.legend(labelspacing=1.5)  # Increase vertical spacing between legend items
     plt.grid(True, alpha=0.3)
+    
+    # Set x-axis to only show actual meal numbers
+    plt.xticks(personalized_agg['meal_number'])
     
     # Set y-axis limits to show full range of possible values
     plt.ylim(0, 1)
