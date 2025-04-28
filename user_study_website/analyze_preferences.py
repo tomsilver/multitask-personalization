@@ -189,7 +189,7 @@ def plot_preferences(df):
     plt.axvline(x=3, color='gray', linestyle='--', alpha=0.7)
     
     # Customize the plot with larger fonts
-    plt.xlabel('Preference for CBTL (Ours)', fontsize=18, fontfamily='serif')
+    plt.xlabel('Preference for CBTL (Ours)', fontsize=24, fontfamily='serif')
     plt.ylabel('')  # Remove y-axis label
     plt.xlim(0.5, 5.5)  # Set x-axis limits
     
