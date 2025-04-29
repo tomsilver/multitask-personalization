@@ -77,15 +77,6 @@ def process_preferences(responses):
                                                           meal_answer.get('isOptionAPersonalized', False))
             
             # Adjust rating to reflect preference for personalized option
-            # If option A is personalized:
-            #   - Ratings 1-2 (prefer A) become 5-4 (prefer personalized)
-            #   - Rating 3 (neutral) stays 3
-            #   - Ratings 4-5 (prefer B) become 2-1 (dislike personalized)
-            # If option B is personalized:
-            #   - Ratings 1-2 (prefer A) become 1-2 (dislike personalized)
-            #   - Rating 3 (neutral) stays 3
-            #   - Ratings 4-5 (prefer B) become 4-5 (prefer personalized)
-            
             if is_option_a_personalized:
                 if raw_rating < 3:  # Prefer A (personalized)
                     preference_for_personalized = 6 - raw_rating  # 1->5, 2->4
@@ -105,6 +96,15 @@ def process_preferences(responses):
                 'personalized_option': 'A' if is_option_a_personalized else 'B',
                 'preference_for_personalized': preference_for_personalized
             }
+            
+            # Add the actual answers for each question type
+            for q_type in ['bite_order', 'ready_signal', 'verbal']:
+                if q_type in meal_answer:
+                    row[q_type] = meal_answer[q_type]
+            
+            # Handle occlusion data separately
+            if 'occlusion' in meal_answer:
+                row['occlusion'] = meal_answer['occlusion']
             
             # Add demographic info if available
             if participant_info:
@@ -306,6 +306,96 @@ def generate_summary_statistics(df):
     
     return meal_stats
 
+def plot_answer_distributions(df):
+    """
+    Create visualizations showing the distribution of answers for each question type across meals.
+    
+    Args:
+        df: pandas DataFrame with processed preference data
+    """
+    plt.style.use('custom.mplstyle')
+    
+    # Set the style
+    sns.set(style="whitegrid", font_scale=1.2)
+    
+    # Create a figure with subplots for each question type - now 3x wider
+    fig, axes = plt.subplots(2, 2, figsize=(45, 12))  # Changed from (15, 12) to (45, 12)
+    axes = axes.flatten()
+    
+    # Question types to plot
+    question_types = ['bite_order', 'ready_signal', 'verbal', 'occlusion']
+    question_titles = ['Food-Dip Combinations', 'Transfer Cue', 'Verbal Prompts', 'Visual Occlusion']
+    
+    # Print column names for debugging
+    print("Available columns in DataFrame:", df.columns.tolist())
+    
+    for idx, (q_type, title) in enumerate(zip(question_types, question_titles)):
+        ax = axes[idx]
+        
+        if q_type == 'occlusion':
+            # For occlusion, we need to handle the special structure
+            # Create a count plot for each meal showing the distribution of occlusion states
+            occlusion_data = []
+            for meal_num in df['meal_number'].unique():
+                meal_data = df[df['meal_number'] == meal_num]
+                for _, row in meal_data.iterrows():
+                    # Print row data for debugging
+                    print(f"\nProcessing occlusion for meal {meal_num}:")
+                    print(row.to_dict())
+                    
+                    if 'occlusion' in row and row['occlusion']:
+                        occlusion_data.append({
+                            'meal_number': meal_num,
+                            'occlusion_state': str(row['occlusion'])  # Convert to string to ensure it's hashable
+                        })
+            
+            if occlusion_data:
+                occlusion_df = pd.DataFrame(occlusion_data)
+                print(f"\nOcclusion data for plotting:")
+                print(occlusion_df)
+                sns.countplot(data=occlusion_df, x='meal_number', hue='occlusion_state', ax=ax)
+                ax.set_title(f'{title} Distribution by Meal', fontsize=16)
+                ax.set_xlabel('Meal Number', fontsize=14)
+                ax.set_ylabel('Count', fontsize=14)
+                ax.legend(title='Occlusion State', bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
+        else:
+            # For other question types, extract the values from the answers structure
+            answer_data = []
+            for meal_num in df['meal_number'].unique():
+                meal_data = df[df['meal_number'] == meal_num]
+                for _, row in meal_data.iterrows():
+                    # Print row data for debugging
+                    print(f"\nProcessing {q_type} for meal {meal_num}:")
+                    print(row.to_dict())
+                    
+                    # Check if the question type exists in the row
+                    if q_type in row and isinstance(row[q_type], dict) and 'value' in row[q_type]:
+                        answer_data.append({
+                            'meal_number': meal_num,
+                            'answer': str(row[q_type]['value'])  # Convert to string to ensure it's hashable
+                        })
+            
+            if answer_data:
+                answer_df = pd.DataFrame(answer_data)
+                print(f"\n{q_type} data for plotting:")
+                print(answer_df)
+                sns.countplot(data=answer_df, x='meal_number', hue='answer', ax=ax)
+                ax.set_title(f'{title} Distribution by Meal', fontsize=16)
+                ax.set_xlabel('Meal Number', fontsize=14)
+                ax.set_ylabel('Count', fontsize=14)
+                ax.legend(title=title, bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=12)
+        
+        # Rotate x-axis labels for better readability
+        ax.tick_params(axis='x', rotation=45)
+        ax.tick_params(axis='both', labelsize=12)
+    
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    
+    # Save the plot
+    plt.savefig('answer_distributions.png', dpi=300, bbox_inches='tight')
+    print("Answer distribution plot saved as answer_distributions.png")
+
 def main():
     # Set up command line argument parsing
     parser = argparse.ArgumentParser(description='Analyze meal preference data from Google Form responses.')
@@ -346,6 +436,7 @@ def main():
         # Create plots
         print("Creating plots...")
         plot_preferences(df)
+        plot_answer_distributions(df)
         
         print("Analysis complete!")
     
