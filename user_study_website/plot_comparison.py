@@ -59,7 +59,7 @@ def create_comparison_plot():
                 label='CBTL (Ours)',
                 marker='o',
                 capsize=2,
-                color='#228833')
+                color="#aa3377")
     
     plt.errorbar(non_personalized_agg['meal_number'],
                 non_personalized_agg['mean_success_rate'],
@@ -67,7 +67,7 @@ def create_comparison_plot():
                 label='No Personalization',
                 marker='s',
                 capsize=2,
-                color='#66ccee')
+                color="#66ccee")
     
     # Customize the plot
     plt.xlabel('Meal Number')
