@@ -75,8 +75,9 @@ def create_comparison_plot():
     plt.legend(labelspacing=0.9, loc='lower right', prop={'size': 16}, markerscale=0.7)  # Smaller markers in legend
     plt.grid(True, alpha=0.3)
     
-    # Set x-axis to only show actual meal numbers
+    # Set x-axis to only show actual meal numbers and remove minor ticks
     plt.xticks(personalized_agg['meal_number'])
+    plt.tick_params(axis='x', which='minor', tick1On=False, tick2On=False)
     
     # Set y-axis limits to show full range of possible values
     plt.ylim(0, 1)
