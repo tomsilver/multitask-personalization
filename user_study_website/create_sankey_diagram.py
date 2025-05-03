@@ -103,20 +103,37 @@ def create_sankey_diagram(df, output_file):
     # Create node indices
     node_indices = {node: i for i, node in enumerate(nodes)}
     
-    # Create color mapping for different paths
-    unique_paths = set()
+    # Create color mapping for different dips
+    unique_dips = set()
     for node in nodes:
-        if '_' in node:  # Only consider nodes with path information
-            path = node.split('_', 1)[1]
-            unique_paths.add(path)
+        dip = node.split(': ')[1].split('_')[0]  # Extract dip name from node label
+        unique_dips.add(dip)
     
-    path_colors = {}
-    for path in unique_paths:
-        # Generate a random color with good visibility
-        r = random.randint(50, 200)
-        g = random.randint(50, 200)
-        b = random.randint(50, 200)
-        path_colors[path] = f"rgba({r}, {g}, {b}, 0.6)"
+    # Define a fixed color palette for common dips
+    dip_colors = {
+        'ketchup': 'rgba(255, 0, 0, 0.6)',      # Red
+        'hummus': 'rgba(210, 180, 140, 0.6)',   # Tan
+        'ranch': 'rgba(0, 255, 0, 0.6)',        # Green
+        'bbq': 'rgba(139, 69, 19, 0.6)',        # Brown
+        'no dip': 'rgba(128, 128, 128, 0.6)'    # Gray
+    }
+    
+    # Generate random colors for any other dips
+    for dip in unique_dips:
+        if dip not in dip_colors:
+            r = random.randint(50, 200)
+            g = random.randint(50, 200)
+            b = random.randint(50, 200)
+            dip_colors[dip] = f"rgba({r}, {g}, {b}, 0.6)"
+    
+    # Create node colors
+    node_colors = []
+    for node in nodes:
+        if node.startswith('Meal 1:'):  # Initial nodes
+            node_colors.append('rgba(200, 200, 200, 0.6)')  # Light gray for initial nodes
+        else:
+            dip = node.split(': ')[1].split('_')[0]
+            node_colors.append(dip_colors[dip])
     
     # Create the Sankey diagram
     fig = go.Figure(data=[go.Sankey(
@@ -124,21 +141,21 @@ def create_sankey_diagram(df, output_file):
             pad=15,
             thickness=20,
             line=dict(color="black", width=0.5),
-            label=[node.split('_')[0] for node in nodes],  # Remove path ID from labels
-            color="lightblue"
+            label=[node.split(': ')[1].split('_')[0] for node in nodes],  # Show only dip names
+            color=node_colors
         ),
         link=dict(
             source=[node_indices[source] for source in df['source']],
             target=[node_indices[target] for target in df['target']],
             value=df['value'],
-            color=[path_colors[target.split('_', 1)[1]] for target in df['target']]  # Color by path
+            color=[dip_colors[source.split(': ')[1].split('_')[0]] for source in df['source']]  # Color by source dip
         )
     )])
     
     # Update layout
     fig.update_layout(
-        title_text="Dip Choices Flow Across Meals (Branching Paths)",
-        font_size=10,
+        title_text="Dip Choices Flow Across Meals",
+        font_size=24,  # Increased font size
         height=800
     )
     
