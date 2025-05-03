@@ -30,12 +30,13 @@ def load_responses(file_path):
     
     return responses
 
-def extract_dip_choices(responses):
+def extract_choices(responses, choice_type):
     """
-    Extract dip choices from responses and create a DataFrame for Sankey diagram.
+    Extract choices from responses and create a DataFrame for Sankey diagram.
     
     Args:
         responses: List of parsed JSON responses
+        choice_type: Type of choice to extract ('dip', 'be_verbal', or 'ready_signal')
         
     Returns:
         DataFrame with columns: source, target, value
@@ -44,17 +45,22 @@ def extract_dip_choices(responses):
     path_counts = defaultdict(int)
     
     for response in responses:
-        dip_sequence = []
+        choice_sequence = []
         for answer in response['answers']:
-            bite_order = answer['bite_order']['value']
-            if 'dipped in' in bite_order:
-                dip = bite_order.split('dipped in ')[1]
-            else:
-                dip = 'no dip'
-            dip_sequence.append(dip)
+            if choice_type == 'dip':
+                bite_order = answer['bite_order']['value']
+                if 'dipped in' in bite_order:
+                    choice = bite_order.split('dipped in ')[1]
+                else:
+                    choice = 'no dip'
+            elif choice_type == 'be_verbal':
+                choice = str(answer['verbal']['value']).lower()
+            elif choice_type == 'ready_signal':
+                choice = answer['ready_signal']['value'].lower()
+            choice_sequence.append(choice)
         
         # Convert sequence to string for counting
-        sequence_str = ' -> '.join(dip_sequence)
+        sequence_str = ' -> '.join(choice_sequence)
         path_counts[sequence_str] += 1
     
     # Now create the Sankey diagram data
@@ -64,17 +70,17 @@ def extract_dip_choices(responses):
     
     # Process each unique path
     for sequence_str, count in path_counts.items():
-        dip_sequence = sequence_str.split(' -> ')
+        choice_sequence = sequence_str.split(' -> ')
         
-        # Create links between consecutive dips
-        for i in range(len(dip_sequence) - 1):
+        # Create links between consecutive choices
+        for i in range(len(choice_sequence) - 1):
             # Use the sequence up to the current meal as the source
-            source_sequence = ' -> '.join(dip_sequence[:i+1])
-            source = f"Meal {i+1}: {dip_sequence[i]}_{source_sequence}"
+            source_sequence = ' -> '.join(choice_sequence[:i+1])
+            source = f"Meal {i+1}: {choice_sequence[i]}_{source_sequence}"
             
             # Use the sequence up to the next meal as the target
-            target_sequence = ' -> '.join(dip_sequence[:i+2])
-            target = f"Meal {i+2}: {dip_sequence[i+1]}_{target_sequence}"
+            target_sequence = ' -> '.join(choice_sequence[:i+2])
+            target = f"Meal {i+2}: {choice_sequence[i+1]}_{target_sequence}"
             
             sources.append(source)
             targets.append(target)
@@ -89,13 +95,44 @@ def extract_dip_choices(responses):
     
     return df
 
-def create_sankey_diagram(df, output_file):
+def get_color_scheme(choice_type):
+    """
+    Get the color scheme for the specified choice type.
+    
+    Args:
+        choice_type: Type of choice ('dip', 'be_verbal', or 'ready_signal')
+        
+    Returns:
+        Dictionary mapping choices to colors
+    """
+    if choice_type == 'dip':
+        return {
+            'ketchup': 'rgba(255, 0, 0, 0.6)',      # Red
+            'hummus': 'rgba(210, 180, 140, 0.6)',   # Tan
+            'ranch': 'rgba(0, 255, 0, 0.6)',        # Green
+            'bbq': 'rgba(139, 69, 19, 0.6)',        # Brown
+            'no dip': 'rgba(128, 128, 128, 0.6)'    # Gray
+        }
+    elif choice_type == 'be_verbal':
+        return {
+            'true': 'rgba(100, 149, 237, 0.6)',     # Cornflower Blue
+            'false': 'rgba(176, 196, 222, 0.6)',    # Light Steel Blue
+        }
+    elif choice_type == 'ready_signal':
+        return {
+            'ready': 'rgba(0, 128, 0, 0.6)',        # Green
+            'not ready': 'rgba(255, 0, 0, 0.6)',    # Red
+        }
+    return {}
+
+def create_sankey_diagram(df, output_file, choice_type):
     """
     Create and save a Sankey diagram.
     
     Args:
         df: DataFrame with source, target, and value columns
         output_file: Path to save the HTML file
+        choice_type: Type of choice being visualized
     """
     # Get unique nodes
     nodes = list(set(df['source'].unique()) | set(df['target'].unique()))
@@ -103,28 +140,22 @@ def create_sankey_diagram(df, output_file):
     # Create node indices
     node_indices = {node: i for i, node in enumerate(nodes)}
     
-    # Create color mapping for different dips
-    unique_dips = set()
+    # Create color mapping for different choices
+    unique_choices = set()
     for node in nodes:
-        dip = node.split(': ')[1].split('_')[0]  # Extract dip name from node label
-        unique_dips.add(dip)
+        choice = node.split(': ')[1].split('_')[0]  # Extract choice name from node label
+        unique_choices.add(choice)
     
-    # Define a fixed color palette for common dips
-    dip_colors = {
-        'ketchup': 'rgba(255, 0, 0, 0.6)',      # Red
-        'hummus': 'rgba(210, 180, 140, 0.6)',   # Tan
-        'ranch': 'rgba(0, 255, 0, 0.6)',        # Green
-        'bbq': 'rgba(139, 69, 19, 0.6)',        # Brown
-        'no dip': 'rgba(128, 128, 128, 0.6)'    # Gray
-    }
+    # Get base color scheme
+    choice_colors = get_color_scheme(choice_type)
     
-    # Generate random colors for any other dips
-    for dip in unique_dips:
-        if dip not in dip_colors:
+    # Generate random colors for any other choices
+    for choice in unique_choices:
+        if choice not in choice_colors:
             r = random.randint(50, 200)
             g = random.randint(50, 200)
             b = random.randint(50, 200)
-            dip_colors[dip] = f"rgba({r}, {g}, {b}, 0.6)"
+            choice_colors[choice] = f"rgba({r}, {g}, {b}, 0.6)"
     
     # Create node colors
     node_colors = []
@@ -132,8 +163,8 @@ def create_sankey_diagram(df, output_file):
         if node.startswith('Meal 1:'):  # Initial nodes
             node_colors.append('rgba(200, 200, 200, 0.6)')  # Light gray for initial nodes
         else:
-            dip = node.split(': ')[1].split('_')[0]
-            node_colors.append(dip_colors[dip])
+            choice = node.split(': ')[1].split('_')[0]
+            node_colors.append(choice_colors[choice])
     
     # Create the Sankey diagram
     fig = go.Figure(data=[go.Sankey(
@@ -141,45 +172,52 @@ def create_sankey_diagram(df, output_file):
             pad=15,
             thickness=20,
             line=dict(color="black", width=0.5),
-            label=[node.split(': ')[1].split('_')[0] for node in nodes],  # Show only dip names
+            label=[node.split(': ')[1].split('_')[0] for node in nodes],  # Show only choice names
             color=node_colors
         ),
         link=dict(
             source=[node_indices[source] for source in df['source']],
             target=[node_indices[target] for target in df['target']],
             value=df['value'],
-            color=[dip_colors[source.split(': ')[1].split('_')[0]] for source in df['source']]  # Color by source dip
+            color=[choice_colors[source.split(': ')[1].split('_')[0]] for source in df['source']]  # Color by source choice
         )
     )])
     
     # Update layout
+    title_map = {
+        'dip': 'Dip Choices Flow Across Meals',
+        'be_verbal': 'Verbal Preference Flow Across Meals',
+        'ready_signal': 'Ready Signal Flow Across Meals'
+    }
     fig.update_layout(
-        title_text="Dip Choices Flow Across Meals",
-        font_size=24,  # Increased font size
+        title_text=title_map.get(choice_type, 'Choices Flow Across Meals'),
+        font_size=24,
         height=800
     )
     
     # Save the figure
     fig.write_html(output_file)
 
-def main(file_path, output_file):
+def main(file_path, output_file, choice_type):
     # Load responses
     responses = load_responses(file_path)
     
-    # Extract dip choices and create DataFrame
-    df = extract_dip_choices(responses)
+    # Extract choices and create DataFrame
+    df = extract_choices(responses, choice_type)
     
     # Create and save Sankey diagram
-    create_sankey_diagram(df, output_file)
+    create_sankey_diagram(df, output_file, choice_type)
     print(f"Sankey diagram saved to {output_file}")
 
 if __name__ == "__main__":
     # Set up command line argument parsing
-    parser = argparse.ArgumentParser(description='Create a Sankey diagram of dip choices across meals.')
+    parser = argparse.ArgumentParser(description='Create a Sankey diagram of choices across meals.')
     parser.add_argument('file_path', nargs='?', default='user_data_example.txt',
                         help='Path to the user data file (default: user_data_example.txt)')
-    parser.add_argument('--output', '-o', default='dip_choices_sankey.html',
-                        help='Output HTML file path (default: dip_choices_sankey.html)')
+    parser.add_argument('--output', '-o', default='choices_sankey.html',
+                        help='Output HTML file path (default: choices_sankey.html)')
+    parser.add_argument('--type', '-t', choices=['dip', 'be_verbal', 'ready_signal'],
+                        default='dip', help='Type of choice to visualize (default: dip)')
     
     # Parse arguments
     args = parser.parse_args()
@@ -188,4 +226,4 @@ if __name__ == "__main__":
     if not file_path.exists():
         print(f"Error: File {file_path} does not exist.")
     else:
-        main(file_path, args.output) 
+        main(file_path, args.output, args.type) 
