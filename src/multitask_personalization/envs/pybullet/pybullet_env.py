@@ -236,6 +236,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 physics_client_id=self.physics_client_id,
             )
         )
+        set_pose(self.duster_id, BANISH_POSE, self.physics_client_id)
 
         # Create shelf.
         self.shelf_id, self.shelf_link_ids = _create_shelf(
@@ -574,6 +575,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self.current_human_text:
             logging.info(f"Human says: {self.current_human_text}")
 
+        set_pose(self.duster_id, BANISH_POSE, self.physics_client_id)
+
         return self.get_state(), self._get_info()
 
     def step_simulator(
@@ -596,15 +599,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         dust_delta = self.scene_spec.surface_dust_delta
         max_dust = self.scene_spec.surface_max_dust
         cleaning_feedback: None | str = None
-        # Increment all dust patches.
-        for surf, pybullet_id_arr in self._pybullet_dust_patches.items():
-            numpy_dust_arr = self._numpy_dust_patches[surf]
-            for r, c in np.argwhere(numpy_dust_arr < max_dust):
-                patch_id = pybullet_id_arr[r, c]
-                level = numpy_dust_arr[r, c]
-                new_level = np.clip(level + dust_delta, 0, max_dust)
-                numpy_dust_arr[r, c] = new_level
-                self._set_pybullet_dust_level(patch_id, new_level)
+        # # Increment all dust patches.
+        # for surf, pybullet_id_arr in self._pybullet_dust_patches.items():
+        #     numpy_dust_arr = self._numpy_dust_patches[surf]
+        #     for r, c in np.argwhere(numpy_dust_arr < max_dust):
+        #         patch_id = pybullet_id_arr[r, c]
+        #         level = numpy_dust_arr[r, c]
+        #         new_level = np.clip(level + dust_delta, 0, max_dust)
+        #         numpy_dust_arr[r, c] = new_level
+        #         self._set_pybullet_dust_level(patch_id, new_level)
         # Reset contacted dust patches.
         for patch_id in contacted_patch_ids:
             surf, (r, c) = self._dust_patch_id_to_key[patch_id]
