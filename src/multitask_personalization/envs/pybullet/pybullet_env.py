@@ -1114,7 +1114,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # NOTE: don't use the real robot / real environment inside the missions
         # in case they want to do things like use robot FK.
         possible_missions: list[PyBulletMission] = [
-            StoreRobotHeldObjectMission(),
+            # StoreRobotHeldObjectMission(),
         ]
 
         assert self._hidden_spec.missions in ["all", "handover-only", "clean-only"]

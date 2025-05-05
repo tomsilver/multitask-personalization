@@ -77,7 +77,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
     table_half_extents: tuple[float, float, float] = (0.1, 0.3, 0.2)
 
-    num_side_tables: int = 1
+    num_side_tables: int = 3
     default_side_table_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
     side_table_spacing: float = 0.15
 
@@ -287,6 +287,13 @@ class PyBulletSceneSpec(PublicSceneSpec):
             "camera_yaw": state.robot_base.rpy[2],
         }
 
+        cleaning_default = {
+            "camera_target": (0.0, 0.0, 0.2),
+            "camera_distance": 2.0,
+            "camera_pitch": -15,
+            "camera_yaw": 45,
+        }
+
         def _interpolate_waypoints(wp1: dict, wp2: dict, t: float) -> dict:
             return {
                 "camera_target": tuple(
@@ -301,10 +308,10 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
         # Sequence of (waypoints, relative pause, relative transition) time.
         script = [
-            (bookshelf_waypoint, 2.0, 1.0),
-            # (robot_waypoint, 0.25, 0.25),
-            (human_waypoint, 1.0, 1.0),
-            (default, None, None),
+            # (bookshelf_waypoint, 2.0, 1.0),
+            (cleaning_default, 4.0, 1.0),
+            (robot_waypoint, 15.0, 1.0),
+            (cleaning_default, None, None),
         ]
         fps = 25
         timestep_secs = timestep / fps
