@@ -61,7 +61,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
 
     def _get_state_from_scene_spec(self, scene_spec: CookingSceneSpec) -> CookingState:
         # NOTE: the initial quantities of ingredients are randomized.
-        return CookingState(
+        state = CookingState(
             pots=[
                 CookingPotState(
                     position=pot.position,
@@ -81,6 +81,7 @@ class CookingEnv(gym.Env[CookingState, CookingAction]):
             },
             critiques=[],
         )
+        return state
 
     def reset(
         self,

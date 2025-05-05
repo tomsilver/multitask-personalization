@@ -102,11 +102,16 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 return self._recompute_policy(
                     obs, force_exclude_personal_constraints=True
                 )
-            raise ApproachFailure("No solution found for generated CSP")
+            print("Setting policy to random")
+            self._current_policy = "RANDOM"
+            return
         self._current_policy = policy
         self._current_policy.reset(self._current_sol)
 
     def _get_action(self) -> _ActType:
+        if self._current_policy == "RANDOM":
+            from multitask_personalization.envs.cooking.cooking_structs import WaitCookingAction
+            return WaitCookingAction()
         assert self._last_observation is not None
         assert self._last_info is not None
         if self._current_policy is None or self._current_policy.check_termination(
