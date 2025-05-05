@@ -37,7 +37,7 @@ eval_env: {}
 max_environment_steps: 2500
 eval_frequency: 2500
 max_eval_episode_length: 100
-num_eval_trials: 100
+num_eval_trials: 10
 dt: 0.01
 csp_solver:
   max_iters: 100_000
