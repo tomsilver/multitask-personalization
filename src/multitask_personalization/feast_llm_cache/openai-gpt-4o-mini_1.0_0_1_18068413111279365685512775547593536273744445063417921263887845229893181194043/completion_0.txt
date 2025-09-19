@@ -1,0 +1,5 @@
+The user's preferences for the `be_verbal` variable indicate that they prefer the robot to speak in a personal dining context (with a rectangular table and chicken breast accompanied by ketchup and ranch dressing), but they do not want the robot to speak in a social context with a friend on their left (with a rectangular table and celery and apple slices accompanied by ranch dressing). 
+
+In summary:
+- **Personal dining context**: User prefers verbal communication (True).
+- **Social dining context**: User prefers non-verbal communication (False).

@@ -1,0 +1,13 @@
+The user's preferences regarding the variable `occlusion-poi-left`, indicating whether they might be looking in the left direction during a meal, can be summarized as follows:
+
+1. **Dining Context**: 
+   - The user is more likely to look to the left when dining in a social context, especially when there is a friend present on the left side (e.g., when dining at a circular table with a friend on the left).
+   - In personal dining settings or when watching TV without a social component (i.e., alone or with the TV in front without friends to the left), the user is less likely to look to the left.
+
+2. **Table Type**:
+   - The table type appears to have some relevance. The user tends to look left more often at circular tables when there is social interaction compared to rectangular tables. However, in the context of watching TV at a circular table, they do not look left.
+
+3. **Food Context**:
+   - The specific food items or dips on the plate do not seem to strongly influence the user’s tendency to look left. Rather, the social dynamics and context are more significant factors.
+
+In conclusion, the user is inclined to look to the left when engaged in social dining situations with a friend present, specifically at circular tables, but does not show this inclination in personal or TV-watching contexts.

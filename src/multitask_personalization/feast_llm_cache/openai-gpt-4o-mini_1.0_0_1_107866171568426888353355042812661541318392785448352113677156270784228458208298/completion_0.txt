@@ -1,0 +1,7 @@
+Based on the provided history, the user's preferences regarding the variable `occlusion-poi-left` can be summarized as follows:
+
+1. When dining in a **personal context** at a **rectangular table** with **french fries** and **dips (ketchup, ranch dressing)**, the user did **not** express a tendency to look to the left (USER CHOICE: False).
+
+2. When dining in a **social context** with a **friend on the left** at a **circular table**, with items like **celery** and **apple slices** accompanied by **ranch dressing**, the user showed a tendency to look to the left (USER CHOICE: True). This preference was consistent across two similar instances.
+
+Overall, the user is likely to look to the left when they are in a social setting with a friend on that side, while they do not have this tendency in a personal dining context.

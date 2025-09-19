@@ -1,0 +1,21 @@
+You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `be_verbal`, which means "whether the robot should speak". The preferences depend on context. Here is a history of (context, user choice):
+
+
+CONTEXT: 
+Dining Context: personal
+Table Type: rectangular table
+Food Items on Plate: ['chicken breast']
+Food Dips on Plate: ['ketchup', 'ranch dressing']
+
+USER CHOICE: True
+
+CONTEXT: 
+Dining Context: social with friend on left
+Table Type: rectangular table
+Food Items on Plate: ['celery', 'apple slices']
+Food Dips on Plate: ['ranch dressing']
+
+USER CHOICE: False
+
+
+Based on this history, summarize the user's contextual preferences.

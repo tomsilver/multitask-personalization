@@ -1,0 +1,10 @@
+Based on the user's meal history, we can summarize their preferences regarding whether they are likely to be looking in the front direction during meals (variable `occlusion-poi-front`) as follows:
+
+1. **Personal Meals**: In personal dining contexts, regardless of the table shape, the user tends not to look in the front direction (USER CHOICE: False). This is noted during meals with food items such as French fries and carrot sticks, where the user is seated at a rectangular or circular table.
+
+2. **Social Meals**: In social settings with a friend on their left at a circular table, the user similarly does not look in the front direction while consuming raw vegetables (USER CHOICE: False). This indicates a consistent behavior in social dining contexts.
+
+3. **Watching TV**: When the user is watching TV in front, they show a tendency to look in the front direction (USER CHOICE: True), specifically during meals involving potato wedges with dips like ketchup and BBQ sauce. This pattern reinforces the idea that the front-facing behavior is linked to the context of watching TV rather than the type of food or table setup.
+
+**Overall Preference Summary**: 
+- The user is likely to look in the front direction when watching TV (True) but tends not to do so in personal or social dining contexts without the influence of a screen (False). This suggests a strong influence of the context (watching TV) on their gaze direction during meals.

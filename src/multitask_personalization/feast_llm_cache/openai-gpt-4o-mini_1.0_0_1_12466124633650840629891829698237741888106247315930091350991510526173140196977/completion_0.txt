@@ -1,0 +1,1 @@
+Based on the user's history, in a personal dining context at a rectangular table with only a chicken breast on the plate and dips like ketchup and ranch dressing, the user prefers not to look in the left direction during the meal. Thus, the preference for `occlusion-poi-left` is false in this particular context.

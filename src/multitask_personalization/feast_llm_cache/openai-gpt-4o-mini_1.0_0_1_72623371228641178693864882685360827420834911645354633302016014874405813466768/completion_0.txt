@@ -1,0 +1,9 @@
+Based on the user's history of choices, the summary of preferences for the variable `occlusion-poi-left` is as follows:
+
+The user tends not to look in the left direction when dining alone at a rectangular table, as indicated by their choice of "False" in that context. However, when dining socially with a friend on the left side at a circular table, the user consistently indicates they are looking in the left direction, reflected by their "True" choices in both instances. This suggests that the user's preference for looking to the left is influenced by the social context and the presence of a dining companion on that side.
+
+In summary:
+- Dining alone (rectangular table): occlusion-poi-left = False
+- Dining socially with a friend on the left (circular table): occlusion-poi-left = True
+
+Thus, the user prefers to look left when in social settings with a friend adjacent to them, but not when dining alone.

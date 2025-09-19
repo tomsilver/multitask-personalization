@@ -1,0 +1,7 @@
+The user prefers different signals for food or drink transfer based on the dining context:
+
+1. **Personal Dining Context**: When dining alone, the user prefers the robot to indicate readiness by opening their mouth.
+
+2. **Social Dining Context**: When dining socially with a friend, the user prefers the robot to indicate readiness by pressing a button.
+
+The preferences suggest that the user favors a more direct and personal approach when alone, while opting for a more mechanical interaction in a social setting.

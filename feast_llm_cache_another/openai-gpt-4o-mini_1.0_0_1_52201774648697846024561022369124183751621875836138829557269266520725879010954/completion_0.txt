@@ -1,0 +1,9 @@
+Based on the user's history, it appears that they consistently prefer to avoid looking in the front direction during meals. Here are the relevant observations:
+
+1. **Dining Context**: The user has experienced both personal and social dining contexts, but in both cases, they still indicated a preference for not looking forward.
+
+2. **Table Type**: The user has dined at both a rectangular and a circular table. Regardless of the table type, they maintained their choice.
+
+3. **Food Items and Dips**: The user had different types of food items (french fries and raw vegetables) and dips (ketchup, BBQ sauce, ranch dressing, hummus), but their choice regarding looking in the front direction remained consistently the same.
+
+Overall, the user's preference seems to indicate a tendency to not look in the front direction during meals, regardless of the context or food items served. Therefore, the `occlusion-poi-front` variable is consistently set to False.

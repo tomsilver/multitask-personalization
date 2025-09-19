@@ -1,0 +1,9 @@
+Based on the user's history of dining contexts and choices regarding whether they might be looking in the left direction during meals (`occlusion-poi-left`), here are the summarized preferences:
+
+1. **Social Context**: When dining socially with a friend on their left, the user consistently looks to the left (True) while eating raw vegetables on a circular table. This indicates that in social settings, especially when engaged with someone on their left, they are likely to direct their attention in that direction.
+
+2. **Personal Context**: When dining alone (personal context), the user tends not to look to the left (False), regardless of the food items or dips presented. This is evident in both instances where they had French fries or carrot sticks, suggesting a preference for focusing straight ahead or elsewhere rather than looking left.
+
+3. **Watching TV**: In situations where the user is watching TV, they also consistently do not look to the left (False). Whether eating potato wedges or other food items, their attention seems directed towards the screen rather than their surroundings.
+
+Overall, the user generally looks to the left in social dining contexts with a friend present on their left but does not look to the left in personal settings or when watching TV.

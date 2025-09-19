@@ -1,0 +1,15 @@
+You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `bite_ordering`, which means "the order of food items that the robot will serve". Here is a history of (state, user choice):
+
+
+CONTEXT: 
+Dining Context: social TV-watching (with TV in front) and with friend on left side
+Table Type: rectangular table
+Food Items on Plate: ['tater tots']
+Food Dips on Plate: ['ketchup', 'BBQ sauce']
+
+USER CHOICE: tater tots dipped in BBQ sauce
+
+
+Based on this history, summarize the user's preferences.
+
+IMPORTANT: Use common sense to understand what aspects of the state might be relevant for the variable.

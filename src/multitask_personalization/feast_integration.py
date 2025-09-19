@@ -10,7 +10,6 @@ from pybullet_helpers.inverse_kinematics import set_robot_joints_with_held_objec
 from tomsutils.llm import OpenAILLM
 from typing import Any
 from pathlib import Path
-import cv2
 
 
 class MultitaskPersonalizationFeastInterface:
@@ -30,8 +29,8 @@ class MultitaskPersonalizationFeastInterface:
         if hasattr(self, "_scene_spec"):
             del self._scene_spec
         if hasattr(self, "_approach"):
-            # if self._log_dir is not None:
-            #     self._approach.save(self._log_dir)
+            if self._log_dir is not None:
+                self._approach.save(self._log_dir)
             self._approach.close()
             del self._approach
 
@@ -42,7 +41,7 @@ class MultitaskPersonalizationFeastInterface:
 
         # Create approach.
         csp_solver = RandomWalkCSPSolver(self._seed)
-        llm = OpenAILLM("gpt-4o-mini", Path("feast_llm_cache"))
+        llm = OpenAILLM("gpt-4o-mini", Path("feast_llm_cache_another"))
         if self._personalize:
             explore_method = "exploit-only"
         else:
@@ -321,14 +320,15 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    log_dir = Path(__file__).parent / "logs_rajat"
+    # log_dir = Path(__file__).parent / "logs_rajat"
+    log_dir = Path(__file__).parent / "logs_rajat_another"
 
-    # if not args.load:
-    #     # cleanup the log_dir
-    #     import shutil
-    #     shutil.rmtree(log_dir, ignore_errors=True)
-    #     log_dir.mkdir(parents=True, exist_ok=True)
-    #     print(f"Cleared log_dir: {log_dir}")
+    if not args.load:
+        # cleanup the log_dir
+        import shutil
+        shutil.rmtree(log_dir, ignore_errors=True)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Cleared log_dir: {log_dir}")
 
     interface = MultitaskPersonalizationFeastInterface(args.use_gui, not args.no_personalize, log_dir)
     # interface.create_mealtime_instance("meal_5")

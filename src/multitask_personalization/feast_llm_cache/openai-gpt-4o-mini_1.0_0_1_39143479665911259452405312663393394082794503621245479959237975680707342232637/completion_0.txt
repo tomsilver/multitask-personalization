@@ -1,0 +1,7 @@
+The user's preferences for the `ready_signal` to indicate readiness for food or drink transfer are as follows:
+
+1. **Personal Dining Context:** When dining alone, the user prefers the `ready_signal` to be indicated by physically opening their mouth, suggesting a more direct and personal approach to signaling.
+
+2. **Social Dining Context:** When dining in a social setting with a friend, the user opts for a button to signal readiness, indicating a preference for a less personal, possibly more discreet method when in the company of others.
+
+Overall, the user seems to favor personal, overt signals (like mouth opening) when alone and more subtle or mechanical signals (like pressing a button) when in social situations.

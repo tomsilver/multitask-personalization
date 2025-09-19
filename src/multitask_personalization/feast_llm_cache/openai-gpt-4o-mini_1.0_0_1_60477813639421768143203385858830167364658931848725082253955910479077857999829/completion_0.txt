@@ -1,0 +1,13 @@
+Based on the user's choices across different dining contexts, the following preferences can be summarized for the variable `occlusion-poi-left` (indicating whether the user might be looking in the left direction during a meal):
+
+1. **Dining Context Influence**:
+   - The user tends to indicate they are looking left when dining in a **social setting with a friend on their left**. This is evident from the two instances where the user was in a circular table setting with carrot sticks and dips, resulting in a choice of **True** for both occasions.
+   - Conversely, when dining alone (personal context) or in a more passive setting such as **watching TV**, the user is less inclined to look left, as shown by the choices of **False** in those scenarios.
+
+2. **Table Type**:
+   - The user does not show a direct correlation with table shape affecting their direction of focus. Both circular and rectangular tables had varied outcomes, though social settings with a left neighboring friend consistently led to looking left.
+
+3. **Food Items and Dips**:
+   - The type of food served (like carrot sticks vs. potato wedges) and accompanying dips does not seem to affect the user's inclination to look left. Their decisions about gaze direction are more influenced by the sociality of the dining context rather than the specific food items.
+
+In conclusion, the user's preference for looking left during meals appears to strongly correlate with dining in social contexts, particularly when someone is sitting on their left, while they tend not to look left when dining alone or in front of the TV.

@@ -1,0 +1,7 @@
+Based on the user's history, it appears that they consistently choose "False" for `occlusion-poi-right`, indicating that they are not likely looking in the right direction during meals. The key aspects contributing to this preference include:
+
+1. **Dining Context**: The user has experienced personal meals and social meals but has not shown any inclination to look towards the right. 
+2. **Table Type**: The rectangular and circular tables used do not seem to influence their directionality, as their choice remains the same across different table configurations.
+3. **Food Items and Dips**: While the variety of food items and dips varies, none of these meal setups prompted a shift in looking direction—suggesting that their focus might be directed elsewhere, perhaps toward other conversations, screens (like a TV), or simply not engaging with the right side during meals.
+
+Overall, the user's preference indicates a consistent tendency to not engage with whatever might be on the right side during meals, regardless of the context or layout.

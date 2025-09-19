@@ -1,0 +1,9 @@
+Based on the user's preferences, the following summary can be drawn regarding the variable `occlusion-poi-front`:
+
+1. **Personal Dining Context**: The user prefers not to be looking in the front direction when dining alone, as indicated by their choice of "False" during a meal with a rectangular table and simple food items like french fries.
+
+2. **Social Dining Context**: When dining socially with a friend sitting to their left at a circular table, the user consistently chose "False." This indicates a preference for not looking straight ahead during these interactions, regardless of the food items offered.
+
+3. **Watching TV Context**: When the context involves watching TV while seated at a circular table, the user consistently chose "True." This suggests a tendency to look in the front direction when engaged with TV content, especially while consuming food like potato wedges, which is often paired with dips.
+
+Overall, the user prefers to look in the front direction when watching TV but tends to look away or not focus straight ahead during personal or social meals that do not involve a television viewing context.

@@ -1,0 +1,9 @@
+Based on the user's meal history, it can be summarized that their preference for looking in the front direction during meals (variable `occlusion-poi-front`) appears to depend on the dining context and the presence of a TV. Here are the key points:
+
+1. **Personal Dining Contexts**: When dining alone (personal context) at both rectangular and circular tables, the user does not prefer to look in the front direction, as indicated by their choices being consistently false.
+
+2. **Social Contexts**: In social settings with a friend to the left, specifically at a circular table, the user also does not show a preference for looking in the front, evidenced by their false choices.
+
+3. **TV-Watching Context**: When watching TV, the user is more inclined to look in the front direction. This is demonstrated when they were watching TV while dining (both at a circular table) and also during a social TV-watching scenario where they had a friend present; in both cases, the user indicated true for looking in the front.
+
+Overall, the preferences suggest that the user tends to look in the front direction primarily when watching TV, while their gaze remains directed elsewhere when dining alone or socially when not watching TV.

@@ -1,0 +1,7 @@
+Based on the user's history, it appears that their likelihood of looking in the left direction during meals is influenced primarily by the dining context and the presence of a social interaction with a friend on their left side.
+
+- When dining alone at a rectangular table (first context), the user did not look left (USER CHOICE: False).
+- However, when dining socially with a friend on their left at a circular table (second and third contexts), the user did look left (USER CHOICE: True).
+- In a different context, while watching TV in front and presumably not engaging with anyone on the left, they again did not look left (USER CHOICE: False).
+
+In summary, the user is likely to look left when they are socializing with a friend seated on their left side. Otherwise, when dining alone or not engaged socially (like while watching TV), they do not look left. Thus, the occlusion-poi-left variable indicates a strong relationship with social settings rather than solitary meals.

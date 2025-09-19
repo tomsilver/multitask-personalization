@@ -1,0 +1,7 @@
+The user's preferences for how the robot should indicate readiness for food or drink transfer (`ready_signal`) vary based on the dining context and the presence of other individuals. 
+
+1. In a **personal dining context** with a **rectangular table** and a plate containing **french fries** and dips like **ketchup and BBQ sauce**, the user preferred a **non-verbal signal** (mouth open) to indicate readiness. This suggests a preference for a more intimate, informal communication style when dining alone.
+
+2. In a **social dining context** with a **friend** on the left at a **circular table**, the user opted for a **button activation** to signal readiness. This choice indicates a preference for a more structured, perhaps less casual mode of communication when dining in a social setting.
+
+Overall, the user appears to favor **non-verbal cues** in personal situations but prefers **button-based signals** for social interactions, likely due to the dynamics of the dining context and the company present.
