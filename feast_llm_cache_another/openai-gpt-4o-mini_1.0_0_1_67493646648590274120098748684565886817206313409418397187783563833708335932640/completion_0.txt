@@ -1,0 +1,9 @@
+The user's preferences for the `ready_signal` based on the provided history are as follows:
+
+1. **Mouth Open**: The user prefers a mouth-open signal when dining in a personal context or while watching TV. This suggests that when the user is engaged in a solitary or relaxed setting, they favor a more direct and non-intrusive signal for food or drink transfer.
+
+2. **Button**: In a social setting with a friend sitting next to them, the user opts for using a button. This may indicate a preference for a more discreet or controlled signal when dining socially, perhaps to avoid interruptions or distractions.
+
+In conclusion, the user shows a preference for:
+- **Mouth Open** in personal or relaxed contexts (dining alone or watching TV).
+- **Button** in social contexts (dining with friends).
