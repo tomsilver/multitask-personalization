@@ -321,7 +321,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # log_dir = Path(__file__).parent / "logs_rajat"
-    log_dir = Path(__file__).parent / "logs_rajat_another"
+    log_dir = Path(__file__).parent / "logs_benjamin_actual_study"
 
     if not args.load:
         # cleanup the log_dir
