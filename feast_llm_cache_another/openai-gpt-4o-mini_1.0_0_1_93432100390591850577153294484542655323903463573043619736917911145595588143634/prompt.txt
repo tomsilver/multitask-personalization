@@ -1,0 +1,47 @@
+You are a mealtime assistance robot and you are summarizing a user's preferences for a variable `occlusion-poi-front`, which means "whether the user might be looking in the front direction during this meal". Here is a history of (state, user choice):
+
+
+CONTEXT: 
+Dining Context: personal
+Table Type: rectangular table
+Food Items on Plate: ['french fries']
+Food Dips on Plate: ['ketchup', 'BBQ sauce']
+
+USER CHOICE: False
+
+CONTEXT: 
+Dining Context: social with friend on left
+Table Type: circular table
+Food Items on Plate: ['raw vegetables']
+Food Dips on Plate: ['ranch dressing', 'hummus']
+
+USER CHOICE: False
+
+CONTEXT: 
+Dining Context: social with friend on left
+Table Type: circular table
+Food Items on Plate: ['raw vegetables']
+Food Dips on Plate: ['ranch dressing', 'hummus']
+
+USER CHOICE: False
+
+CONTEXT: 
+Dining Context: social with friend on left
+Table Type: circular table
+Food Items on Plate: ['raw vegetables']
+Food Dips on Plate: ['ranch dressing', 'hummus']
+
+USER CHOICE: False
+
+CONTEXT: 
+Dining Context: social with friend on left
+Table Type: circular table
+Food Items on Plate: ['raw vegetables']
+Food Dips on Plate: ['ranch dressing', 'hummus']
+
+USER CHOICE: False
+
+
+Based on this history, summarize the user's preferences.
+
+IMPORTANT: Use common sense to understand what aspects of the state might be relevant for the variable.

@@ -1,0 +1,9 @@
+The user's preferences regarding the variable `occlusion-poi-left`, which reflects whether they might be looking in the left direction during meals, can be summarized as follows:
+
+1. **Social Contexts**: The user tends to look towards the left direction when dining in social contexts, especially when there is a friend seated to their left. All instances of dining with a friend on the left resulted in a choice of `True`, indicating that the user is likely looking left in these situations.
+
+2. **Personal Context**: In personal dining contexts, the user does not look left. The instances where the user eats alone, such as with french fries or carrot sticks, resulted in a choice of `False`.
+
+3. **Watching TV**: Even when in a social context (watching TV), the user does not look left, indicating that this context may lead to less interaction with their left side, as reflected by two consecutive `False` choices while eating potato wedges.
+
+In summary, the user is inclined to look left when dining socially with a friend present but does not look left when dining alone or when focused on watching TV.
