@@ -837,6 +837,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 init_grasp_base_pose = get_target_base_pose(
                     obs, init_surface, self._sim
                 )
+                print(f"Init surface for seasoning: {init_surface}")
+                print(f"Initial grasp base pose for seasoning: {init_grasp_base_pose}")
             initialization = {
                 seasoning: init_seasoning,
                 seasoning_grasp: np.array([-np.pi / 2]),

@@ -730,7 +730,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                         physicsClientId=self.physics_client_id,
                     )
                 )
-                graspable_object_ids = set(self.book_ids) | {
+                graspable_object_ids = set(self.book_ids) | set(self.seasoning_ids) | {
                     self.cup_id,
                     self.duster_id,
                 }
@@ -1042,7 +1042,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     def get_collision_ids(self, ignore_current_collisions: bool = False) -> set[int]:
         """Get all collision IDs for the environment."""
         collision_ids = (
-            set(self.book_ids)
+            set(self.seasoning_ids)
+            | set(self.book_ids)
             | set(self.side_table_ids)
             | {
                 self.table_id,

@@ -20,6 +20,7 @@ def test_pybullet_csp():
     """Tests for pybullet_csp.py."""
     seed = 123
     scene_spec = PyBulletSceneSpec(num_books=3, num_side_tables=1)
+    seasoning_preferences = "I like pretty much anything!"
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(
         scene_spec.human_spec, min_possible_radius=0.29, max_possible_radius=0.31
@@ -33,6 +34,7 @@ def test_pybullet_csp():
     ]
     hidden_spec = HiddenSceneSpec(
         missions="all",
+        seasoning_preferences=seasoning_preferences,
         book_preferences=book_preferences,
         rom_model=rom_model,
         surfaces_robot_can_clean=surfaces_robot_can_clean,
@@ -65,6 +67,7 @@ def test_pybullet_csp():
         rom_model,
         llm,
         seed=seed,
+        seasoning_preference_initialization="I like everything!",
         book_preference_initialization="I like everything!",
     )
 
@@ -76,6 +79,7 @@ def test_pybullet_csp():
         env.unwrapped._create_possible_missions()  # pylint: disable=protected-access
     )
     mission_id_to_mission = {m.get_id(): m for m in all_missions}
+    seasoning_handover_mission = mission_id_to_mission["seasoning handover"]
     book_handover_mission = mission_id_to_mission["book handover"]
     clean_mission = mission_id_to_mission["clean"]
     store_human_mission = mission_id_to_mission["store human held object"]
@@ -122,7 +126,14 @@ def test_pybullet_csp():
     # env.load_state(custom_saved_state_fp)
     # _run_mission(clean_mission)
 
-    # Start with book handover.
+    # Start with seasoning handover.
+    post_seasoning_handover_state_fp = (saved_state_dir / "seasoning_handover.p")
+    _run_mission(seasoning_handover_mission)
+    env.unwrapped.save_state(post_seasoning_handover_state_fp)
+    assert seasoning_handover_mission.check_initiable(env.unwrapped.get_state())
+
+    # Book handover.
+    env.unwrapped.load_state(post_seasoning_handover_state_fp)
     post_book_handover1_state_fp = saved_state_dir / "book_handover_1.p"
     _run_mission(book_handover_mission)
     env.unwrapped.save_state(post_book_handover1_state_fp)

@@ -84,9 +84,9 @@ class PyBulletSceneSpec(PublicSceneSpec):
     default_side_table_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
     side_table_spacing: float = 0.05
 
-    kitchen_table_pose: Pose = Pose(position=(-0.75, -1.6, -0.2))
+    kitchen_table_pose: Pose = Pose(position=(-0.7, -1.6, -0.2))
     kitchen_table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
-    kitchen_table_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
+    kitchen_table_half_extents: tuple[float, float, float] = (0.2, 0.1, 0.2)
 
     object_pose: Pose = Pose(position=(-1000, -1000, 0.05))
     object_rgba: tuple[float, float, float, float] = (0.9, 0.6, 0.3, 1.0)
@@ -262,14 +262,14 @@ class PyBulletSceneSpec(PublicSceneSpec):
 
         x = self.kitchen_table_pose.position[0]
         y = self.kitchen_table_pose.position[1]
-        dy = 0.05
+        dx = 0.07
         z = (
             self.kitchen_table_pose.position[2]
             + self.kitchen_table_half_extents[2]
             + self.default_seasoning_half_extents[2]
         )
-        all_possible_poses.append(Pose((x, y - dy, z)))
-        all_possible_poses.append(Pose((x, y + dy, z)))
+        all_possible_poses.append(Pose((x - dx, y, z)))
+        all_possible_poses.append(Pose((x + dx, y, z)))
         assert len(all_possible_poses) >= self.num_seasonings
         return tuple(all_possible_poses[: self.num_seasonings])
 
