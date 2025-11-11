@@ -85,7 +85,8 @@ class WheelchairHumanSpec(HumanSpec):
     """Human user placed on the wheelchair with right arm animated."""
 
     # base_pose: Pose = Pose(position=(1.0, -1.6, 0.3))
-    base_pose: Pose = Pose(position=(2.0, 0.53, 0.3))
+    # base_pose: Pose = Pose(position=(2.0, 0.53, 0.3))
+    base_pose: Pose = Pose(position=(2.0, 0.53, 0.51))
 
     right_leg_kwargs: dict[str, Any] = field(
         default_factory=lambda: {

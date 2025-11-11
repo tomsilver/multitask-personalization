@@ -2200,8 +2200,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Ignore failures due to ROM.
         if "I can't reach there" in next_obs.human_text:
             return
-        # Only learn from attempted handovers, not cleaning.
-        if next_obs.held_object == "duster":
+        # Only learn from attempted handovers of seasonings, not cleaning or handovers of books.
+        if next_obs.held_object == "duster" or next_obs.human_held_object in self._sim.book_descriptions:
             return
         # For now, only learn when the robot triggered hand over.
         if not np.isclose(act[0], 2) or act[1] == "Done":
@@ -2234,8 +2234,8 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Ignore failures due to ROM.
         if "I can't reach there" in next_obs.human_text:
             return
-        # Only learn from attempted handovers, not cleaning.
-        if next_obs.held_object == "duster":
+        # Only learn from attempted handovers of books, not cleaning or handovers of seasonings.
+        if next_obs.held_object == "duster" or next_obs.human_held_object in self._sim.seasoning_descriptions:
             return
         # For now, only learn when the robot triggered hand over.
         if not np.isclose(act[0], 2) or act[1] == "Done":

@@ -11,7 +11,7 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletMission,
     PyBulletState,
 )
-from multitask_personalization.envs.pybullet.pybullet_utils import user_would_enjoy_book
+from multitask_personalization.envs.pybullet.pybullet_utils import user_would_enjoy_book, user_would_enjoy_seasoning
 from multitask_personalization.rom.models import ROMModel
 
 
@@ -66,35 +66,35 @@ class HandOverSeasoningMission(PyBulletMission):
         # Check if the seasoning is reachable.
         if not self._check_reachable(state):
             return "I can't reach there", -1.0
-        return "I can reach there", 1.0
-        # # Give feedback about the seasoning.
-        # if not user_would_enjoy_seasoning(
-        #     seasoning_description,
-        #     self._hidden_seasoning_preferences,
-        #     self._llm,
-        #     seed=self._seed,
-        # ):
-        #     # The robot is attempting to hand over a seasoning, but the user
-        #     # doesn't actually like that seasoning. Have the user explain in
-        #     # natural language why they don't like the seasoning.
-        #     text = _explain_user_seasoning_preference(
-        #         seasoning_description,
-        #         self._hidden_seasoning_preferences,
-        #         self._llm,
-        #         enjoyed=False,
-        #         seed=self._seed,
-        #     )
-        #     return text, -1.0
-        # # The robot is successful in handing over the seasoning. Have the user
-        # # elaborate on why they like this seasoning.
-        # text = _explain_user_seasoning_preference(
-        #     seasoning_description,
-        #     self._hidden_seasoning_preferences,
-        #     self._llm,
-        #     enjoyed=True,
-        #     seed=self._seed,
-        # )
-        # return text, 1.0
+        # return "I can reach there", 1.0
+        # Give feedback about the seasoning.
+        if not user_would_enjoy_seasoning(
+            seasoning_description,
+            self._hidden_seasoning_preferences,
+            self._llm,
+            seed=self._seed,
+        ):
+            # The robot is attempting to hand over a seasoning, but the user
+            # doesn't actually like that seasoning. Have the user explain in
+            # natural language why they don't like the seasoning.
+            text = _explain_user_seasoning_preference(
+                seasoning_description,
+                self._hidden_seasoning_preferences,
+                self._llm,
+                enjoyed=False,
+                seed=self._seed,
+            )
+            return text, -1.0
+        # The robot is successful in handing over the seasoning. Have the user
+        # elaborate on why they like this seasoning.
+        text = _explain_user_seasoning_preference(
+            seasoning_description,
+            self._hidden_seasoning_preferences,
+            self._llm,
+            enjoyed=True,
+            seed=self._seed,
+        )
+        return text, 1.0
 
     def _check_reachable(self, state: PyBulletState) -> bool:
         self._robot.set_base(state.robot_base)
@@ -269,6 +269,40 @@ class CleanSurfacesMission(PyBulletMission):
             elif "Don't clean" in state.human_text:
                 user_satisfaction = -1.0
         return None, user_satisfaction
+    
+def _explain_user_seasoning_preference(
+    seasoning_description: str,
+    user_preferences: str,
+    llm: LargeLanguageModel,
+    llm_temperature: float = 0.0,
+    enjoyed: bool = False,
+    seed: int = 0,
+) -> str:
+    """Have the user explain why they do or do not like the seasoning."""
+    # pylint: disable=line-too-long
+    do_or_do_not_enjoy = "DO" if enjoyed else "DO NOT"
+    prompt = f"""Pretend you are a human user with the following preferences about seasonings:
+
+User preferences: {user_preferences}
+
+A robot is handing you the following seasoning:
+
+Seasoning description: {seasoning_description}
+
+You {do_or_do_not_enjoy} enjoy this seasoning.
+
+If you enjoy the seasoning, say something like "Thanks, I love this seasoning!"
+If you don't enjoy the seasoning, say something like "Thanks, but I don't like this seasoning."
+
+Do not explain why."""
+    logging.debug(f"LLM prompt: {prompt}")
+    response, _ = llm.query(
+        prompt,
+        temperature=llm_temperature,
+        seed=seed,
+    )
+    logging.debug(f"LLM response: {response}")
+    return response
 
 
 def _explain_user_book_preference(

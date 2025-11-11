@@ -82,6 +82,19 @@ Return a number from 0 to {num_bins-1} and nothing else.
     logging.debug("Expectation: %f", expectation)
     return np.log(expectation)
 
+# NOTE: cache the results of this function to enforce consistency about whether
+# a user with constant preferences would enjoy a seasoning.
+@cachetools.cached(cache={}, key=lambda b, u, _, seed: hashkey((b, u, seed)))
+def user_would_enjoy_seasoning(
+    seasoning_description: str,
+    user_preferences: str,
+    llm: LargeLanguageModel,
+    seed: int,
+) -> float:
+    """Return whether the user would enjoy the seasoning."""
+    lp = get_user_seasoning_enjoyment_logprob(seasoning_description, user_preferences, llm, seed)
+    return lp >= np.log(0.5) - 1e-6
+
 
 # NOTE: cache the results of this function to enforce consistency about whether
 # a user with constant preferences would enjoy a book.
