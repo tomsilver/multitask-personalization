@@ -80,6 +80,23 @@ class SmoothHumanSpec(HumanSpec):
         }
     )
 
+@dataclass(frozen=True)
+class WheelchairHumanSpec(HumanSpec):
+    """Human user placed on the wheelchair with right arm animated."""
+
+    base_pose: Pose = Pose(position=(1.0, -1.6, 0.3))
+
+    right_leg_kwargs: dict[str, Any] = field(
+        default_factory=lambda: {
+            "home_joint_positions": [-np.pi / 2, 0.0, 0.0, np.pi / 2, 0.0, 0.0],
+        }
+    )
+
+    left_leg_kwargs: dict[str, Any] = field(
+        default_factory=lambda: {
+            "home_joint_positions": [-np.pi / 2, 0.0, 0.0, np.pi / 2, 0.0, 0.0],
+        }
+    )
 
 def create_human_from_spec(
     human_spec: HumanSpec, physics_client_id: int
@@ -89,6 +106,8 @@ def create_human_from_spec(
         return create_assistive_human_from_spec(human_spec, physics_client_id)
     if isinstance(human_spec, SmoothHumanSpec):
         return create_smooth_human_from_spec(human_spec, physics_client_id)
+    if isinstance(human_spec, WheelchairHumanSpec):
+        return create_wheelchair_human_from_spec(human_spec, physics_client_id)
     raise NotImplementedError(
         f"Creating a human from spec of type {type(human_spec)} is not implemented."
     )
@@ -115,6 +134,18 @@ def create_smooth_human_from_spec(
     human_spec: SmoothHumanSpec, physics_client_id: int
 ) -> SingleArmPyBulletRobot:
     """Create a smoother human in pybullet from a specification."""
+    human = Human(
+        physics_client_id,
+        base_pose=human_spec.base_pose,
+        right_leg_kwargs=human_spec.right_leg_kwargs,
+        left_leg_kwargs=human_spec.left_leg_kwargs,
+    )
+    return human.right_arm
+
+def create_wheelchair_human_from_spec(
+    human_spec: WheelchairHumanSpec, physics_client_id: int
+) -> SingleArmPyBulletRobot:
+    """Create a human on wheelchair in pybullet from a specification."""
     human = Human(
         physics_client_id,
         base_pose=human_spec.base_pose,

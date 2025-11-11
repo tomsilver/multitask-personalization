@@ -116,7 +116,153 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
         if mission is None:
             return False
         return not self._policy_can_handle_mission(mission)
+    
 
+class _SeasoningHandoverCSPPolicy(_PyBulletCSPPolicy):
+
+    def __init__(
+        self,
+        sim: PyBulletEnv,
+        csp_variables: Collection[CSPVariable],
+        seed: int = 0,
+        max_motion_planning_time: float = np.inf,
+        max_motion_planning_candidates: int = 1,
+        base_mp_hyperparameters: MotionPlanningHyperparameters = MotionPlanningHyperparameters(),  # pylint: disable=line-too-long
+    ) -> None:
+        super().__init__(
+            sim,
+            csp_variables,
+            seed,
+            max_motion_planning_time,
+            max_motion_planning_candidates,
+            base_mp_hyperparameters,
+        )
+        # Need to track whether the user has been alerted to handle the rare
+        # case where the policy is initiated from a state where the handover
+        # pose is already at the target.
+        self._alerted_user = False
+
+    def reset(self, solution: dict[CSPVariable, Any]) -> None:
+        self._alerted_user = False
+        return super().reset(solution)
+
+    def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
+        logging.debug("Starting planning for seasoning handover")
+        seasoning_description = self._get_value("seasoning")
+        seasoning_grasp = _seasoning_grasp_to_relative_pose(self._get_value("seasoning_grasp"))
+        handover_pose = _handover_position_to_pose(self._get_value("handover_position"))
+        grasp_base_pose = self._get_value("grasp_base_pose")
+        assert isinstance(grasp_base_pose, Pose)
+        handover_base_pose = self._get_value("handover_base_pose")
+        assert isinstance(handover_base_pose, Pose)
+
+        # Retract after transfer.
+        if obs.human_held_object is not None:
+            assert obs.human_held_object == seasoning_description
+            held_seasoning_id = self._sim.get_object_id_from_name(obs.human_held_object)
+            collision_ids = self._sim.get_collision_ids() - {
+                held_seasoning_id,
+                self._sim.human.robot_id,
+            }
+            logging.debug("Getting plan to retract after seasoning handover")
+            plan = get_plan_to_retract(
+                obs,
+                self._sim,
+                collision_ids=collision_ids,
+                max_motion_planning_time=self._max_motion_planning_time,
+            )
+            # Indicate done.
+            plan.append((2, "Done"))
+            return plan
+        if obs.held_object is None:
+            # First move next to the object.
+            if not grasp_base_pose.allclose(obs.robot_base, atol=1e-3):
+                logging.debug("Getting plan to move next to seasoning")
+                return get_plan_to_move_to_pose(
+                    obs,
+                    grasp_base_pose,
+                    self._sim,
+                    self._base_motion_planning_hyperparameters,
+                    seed=self._seed,
+                )
+            # Pick up the target seasoning.
+            logging.debug("Getting plan to pick seasoning")
+            pick_plan = get_plan_to_pick_object(
+                obs,
+                seasoning_description,
+                seasoning_grasp,
+                self._sim,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=self._max_motion_planning_time,
+            )
+            assert pick_plan is not None
+            return pick_plan
+        if obs.held_object == seasoning_description:
+            # If the seasoning is already ready for handover, we are either waiting
+            # for the human to grasp it, or we have failed and need to quit.
+            if obs.human_text is not None and "I can't reach there" in obs.human_text:
+                logging.debug("Seasoning handover failed, returning done action")
+                return [(2, "Done")]  # failed, quit
+            self._sim.set_robot_base(obs.robot_base)
+            ee_pose = self._sim.robot.forward_kinematics(obs.robot_joints)
+            if self._alerted_user and ee_pose.allclose(handover_pose, atol=1e-3):
+                logging.debug("Waiting for the user to take the seasoning")
+                return [(3, None)]  # waiting
+            # Move to the handover base pose.
+            if not handover_base_pose.allclose(obs.robot_base, atol=1e-3):
+                logging.debug("Getting plan to move to handover base pose")
+                return get_plan_to_move_to_pose(
+                    obs,
+                    handover_base_pose,
+                    self._sim,
+                    self._base_motion_planning_hyperparameters,
+                    seed=self._seed,
+                )
+            # Handover the seasoning.
+            logging.debug("Getting plan to do the handover")
+            plan = get_plan_to_handover_object(
+                obs,
+                seasoning_description,
+                handover_pose,
+                self._sim,
+                self._seed,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=self._max_motion_planning_time,
+            )
+            # Tell the human to take the seasoning.
+            self._alerted_user = True
+            plan.append((2, "Here you go!"))
+            return plan
+        # Need to place held object.
+        placement_pose = self._get_value("placement")
+        placement_base_pose = self._get_value("placement_base_pose")
+        assert isinstance(placement_base_pose, Pose)
+        # Move to the placement base pose.
+        if not placement_base_pose.allclose(obs.robot_base, atol=1e-3):
+            logging.debug("Getting plan to move to place before handover")
+            return get_plan_to_move_to_pose(
+                obs,
+                placement_base_pose,
+                self._sim,
+                self._base_motion_planning_hyperparameters,
+                seed=self._seed,
+            )
+        surface_name, surface_link_id = self._get_value("surface")
+        assert obs.held_object is not None
+        logging.debug("Getting plan to place before handover")
+        return get_plan_to_place_object(
+            obs,
+            obs.held_object,
+            surface_name,
+            placement_pose,
+            self._sim,
+            max_motion_planning_time=self._max_motion_planning_time,
+            max_motion_planning_candidates=self._max_motion_planning_candidates,
+            surface_link_id=surface_link_id,
+        )
+
+    def _policy_can_handle_mission(self, mission: str) -> bool:
+        return mission == "hand over seasoning"
 
 class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
 
@@ -505,6 +651,8 @@ def _infer_mission_from_obs(obs: PyBulletState) -> str | None:
         return None
     if "Please bring me a book to read" in obs.human_text:
         return "hand over book"
+    if "Please bring me some seasoning" in obs.human_text:
+        return "hand over seasoning"
     if "Put away the thing you're holding" in obs.human_text:
         return "put away robot held object"
     if "Put this away" in obs.human_text:
@@ -627,7 +775,65 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._sim.set_state(obs)
 
         # NOTE: need to figure out a way to make this more scalable...
-        if self._current_mission == "hand over book":
+
+        if self._current_mission == "hand over seasoning":
+
+            # Choose a seasoning to fetch.
+            seasonings = self._sim.get_pickable_seasonings(obs)
+            seasoning = CSPVariable("seasoning", EnumSpace(seasonings))
+
+            # Choose a grasp on the seasoning. Only the grasp yaw is unknown.
+            seasoning_grasp = CSPVariable("seasoning_grasp", Box(-np.pi, np.pi, dtype=np.float_))
+
+            # Choose a handover position. Relative to the resting hand position.
+            handover_position = CSPVariable(
+                "handover_position", Box(-np.inf, np.inf, shape=(3,), dtype=np.float_)
+            )
+
+            # Choose a base pose for grasping the seasoning.
+            grasp_base_pose = CSPVariable("grasp_base_pose", PoseSpace())
+
+            # Choose a base pose for handing over the seasoning.
+            handover_base_pose = CSPVariable("handover_base_pose", PoseSpace())
+
+            variables = [
+                seasoning,
+                seasoning_grasp,
+                handover_position,
+                grasp_base_pose,
+                handover_base_pose,
+            ]
+
+            init_seasoning = seasonings[self._rng.choice(len(seasonings))]
+            if obs.held_object == init_seasoning:
+                init_grasp_base_pose = obs.robot_base
+            else:
+                init_surface = self._sim.get_name_from_object_id(
+                    self._sim.get_surface_that_object_is_on(
+                        self._sim.get_object_id_from_name(init_seasoning)
+                    )
+                )
+                init_grasp_base_pose = get_target_base_pose(
+                    obs, init_surface, self._sim
+                )
+            initialization = {
+                seasoning: init_seasoning,
+                seasoning_grasp: np.array([-np.pi / 2]),
+                handover_position: np.zeros((3,)),
+                grasp_base_pose: init_grasp_base_pose,
+                handover_base_pose: get_target_base_pose(obs, "bed", self._sim),
+            }
+
+            if obs.held_object is not None:
+                # If the user is holding something, we'll need to place it, and
+                # we'll need to determine a placement for it as part of the CSP.
+                placement_vars, placement_init = self._generate_placement_variables(
+                    obs.robot_base
+                )
+                variables.extend(placement_vars)
+                initialization.update(placement_init)
+        
+        elif self._current_mission == "hand over book":
 
             # Choose a book to fetch.
             books = self._sim.get_pickable_books(obs)
@@ -1343,6 +1549,17 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
 
         # NOTE: need to figure out a way to make this more scalable...
+        if self._current_mission == "hand over seasoning":
+
+            return _SeasoningHandoverCSPPolicy(
+                self._sim,
+                csp_variables,
+                seed=self._seed,
+                max_motion_planning_candidates=self._max_motion_planning_candidates,
+                max_motion_planning_time=max_motion_planning_time,
+                base_mp_hyperparameters=self._base_mp_hyperparameters,
+            )
+
         if self._current_mission == "hand over book":
 
             return _BookHandoverCSPPolicy(

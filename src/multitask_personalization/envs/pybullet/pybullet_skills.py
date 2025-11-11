@@ -51,6 +51,7 @@ def get_kinematic_state_from_pybullet_state(
         sim.cup_id: pybullet_state.cup_pose,
         sim.duster_id: pybullet_state.duster_pose,
         sim.table_id: sim.scene_spec.table_pose,
+        sim.kitchen_table_id: sim.scene_spec.kitchen_table_pose,
         sim.shelf_id: sim.scene_spec.shelf_pose,
     }
     for side_table_id, side_table_pose in zip(
@@ -171,6 +172,15 @@ def get_target_base_pose(
     table_base_y = sim.scene_spec.robot_base_pose.position[1] - 0.1
     table_base_z = sim.scene_spec.robot_base_pose.position[2]
     if object_name == "table":
+        return Pose(
+            (
+                table_base_x,
+                table_base_y,
+                table_base_z,
+            ),
+            sim.scene_spec.robot_base_pose.orientation,
+        )
+    if object_name == "kitchen_table":
         return Pose(
             (
                 table_base_x,
