@@ -8,7 +8,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="wheelchair_edited.obj" scale="1 0.9 1"/>
+                <mesh filename="wheelchair.obj" scale="1 0.9 1"/>
             </geometry>
             <material name="aluminium">
                 <color rgba="0.827450980392156 0.827450980392156 0.827450980392156 1.0"/>
@@ -16,7 +16,7 @@
         </visual>
         <collision>
             <geometry>
-                <mesh filename="wheelchair_edited_simplified.obj" scale="1 0.9 1"/>
+                <mesh filename="wheelchair_simplified.obj" scale="1 0.9 1"/>
             </geometry>
         </collision>
     </link>
