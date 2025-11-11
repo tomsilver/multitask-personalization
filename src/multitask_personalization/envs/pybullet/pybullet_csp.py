@@ -50,6 +50,7 @@ from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletState,
 )
 from multitask_personalization.envs.pybullet.pybullet_utils import (
+    get_user_seasoning_enjoyment_logprob,
     get_user_book_enjoyment_logprob,
 )
 from multitask_personalization.rom.models import ROMModel, TrainableROMModel
@@ -618,6 +619,16 @@ class _CleanCSPPolicy(_PyBulletCSPPolicy):
         if obs.human_text is not None and "Don't clean" in obs.human_text:
             return True
         return super().check_termination(obs)
+    
+def _seasoning_grasp_to_relative_pose(yaw: NDArray) -> Pose:
+    assert len(yaw) == 1
+    return get_poses_facing_line(
+        axis=(0.0, 0.0, 1.0),
+        point_on_line=(0.0, 0.0, 0),
+        radius=1e-3,
+        num_points=1,
+        angle_offset=yaw[0],
+    )[0]
 
 
 def _book_grasp_to_relative_pose(yaw: NDArray) -> Pose:
@@ -670,6 +681,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         sim: PyBulletEnv,
         rom_model: ROMModel,
         llm: LargeLanguageModel,
+        seasoning_preference_initialization: str = "Unknown",
         book_preference_initialization: str = "Unknown",
         max_motion_planning_candidates: int = 1,
         max_motion_planning_time: float = 10,
@@ -683,6 +695,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         self._sim = sim
         self._rom_model = rom_model
         self._rom_model_training_data: list[tuple[NDArray, bool]] = []
+        self._current_seasoning_preference = seasoning_preference_initialization
         self._current_book_preference = book_preference_initialization
         self._all_user_feedback: list[str] = []
         self._llm = llm
@@ -720,6 +733,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     def save(self, model_dir: Path) -> None:
         # Save ROM model.
         self._rom_model.save(model_dir)
+        # Save seasoning preferences.
+        seasoning_preference_outfile = model_dir / "learned_seasoning_preferences.txt"
+        with open(seasoning_preference_outfile, "w", encoding="utf-8") as f:
+            f.write(self._current_seasoning_preference)
         # Save book preferences.
         book_preference_outfile = model_dir / "learned_book_preferences.txt"
         with open(book_preference_outfile, "w", encoding="utf-8") as f:
@@ -742,6 +759,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     def load(self, model_dir: Path) -> None:
         # Load ROM model.
         self._rom_model.load(model_dir)
+        # Load seasoning preferences.
+        seasoning_preference_outfile = model_dir / "learned_seasoning_preferences.txt"
+        with open(seasoning_preference_outfile, "r", encoding="utf-8") as f:
+            self._current_seasoning_preference = f.read()
         # Load book preferences.
         book_preference_outfile = model_dir / "learned_book_preferences.txt"
         with open(book_preference_outfile, "r", encoding="utf-8") as f:
@@ -990,8 +1011,31 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         obs: PyBulletState,
         variables: list[CSPVariable],
     ) -> list[CSPConstraint]:
-
+        
         # NOTE: need to figure out a way to make this more scalable...
+        if self._current_mission == "hand over seasoning":
+            seasoning, _, handover_position = variables[:3]
+
+            active_seasonings = self._sim.get_pickable_seasonings(obs)
+            seasoning_preference_constraint = LogProbCSPConstraint(
+                "seasoning_preference",
+                [seasoning],
+                partial(self._seasoning_is_preferred_logprob, active_seasonings),
+                threshold=np.log(0.95),
+            )
+
+            # Create a handover constraint given the user ROM.
+            def _handover_position_is_in_rom_logprob(position: NDArray) -> float:
+                return self._rom_model.get_position_reachable_logprob(position)
+
+            handover_rom_constraint = LogProbCSPConstraint(
+                "handover_rom_constraint",
+                [handover_position],
+                _handover_position_is_in_rom_logprob,
+                threshold=np.log(0.5) - 1e-3,
+            )
+            return [seasoning_preference_constraint, handover_rom_constraint]
+
         if self._current_mission == "hand over book":
             book, _, handover_position = variables[:3]
 
@@ -1054,6 +1098,120 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     ) -> list[CSPConstraint]:
 
         # NOTE: need to figure out a way to make this more scalable...
+        if self._current_mission == "hand over seasoning":
+            constraints: list[CSPConstraint] = []
+
+            seasoning, seasoning_grasp, handover_position, grasp_base_pose, handover_base_pose = (
+                variables[:5]
+            )
+
+            # Create reaching constraints.
+            def _seasoning_grasp_is_reachable(
+                seasoning_description: str, yaw: NDArray, base_pose: Pose
+            ) -> bool:
+                if obs.held_object == seasoning_description:
+                    return True
+                relative_pose = _seasoning_grasp_to_relative_pose(yaw)
+                seasoning_idx = obs.seasoning_descriptions.index(seasoning_description)
+                seasoning_pose = obs.seasoning_poses[seasoning_idx]
+                world_pose = multiply_poses(seasoning_pose, relative_pose)
+                return _pose_is_reachable(world_pose, base_pose, self._sim)
+
+            seasoning_grasp_reachable_constraint = FunctionalCSPConstraint(
+                "seasoning_reachable",
+                [seasoning, seasoning_grasp, grasp_base_pose],
+                _seasoning_grasp_is_reachable,
+            )
+            constraints.append(seasoning_grasp_reachable_constraint)
+
+            def _handover_position_is_reachable(
+                position: NDArray, base_pose: Pose
+            ) -> bool:
+                pose = _handover_position_to_pose(position)
+                handover_reachable = _pose_is_reachable(pose, base_pose, self._sim)
+                return handover_reachable
+
+            handover_reachable_constraint = FunctionalCSPConstraint(
+                "handover_reachable",
+                [handover_position, handover_base_pose],
+                _handover_position_is_reachable,
+            )
+            constraints.append(handover_reachable_constraint)
+
+            # Create collision constraints.
+            def _handover_position_is_collision_free(
+                position: NDArray,
+                seasoning_description: str,
+                yaw: NDArray,
+                base_pose: Pose,
+            ) -> bool:
+                self._sim.set_robot_base(base_pose)
+                seasoning_id = self._sim.get_object_id_from_name(seasoning_description)
+                end_effector_pose = _handover_position_to_pose(position)
+                grasp_pose = _seasoning_grasp_to_relative_pose(yaw)
+                collision_bodies = self._sim.get_collision_ids() - {seasoning_id}
+                if obs.held_object is not None:
+                    collision_bodies -= {
+                        self._sim.get_object_id_from_name(obs.held_object)
+                    }
+                # The number of calls to the RNG internally to the function is
+                # nondeterministic, so make a new RNG to maintain determinism.
+                ik_rng = create_rng_from_rng(self._rng)
+                samples = list(
+                    sample_collision_free_inverse_kinematics(
+                        self._sim.robot,
+                        end_effector_pose,
+                        collision_bodies,
+                        ik_rng,
+                        held_object=seasoning_id,
+                        base_link_to_held_obj=grasp_pose.invert(),
+                        max_candidates=1,
+                    )
+                )
+                assert len(samples) <= 1
+                return len(samples) == 1
+
+            handover_collision_free_constraint = FunctionalCSPConstraint(
+                "handover_collision_free",
+                [handover_position, seasoning, seasoning_grasp, handover_base_pose],
+                _handover_position_is_collision_free,
+            )
+            constraints.append(handover_collision_free_constraint)
+
+            if obs.held_object is not None:
+                first_placement, first_surface, first_base = variables[-3:]
+                first_placement_collision_free_constraint = (
+                    self._generate_placement_is_collision_free_constraint(
+                        obs,
+                        obs.held_object,
+                        first_placement,
+                        first_surface,
+                        constraint_name="first_placement_collision_free",
+                    )
+                )
+                constraints.append(first_placement_collision_free_constraint)
+
+                assert obs.grasp_transform is not None
+                first_placement_reachable_constraint = (
+                    self._generate_placement_is_reachable_constraint(
+                        obs,
+                        first_placement,
+                        first_surface,
+                        first_base,
+                        obs.grasp_transform,
+                        constraint_name="first_placement_reachable",
+                    )
+                )
+                constraints.append(first_placement_reachable_constraint)
+
+            # Create policy success constraint.
+            policy_success_constraint = self._create_policy_success_constraint(
+                obs, variables
+            )
+            constraints.append(policy_success_constraint)
+
+            return constraints
+        
         if self._current_mission == "hand over book":
             constraints: list[CSPConstraint] = []
 
@@ -1333,6 +1491,65 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     ) -> list[CSPSampler]:
 
         # NOTE: need to figure out a way to make this more scalable...
+        if self._current_mission == "hand over seasoning":
+
+            seasoning, seasoning_grasp, handover_position, grasp_base_pose = csp.variables[:4]
+
+            seasonings = self._sim.get_pickable_seasonings(obs)
+
+            def _sample_seasoning_fn(
+                _: dict[CSPVariable, Any], rng: np.random.Generator
+            ) -> dict[CSPVariable, Any]:
+                seasoning_description = seasonings[rng.choice(len(seasonings))]
+                if obs.held_object == seasoning_description:
+                    base_pose = obs.robot_base
+                else:
+                    base_pose = get_target_base_pose(obs, seasoning_description, self._sim)
+                return {seasoning: seasoning_description, grasp_base_pose: base_pose}
+
+            seasoning_sampler = FunctionalCSPSampler(
+                _sample_seasoning_fn, csp, {seasoning, grasp_base_pose}
+            )
+
+            def _sample_handover_pose(
+                _: dict[CSPVariable, Any], rng: np.random.Generator
+            ) -> dict[CSPVariable, Any]:
+                # If the CSP contains a constraint for reachable handover
+                # position, might as well sample within that constraint,
+                # since we know how. Otherwise rejection sampling would just
+                # be slower.
+                if (
+                    csp.cost is not None and csp.cost.name == "maximize-entropy"
+                ) or any(c.name == "handover_rom_constraint" for c in csp.constraints):
+                    position = self._rom_model.sample_reachable_position(rng)
+                else:
+                    position = self._rom_model.sample_position(rng)
+                return {handover_position: position}
+
+            handover_sampler = FunctionalCSPSampler(
+                _sample_handover_pose, csp, {handover_position}
+            )
+
+            def _sample_grasp_pose(
+                _: dict[CSPVariable, Any], rng: np.random.Generator
+            ) -> dict[CSPVariable, Any]:
+                del rng  # not actually sampling right now, for simplicity
+                yaw = np.array([-np.pi / 2])
+                return {seasoning_grasp: yaw}
+
+            grasp_sampler = FunctionalCSPSampler(_sample_grasp_pose, csp, {seasoning_grasp})
+
+            samplers: list[CSPSampler] = [seasoning_sampler, handover_sampler, grasp_sampler]
+            if obs.held_object is not None:
+                assert len(csp.variables) == 8
+                placement, surface, placement_base_pose = csp.variables[5:]
+                placement_sampler = self._generate_placement_sampler(
+                    obs.held_object, obs, csp, placement, surface, placement_base_pose
+                )
+                samplers.append(placement_sampler)
+
+            return samplers
+
         if self._current_mission == "hand over book":
 
             book, book_grasp, handover_position, grasp_base_pose = csp.variables[:4]
@@ -1616,6 +1833,7 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
     ) -> None:
         if not self._disable_learning:
             self._update_rom_model(obs, act, next_obs)
+            self._update_seasoning_preferences(act, next_obs)
             self._update_book_preferences(act, next_obs)
             self._update_surface_can_be_cleaned(obs, next_obs)
         self._update_current_mission(obs)
@@ -1901,6 +2119,24 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         )
 
         return policy_success_constraint
+    
+    def _seasoning_is_preferred_logprob(
+        self, all_seasoning_descriptions: list[str], seasoning_description: str
+    ) -> float:
+        # Scale seasoning preference log probabilities so that the most-preferred
+        # seasoning is always given a logprob of 0.0. Note that these LLM calls will
+        # be cached so it's not a big deal to rerun things here.
+        seasoning_to_lp = {
+            s: get_user_seasoning_enjoyment_logprob(
+                s, self._current_seasoning_preference, self._llm, seed=self._seed
+            )
+            for s in all_seasoning_descriptions
+        }
+        max_lp = max(seasoning_to_lp.values())
+        if np.isneginf(max_lp):
+            return 0.0
+        scaled_lp = seasoning_to_lp[seasoning_description] - max_lp
+        return scaled_lp
 
     def _book_is_preferred_logprob(
         self, all_book_descriptions: list[str], book_description: str
@@ -1947,6 +2183,40 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         # Retrain the ROM model.
         self._rom_model.train(self._rom_model_training_data)
         logging.debug(f"Updated ROM model with {pose.position}, {label}")
+
+    def _update_seasoning_preferences(
+        self,
+        act: PyBulletAction,
+        next_obs: PyBulletState,
+    ) -> None:
+        # Only learn when the user had something to say.
+        if next_obs.human_text is None:
+            return
+        # Ignore failures due to ROM.
+        if "I can't reach there" in next_obs.human_text:
+            return
+        # Only learn from attempted handovers, not cleaning.
+        if next_obs.held_object == "duster":
+            return
+        # For now, only learn when the robot triggered hand over.
+        if not np.isclose(act[0], 2) or act[1] == "Done":
+            return
+        assert act[1] == "Here you go!"
+        assert next_obs.human_held_object is not None
+        # Update the history of things the user has told the robot.
+        new_feedback = f'When I gave the user the seasoning: "{next_obs.human_held_object}", they said: "{next_obs.human_text}"'  # pylint: disable=line-too-long
+        self._all_user_feedback.append(new_feedback)
+        logging.debug(f"Updated user feedback with {new_feedback}")
+        new_user_seasoning_preferences = _get_seasoning_preferences_from_history(
+            self._all_user_feedback,
+            self._current_seasoning_preference,
+            self._llm,
+            self._seed,
+        )
+        self._current_seasoning_preference = new_user_seasoning_preferences
+        logging.info(
+            f"Updated learned user seasoning preferences: {new_user_seasoning_preferences}"
+        )
 
     def _update_book_preferences(
         self,
@@ -2095,6 +2365,12 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         metrics: dict[str, float] = {}
         if isinstance(self._rom_model, TrainableROMModel):
             metrics.update(self._rom_model.get_metrics())
+        for seasoning_description in self._sim.seasoning_descriptions:
+            lp = self._seasoning_is_preferred_logprob(
+                self._sim.seasoning_descriptions, seasoning_description
+            )
+            entropy = bernoulli_entropy(lp)
+            metrics[f"entropy-{seasoning_description}"] = entropy
         for book_description in self._sim.book_descriptions:
             lp = self._book_is_preferred_logprob(
                 self._sim.book_descriptions, book_description
@@ -2102,6 +2378,42 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             entropy = bernoulli_entropy(lp)
             metrics[f"entropy-{book_description}"] = entropy
         return metrics
+
+def _get_seasoning_preferences_from_history(
+    all_user_feedback: list[str],
+    current_seasoning_preferences: str,
+    llm: LargeLanguageModel,
+    seed,
+) -> str:
+    # Learn from the history of all feedback.
+    # For now, just do this once; in the future, get a distribution of
+    # possibilities.
+    all_feedback_str = "\n".join(all_user_feedback)
+    # pylint: disable=line-too-long
+    prompt = f"""You are a helpful assistant that infers a user's seasoning preferences based on their feedback. Your current estimate of their preferences is:
+
+{current_seasoning_preferences}
+    
+You have received the following feedback from the user:
+
+{all_feedback_str}
+
+Based on this history, provide an updated description of the user's seasoning preferences..
+
+Your description should be in the following format:
+
+"I know that the user likes the following seasonings: <list of seasonings> and they do not like the following seasonings: <list of seasonings>. Based on this, here are some possible summaries of their preferences:
+1. <summary of preferences>
+2. <summary of preferences>
+3. <summary of preferences>"
+
+Return this description and nothing else. Do not explain anything."""
+    response, _ = llm.query(
+        prompt,
+        temperature=1.0,
+        seed=seed,
+    )
+    return response
 
 
 def _get_book_preferences_from_history(

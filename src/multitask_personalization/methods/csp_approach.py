@@ -94,6 +94,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 else:
                     break
             visualize_csp_graph(csp, viz_file)
+        
+        logging.info(f"Solving CSP with {len(csp.variables)} variables ...")
         self._current_sol = self._csp_solver.solve(csp, initialization, samplers)
         if self._current_sol is None:
             # Special case: if CSP is exploit-only, fall back to no personal

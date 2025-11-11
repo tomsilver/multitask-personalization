@@ -202,7 +202,7 @@ def get_target_base_pose(
             ),
             sim.scene_spec.robot_base_pose.orientation,
         )
-    if object_name in ["duster"] + sim.book_descriptions:
+    if object_name in ["duster"] + sim.book_descriptions + sim.seasoning_descriptions:
         surface_id = sim.get_surface_that_object_is_on(object_id)
         surface_name = sim.get_name_from_object_id(surface_id)
         return get_target_base_pose(state, surface_name, sim)
