@@ -603,7 +603,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # We're evaluating in "handover-only" mode, so ban certain books, same
         # as above.
-        elif self._use_eval_distribution and self._hidden_spec.missions == "all":
+        elif self._use_eval_distribution and self._hidden_spec.missions == "handover-only":
             self._force_next_mission_id = "book handover"
             banned_books = self._get_eval_banned_books_handover_mission()
 

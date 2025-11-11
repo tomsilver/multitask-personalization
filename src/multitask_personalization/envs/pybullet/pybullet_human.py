@@ -16,7 +16,7 @@ from pybullet_helpers.robots.single_arm import SingleArmPyBulletRobot
 class HumanSpec:
     """Defines the spec for a human user in the pybullet environment."""
 
-    base_pose: Pose = Pose(position=(2.0, 0.53, 0.2))
+    base_pose: Pose = Pose(position=(2.0, 0.53, 0.51))
     grasp_transform: Pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0.0, 0.0, np.sqrt(2) / 2))
 
 
