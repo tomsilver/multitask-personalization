@@ -68,7 +68,6 @@ from multitask_personalization.utils import bernoulli_entropy
 
 
 class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
-
     def __init__(
         self,
         sim: PyBulletEnv,
@@ -119,7 +118,6 @@ class _PyBulletCSPPolicy(CSPPolicy[PyBulletState, PyBulletAction]):
 
 
 class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
-
     def __init__(
         self,
         sim: PyBulletEnv,
@@ -266,7 +264,6 @@ class _BookHandoverCSPPolicy(_PyBulletCSPPolicy):
 
 
 class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
-
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         logging.debug("Starting planning for put away robot held object")
         placement_pose = self._get_value("placement")
@@ -306,7 +303,6 @@ class _PutAwayRobotHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
 
 class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
-
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         logging.debug("Starting planning for put away human held object")
         # Put away the main object.
@@ -401,7 +397,6 @@ class _PutAwayHumanHeldObjectCSPPolicy(_PyBulletCSPPolicy):
 
 
 class _CleanCSPPolicy(_PyBulletCSPPolicy):
-
     def _get_plan(self, obs: PyBulletState) -> list[PyBulletAction] | None:
         logging.debug("Starting planning for cleaning")
         if obs.human_text is not None and "Don't clean" in obs.human_text:
@@ -699,9 +694,10 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             grasp = CSPVariable("grasp", Box(-np.pi, np.pi, dtype=np.float_))
 
             # Choose a base pose for placing the human held object.
-            placement_variables, placement_initialization = (
-                self._generate_placement_variables(obs.robot_base)
-            )
+            (
+                placement_variables,
+                placement_initialization,
+            ) = self._generate_placement_variables(obs.robot_base)
 
             variables = [
                 grasp_base_pose,
@@ -720,13 +716,14 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             if obs.held_object is not None:
                 # If the user is holding something, we'll need to place it, and
                 # we'll need to determine a placement for it as part of the CSP.
-                first_placement_vars, first_placement_init = (
-                    self._generate_placement_variables(
-                        obs.robot_base,
-                        placement_name="first_placement",
-                        surface_name="first_surface",
-                        placement_base_pose_name="first_placement_base_pose",
-                    )
+                (
+                    first_placement_vars,
+                    first_placement_init,
+                ) = self._generate_placement_variables(
+                    obs.robot_base,
+                    placement_name="first_placement",
+                    surface_name="first_surface",
+                    placement_base_pose_name="first_placement_base_pose",
                 )
                 variables.extend(first_placement_vars)
                 initialization.update(first_placement_init)
@@ -851,9 +848,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         if self._current_mission == "hand over book":
             constraints: list[CSPConstraint] = []
 
-            book, book_grasp, handover_position, grasp_base_pose, handover_base_pose = (
-                variables[:5]
-            )
+            (
+                book,
+                book_grasp,
+                handover_position,
+                grasp_base_pose,
+                handover_base_pose,
+            ) = variables[:5]
 
             # Create reaching constraints.
             def _book_grasp_is_reachable(
@@ -1196,9 +1197,13 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
             return [placement_sampler]
 
         if self._current_mission == "put away human held object":
-            grasp_base_pose, grasp_yaw, placement, surface, placement_base_pose = (
-                csp.variables[:5]
-            )
+            (
+                grasp_base_pose,
+                grasp_yaw,
+                placement,
+                surface,
+                placement_base_pose,
+            ) = csp.variables[:5]
 
             def _sample_grasp_pose(
                 _: dict[CSPVariable, Any], rng: np.random.Generator
@@ -1221,9 +1226,11 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
 
             if obs.held_object is not None:
                 assert len(csp.variables) == 8
-                first_placement, first_surface, first_placement_base_pose = (
-                    csp.variables[5:]
-                )
+                (
+                    first_placement,
+                    first_surface,
+                    first_placement_base_pose,
+                ) = csp.variables[5:]
                 first_placement_sampler = self._generate_placement_sampler(
                     obs.held_object,
                     obs,
@@ -1513,7 +1520,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         surface_var: CSPVariable,
         constraint_name: str = "placement_collision_free",
     ) -> CSPConstraint:
-
         def _placement_is_collision_free(
             placement_pose: Pose,
             surface_name_and_link: tuple[str, int],
@@ -1578,7 +1584,6 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
         grasp_transform: Pose | None = None,
         constraint_name: str = "placement_reachable",
     ) -> CSPConstraint:
-
         def _placement_is_reachable(
             placement_pose: Pose,
             surface_name_and_link: tuple[str, int],

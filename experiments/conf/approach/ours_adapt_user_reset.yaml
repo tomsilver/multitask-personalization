@@ -1,0 +1,11 @@
+_target_: "multitask_personalization.methods.csp_approach.CSPApproach"
+motion_planning_quality: normal
+explore_method: max-entropy
+csp_solver: ${csp_solver}
+llm: ${llm}
+disable_learning: false
+
+lifelong_learning:
+  enabled: true
+  method: periodic_reset
+  reset_interval: 3000

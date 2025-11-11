@@ -393,7 +393,6 @@ class CookingCSPGenerator(CSPGenerator[CookingState, CookingAction]):
 
 
 class _CookingCSPPolicy(CSPPolicy[CookingState, CookingAction]):
-
     def __init__(
         self,
         csp_variables: Collection[CSPVariable],

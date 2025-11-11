@@ -11,21 +11,31 @@ from omegaconf import DictConfig
 
 ENV_TO_DISPLAY_NAME = {
     # "tiny": "Tiny",
-    "cooking-nonstationary": "Cooking (Non-Stationary)",
-    "cooking-stationary": "Cooking",
+    "cooking-nonstationary": "Cooking (Nonstationary)",
+    # "cooking-stationary": "Cooking",
     # "cleaning-stationary": "Cleaning",
     # "overnight-stationary": "Books",
 }
 
 APPROACH_TO_DISPLAY_NAME = {
     # "ours": "CBTL (Ours)",
-    "ours_adapt_fancy": "CBTL (Fancy)",
-    "ours_no_adapt": "CBTL (No Adapt)",
+    # "ours_adapt_fancy": "CBTL (Fancy)",
+    "ours_adapt_user_reset": "CBTL (User Reset)",
     "ours_adapt_periodic": "CBTL (Periodic Reset)",
-    # "nothing_personal": "Free Explore",
-    "epsilon_greedy": "Epsilon Greedy",
+    "ours_no_adapt": "CBTL (No Adapt)",
+    "nothing_personal": "Free Explore",
+    # "epsilon_greedy": "Epsilon Greedy",
     # "exploit_only": "Exploit Only",
     # "no_learning": "No Learning",
+}
+
+# Additional approach names
+ADDITIONAL_APPROACH_TO_DISPLAY_NAME = {
+    "ours": "CBTL (Ours)",
+    "nothing_personal": "Free Explore",
+    "epsilon_greedy": "Epsilon-Greedy",
+    "exploit_only": "Exploit Only",
+    "no_learning": "No Personalization",
 }
 
 COLOR_PALETTE = [
@@ -41,17 +51,38 @@ COLOR_PALETTE = [
     "#fb8072",  # coral
 ]
 
+# Additional color definitions
+c = lambda x : x/255.0
+
+colors = [
+        (c(30), c(60), c(250)),
+        (c(21), c(151), c(165)),  #0,
+        (c(230), c(111), c(81)), #2
+        (c(155), c(89), c(182)),
+        (c(254), c(183), c(5)),  #1
+        ]
+
 # https://colorbrewer2.org/#type=diverging&scheme=Spectral&n=8
 APPROACH_TO_COLOR = {
     # "ours": "#3288bd",
     # assign different colors to each approach
-    "ours_no_adapt": COLOR_PALETTE[0],
-    "ours_adapt_periodic": COLOR_PALETTE[1],
-    "ours_adapt_fancy": COLOR_PALETTE[2],
-    # "nothing_personal": "#66c2a5",
-    "epsilon_greedy": "#abdda4",
+    "ours_no_adapt": "#aa3377",
+    "ours_adapt_periodic": COLOR_PALETTE[2],
+    # "ours_adapt_fancy": COLOR_PALETTE[2],
+    "ours_adapt_user_reset": COLOR_PALETTE[9],
+    "nothing_personal": "#4d9221",
+    # "epsilon_greedy": "#abdda4",
     # "exploit_only": "#e6f598",
     # "no_learning": "#fee08b",
+}
+
+# Additional color mappings
+ADDITIONAL_APPROACH_TO_COLOR = {
+    "ours": "#aa3377",
+    "nothing_personal": "#4d9221",
+    "epsilon_greedy": "#bf812d",
+    "exploit_only": "#4477aa",
+    "no_learning": "#66ccee",
 }
 
 # Colors for preference shift backgrounds
@@ -72,7 +103,6 @@ SHIFT_COLORS = [
 def _create_config_fn(
     env_name: str, approach_name: str
 ) -> Callable[[DictConfig], bool]:
-
     def _fn(cfg: DictConfig) -> bool:
         return cfg.env_name == env_name and cfg.approach_name == approach_name
 
@@ -148,7 +178,7 @@ def _main(results_dir: Path, outfile: Path) -> None:
                 for j, (start, end) in enumerate(zip(section_starts, section_ends)):
                     print(f"start: {start}, end: {end}")
                     ax.axvspan(
-                        start, end, alpha=0.4, color=SHIFT_COLORS[j % len(SHIFT_COLORS)]
+                        start, end, alpha=0.3, color=SHIFT_COLORS[j % len(SHIFT_COLORS)]
                     )
                 # Add vertical lines for shift times
                 for shift_time in shift_times:
@@ -176,7 +206,10 @@ def _main(results_dir: Path, outfile: Path) -> None:
 
             # Only add to legend collection for the first subplot.
             if env_name == list(ENV_TO_DISPLAY_NAME.keys())[0]:
-                lines.append(line.get_lines()[-1])
+                # lines.append(line.get_lines()[-1])
+                # Create a separate line for the legend with increased thickness
+                legend_line = plt.Line2D([0], [0], color=color, linewidth=5.0)
+                lines.append(legend_line)
                 labels.append(approach_display_name)
 
         if i == 0:
@@ -185,12 +218,22 @@ def _main(results_dir: Path, outfile: Path) -> None:
             ax.set_ylabel("")
 
     # Place a single shared legend to the right of the subplots.
-    fig.legend(lines, labels, loc="center right", bbox_to_anchor=(1.0, 0.5))
+    # fig.legend(lines, labels, loc="center right", bbox_to_anchor=(1.0, 0.5))
+    
+    # Alternative legend placement below subplots
+    # fig.legend(lines, labels, loc="lower center", bbox_to_anchor=(0.5, 0.05), ncol=len(APPROACH_TO_DISPLAY_NAME), 
+    #           prop={'size': 10})
+    fig.legend(lines, labels, loc="lower center", bbox_to_anchor=(0.5, -0.0), ncol=len(APPROACH_TO_DISPLAY_NAME)//2, 
+              prop={'size': 15})
 
     # Adjust layout with extra space for legend.
-    plt.tight_layout(rect=(0, 0, 0.9, 1.0))
+    plt.tight_layout(rect=(0, 0.1, 1.0, 1.0))
+    # Alternative layout without rect
+    # plt.tight_layout()
 
-    plt.savefig(outfile, dpi=1000, bbox_inches="tight", pad_inches=0.05)
+    # plt.savefig(outfile, dpi=1000, bbox_inches="tight", pad_inches=0.05)
+    # Alternative save with transparency
+    plt.savefig(outfile, dpi=1000, bbox_inches="tight", pad_inches=0.05, transparent=True)
     print(f"Wrote out to {outfile}")
 
     plt.show()
