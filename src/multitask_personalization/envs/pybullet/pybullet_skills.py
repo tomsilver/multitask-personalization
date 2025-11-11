@@ -51,7 +51,6 @@ def get_kinematic_state_from_pybullet_state(
         sim.cup_id: pybullet_state.cup_pose,
         sim.duster_id: pybullet_state.duster_pose,
         sim.table_id: sim.scene_spec.table_pose,
-        sim.kitchen_table_id: sim.scene_spec.kitchen_table_pose,
         sim.shelf_id: sim.scene_spec.shelf_pose,
     }
     for side_table_id, side_table_pose in zip(
@@ -142,7 +141,7 @@ def get_plan_to_pick_object(
     obj_id = sim.get_object_id_from_name(object_name)
     surface_id = sim.get_surface_that_object_is_on(obj_id)
     collision_ids = sim.get_collision_ids() - {obj_id}
-    print(f"Picking object '{object_name}' with id {obj_id} from surface id {surface_id}")
+    # print(f"Picking object '{object_name}' with id {obj_id} from surface id {surface_id}")
     grasp_generator = iter([grasp_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan: list[KinematicState] = []
@@ -186,18 +185,6 @@ def get_target_base_pose(
                 table_base_x,
                 table_base_y,
                 table_base_z,
-            ),
-            sim.scene_spec.robot_base_pose.orientation,
-        )
-    if object_name == "kitchen_table":
-        kitchen_table_base_x = sim.scene_spec.kitchen_table_pose.position[0]
-        kitchen_table_base_y = sim.scene_spec.kitchen_table_pose.position[1]
-        kitchen_table_base_z = sim.scene_spec.kitchen_table_pose.position[2]
-        return Pose(
-            (
-                kitchen_table_base_x + 0.5,
-                kitchen_table_base_y,
-                kitchen_table_base_z,
             ),
             sim.scene_spec.robot_base_pose.orientation,
         )

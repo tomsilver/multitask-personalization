@@ -217,19 +217,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             f"side-table-{i}": d for i, d in enumerate(self.side_table_ids)
         }
 
-        # Create kitchen table
-        self.kitchen_table_id = create_pybullet_block(
-            self.scene_spec.kitchen_table_rgba,
-            half_extents=self.scene_spec.kitchen_table_half_extents,
-            physics_client_id=self.physics_client_id,
-        )
-        p.changeVisualShape(
-            self.kitchen_table_id,
-            -1,
-            textureUniqueId=surface_texture_id,
-            physicsClientId=self.physics_client_id,
-        )
-
         # Create cup.
         self.cup_id = create_pybullet_cylinder(
             self.scene_spec.object_rgba,
@@ -484,9 +471,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         ):
             set_pose(side_table_id, side_table_pose, self.physics_client_id)
 
-        # Reset kitchen table.
-        set_pose(self.kitchen_table_id, self.scene_spec.kitchen_table_pose, self.physics_client_id)
-
         # Reset cup.
         set_pose(self.cup_id, self.scene_spec.object_pose, self.physics_client_id)
 
@@ -635,6 +619,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         for book in banned_books:
             book_id = self.get_object_id_from_name(book)
             set_pose(book_id, BANISH_POSE, self.physics_client_id)
+
+        # Ban the wheelchair or bed based on scene_name
+
+        if self.scene_spec.scene_name == "default":
+            set_pose(self.wheelchair_id, BANISH_POSE, self.physics_client_id)
+        elif self.scene_spec.scene_name == "generalization":
+            set_pose(self.bed_id, BANISH_POSE, self.physics_client_id)
+        else:
+            raise ValueError(f"Unknown scene name: {self.scene_spec.scene_name}")
 
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:
@@ -968,10 +961,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         return {
             "cup": self.cup_id,
             "table": self.table_id,
-            "kitchen_table": self.kitchen_table_id,
             "shelf": self.shelf_id,
             "duster": self.duster_id,
             "bed": self.bed_id,
+            "wheelchair": self.wheelchair_id,
             **seasoning_name_to_id,
             **book_name_to_id,
             **self._side_table_name_to_id,
@@ -989,7 +982,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
     def get_surface_names(self) -> set[str]:
         """Get all possible surfaces in the environment."""
-        return {"table", "kitchen_table", "shelf"} | set(self._side_table_name_to_id)
+        return {"table", "shelf"} | set(self._side_table_name_to_id)
 
     def get_surface_ids(self) -> set[int]:
         """Get all possible surfaces in the environment."""
@@ -1047,7 +1040,6 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             | set(self.side_table_ids)
             | {
                 self.table_id,
-                self.kitchen_table_id,
                 self.shelf_id,
                 self.duster_id,
                 self.cup_id,
@@ -1156,7 +1148,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                 self._llm,
                 seed=seed,
             )
-            possible_missions.append(handover_seasoning_mission)
+            reverse_handover_mission = StoreHumanHeldObjectMission()
+            possible_missions.extend([handover_seasoning_mission, reverse_handover_mission])
 
         if self._force_next_mission_id is not None:
             possible_missions = [

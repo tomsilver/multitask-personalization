@@ -34,7 +34,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     bed_pose: Pose = Pose.from_rpy((2.4, 0, -0.45), (np.pi / 2, 0.0, 0.0))
     bed_urdf: Path = Path(__file__).parent / "assets" / "bed" / "bed.urdf"
 
-    wheelchair_pose: Pose = Pose.from_rpy((1.0, -1.5, -0.4), (0.0, 0.0, 0.0))
+    wheelchair_pose: Pose = Pose.from_rpy((2.0, 0.6, -0.4), (0.0, 0.0, 0.0))
     wheelchair_urdf: Path = Path(__file__).parent / "assets" / "wheelchair" / "wheelchair.urdf"
 
     wall_poses: list[Pose] = field(
@@ -83,10 +83,6 @@ class PyBulletSceneSpec(PublicSceneSpec):
     num_side_tables: int = 3
     default_side_table_half_extents: tuple[float, float, float] = (0.1, 0.1, 0.2)
     side_table_spacing: float = 0.05
-
-    kitchen_table_pose: Pose = Pose(position=(-0.7, -1.6, -0.2))
-    kitchen_table_rgba: tuple[float, float, float, float] = (0.5, 0.5, 0.5, 1.0)
-    kitchen_table_half_extents: tuple[float, float, float] = (0.2, 0.1, 0.2)
 
     object_pose: Pose = Pose(position=(-1000, -1000, 0.05))
     object_rgba: tuple[float, float, float, float] = (0.9, 0.6, 0.3, 1.0)
@@ -257,19 +253,24 @@ class PyBulletSceneSpec(PublicSceneSpec):
         # return poses just above bed for now
         """The initial seasoning poses."""
         
-        # Seasonings on the kitchen table.
+        # Seasonings on the top shelf.
         all_possible_poses: list[Pose] = []
 
-        x = self.kitchen_table_pose.position[0]
-        y = self.kitchen_table_pose.position[1]
-        dx = 0.07
+        x = self.shelf_pose.position[0]
+        dx = 10 * self.default_seasoning_half_extents[0]
+        y = self.shelf_pose.position[1]
         z = (
-            self.kitchen_table_pose.position[2]
-            + self.kitchen_table_half_extents[2]
+            self.shelf_pose.position[2]
+            + (self.shelf_num_layers - 1) * self.shelf_spacing
+            + (self.shelf_num_layers - 1) * self.shelf_height
             + self.default_seasoning_half_extents[2]
+            + self.shelf_support_width
         )
+
         all_possible_poses.append(Pose((x - dx, y, z)))
+        # all_possible_poses.append(Pose((x, y, z)))
         all_possible_poses.append(Pose((x + dx, y, z)))
+
         assert len(all_possible_poses) >= self.num_seasonings
         return tuple(all_possible_poses[: self.num_seasonings])
 

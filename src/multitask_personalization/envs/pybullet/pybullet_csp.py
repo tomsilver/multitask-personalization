@@ -2033,13 +2033,16 @@ class PyBulletCSPGenerator(CSPGenerator[PyBulletState, PyBulletAction]):
                 placement_surface_link_pose, placement_pose
             )
             if grasp_transform is None:
-                # This is very hacky but it should only be used in the case
-                # where the placement is for the human-held object, which can
-                # only be a book at the moment...
-                assert obs.human_held_object in self._sim.book_descriptions
-                yaw = -np.pi / 2
-                relative_pose = _book_grasp_to_relative_pose(np.array([yaw]))
-                world_pose = multiply_poses(absolute_placement, relative_pose)
+                if obs.human_held_object in self._sim.seasoning_descriptions:
+                    yaw = 0.0
+                    relative_pose = _seasoning_grasp_to_relative_pose(np.array([yaw]))
+                    world_pose = multiply_poses(absolute_placement, relative_pose)
+                elif obs.human_held_object in self._sim.book_descriptions:
+                    yaw = -np.pi / 2
+                    relative_pose = _book_grasp_to_relative_pose(np.array([yaw]))
+                    world_pose = multiply_poses(absolute_placement, relative_pose)
+                else:
+                    raise NotImplementedError
             else:
                 world_pose = multiply_poses(
                     absolute_placement, grasp_transform.invert()
