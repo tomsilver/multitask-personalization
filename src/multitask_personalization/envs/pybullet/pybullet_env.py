@@ -624,6 +624,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         if self.scene_spec.scene_name == "default":
             set_pose(self.wheelchair_id, BANISH_POSE, self.physics_client_id)
+            # Also banish the seasonings
+            for seasoning_id in self.seasoning_ids:
+                set_pose(seasoning_id, BANISH_POSE, self.physics_client_id)
         elif self.scene_spec.scene_name == "generalization":
             set_pose(self.bed_id, BANISH_POSE, self.physics_client_id)
         else:

@@ -9,7 +9,7 @@ env:
   hidden_spec:
     _target_: "multitask_personalization.envs.pybullet.pybullet_scene_spec.HiddenSceneSpec"
     missions: "all"
-    seasoning_preferences: "I prefer pepper over salt."
+    seasoning_preferences: "I prefer salt over pepper."
     book_preferences: "I only like two kinds of books: fictional romances, and grand, nonfictional reflections on the universe. I hate any other book that is not in one of these two categories."
     rom_model: ${rom_model}
     surfaces_robot_can_clean:
@@ -25,7 +25,7 @@ train_env:
 eval_env:
   use_gui: false
   use_eval_distribution: true
-max_environment_steps: 10000
+max_environment_steps: 4000
 eval_frequency: 1000
 max_eval_episode_length: 250
 num_eval_trials: 10

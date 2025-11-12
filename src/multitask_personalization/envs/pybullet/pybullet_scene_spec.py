@@ -34,7 +34,7 @@ class PyBulletSceneSpec(PublicSceneSpec):
     bed_pose: Pose = Pose.from_rpy((2.4, 0, -0.45), (np.pi / 2, 0.0, 0.0))
     bed_urdf: Path = Path(__file__).parent / "assets" / "bed" / "bed.urdf"
 
-    wheelchair_pose: Pose = Pose.from_rpy((2.0, 0.6, -0.4), (0.0, 0.0, 0.0))
+    wheelchair_pose: Pose = Pose.from_rpy((2.0, 0.6, -0.5), (0.0, 0.0, 0.0))
     wheelchair_urdf: Path = Path(__file__).parent / "assets" / "wheelchair" / "wheelchair.urdf"
 
     wall_poses: list[Pose] = field(
