@@ -27,7 +27,6 @@ from multitask_personalization.structs import (
 
 
 class _TinyCSPPolicy(CSPPolicy[TinyState, TinyAction]):
-
     def __init__(self, csp_variables: Collection[CSPVariable], seed: int = 0) -> None:
         super().__init__(csp_variables, seed)
         self._target_position: float | None = None

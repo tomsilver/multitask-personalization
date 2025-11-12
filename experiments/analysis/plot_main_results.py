@@ -11,7 +11,7 @@ from omegaconf import DictConfig
 
 ENV_TO_DISPLAY_NAME = {
     # "tiny": "Tiny",
-    "cooking-nonstationary": "Cooking (Non-Stationary)",
+    # "cooking-nonstationary": "Cooking (Non-Stationary)",
     "cooking-stationary": "Cooking",
     # "cleaning-stationary": "Cleaning",
     # "overnight-stationary": "Books",
@@ -19,6 +19,12 @@ ENV_TO_DISPLAY_NAME = {
 
 APPROACH_TO_DISPLAY_NAME = {
     "ours": "CBTL (Ours)",
+    "myopic": "Myopic (k=1)",
+    "myopic-k10": "Myopic (k=10)",
+    "myopic-constrained-k1": "Myopic-Constrained (k=1)",
+    "myopic-constrained-k10": "Myopic-Constrained (k=10)",
+    "myopic-entropy": "Myopic-Entropy (k=1)",
+    # "myopic-reset": "Myopic-Reset",
     "nothing_personal": "Free Explore",
     "epsilon_greedy": "Epsilon Greedy",
     "exploit_only": "Exploit Only",
@@ -28,6 +34,12 @@ APPROACH_TO_DISPLAY_NAME = {
 # https://colorbrewer2.org/#type=diverging&scheme=Spectral&n=8
 APPROACH_TO_COLOR = {
     "ours": "#3288bd",
+    "myopic": "#e74c3c",  # Bright red
+    "myopic-k10": "#f39c12",  # Orange
+    "myopic-constrained-k1": "#8e44ad",  # Purple
+    "myopic-constrained-k10": "#2ecc71",  # Green
+    "myopic-entropy": "#e67e22",  # Dark orange
+    "myopic-reset": "#fee090",
     "nothing_personal": "#66c2a5",
     "epsilon_greedy": "#abdda4",
     "exploit_only": "#e6f598",
@@ -52,7 +64,6 @@ SHIFT_COLORS = [
 def _create_config_fn(
     env_name: str, approach_name: str
 ) -> Callable[[DictConfig], bool]:
-
     def _fn(cfg: DictConfig) -> bool:
         return cfg.env_name == env_name and cfg.approach_name == approach_name
 

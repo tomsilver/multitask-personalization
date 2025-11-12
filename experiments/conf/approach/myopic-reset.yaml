@@ -4,8 +4,9 @@ explore_method: max-entropy
 csp_solver: ${csp_solver}
 llm: ${llm}
 disable_learning: false
+max_history_size: null  # No rolling window, use periodic reset instead
 
 lifelong_learning:
-  enabled: false
+  enabled: true  # Use periodic reset every interaction
   method: periodic_reset
-  reset_interval: 2500  # Number of feedbacks before resetting memory
+  reset_interval: 1

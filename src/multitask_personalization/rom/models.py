@@ -120,6 +120,7 @@ class SphericalROMModel(TrainableROMModel):
         min_possible_radius: float = 0.0,
         max_possible_radius: float = 1.25,
         origin_distance: float = 0.2,
+        max_history_size: int | None = None,
     ) -> None:
         super().__init__(human_spec, seed=seed)
         self._min_possible_radius = min_possible_radius
@@ -133,7 +134,7 @@ class SphericalROMModel(TrainableROMModel):
 
         # Fit a model to the sphere radius.
         self._radius_model = Bounded1DClassifier(
-            min_possible_radius, max_possible_radius
+            min_possible_radius, max_possible_radius, max_history_size
         )
 
         # Uncomment for debugging.
@@ -188,6 +189,9 @@ class SphericalROMModel(TrainableROMModel):
     ) -> float:
         distance = self._distance_to_center(position)
         prob = self._radius_model.predict_proba([distance])[0]
+        # Avoid log(0) warning
+        if prob <= 0:
+            return -np.inf
         return np.log(prob)
 
     def _sample_spherical_points(self, n: int = 500) -> list[NDArray]:
@@ -196,6 +200,17 @@ class SphericalROMModel(TrainableROMModel):
     def train(self, data: list[tuple[NDArray, bool]]) -> None:
         # Find decision boundary between maximal positive and minimal negative.
         logging.info(f"Training SphericalROMModel with {len(data)} data")
+
+        # Truncate data to max_history_size if needed (for rolling window)
+        if (
+            self._radius_model.max_history_size is not None
+            and len(data) > self._radius_model.max_history_size
+        ):
+            data = data[-self._radius_model.max_history_size :]
+            logging.info(
+                f"Truncated to most recent {self._radius_model.max_history_size} samples"
+            )
+
         X, Y = [], []
         for position, label in data:
             dist = self._distance_to_center(position)

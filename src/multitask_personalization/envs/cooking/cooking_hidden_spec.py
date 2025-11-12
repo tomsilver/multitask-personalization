@@ -87,12 +87,14 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
         meal_specs: list[MealSpec],
         preference_shift_spec: PreferenceShiftSpec,
         lifelong_learning: dict | None = None,
+        max_history_size: int | None = None,
     ) -> None:
         self._universal_meal_specs = {m.name: m for m in meal_specs}
         print(f"self._universal_meal_specs: {self._universal_meal_specs}")
         assert len(self._universal_meal_specs) == len(
             meal_specs
         ), "Meal names must be unique"
+        self._max_history_size = max_history_size
         # Initialize models for quantity and temperature for each meal ingredient.
         self._temperature_models: dict[str, dict[str, Bounded1DClassifier]] = {}
         self._quantity_models: dict[str, dict[str, Bounded1DClassifier]] = {}
@@ -102,12 +104,13 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
             for ing_spec in meal_spec.ingredients:
                 temp_lo, temp_hi = ing_spec.temperature
                 self._temperature_models[meal_name][ing_spec.name] = (
-                    Bounded1DClassifier(temp_lo, temp_hi)
+                    Bounded1DClassifier(temp_lo, temp_hi, max_history_size)
                 )
                 quant_lo, quant_hi = ing_spec.quantity
                 self._quantity_models[meal_name][ing_spec.name] = Bounded1DClassifier(
                     quant_lo,
                     quant_hi,
+                    max_history_size,
                 )
         # Lifelong learning setup.
         # If a shift occurs, all ingredients will shift at the same time.
@@ -243,11 +246,15 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
                     for ing_spec in meal_spec.ingredients:
                         temp_lo, temp_hi = ing_spec.temperature
                         self._temperature_models[meal_name][ing_spec.name] = (
-                            Bounded1DClassifier(temp_lo, temp_hi)
+                            Bounded1DClassifier(
+                                temp_lo, temp_hi, self._max_history_size
+                            )
                         )
                         quant_lo, quant_hi = ing_spec.quantity
                         self._quantity_models[meal_name][ing_spec.name] = (
-                            Bounded1DClassifier(quant_lo, quant_hi)
+                            Bounded1DClassifier(
+                                quant_lo, quant_hi, self._max_history_size
+                            )
                         )
 
     def sample(self, rng: np.random.Generator) -> Meal:
@@ -274,11 +281,15 @@ class MealSpecMealPreferenceModel(MealPreferenceModel):
             temp, quant = meal.ingredients[ing_spec.name]
             # Consider temperature.
             temperature_model = self._temperature_models[meal.name][ing_spec.name]
-            temperature_log_prob = np.log(temperature_model.predict_proba([temp])[0])
+            temp_prob = temperature_model.predict_proba([temp])[0]
+            # Avoid log(0) warning
+            temperature_log_prob = -np.inf if temp_prob <= 0 else np.log(temp_prob)
             total_log_prob += temperature_log_prob
             # Consider quantity.
             quantity_model = self._quantity_models[meal.name][ing_spec.name]
-            quantity_log_prob = np.log(quantity_model.predict_proba([quant])[0])
+            quant_prob = quantity_model.predict_proba([quant])[0]
+            # Avoid log(0) warning
+            quantity_log_prob = -np.inf if quant_prob <= 0 else np.log(quant_prob)
             total_log_prob += quantity_log_prob
         return total_log_prob
 

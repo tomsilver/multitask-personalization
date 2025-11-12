@@ -1,0 +1,12 @@
+_target_: "multitask_personalization.methods.csp_approach.CSPApproach"
+motion_planning_quality: normal
+explore_method: greedy-personalization
+csp_solver: ${csp_solver}
+llm: ${llm}
+disable_learning: false
+max_history_size: 1  # k = rolling window size (number of most recent samples to keep)
+
+lifelong_learning:
+  enabled: false  # Use max_history_size for rolling window, not periodic reset
+  method: periodic_reset
+  reset_interval: 2500

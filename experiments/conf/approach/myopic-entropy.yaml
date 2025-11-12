@@ -4,8 +4,9 @@ explore_method: max-entropy
 csp_solver: ${csp_solver}
 llm: ${llm}
 disable_learning: false
+max_history_size: 1  # k = rolling window size (number of most recent samples to keep)
 
 lifelong_learning:
-  enabled: false
+  enabled: false  # Use max_history_size for rolling window, not periodic reset
   method: periodic_reset
-  reset_interval: 2500  # Number of feedbacks before resetting memory
+  reset_interval: 2500

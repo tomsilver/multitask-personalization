@@ -46,7 +46,6 @@ from multitask_personalization.utils import Threshold1DModel
 
 
 class _FeedingCSPPolicy(CSPPolicy[FeedingState, FeedingAction]):
-
     def __init__(
         self, sim: FeedingEnv, csp_variables: Collection[CSPVariable], seed: int = 0
     ) -> None:

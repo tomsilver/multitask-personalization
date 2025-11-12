@@ -1,6 +1,7 @@
 """CSP generators."""
 
 import abc
+import logging
 from pathlib import Path
 from typing import Any, Collection, Generic
 
@@ -35,6 +36,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
             "nothing-personal",
             "exploit-only",
             "epsilon-greedy",
+            "greedy-personalization",
         )
         self._seed = seed
         self._rng = np.random.default_rng(seed)
@@ -103,6 +105,7 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
             and (
                 self._explore_method == "nothing-personal"
                 or self._explore_method == "max-entropy"
+                or self._explore_method == "greedy-personalization"
                 or (
                     self._explore_method == "epsilon-greedy"
                     and self._rng.uniform() < self._epsilon_greedy_explore_threshold
@@ -158,6 +161,39 @@ class CSPGenerator(abc.ABC, Generic[ObsType, ActType]):
                 return 1.0 - mean_entropy
 
             return CSPCost("maximize-entropy", variables, _max_entropy_fn)
+
+        if (
+            self._train_or_eval == "train"
+            and self._explore_method == "greedy-personalization"
+        ):
+            personal_lp_constraints = [
+                c
+                for c in self._generate_personal_constraints(obs, variables)
+                if isinstance(c, LogProbCSPConstraint)
+            ]
+            logging.debug(
+                f"Greedy-personalization: found "
+                f"{len(personal_lp_constraints)} LogProb constraints"
+            )
+            if len(personal_lp_constraints) == 0:
+                return None
+
+            def _greedy_preference_fn(*args) -> float:
+                sol = dict(zip(variables, args))
+                total_logprob = 0.0
+                for constraint in personal_lp_constraints:
+                    logprob = constraint.get_logprob(sol)
+                    total_logprob += logprob
+                # Negate because CSP solver minimizes cost
+                cost = -total_logprob
+                logging.debug(
+                    f"Greedy cost function: total_logprob="
+                    f"{total_logprob:.4f}, cost={cost:.4f}"
+                )
+                return cost
+
+            return CSPCost("greedy-preference", variables, _greedy_preference_fn)
+
         return self._generate_exploit_cost(obs, variables)
 
     @abc.abstractmethod

@@ -46,6 +46,9 @@ Return a number from 0 to {num_bins-1} and nothing else.
         logprob = logprobs[str(i)]
         expectation += enjoy_prob * np.exp(logprob)
     logging.debug("Expectation: %f", expectation)
+    # Avoid log(0) warning
+    if expectation <= 0:
+        return -np.inf
     return np.log(expectation)
 
 

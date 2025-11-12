@@ -22,7 +22,10 @@ def _create_test_csp():
     z = CSPVariable("z", gym.spaces.Discrete(5))
 
     c1 = FunctionalCSPConstraint("c1", [x, y], lambda x, y: x < y)
-    c2 = LogProbCSPConstraint("c2", [y, z], lambda y, z: np.log(y < z / 5))
+    # Avoid log(0) warning: if condition is False (0), return -inf instead
+    c2 = LogProbCSPConstraint(
+        "c2", [y, z], lambda y, z: 0.0 if (y < z / 5) else -np.inf
+    )
 
     csp = CSP([x, y, z], [c1, c2])
 

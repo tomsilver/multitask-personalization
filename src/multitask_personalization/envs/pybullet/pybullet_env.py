@@ -216,18 +216,20 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         )
 
         # Create duster.
-        self.duster_id, self.duster_head_link_id, self.duster_pole_link_id = (
-            _create_duster(
-                self.scene_spec.duster_head_forward_length,
-                self.scene_spec.duster_head_long_length,
-                self.scene_spec.duster_head_up_down_length,
-                self.scene_spec.duster_head_rgba,
-                self.scene_spec.duster_pole_radius,
-                self.scene_spec.duster_pole_height,
-                self.scene_spec.duster_pole_rgba,
-                self.scene_spec.duster_pole_offset,
-                physics_client_id=self.physics_client_id,
-            )
+        (
+            self.duster_id,
+            self.duster_head_link_id,
+            self.duster_pole_link_id,
+        ) = _create_duster(
+            self.scene_spec.duster_head_forward_length,
+            self.scene_spec.duster_head_long_length,
+            self.scene_spec.duster_head_up_down_length,
+            self.scene_spec.duster_head_rgba,
+            self.scene_spec.duster_pole_radius,
+            self.scene_spec.duster_pole_height,
+            self.scene_spec.duster_pole_rgba,
+            self.scene_spec.duster_pole_offset,
+            physics_client_id=self.physics_client_id,
         )
 
         # Create shelf.
@@ -535,7 +537,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # We're evaluating in "handover-only" mode, so ban certain books, same
         # as above.
-        elif self._use_eval_distribution and self._hidden_spec.missions == "all":
+        elif (
+            self._use_eval_distribution
+            and self._hidden_spec.missions == "handover-only"
+        ):
             self._force_next_mission_id = "book handover"
             banned_books = self._get_eval_banned_books_handover_mission()
 

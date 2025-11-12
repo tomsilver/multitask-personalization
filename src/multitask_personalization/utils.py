@@ -1,5 +1,6 @@
 """General utility functions."""
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -112,9 +113,12 @@ class Bounded1DClassifier:
     See notebooks/ for more explanation.
     """
 
-    def __init__(self, a_lo: float, b_hi: float) -> None:
+    def __init__(
+        self, a_lo: float, b_hi: float, max_history_size: int | None = None
+    ) -> None:
         self.a_lo = a_lo
         self.b_hi = b_hi
+        self.max_history_size = max_history_size
 
         self.x1 = a_lo
         self.x2 = a_lo
@@ -157,6 +161,17 @@ class Bounded1DClassifier:
         """Accumulate training data and re-fit."""
         self.incremental_X.extend(X)
         self.incremental_Y.extend(Y)
+        # Truncate to keep only the most recent max_history_size samples
+        if (
+            self.max_history_size is not None
+            and len(self.incremental_X) > self.max_history_size
+        ):
+            logging.debug(
+                f"Bounded1DClassifier: Truncating history from "
+                f"{len(self.incremental_X)} to {self.max_history_size}"
+            )
+            self.incremental_X = self.incremental_X[-self.max_history_size :]
+            self.incremental_Y = self.incremental_Y[-self.max_history_size :]
         self._fit(self.incremental_X, self.incremental_Y)
 
     def predict_proba(self, X: list[float]) -> list[float]:
@@ -216,9 +231,12 @@ class Threshold1DModel:
     The posterior predictive for a new x integrates over that region.
     """
 
-    def __init__(self, min_theta: float, max_theta: float):
+    def __init__(
+        self, min_theta: float, max_theta: float, max_history_size: int | None = None
+    ):
         self.min_theta = min_theta
         self.max_theta = max_theta
+        self.max_history_size = max_history_size
 
         # We'll keep track of the "posterior" as an interval [post_min, post_max].
         # Initially, it is the entire prior range.
@@ -259,6 +277,13 @@ class Threshold1DModel:
         """Append new data and update the posterior accordingly."""
         self.incremental_X.extend(X)
         self.incremental_Y.extend(Y)
+        # Truncate to keep only the most recent max_history_size samples
+        if (
+            self.max_history_size is not None
+            and len(self.incremental_X) > self.max_history_size
+        ):
+            self.incremental_X = self.incremental_X[-self.max_history_size :]
+            self.incremental_Y = self.incremental_Y[-self.max_history_size :]
         self._update_posterior_from_data(self.incremental_X, self.incremental_Y)
 
     def predict_proba(self, X: list[float]) -> list[float]:
