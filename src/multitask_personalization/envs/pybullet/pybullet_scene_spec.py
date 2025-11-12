@@ -34,6 +34,9 @@ class PyBulletSceneSpec(PublicSceneSpec):
     bed_pose: Pose = Pose.from_rpy((2.4, 0, -0.45), (np.pi / 2, 0.0, 0.0))
     bed_urdf: Path = Path(__file__).parent / "assets" / "bed" / "bed.urdf"
 
+    wheelchair_pose: Pose = Pose.from_rpy((2.0, 0.6, -0.5), (0.0, 0.0, 0.0))
+    wheelchair_urdf: Path = Path(__file__).parent / "assets" / "wheelchair" / "wheelchair.urdf"
+
     wall_poses: list[Pose] = field(
         default_factory=lambda: [
             Pose.from_rpy((0.0, 1.25, 0.0), (np.pi / 2, 0.0, np.pi / 2)),
@@ -105,6 +108,9 @@ class PyBulletSceneSpec(PublicSceneSpec):
     use_standard_books: bool = False
     num_books: int = 3
     default_book_half_extents: tuple[float, float, float] = (0.02, 0.05, 0.08)
+
+    num_seasonings: int = 2
+    default_seasoning_half_extents: tuple[float, float, float] = (0.02, 0.02, 0.04)
 
     surface_dust_patch_size: int = 2  # dust arrays will be this number ^ 2
     surface_max_dust: float = 1.0
@@ -237,6 +243,37 @@ class PyBulletSceneSpec(PublicSceneSpec):
         assert len(all_possible_poses) >= self.num_books
         return tuple(all_possible_poses[: self.num_books])
 
+    @property
+    def seasoning_half_extents(self) -> tuple[tuple[float, float, float], ...]:
+        """The half extents for all seasonings."""
+        return tuple([self.default_seasoning_half_extents] * self.num_seasonings)
+    
+    @property
+    def seasoning_poses(self) -> tuple[Pose, ...]:
+        # return poses just above bed for now
+        """The initial seasoning poses."""
+        
+        # Seasonings on the top shelf.
+        all_possible_poses: list[Pose] = []
+
+        x = self.shelf_pose.position[0]
+        dx = 10 * self.default_seasoning_half_extents[0]
+        y = self.shelf_pose.position[1]
+        z = (
+            self.shelf_pose.position[2]
+            + (self.shelf_num_layers - 1) * self.shelf_spacing
+            + (self.shelf_num_layers - 1) * self.shelf_height
+            + self.default_seasoning_half_extents[2]
+            + self.shelf_support_width
+        )
+
+        all_possible_poses.append(Pose((x - dx, y, z)))
+        # all_possible_poses.append(Pose((x, y, z)))
+        all_possible_poses.append(Pose((x + dx, y, z)))
+
+        assert len(all_possible_poses) >= self.num_seasonings
+        return tuple(all_possible_poses[: self.num_seasonings])
+
     def get_camera_kwargs(
         self, state: PyBulletState | None = None, timestep: int | None = None
     ) -> dict[str, Any]:
@@ -330,7 +367,8 @@ class PyBulletSceneSpec(PublicSceneSpec):
 class HiddenSceneSpec:
     """Defines hidden parameters for a pybullet environment."""
 
-    missions: str  # handover-only, clean-only, all
+    missions: str  # handover-only, handover-seasoning-only, clean-only, all
+    seasoning_preferences: str  # a natural language description
     book_preferences: str  # a natural language description
     rom_model: ROMModel
     surfaces_robot_can_clean: list[tuple[str, int]]

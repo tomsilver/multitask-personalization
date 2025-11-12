@@ -44,6 +44,7 @@ from multitask_personalization.envs.pybullet.pybullet_missions import (
     HandOverBookMission,
     StoreHumanHeldObjectMission,
     StoreRobotHeldObjectMission,
+    HandOverSeasoningMission
 )
 from multitask_personalization.envs.pybullet.pybullet_scene_spec import (
     HiddenSceneSpec,
@@ -161,6 +162,15 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             physicsClientId=self.physics_client_id,
         )
 
+        # Create wheelchair.
+        self.wheelchair_id = p.loadURDF(
+            str(self.scene_spec.wheelchair_urdf),
+            self.scene_spec.wheelchair_pose.position,
+            self.scene_spec.wheelchair_pose.orientation,
+            useFixedBase=True,
+            physicsClientId=self.physics_client_id,
+        )
+
         # Create human.
         self.human = create_human_from_spec(
             self.scene_spec.human_spec, self.physics_client_id
@@ -243,6 +253,17 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             physics_client_id=self.physics_client_id,
         )
 
+        # Create seasonings.
+        self.seasoning_ids: list[int] = []
+        self.seasoning_descriptions: list[str] = []  # created in reset()
+        for seasoning_half_extents in self.scene_spec.seasoning_half_extents:
+            seasoning_id = create_pybullet_block(
+                (1.0, 1.0, 1.0, 1.0),
+                half_extents=seasoning_half_extents,
+                physics_client_id=self.physics_client_id,
+            )
+            self.seasoning_ids.append(seasoning_id)
+
         # Create books.
         self.book_ids: list[int] = []
         self.book_descriptions: list[str] = []  # created in reset()
@@ -315,6 +336,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self._default_half_extents = {
             (self.duster_id, self.duster_head_link_id): duster_head_half_extents
         }
+        for seasoning_id, seasoning_half_extents in zip(
+            self.seasoning_ids, self.scene_spec.seasoning_half_extents, strict=True
+        ):
+            self._default_half_extents[(seasoning_id, -1)] = seasoning_half_extents
         for book_id, book_half_extents in zip(
             self.book_ids, self.scene_spec.book_half_extents, strict=True
         ):
@@ -343,6 +368,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         human_joints = self.human.get_joint_positions()
         cup_pose = get_pose(self.cup_id, self.physics_client_id)
         duster_pose = get_pose(self.duster_id, self.physics_client_id)
+        seasoning_poses = [
+            get_pose(seasoning_id, self.physics_client_id) for seasoning_id in self.seasoning_ids
+        ]
         book_poses = [
             get_pose(book_id, self.physics_client_id) for book_id in self.book_ids
         ]
@@ -364,6 +392,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             human_joints,
             cup_pose,
             duster_pose,
+            seasoning_poses,
+            self.seasoning_descriptions,
             book_poses,
             self.book_descriptions,
             self.current_grasp_transform,
@@ -382,6 +412,9 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         self.human.set_joints(state.human_joints)
         set_pose(self.cup_id, state.cup_pose, self.physics_client_id)
         set_pose(self.duster_id, state.duster_pose, self.physics_client_id)
+        for seasoning_id, seasoning_pose in zip(self.seasoning_ids, state.seasoning_poses, strict=True):
+            set_pose(seasoning_id, seasoning_pose, self.physics_client_id)
+        self.seasoning_descriptions = state.seasoning_descriptions
         for book_id, book_pose in zip(self.book_ids, state.book_poses, strict=True):
             set_pose(book_id, book_pose, self.physics_client_id)
         self.book_descriptions = state.book_descriptions
@@ -447,6 +480,14 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         # Reset shelf.
         set_pose(self.shelf_id, self.scene_spec.shelf_pose, self.physics_client_id)
 
+        # Reset seasonings.
+        for seasoning_pose, seasoning_id in zip(
+            self.scene_spec.seasoning_poses,
+            self.seasoning_ids,
+            strict=True,
+        ):
+            set_pose(seasoning_id, seasoning_pose, self.physics_client_id)
+
         # Reset books.
         for book_pose, book_id in zip(
             self.scene_spec.book_poses,
@@ -481,6 +522,29 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # Reset user satisfaction.
         self._user_satisfaction = 0.0
+
+        # Set seasoning descriptions.
+        self.seasoning_descriptions = [
+            "A bottle of salt.",
+            "A bottle of pepper.",
+        ]
+
+        # Update seasoning color (white for salt, black for pepper).
+        for seasoning_description, seasoning_id in zip(
+            self.seasoning_descriptions, self.seasoning_ids, strict=True
+        ):
+            if "salt" in seasoning_description.lower():
+                rgba = (1.0, 1.0, 1.0, 1.0)
+            elif "pepper" in seasoning_description.lower():
+                rgba = (0.0, 0.0, 0.0, 1.0)
+            else:
+                rgba = (0.5, 0.5, 0.5, 1.0)
+            p.changeVisualShape(
+                seasoning_id,
+                -1,
+                rgbaColor=rgba,
+                physicsClientId=self.physics_client_id,
+            )
 
         # Randomize book descriptions.
         self.book_descriptions = self._generate_book_descriptions(
@@ -519,6 +583,10 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         elif self._use_eval_distribution and self._hidden_spec.missions == "clean-only":
             banned_books = self._get_eval_banned_books_clean_mission()
 
+        elif self._hidden_spec.missions == "handover-seasoning-only":
+            # Remove all books if we're in handover-seasoning-only mode.
+            banned_books = list(self.book_descriptions)
+
         # We're evaluating in "all" mode, so decide whether this is a cleaning
         # or a book handover mission and remove books accordingly.
         elif self._use_eval_distribution and self._hidden_spec.missions == "all":
@@ -535,7 +603,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
 
         # We're evaluating in "handover-only" mode, so ban certain books, same
         # as above.
-        elif self._use_eval_distribution and self._hidden_spec.missions == "all":
+        elif self._use_eval_distribution and self._hidden_spec.missions == "handover-only":
             self._force_next_mission_id = "book handover"
             banned_books = self._get_eval_banned_books_handover_mission()
 
@@ -551,6 +619,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         for book in banned_books:
             book_id = self.get_object_id_from_name(book)
             set_pose(book_id, BANISH_POSE, self.physics_client_id)
+
+        # Ban the wheelchair or bed based on scene_name
+
+        if self.scene_spec.scene_name == "default":
+            set_pose(self.wheelchair_id, BANISH_POSE, self.physics_client_id)
+            # Also banish the seasonings
+            for seasoning_id in self.seasoning_ids:
+                set_pose(seasoning_id, BANISH_POSE, self.physics_client_id)
+        elif self.scene_spec.scene_name == "generalization":
+            set_pose(self.bed_id, BANISH_POSE, self.physics_client_id)
+        else:
+            raise ValueError(f"Unknown scene name: {self.scene_spec.scene_name}")
 
         # Randomize robot mission.
         if options is not None and "initial_mission" in options:
@@ -646,7 +726,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
                         physicsClientId=self.physics_client_id,
                     )
                 )
-                graspable_object_ids = set(self.book_ids) | {
+                graspable_object_ids = set(self.book_ids) | set(self.seasoning_ids) | {
                     self.cup_id,
                     self.duster_id,
                 }
@@ -870,6 +950,11 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         logging.info(f"Loaded state from {filepath}")
 
     def _object_name_to_id(self) -> dict[str, int]:
+        if not self.seasoning_descriptions:
+            seasoning_descriptions = ["NOT SET"] * len(self.seasoning_ids)
+        else:
+            seasoning_descriptions = self.seasoning_descriptions
+        seasoning_name_to_id = dict(zip(seasoning_descriptions, self.seasoning_ids, strict=True))
         # If book descriptions have not been generated yet, use placeholder.
         if not self.book_descriptions:
             book_descriptions = ["NOT SET"] * len(self.book_ids)
@@ -882,6 +967,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             "shelf": self.shelf_id,
             "duster": self.duster_id,
             "bed": self.bed_id,
+            "wheelchair": self.wheelchair_id,
+            **seasoning_name_to_id,
             **book_name_to_id,
             **self._side_table_name_to_id,
         }
@@ -951,7 +1038,8 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
     def get_collision_ids(self, ignore_current_collisions: bool = False) -> set[int]:
         """Get all collision IDs for the environment."""
         collision_ids = (
-            set(self.book_ids)
+            set(self.seasoning_ids)
+            | set(self.book_ids)
             | set(self.side_table_ids)
             | {
                 self.table_id,
@@ -1036,7 +1124,7 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
             StoreRobotHeldObjectMission(),
         ]
 
-        assert self._hidden_spec.missions in ["all", "handover-only", "clean-only"]
+        assert self._hidden_spec.missions in ["all", "handover-only", "clean-only", "handover-seasoning-only"]
 
         if self._hidden_spec.missions in ["all", "handover-only"]:
             handover_mission = HandOverBookMission(
@@ -1053,6 +1141,18 @@ class PyBulletEnv(gym.Env[PyBulletState, PyBulletAction]):
         if self._hidden_spec.missions in ["all", "clean-only"]:
             clean_mission = CleanSurfacesMission()
             possible_missions.append(clean_mission)
+
+        if self._hidden_spec.missions in ["all", "handover-seasoning-only"]:
+            handover_seasoning_mission = HandOverSeasoningMission(
+                self.seasoning_descriptions,
+                self._mission_sim_robot,
+                self._hidden_spec.rom_model,
+                self._hidden_spec.seasoning_preferences,
+                self._llm,
+                seed=seed,
+            )
+            reverse_handover_mission = StoreHumanHeldObjectMission()
+            possible_missions.extend([handover_seasoning_mission, reverse_handover_mission])
 
         if self._force_next_mission_id is not None:
             possible_missions = [
@@ -1312,6 +1412,15 @@ Return that list and nothing else. Do not explain anything."""
     ) -> tuple[float, float, float]:
         """Get half extents for object and link id in default pose."""
         return self._default_half_extents[(object_id, link_id)]
+    
+    def get_pickable_seasonings(self, obs: PyBulletState) -> list[str]:
+        """Get all seasonings that could currently be picked."""
+        return [
+            s
+            for i, s in enumerate(obs.seasoning_descriptions)
+            if s != obs.human_held_object
+            and not obs.seasoning_poses[i].allclose(BANISH_POSE)
+        ]
 
     def get_pickable_books(self, obs: PyBulletState) -> list[str]:
         """Get all books that could currently be picked."""

@@ -38,6 +38,7 @@ def test_pybullet_env(llm):
     seed = 123
 
     scene_spec = PyBulletSceneSpec(num_books=3)
+    seasoning_preferences = "I like pretty much anything!"
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
     surfaces_robot_can_clean = [
@@ -48,6 +49,7 @@ def test_pybullet_env(llm):
     ]
     hidden_spec = HiddenSceneSpec(
         missions="all",
+        seasoning_preferences=seasoning_preferences,
         book_preferences=book_preferences,
         rom_model=rom_model,
         surfaces_robot_can_clean=surfaces_robot_can_clean,

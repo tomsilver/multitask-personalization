@@ -1,0 +1,9 @@
+defaults:
+  - pybullet
+  - _self_
+
+env:
+  scene_spec:
+    scene_name: "generalization"
+  hidden_spec:
+    missions: "handover-seasoning-only"

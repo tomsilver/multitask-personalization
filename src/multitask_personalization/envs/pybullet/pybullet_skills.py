@@ -57,6 +57,8 @@ def get_kinematic_state_from_pybullet_state(
         sim.side_table_ids, sim.scene_spec.side_table_poses, strict=True
     ):
         object_poses[side_table_id] = side_table_pose
+    for seasoning_id, seasoning_pose in zip(sim.seasoning_ids, pybullet_state.seasoning_poses, strict=True):
+        object_poses[seasoning_id] = seasoning_pose
     for book_id, book_pose in zip(sim.book_ids, pybullet_state.book_poses, strict=True):
         object_poses[book_id] = book_pose
     attachments: dict[int, Pose] = {}
@@ -66,6 +68,12 @@ def get_kinematic_state_from_pybullet_state(
     if pybullet_state.held_object == "duster":
         assert pybullet_state.grasp_transform is not None
         attachments[sim.duster_id] = pybullet_state.grasp_transform
+    for seasoning_id, seasoning_description in zip(
+        sim.seasoning_ids, pybullet_state.seasoning_descriptions, strict=True
+    ):
+        if pybullet_state.held_object == seasoning_description:
+            assert pybullet_state.grasp_transform is not None
+            attachments[seasoning_id] = pybullet_state.grasp_transform
     for book_id, book_description in zip(
         sim.book_ids, pybullet_state.book_descriptions, strict=True
     ):
@@ -133,6 +141,7 @@ def get_plan_to_pick_object(
     obj_id = sim.get_object_id_from_name(object_name)
     surface_id = sim.get_surface_that_object_is_on(obj_id)
     collision_ids = sim.get_collision_ids() - {obj_id}
+    # print(f"Picking object '{object_name}' with id {obj_id} from surface id {surface_id}")
     grasp_generator = iter([grasp_pose])
     kinematic_state = get_kinematic_state_from_pybullet_state(state, sim)
     kinematic_plan: list[KinematicState] = []
@@ -192,7 +201,7 @@ def get_target_base_pose(
             ),
             sim.scene_spec.robot_base_pose.orientation,
         )
-    if object_name in ["duster"] + sim.book_descriptions:
+    if object_name in ["duster"] + sim.book_descriptions + sim.seasoning_descriptions:
         surface_id = sim.get_surface_that_object_is_on(object_id)
         surface_name = sim.get_name_from_object_id(surface_id)
         return get_target_base_pose(state, surface_name, sim)

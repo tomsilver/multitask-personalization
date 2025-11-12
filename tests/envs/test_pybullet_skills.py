@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from pybullet_helpers.geometry import Pose, multiply_poses
 from pybullet_helpers.inverse_kinematics import sample_collision_free_inverse_kinematics
+from pybullet_helpers.motion_planning import MotionPlanningHyperparameters
 from pybullet_helpers.link import get_link_pose
 from tomsutils.llm import OpenAILLM
 
@@ -19,6 +20,7 @@ from multitask_personalization.envs.pybullet.pybullet_skills import (
     get_plan_to_pick_object,
     get_plan_to_wipe_surface,
     get_target_base_pose,
+    get_plan_to_move_to_pose,
 )
 from multitask_personalization.envs.pybullet.pybullet_structs import (
     PyBulletAction,
@@ -36,8 +38,7 @@ def _run_plan(plan: list[PyBulletAction], env: PyBulletEnv) -> PyBulletState:
         assert not truncated
     return obs
 
-
-def test_pybullet_skills():
+def test_pick_seasoning_skill():
     """Tests for pybullet_skills.py."""
     if "OPENAI_API_KEY" not in os.environ:
         os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
@@ -50,6 +51,7 @@ def test_pybullet_skills():
         max_tokens=700,
         use_cache_only=True,
     )
+    seasoning_preferences = "I like pretty much anything!"
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
     surfaces_robot_can_clean = [
@@ -60,6 +62,73 @@ def test_pybullet_skills():
     ]
     hidden_spec = HiddenSceneSpec(
         missions="all",
+        seasoning_preferences=seasoning_preferences,
+        book_preferences=book_preferences,
+        rom_model=rom_model,
+        surfaces_robot_can_clean=surfaces_robot_can_clean,
+    )
+
+    # Create a real environment.
+    env = PyBulletEnv(
+        scene_spec,
+        llm,
+        hidden_spec=hidden_spec,
+        use_gui=False,
+        seed=seed,
+    )
+
+    # Uncomment to create video.
+    # from gymnasium.wrappers import RecordVideo
+    # env = RecordVideo(env, "videos/test-pybullet-skills")
+
+    env.action_space.seed(seed)
+    obs, _ = env.reset()
+    assert isinstance(obs, PyBulletState)
+
+    # Create a simulator.
+    sim = PyBulletEnv(scene_spec, llm, use_gui=False, seed=seed)
+
+    _, seasoning1 = obs.seasoning_descriptions[:2]
+    
+    # Test pick seasoning.
+    grasp_pose = Pose((0, 0, 0), (-np.sqrt(2) / 2, 0, 0, np.sqrt(2) / 2))
+    pick_seasoning_plan = get_plan_to_pick_object(
+        obs,
+        seasoning1,
+        grasp_pose,
+        sim,
+    )
+    obs = _run_plan(pick_seasoning_plan, env)
+    assert obs.held_object == seasoning1
+
+    env.close()
+
+
+def test_pick_book_skill():
+    """Tests for pybullet_skills.py."""
+    if "OPENAI_API_KEY" not in os.environ:
+        os.environ["OPENAI_API_KEY"] = "NOT A REAL KEY"  # will not be used
+
+    seed = 123
+    scene_spec = PyBulletSceneSpec(num_books=3)
+    llm = OpenAILLM(
+        model_name="gpt-4o-mini",
+        cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
+        max_tokens=700,
+        use_cache_only=True,
+    )
+    seasoning_preferences = "I like pretty much anything!"
+    book_preferences = "I like pretty much anything!"
+    rom_model = SphericalROMModel(scene_spec.human_spec)
+    surfaces_robot_can_clean = [
+        ("table", -1),
+        ("shelf", 0),
+        ("shelf", 1),
+        ("shelf", 2),
+    ]
+    hidden_spec = HiddenSceneSpec(
+        missions="all",
+        seasoning_preferences=seasoning_preferences,
         book_preferences=book_preferences,
         rom_model=rom_model,
         surfaces_robot_can_clean=surfaces_robot_can_clean,
@@ -111,6 +180,7 @@ def test_wiping_all_surfaces():
     llm = PyBulletCannedLLM(
         cache_dir=Path(__file__).parents[1] / "unit_test_llm_cache",
     )
+    seasoning_preferences = "I like pretty much anything!"
     book_preferences = "I like pretty much anything!"
     rom_model = SphericalROMModel(scene_spec.human_spec)
     surfaces_robot_can_clean = [
@@ -122,6 +192,7 @@ def test_wiping_all_surfaces():
     ]
     hidden_spec = HiddenSceneSpec(
         missions="all",
+        seasoning_preferences=seasoning_preferences,
         book_preferences=book_preferences,
         rom_model=rom_model,
         surfaces_robot_can_clean=surfaces_robot_can_clean,

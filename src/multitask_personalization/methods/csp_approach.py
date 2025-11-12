@@ -94,6 +94,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 else:
                     break
             visualize_csp_graph(csp, viz_file)
+        
+        logging.info(f"Solving CSP with {len(csp.variables)} variables ...")
         self._current_sol = self._csp_solver.solve(csp, initialization, samplers)
         if self._current_sol is None:
             # Special case: if CSP is exploit-only, fall back to no personal
@@ -165,6 +167,8 @@ class CSPApproach(BaseApproach[_ObsType, _ActType]):
                 self._scene_spec, self._llm, seed=self._seed, use_gui=False
             )
             rom_model = SphericalROMModel(self._scene_spec.human_spec, self._seed)
+            # # HACK: LOAD MODEL
+            # rom_model.load(Path("/home/rjenamani/multitask-personalization/logs/2025-11-11/23-17-18/0/models/4000"))
             if self._motion_planning_quality == "normal":
                 max_motion_planning_candidates = 1
                 base_mp_hyperparameters = MotionPlanningHyperparameters()
